@@ -29,7 +29,7 @@ extension members into unqualified lookup.
 
 ## Interesting points
 
-Allow for operator overloading via extensions: incl. operators, conversion, indexers, callable.
+Allow for operator overloading via extensions: incl. operators, conversion, callable. Instance extension indexers are now implemented; see [extension members](../../spec/extensions.md#extension-indexers). Static extension indexers remain unsupported.
 
 ```raven
 extension FooExtensions for Foo {

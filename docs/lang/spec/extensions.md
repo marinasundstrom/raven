@@ -85,7 +85,7 @@ let cap = List<int>.DefaultCapacity
 ```
 
 Each member inside the body is implicitly an extension member for the receiver
-type. Members may be function declarations or computed properties. The compiler
+type. Members may be function declarations, computed properties, or instance indexers. The compiler
 synthesizes a `self` parameter whose type matches the receiver and passes it as
 the first argument whenever the member is invoked. The `self` parameter behaves
 like a `val` binding: it cannot be reassigned but may be used to access members
@@ -223,3 +223,47 @@ instance extensions and `Type.Member(...)`-style static extensions at the same
 time without forcing one model onto the other.
 
 Pipeline syntax is documented in [Pipe expressions](pipe-expressions.md).
+
+### Extension indexers
+
+Instance extension indexers use the existing indexer syntax inside an extension:
+
+```raven
+import System.*
+import System.Collections.Generic.*
+
+public extension ListAccess<T> for List<T> {
+    var self[index: Index]: T {
+        get => self[index.GetOffset(self.Count)]
+        set { self[index.GetOffset(self.Count)] = value }
+    }
+    val self[range: Range]: int => range.GetOffsetAndLength(self.Count).Item2
+}
+```
+
+An applicable instance indexer takes precedence, including a read-only instance
+indexer during assignment. Otherwise lookup considers in-scope extension
+indexers, infers their generic receiver arguments, and converts the index
+arguments. Equally applicable extension candidates produce an ambiguity
+diagnostic. A write requires an accessible setter. The receiver is passed by
+value; this does not supply ref-receiver mutation for structs. Static extension
+indexers are not supported and produce a modifier diagnostic.
+
+Getter-only arrow bodies and accessor blocks are supported. A compound assignment
+captures the extension receiver and index arguments once, in source order, before
+invoking the getter, evaluating the right-hand side, and invoking the setter.
+
+The semantic API reports an `IPropertySymbol` with `IsIndexer` and
+`IsExtensionProperty`; `Parameters` contains only the index arguments. Operations
+use the existing element-access operation and expose that same indexer symbol.
+This requires no new syntax node, operation kind, keyword, or TextMate token.
+Editor consumers use the shared semantic APIs for lookup and symbol presentation.
+
+On .NET these are static `get_Item`/`set_Item` accessor methods with a leading
+receiver parameter. Extension type parameters become accessor method type
+parameters. They are not CLR instance properties on the receiver. Metadata import
+reconstructs each overload using generic arity, receiver/index signature, and
+value type, keeping `Index` and `Range` overloads distinct. Runtime Contract
+configuration and ordinary .NET target selection are unchanged. Modern .NET
+source/import execution is covered by `ExtensionIndexerCodeGenTests`; this does
+not establish .NET Framework, NanoFramework, or neoCLR native execution support.

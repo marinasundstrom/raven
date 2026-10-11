@@ -68,7 +68,8 @@ public static partial class SymbolExtensions
     {
         var definition = property.OriginalDefinition ?? property;
         var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
-        return $"P:{containingType}|{definition.MetadataName}|{definition.Parameters.Length}";
+        var parameters = string.Join(",", definition.Parameters.Select(static p => $"{p.RefKind}:{GetTypeLookupIdentityKey(p.Type)}"));
+        return $"P:{containingType}|{definition.MetadataName}|{parameters}";
     }
 
     private static string GetMethodLookupIdentityKey(IMethodSymbol method)

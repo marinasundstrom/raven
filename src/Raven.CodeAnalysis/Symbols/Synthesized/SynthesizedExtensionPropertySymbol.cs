@@ -91,7 +91,10 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 
     public override bool IsStatic => false;
 
-    public bool IsIndexer => false;
+    public bool IsIndexer => Name == "Item" && (GetMethod?.Parameters.Length > 1 || SetMethod?.Parameters.Length > 2);
+
+    public ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] :
+        GetMethod is { } getter ? getter.Parameters.RemoveAt(0) : SetMethod!.Parameters.RemoveAt(SetMethod.Parameters.Length - 1).RemoveAt(0);
 
     public bool IsExtensionProperty => true;
 

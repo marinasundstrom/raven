@@ -6436,6 +6436,15 @@ public partial class SemanticModel
                             CacheBinder(kv.Key, kv.Value);
                         break;
                     }
+                case IndexerDeclarationSyntax indexerDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var accessorBinders = memberBinder.BindIndexerDeclaration(indexerDecl);
+                        CacheBinder(indexerDecl, memberBinder);
+                        foreach (var kv in accessorBinders)
+                            CacheBinder(kv.Key, kv.Value);
+                        break;
+                    }
                 case EventDeclarationSyntax eventDecl:
                     {
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);

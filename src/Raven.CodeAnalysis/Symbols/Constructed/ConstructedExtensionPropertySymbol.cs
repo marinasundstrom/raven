@@ -30,6 +30,9 @@ internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
     public IPropertySymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;
     public IMethodSymbol? GetMethod => _getMethod;
     public IMethodSymbol? SetMethod => _setMethod;
+    public bool IsExtensionProperty => _definition.IsExtensionProperty;
+    public ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] :
+        GetMethod is { } getter ? getter.Parameters.RemoveAt(0) : SetMethod!.Parameters.RemoveAt(SetMethod.Parameters.Length - 1).RemoveAt(0);
     public bool IsIndexer => _definition.IsIndexer;
     public bool IsRequired => _definition.IsRequired;
     public SymbolKind Kind => _definition.Kind;

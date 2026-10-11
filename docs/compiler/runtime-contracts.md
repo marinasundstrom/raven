@@ -3978,3 +3978,17 @@ rule, with no Runtime Contract setting. It retains .NET attribute emission and
 private/protected/public-signature restrictions. Native metadata retention and
 neoCLR import/runtime enforcement remain separate integration work; selecting a
 native target does not implicitly grant access to internals.
+
+### Extension indexers (2026-10-11)
+
+Instance extension indexers are a shared language feature, not a target mapping.
+They require no Runtime Contract setting. Binding exposes logical property/indexer
+symbols; .NET emission uses static accessors with a leading receiver, and CLI
+import reconstructs overloads from their full signatures. See
+[extension indexers](../lang/spec/extensions.md#extension-indexers) for semantics,
+metadata shape and the qualified target scope. Native targets must separately
+support the static accessor calls and reconstruct equivalent symbols on import.
+
+Validation: the focused extension/indexer regression selection passed 159 tests
+on modern .NET, including source and metadata execution, operand evaluation order,
+instance precedence, invalid writes, and semantic/operation symbol shape.

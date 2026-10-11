@@ -102,6 +102,7 @@ ExtensionDeclaration     ::= ExtensionKeyword Identifier? TypeParameterList?
 ExtensionBody            ::= '{' {ExtensionMember} '}' ;
 ExtensionMember          ::= ExtensionMethodDeclaration
                            | ExtensionPropertyDeclaration
+                           | ExtensionIndexerDeclaration
                            | OperatorDeclaration
                            | ConversionOperatorDeclaration ;
 
@@ -119,6 +120,10 @@ ExtensionPropertyDeclaration
                            ::= ExtensionPropertyModifiers?
                                PropertyBindingKeyword
                                Identifier ':' Type PropertyBody ;
+
+ExtensionIndexerDeclaration ::= ExtensionPropertyModifiers?
+                                PropertyBindingKeyword 'self' BracketedParameterList
+                                ':' Type (AccessorList | '=>' Expression) ;
 
 ExtensionPropertyModifiers ::= AccessModifier ;
 
