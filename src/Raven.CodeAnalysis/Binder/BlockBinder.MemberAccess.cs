@@ -3111,10 +3111,18 @@ partial class BlockBinder
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
-        var access = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
+        var access = new BoundIndexerAccessExpression(ConvertExtensionIndexerReceiver(receiver, indexer, syntax), convertedArguments, indexer);
         return TryGetIndexerByRefElementType(indexer, out var elementType)
             ? new BoundDereferenceExpression(access, elementType)
             : access;
+    }
+
+    private BoundExpression ConvertExtensionIndexerReceiver(BoundExpression receiver, IPropertySymbol indexer, SyntaxNode? syntax)
+    {
+        if (!indexer.IsExtensionProperty) return receiver;
+        var target = (indexer.GetMethod ?? indexer.SetMethod)!.Parameters[0].Type;
+        var conversion = Compilation.ClassifyConversion(receiver.Type!, target);
+        return ApplyConversion(receiver, target, conversion, syntax);
     }
 
     private static bool TryGetIndexerByRefElementType(
@@ -3158,12 +3166,15 @@ partial class BlockBinder
         BoundExpression[] arguments,
         SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
         bool requireSetter,
-        out BoundExpression[] convertedArguments)
+        out BoundExpression[] convertedArguments,
+        bool extensionOnly = false)
     {
         convertedArguments = arguments;
 
-        var candidates = GetIndexerCandidates(receiverType, requireSetter)
-            .Where(p => p.GetMethod!.Parameters.Length == arguments.Length)
+        var candidates = (extensionOnly
+            ? LookupExtensionProperties("Item", receiverType).Where(p => p.IsIndexer && p.GetMethod is not null && (!requireSetter || p.SetMethod is not null))
+            : GetIndexerCandidates(receiverType, requireSetter: false))
+            .Where(p => p.Parameters.Length == arguments.Length && IsSymbolAccessible(p.GetMethod!) && (!extensionOnly || !requireSetter || IsSymbolAccessible(p.SetMethod!)))
             .ToArray();
 
         IPropertySymbol? best = null;
@@ -3179,7 +3190,7 @@ partial class BlockBinder
 
             for (var i = 0; i < arguments.Length; i++)
             {
-                var parameterType = candidate.GetMethod!.Parameters[i].Type;
+                var parameterType = candidate.Parameters[i].Type;
                 var convertedArgument = arguments[i];
 
                 if (parameterType.TypeKind != TypeKind.Error &&
@@ -3211,10 +3222,10 @@ partial class BlockBinder
                 bestConversionCost = conversionCost;
                 ambiguous.Clear();
             }
-            else if (conversionCost == bestConversionCost && receiverType.TypeKind == TypeKind.Interface &&
+            else if (conversionCost == bestConversionCost && (extensionOnly || receiverType.TypeKind == TypeKind.Interface &&
                 !SymbolEqualityComparer.Default.Equals(best.ContainingType, candidate.ContainingType) &&
                 !best.ContainingType!.AllInterfaces.Contains(candidate.ContainingType!, SymbolEqualityComparer.Default) &&
-                !candidate.ContainingType!.AllInterfaces.Contains(best.ContainingType!, SymbolEqualityComparer.Default))
+                !candidate.ContainingType!.AllInterfaces.Contains(best.ContainingType!, SymbolEqualityComparer.Default)))
             {
                 if (ambiguous.Count == 0) ambiguous.Add(best.GetMethod!);
                 ambiguous.Add(candidate.GetMethod!);
@@ -3231,6 +3242,8 @@ partial class BlockBinder
         if (best is not null && bestConverted is not null)
             convertedArguments = bestConverted;
 
+        if (best is null && !extensionOnly)
+            return ResolveIndexer(receiverType, arguments, argumentSyntaxes, requireSetter, out convertedArguments, extensionOnly: true);
         return best;
     }
 
@@ -3492,7 +3505,7 @@ partial class BlockBinder
                     ? resolvedByRefElementType
                     : null;
             var isWritableByRef = byRefElementType is not null && !IsReadOnlyByRefIndexer(indexer!);
-            if (indexer is null || !indexer.IsMutable && !isWritableByRef)
+            if (indexer is null || !indexer.IsMutable && !isWritableByRef || indexer.SetMethod is { } indexSetter && !IsSymbolAccessible(indexSetter))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -3504,7 +3517,7 @@ partial class BlockBinder
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
-            var access = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
+            var access = new BoundIndexerAccessExpression(ConvertExtensionIndexerReceiver(receiver, indexer, elementAccess), convertedArguments, indexer);
             if (assignmentTargetType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(indexerRightExpression))
             {

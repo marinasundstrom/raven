@@ -3373,6 +3373,12 @@ internal partial class TypeMemberBinder : Binder
 
         if (isExtensionContainer)
         {
+            foreach (var modifier in modifiers)
+            {
+                if (modifier.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword))
+                    _diagnostics.ReportModifierNotValidOnMember(modifier.Text, "extension indexer", "Item", modifier.GetLocation());
+            }
+
             isAbstract = false;
             isVirtual = false;
             isOverride = false;
@@ -3552,7 +3558,9 @@ internal partial class TypeMemberBinder : Binder
                 parameter.Syntax.TypeAnnotation!.Type.GetLocation());
         }
 
-        var propertySymbol = new SourcePropertySymbol(
+        IPropertySymbol propertySymbol = isExtensionMember
+            ? new SynthesizedExtensionPropertySymbol(_containingType, [indexerDecl.GetLocation()], [indexerDecl.GetReference()], name: "Item")
+            : new SourcePropertySymbol(
             "Item",
             propertyType,
             _containingType,
@@ -3769,7 +3777,7 @@ internal partial class TypeMemberBinder : Binder
                     CurrentNamespace!.AsSourceNamespace(),
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
-                    isStatic: isStatic,
+                    isStatic: isStatic || isExtensionContainer,
                     methodKind: isGet ? MethodKind.PropertyGet : (isInit ? MethodKind.InitOnly : MethodKind.PropertySet),
                     isAsync: isAsync,
                     isVirtual: accessorVirtual,
@@ -3778,12 +3786,32 @@ internal partial class TypeMemberBinder : Binder
                     isAbstract: isAbstract,
                     declaredAccessibility: accessorAccessibility);
 
+                MethodBinder? extensionBinder = null;
+                Binder.TypeResolutionOptions? extensionOptions = null;
+                if (isExtensionMember)
+                {
+                    methodSymbol.MarkDeclaredInExtension();
+                    methodSymbol.SetTypeParameters(CreateExtensionTypeParameters(methodSymbol));
+                    var substitutions = methodSymbol.TypeParameters.ToDictionary(p => p.Name, p => (ITypeSymbol)p);
+                    extensionOptions = new Binder.TypeResolutionOptions { TypeParameterSubstitutions = substitutions, SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin };
+                    extensionBinder = new MethodBinder(methodSymbol, this);
+                    extensionBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
+                    var resultType = ResolveTypeSyntaxForSignature(extensionBinder, indexerDecl.Type.Type, RefKind.None, extensionOptions);
+                    methodSymbol.SetReturnType(isGet ? resultType : Compilation.GetSpecialType(SpecialType.System_Unit));
+                }
                 var parameters = new List<SourceParameterSymbol>();
+                if (extensionBinder is not null)
+                {
+                    parameters.Add(new SourceParameterSymbol("self",
+                        ResolveExtensionReceiverTypeForMember(extensionBinder, methodSymbol.TypeParameters, extensionOptions),
+                        methodSymbol, _containingType, CurrentNamespace!.AsSourceNamespace(),
+                        [_extensionReceiverTypeSyntax!.GetLocation()], [_extensionReceiverTypeSyntax.GetReference()]));
+                }
                 foreach (var param in indexerParameters)
                 {
                     parameters.Add(new SourceParameterSymbol(
                         param.Syntax.Identifier.ValueText,
-                        param.Type,
+                        extensionBinder is null ? param.Type : ResolveTypeSyntaxForSignature(extensionBinder, param.Syntax.TypeAnnotation!.Type, param.RefKind, extensionOptions),
                         methodSymbol,
                         _containingType,
                         CurrentNamespace!.AsSourceNamespace(),
@@ -3800,7 +3828,7 @@ internal partial class TypeMemberBinder : Binder
                 {
                     parameters.Add(new SourceParameterSymbol(
                         "value",
-                        propertyType,
+                        extensionBinder is null ? propertyType : ResolveTypeSyntaxForSignature(extensionBinder, indexerDecl.Type.Type, RefKind.None, extensionOptions),
                         methodSymbol,
                         _containingType,
                         CurrentNamespace!.AsSourceNamespace(),
@@ -3919,12 +3947,20 @@ internal partial class TypeMemberBinder : Binder
                     methodSymbol.SetTypeParameters(extensionTypeParameters);
             }
 
+            Binder.TypeResolutionOptions? extensionOptions = null;
             MethodBinder? binder = null;
             ITypeSymbol? receiverTypeForAccessor = receiverType;
             if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
             {
                 binder = new MethodBinder(methodSymbol, this);
-                receiverTypeForAccessor = ResolveTypeSyntaxForSignature(binder, _extensionReceiverTypeSyntax, RefKind.None);
+                extensionOptions = new Binder.TypeResolutionOptions
+                {
+                    TypeParameterSubstitutions = methodSymbol.TypeParameters.ToDictionary(p => p.Name, p => (ITypeSymbol)p),
+                    SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
+                };
+                receiverTypeForAccessor = ResolveExtensionReceiverTypeForMember(binder, methodSymbol.TypeParameters, extensionOptions);
+                methodSymbol.SetReturnType(ResolveTypeSyntaxForSignature(binder, indexerDecl.Type.Type, RefKind.None, extensionOptions));
+                EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
             }
 
             var parameters = new List<SourceParameterSymbol>();
@@ -3946,7 +3982,7 @@ internal partial class TypeMemberBinder : Binder
             {
                 parameters.Add(new SourceParameterSymbol(
                     param.Syntax.Identifier.ValueText,
-                    param.Type,
+                    binder is null ? param.Type : ResolveTypeSyntaxForSignature(binder, param.Syntax.TypeAnnotation!.Type, param.RefKind, extensionOptions),
                     methodSymbol,
                     _containingType,
                     CurrentNamespace!.AsSourceNamespace(),
@@ -3970,7 +4006,9 @@ internal partial class TypeMemberBinder : Binder
             getMethod = methodSymbol;
         }
 
-        propertySymbol.SetAccessors(getMethod, setMethod);
+        if (propertySymbol is SynthesizedExtensionPropertySymbol extensionProperty)
+            extensionProperty.SetAccessors(getMethod, setMethod);
+        else ((SourcePropertySymbol)propertySymbol).SetAccessors(getMethod, setMethod);
 
         return binders;
     }

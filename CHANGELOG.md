@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Support instance extension indexers with generic receivers,
+  getter/setter blocks and getter-only arrow bodies. Resolve instance indexers
+  first, enforce setter accessibility, and preserve Index/Range overloads when
+  importing .NET metadata. Compound extension-indexer assignments evaluate the
+  receiver and indices once. Semantic and operation APIs expose the logical
+  indexer without the receiver parameter. Static extension indexers remain
+  unsupported; Runtime Contract configuration is unchanged. Native backend
+  qualification is a separate integration step.
+
 - **2026-10-10:** Preserve the original instance receiver for base calls in async
   methods, including after suspension. Keep direct base dispatch rather than
   invoking an override on the state machine receiver. Fix applies to ordinary .NET

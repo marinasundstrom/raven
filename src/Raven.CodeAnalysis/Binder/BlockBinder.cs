@@ -7292,7 +7292,7 @@ partial class BlockBinder : Binder
 
             var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
-            if (indexer is null || !indexer.IsMutable)
+            if (indexer is null || !indexer.IsMutable || indexer.SetMethod is { } setter && !IsSymbolAccessible(setter))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -7304,8 +7304,7 @@ partial class BlockBinder : Binder
                 return AsErrorExpression(indexerRightExpression);
 
             var indexerAccess = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
-            var indexerRight = BindCompoundAssignmentValue(indexerAccess, indexerRightExpression, indexer.Type, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
+            return BindIndexerCompoundAssignment(indexerAccess, indexerRightExpression, binaryOperator.Value, rightSyntax);
         }
 
         var left = BindExpressionAllowingEvent(leftSyntax);
@@ -7510,6 +7509,37 @@ partial class BlockBinder : Binder
         }
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindIndexerCompoundAssignment(
+        BoundIndexerAccessExpression access,
+        BoundExpression right,
+        SyntaxKind binaryOperator,
+        ExpressionSyntax syntax)
+    {
+        var statements = new List<BoundStatement>();
+        if (access.Indexer.IsExtensionProperty)
+        {
+            // Extension accessors receive their receiver by value. Capture it and
+            // the indices before the getter/RHS/setter sequence, exactly once.
+            BoundExpression Capture(BoundExpression value, string name)
+            {
+                var local = CreateTempLocal(name, value.Type!, syntax);
+                statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, value)]));
+                return new BoundLocalAccess(local);
+            }
+
+            var receiver = Capture(ConvertExtensionIndexerReceiver(access.Receiver, access.Indexer, syntax), "indexerReceiver");
+            var arguments = access.Arguments.Select(argument => Capture(argument, "indexerArgument")).ToImmutableArray();
+            access = new BoundIndexerAccessExpression(receiver, arguments, access.Indexer);
+        }
+
+        var value = BindCompoundAssignmentValue(access, right, access.Indexer.Type, binaryOperator, syntax);
+        var assignment = BoundFactory.CreateIndexerAssignmentExpression(access, value);
+        if (statements.Count == 0)
+            return assignment;
+        statements.Add(new BoundExpressionStatement(assignment));
+        return new BoundBlockExpression(statements, Compilation.GetSpecialType(SpecialType.System_Unit));
     }
 
     private BoundExpression BindConditionalAccessAssignment(
@@ -7775,8 +7805,7 @@ partial class BlockBinder : Binder
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
 
-            var indexerRight = BindCompoundAssignmentValue(indexerAccess, right, indexer.Type, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
+            return BindIndexerCompoundAssignment(indexerAccess, right, binaryOperator.Value, rightSyntax);
         }
 
         if (left.Symbol is IFieldSymbol fieldSymbol)

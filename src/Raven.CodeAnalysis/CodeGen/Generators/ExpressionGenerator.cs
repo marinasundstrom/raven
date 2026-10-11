@@ -4766,7 +4766,7 @@ internal partial class ExpressionGenerator : Generator
             throw new InvalidOperationException("Indexer does not have a getter");
 
         var getter = GetMethodInfo(indexerProperty.GetMethod);
-        var callOpCode = indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+        var callOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
             ? OpCodes.Call
             : OpCodes.Callvirt;
 
@@ -5435,7 +5435,7 @@ internal partial class ExpressionGenerator : Generator
                     throw new InvalidOperationException("Indexer does not have a setter");
 
                 var setter2 = GetMethodInfo(indexerProperty.SetMethod);
-                var setCallOpCode = indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+                var setCallOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
                     ? OpCodes.Call
                     : OpCodes.Callvirt;
 

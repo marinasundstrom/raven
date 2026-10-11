@@ -121,7 +121,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             return ParseEventMember(attributeLists, modifiers);
 
         SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+        if (PeekToken().IsKind(SyntaxKind.SelfKeyword))
+            identifier = ReadToken();
+        else if (CanTokenBeIdentifier(PeekToken()))
         {
             identifier = ReadIdentifierToken();
         }
@@ -137,6 +139,15 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (!funcKeyword.IsMissing || PeekToken().IsKind(SyntaxKind.OpenParenToken))
             return ParseMethodMember(attributeLists, modifiers, funcKeyword, identifier, typeParameterList);
 
+        if (identifier.IsKind(SyntaxKind.SelfKeyword) && PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        {
+            var parameters = new TypeDeclarationParser(this).ParseBracketedParameterList();
+            var type = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation() ?? CreateMissingTypeAnnotationClause();
+            var accessors = PeekToken().IsKind(SyntaxKind.OpenBraceToken) ? ParseAccessorList() : null;
+            var body = PeekToken().IsKind(SyntaxKind.FatArrowToken) ? new ExpressionSyntaxParser(this).ParseArrowExpressionClause() : null;
+            TryConsumeTerminator(out var terminator);
+            return IndexerDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier, parameters, type, accessors, body, null, terminator);
+        }
         return ParsePropertyMember(attributeLists, modifiers, bindingKeyword, identifier);
     }
 

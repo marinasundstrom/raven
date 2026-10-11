@@ -12,8 +12,8 @@ public static class ExtensionPropertyReflection
 
     public static IReadOnlyList<ExtensionPropertyGroup> GroupByAccessorConvention(TypeInfo typeInfo)
     {
-        // key = (optional explicit-interface prefix, property name)
-        var map = new Dictionary<(string? prefix, string name), (MethodInfo? get, MethodInfo? set)>();
+        // Match receiver/index signatures and value type as well as name and generic arity.
+        var map = new Dictionary<(string? prefix, string name, int arity, string signature, string valueType), (MethodInfo? get, MethodInfo? set)>();
 
         foreach (var m in typeInfo.DeclaredMethods)
         {
@@ -43,7 +43,11 @@ public static class ExtensionPropertyReflection
                 // you may want: m.ReturnType == typeof(void)
             }
 
-            var key = (prefix, propName);
+            var parameters = m.GetParameters();
+            var indexes = kind == AccessorKind.Get ? parameters : parameters.Take(parameters.Length - 1);
+            var valueType = kind == AccessorKind.Get ? m.ReturnType : parameters[^1].ParameterType;
+            var key = (prefix, propName, m.GetGenericArguments().Length,
+                string.Join(",", indexes.Select(p => TypeKey(p.ParameterType))), TypeKey(valueType));
 
             map.TryGetValue(key, out var pair);
             if (kind == AccessorKind.Get)
@@ -58,7 +62,7 @@ public static class ExtensionPropertyReflection
         var list = new List<ExtensionPropertyGroup>(map.Count);
         foreach (var kv in map)
         {
-            var (prefix, name) = kv.Key;
+            var name = kv.Key.name;
             var (get, set) = kv.Value;
 
             if (get is null && set is null)
@@ -70,6 +74,15 @@ public static class ExtensionPropertyReflection
         }
 
         return list;
+    }
+
+    private static string TypeKey(Type type)
+    {
+        if (type.IsGenericParameter) return (type.DeclaringMethod is null ? "!" : "!!") + type.GenericParameterPosition;
+        if (type.IsByRef) return TypeKey(type.GetElementType()!) + "&";
+        if (type.IsArray) return TypeKey(type.GetElementType()!) + "[" + type.GetArrayRank() + "]";
+        if (type.IsGenericType) return type.GetGenericTypeDefinition().AssemblyQualifiedName + "<" + string.Join(",", type.GetGenericArguments().Select(TypeKey)) + ">";
+        return type.AssemblyQualifiedName ?? type.FullName ?? type.Name;
     }
 
     private enum AccessorKind { Get, Set, None }
