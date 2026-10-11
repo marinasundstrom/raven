@@ -10172,3 +10172,19 @@ not acquire enclosing arguments merely because its source view is constructed.
 Main's 35 focused property tests and neoCLR's cross-mode generic cleanup consumer
 provide separate validation; Windows gate evidence identifies its compiler revision
 rather than implying that every later binder change was included.
+
+
+### Native project cleanup parity (2026-10-12)
+
+`RavenNeoClrAsyncLibrary` now selects retained synchronous async cleanup in
+`NeoClrProjectMetadataProvider`, matching direct `--async-library` compilation.
+`RavenNeoClrRuntimeAsyncHelper` still selects the runtime-body/generator backend;
+it is no longer required merely to bind synchronous `use` inside Task methods.
+Without an async library, default admission is unchanged. No public managed API,
+CLI encoding or native metadata-format change is introduced.
+
+Windows run 38184041599 passed the existing HTTP/framework checks but exposed
+RAVT006 through the added `.rvnproj` async-use consumer. The project runner now
+qualifies both lowerings on macOS, while the Windows gate checks state-machine
+projects with the corrected compiler. Evidence is kept in neoCLR's generic-cleanup
+checkpoint; a successful direct-source check is not substituted for project proof.

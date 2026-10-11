@@ -16,7 +16,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   state machines, preserving enclosing/method type scopes in nested frames,
   constructors, storage and callbacks. Enable synchronous `use` cleanup across
   awaits when the native async library is selected, including ordinary completion
-  and cancellation before outcome publication. Fault remains terminal; this does
+  and cancellation before outcome publication. Apply the same opt-in to native
+  project loading through RavenNeoClrAsyncLibrary, matching direct CLI compilation. Fault remains terminal; this does
   not add awaited disposal or Windows runtime suspension. Ordinary .NET behavior
   is unchanged. Add cross-mode executable regression coverage in neoCLR and keep
   the compiler main/native lines separate.

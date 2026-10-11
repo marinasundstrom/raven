@@ -79,7 +79,11 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         catalog.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
         if (ownership is not null) options = ownership.Apply(options, assemblyName, catalog.CoreIdentity.Name);
         if (properties.TryGetValue("RavenNeoClrAsyncLibrary", out var asyncLibrary) && !string.IsNullOrWhiteSpace(asyncLibrary))
+        {
             options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithAsyncAssemblyName(asyncLibrary));
+            if (options.RuntimeDisposalContract is { } disposal)
+                options = options.WithRuntimeDisposalContract(disposal with { AllowAsyncScopeExitCleanup = true });
+        }
         var runtimeAsyncHelper = properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper");
         if (string.IsNullOrWhiteSpace(runtimeAsyncHelper)) runtimeAsyncHelper = null;
         if (runtimeAsyncHelper is not null)
@@ -89,8 +93,6 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
             if (options.RuntimeIterationContract is { Async: { } asyncIteration } iteration)
                 options = options.WithRuntimeIterationContract(iteration with
                 { Async = asyncIteration with { AllowGeneratorBodies = true } });
-            if (options.RuntimeDisposalContract is { } disposal)
-                options = options.WithRuntimeDisposalContract(disposal with { AllowAsyncScopeExitCleanup = true });
         }
         var sourceRootText = properties.GetValueOrDefault("RavenNeoClrSourceObjectRoot");
         var sourceRoot = false;
