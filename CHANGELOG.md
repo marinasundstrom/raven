@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's private cancellation-notification bridge and
+  ordinary await adapter validation. Runtime terminal notification now allows
+  existing compiler cancellation lowering to cancel a managed Task without reading
+  its result. Compiler lowering/defaults and Runtime Contract settings are unchanged.
+
 - **2026-10-11:** Carry main's `d4c5e5128` property/attribute binder fix to the
   separate neoCLR compiler line. Cache the compilation-unit scope before member
   registration, preserving obsolete diagnostics without recursive binding.
