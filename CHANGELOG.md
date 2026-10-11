@@ -6,8 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-10-11:** Document the native runtime-async provider's managed ownership
   services, completion-to-dispatch lifetime transfer and automatic body/signal
-  reclamation. Existing explicit Runtime Contract configuration and compiler lowering
-  are unchanged; ordinary .NET behavior remains the default. These are private
+  reclamation. The returned Task now directly owns its producer registration,
+  removing a per-body ownership notification. Existing explicit Runtime Contract
+  configuration and compiler lowering are unchanged; ordinary .NET behavior remains the default. These are private
   neoCLR experiment bindings, not public APIs or a main-line compiler change.
 
 - **2026-10-11:** Synthesize typed generic native closure frames, remapping source

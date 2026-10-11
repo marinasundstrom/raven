@@ -10084,3 +10084,12 @@ hashes in neoCLR's managed ownership report. Focused interpreter tests cover aba
 frames/signals and the ready-before-dispatch GC transition; native sanitized tests cover
 slot reuse and stack reclamation. No Raven main merge or compiler implementation change
 is required by these new private runtime services.
+
+
+The provider subsequently selects its returned Task as the managed runtime owner.
+Conditional frame/callback registration retains the producer without a per-body
+keep-alive notification. Completion signals retain the same Task, and ready work
+retains it through dispatch. This changes neither the private service signatures
+nor Runtime Contract configuration; advancement/disposal ownership adapters remain.
+The compiler binary and lowering are unchanged. neoCLR's task-owned generator
+qualification report records the three-mode lifetime regression results.
