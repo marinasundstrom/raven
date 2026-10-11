@@ -17184,7 +17184,8 @@ partial class BlockBinder : Binder
                     RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(asyncMethod, _diagnostics);
                 }
 
-                if (!containsAwait)
+                if (!containsAwait && !(asyncMethod.IsIterator &&
+                    AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, asyncMethod.ReturnType, out _, out _)))
                 {
                     var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
                     var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, function.ExpressionBody);

@@ -353,6 +353,7 @@ public class RuntimeIterationContractTests
                 Assert.Empty(errors);
                 var method = Assert.Single(compilation.GetTypeByMetadataName("Program")!.GetMembers("Values").OfType<IMethodSymbol>());
                 Assert.True(method.IsIterator);
+                Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Id == "RAV2706");
             }
             else Assert.NotEmpty(errors);
         });
@@ -372,7 +373,28 @@ public class RuntimeIterationContractTests
                 async func Values<T>(value: T) -> AsyncIterable<T> { yield value }
                 """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: contract));
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
-            if (enabled) Assert.Empty(errors); else Assert.NotEmpty(errors);
+            if (enabled)
+            {
+                Assert.Empty(errors);
+                Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Id == "RAV2706");
+            }
+            else Assert.NotEmpty(errors);
+        });
+    }
+
+    [Fact]
+    public void GeneratorCapabilityDoesNotHideAwaitlessTaskWarning()
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var contract = Contract with { Async = new("Contracts.AsyncIterable`1", "Contracts.AsyncIterator`1", AllowGeneratorBodies: true) };
+            var compilation = Compilation.Create("AwaitlessTask", [SyntaxTree.ParseText("""
+                import System.Threading.Tasks.*
+                async func Value() -> Task<int> { return 42 }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: contract));
+            var diagnostics = compilation.GetDiagnostics();
+            Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+            Assert.Contains(diagnostics, d => d.Id == "RAV2706");
         });
     }
 

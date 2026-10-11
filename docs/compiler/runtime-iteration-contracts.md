@@ -152,3 +152,10 @@ Validation: 36 RuntimeIterationContractTests pass on .NET 11, including opt-in a
 opt-out generator binding for both return shapes and namespace functions. The prior
 70-case runtime-iteration/async-iterator/delegation baseline passed before this change.
 These binding tests do not claim executable custom-generator support on .NET.
+
+Selected iterator bodies do not report RAV2706 solely because they lack an explicit
+`await`: their `yield` is a suspension boundary supplied by the selected backend.
+This diagnostic rule requires both an iterator body and AllowGeneratorBodies; it
+leaves ordinary awaitless Task warnings and default .NET behavior intact. There is
+no change to bound await flags, metadata or emission. Focused contract regressions
+cover method/namespace generators and an awaitless Task control.

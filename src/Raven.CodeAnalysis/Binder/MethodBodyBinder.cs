@@ -259,7 +259,8 @@ class MethodBodyBinder : BlockBinder
             RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(asyncMethod, _diagnostics);
         }
 
-        if (!containsAwait)
+        if (!containsAwait && !(asyncMethod.IsIterator &&
+                    AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, asyncMethod.ReturnType, out _, out _)))
         {
             var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
             var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, bodySyntax);
