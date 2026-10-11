@@ -104,6 +104,7 @@ class Harness {
     {
         const string source = """
 extension Access for string {
+    /// Reads the selected test value.
     val self[index: bool]: int { get => if index { 1 } else { 2 } }
 }
 let value = "test"[true]
@@ -117,6 +118,7 @@ let value = "test"[true]
         var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(access).Symbol);
         Assert.True(symbol.IsIndexer);
         Assert.True(symbol.IsExtensionProperty);
+        Assert.Contains("Reads the selected test value", symbol.GetDocumentationComment()!.Content);
         Assert.Single(symbol.Parameters);
         var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IElementAccessOperation>(model.GetOperation(access));
         Assert.Equal(symbol, operation.Indexer);

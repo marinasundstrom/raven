@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -10,6 +11,7 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 {
     private ITypeSymbol? _type;
     private string? _name;
+    private readonly Func<ISymbol, DocumentationComment?>? _documentationProvider;
 
     public SynthesizedExtensionPropertySymbol(
         INamedTypeSymbol containingType,
@@ -17,13 +19,19 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         SyntaxReference[] declaringReferences,
         IMethodSymbol? getMethod = null,
         IMethodSymbol? setMethod = null,
-        string? name = null)
+        string? name = null,
+        Func<ISymbol, DocumentationComment?>? documentationProvider = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, declaringReferences)
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
         _name = name;
+        _documentationProvider = documentationProvider;
     }
+
+    public override DocumentationComment? GetDocumentationComment() =>
+        _documentationProvider?.Invoke(this) ?? DocumentationCommentUtilities.GetMergedDocumentationComment(
+            DeclaringSyntaxReferences, new ParseOptions());
 
     public override SymbolKind Kind => SymbolKind.Property;
 
