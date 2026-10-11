@@ -7422,6 +7422,10 @@ internal partial class ExpressionGenerator : Generator
                     return true;
                 }
 
+            case BoundFieldAccess fieldAccess:
+                return TryEmitInvocationReceiverAddress(new BoundMemberAccessExpression(
+                    fieldAccess.Receiver ?? new BoundSelfExpression(fieldAccess.Field.ContainingType!), fieldAccess.Field));
+
             case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
                 {
                     if (fieldSymbol.IsStatic)
@@ -7474,6 +7478,9 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundParameterAccess parameterAccess:
                 return true;
+
+            case BoundFieldAccess fieldAccess:
+                return fieldAccess.Field.IsStatic || CanReEmitInvocationReceiverAddress(fieldAccess.Receiver);
 
             case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
                 if (fieldSymbol.IsStatic)
@@ -7758,8 +7765,9 @@ internal partial class ExpressionGenerator : Generator
 
         var receiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
-            receiverType is ITypeParameterSymbol typeParameterSymbol &&
-            (typeParameterSymbol.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
+            (receiverType is ITypeParameterSymbol typeParameterSymbol &&
+                (typeParameterSymbol.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0 ||
+             receiverType?.IsValueType == true && target.ContainingType?.TypeKind == TypeKind.Interface);
 
         // Emit receiver (for instance methods)
         if (!target.IsStatic)

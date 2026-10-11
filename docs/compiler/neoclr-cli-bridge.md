@@ -9862,3 +9862,42 @@ Evidence: neoCLR `docs/experiments/runtime-async/native-validation.json`, reprod
 by `validate_native.py`; architecture, configuration and limits are in the sibling
 README section “Compiled runtime suspension: JIT and AOT”. Native operation metadata
 and a supported stack carrier remain the eventual replacement for this bridge.
+
+
+## Await in synchronous for loops (2026-10-11)
+
+The shared compiler normalizes synchronous iteration before async capture analysis.
+Array/range positions and iterators become bound locals; generated state machines
+can retain them across suspension. Value-type receiver calls address saved fields,
+and branches leaving protected regions use CLI `leave`. Finally blocks run only
+on a source-scope exit, not on a suspended `MoveNext` return. This repairs ordinary
+.NET execution and removes the RAV2712 blanket restriction under cancellation
+propagation; awaiter-protocol and ref-safety checks are unchanged.
+
+No new Runtime Contract option or metadata encoding is introduced. Ordinary .NET
+uses protected cleanup. The native compiler line selects explicit scope cleanup
+when its existing `RuntimeDisposalContract.UseExceptionHandling` is false; ordinary
+.NET behavior remains the default. Retained runtime bodies continue using their
+existing source-scope cleanup lowering. The compiler lines remain separate. Native metadata/codegen should represent
+iteration lifetime and suspension directly rather than relying on this CLI bridge.
+
+Validation on shared main covers pending awaits in reference/value-type iterators,
+arrays and ranges, cancellation/faults, early and labeled outer-loop exits, and
+cleanup before a subsequent await. Native bundle revisions and runtime evidence
+are recorded separately in neoCLR's integration documentation.
+
+Hoisted `use` resources also retain source-scope ownership across branches. Leaving
+such a scope disposes and clears its saved field before transferring control;
+terminal completion/cancellation cleanup then observes an empty field. Focused
+.NET regressions cover labeled `break`/`continue` with an additional scoped resource
+inside the loop, as well as the loop iterator itself.
+
+Shared fixes `a23705567` and `262109b7f` are deliberately carried to
+`codex/source-object-metadata-resolution`; no branch merge is used. neoCLR's
+`docs/experiments/runtime-async/for-validation.json` records twelve passing runs:
+loop lifetime and retained-stack fan-out consumers, each in state-machine and
+runtime-body form, executed by interpreter, macOS ARM64 JIT and AOT. The bundle
+remains `target/data-cases-bundle`; compiler/runtime/input hashes are in that report.
+Cancellation, pending waits, early and outward exits, and GC are exercised. Terminal
+Fault still has no managed-unwind guarantee, and this does not qualify Windows
+runtime suspension or async generators. No execution default changes.

@@ -1270,6 +1270,14 @@ internal class StatementGenerator : Generator
             ILGenerator.BeginScope();
         try
         {
+            // Forward branches need the destination's protected region as well as
+            // its lexical disposal scope before their IL opcode is selected.
+            foreach (var statement in blockStatement.Statements)
+            {
+                if (statement is BoundLabeledStatement labeled)
+                    MethodBodyGenerator.RegisterLabelScope(labeled.Label, scope);
+            }
+
             foreach (var s in blockStatement.Statements)
                 new StatementGenerator(scope, s).Emit();
 
@@ -1318,7 +1326,9 @@ internal class StatementGenerator : Generator
 
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(gotoStatement.Target);
         ILGenerator.Emit(
-            gotoStatement.Target is AsyncProtectedRegionExitLabelSymbol ? OpCodes.Leave : OpCodes.Br,
+            gotoStatement.Target is AsyncProtectedRegionExitLabelSymbol ||
+                (targetScope is not null && !ReferenceEquals(scope.ExceptionRegion, targetScope.ExceptionRegion))
+                    ? OpCodes.Leave : OpCodes.Br,
             ilLabel);
     }
 
@@ -1339,7 +1349,11 @@ internal class StatementGenerator : Generator
         EmitScopeDisposals(scope, targetScope);
 
         var targetLabel = MethodBodyGenerator.GetOrCreateLabel(conditionalGotoStatement.Target);
-        ILGenerator.Emit(OpCodes.Br, targetLabel);
+        ILGenerator.Emit(
+            conditionalGotoStatement.Target is AsyncProtectedRegionExitLabelSymbol ||
+                (targetScope is not null && !ReferenceEquals(scope.ExceptionRegion, targetScope.ExceptionRegion))
+                    ? OpCodes.Leave : OpCodes.Br,
+            targetLabel);
 
         ILGenerator.MarkLabel(skipLabel);
     }

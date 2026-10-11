@@ -239,3 +239,19 @@ directly to the caller.
   `ValueTask` reports `RAV2705`.
 * An async body with no `await` reports warning `RAV2706` because it runs
   synchronously.
+
+### Await inside synchronous iteration
+
+An ordinary `for` may contain `await`. Iteration itself stays synchronous: the
+collection is evaluated and its iterator acquired once, and each body invocation
+may suspend before advancing to the next item. Arrays and ranges preserve their
+position across suspension; iterator-based loops retain the iterator and current
+item. Leaving the loop disposes a disposable iterator exactly once, including
+`break`, `return`, cancellation and exception exits. Suspending does not dispose it.
+This is distinct from asynchronous iteration, which awaits iterator advancement.
+
+The target's ordinary awaiter protocol and ref-safety restrictions still apply:
+stack-only/ref-like values cannot be retained across an await boundary. The former
+blanket cancellation-policy diagnostic RAV2712 for `await` inside `for` is no longer
+emitted. Target-specific runtime implementations must qualify their cleanup path;
+support in the shared compiler does not establish support in every native backend.

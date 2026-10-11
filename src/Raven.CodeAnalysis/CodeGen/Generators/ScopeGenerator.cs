@@ -124,6 +124,20 @@ class Scope : Generator
         _isInsideExceptionHandler = true;
     }
 
+    internal Scope? ExceptionRegion
+    {
+        get
+        {
+            for (Generator? current = this; current is not null; current = current.Parent)
+            {
+                if (current is Scope { _isInsideExceptionHandler: true } region)
+                    return region;
+            }
+
+            return null;
+        }
+    }
+
     public override bool IsInsideExceptionHandler =>
         _isInsideExceptionHandler || base.IsInsideExceptionHandler;
 
