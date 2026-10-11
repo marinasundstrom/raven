@@ -8,10 +8,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   state, mutate saved value-type enumerators by address, and dispose iterators on
   completion, cancellation, faults and outward loop exits, without disposing on
   suspension. Include jump-exit cleanup for hoisted scoped resources, clearing
-  disposed fields before later completion/cancellation cleanup. Remove the blanket
+  disposed fields before later completion/cancellation cleanup, including transfers
+  to enclosing `while`/`loop` statements. Remove the blanket
   RAV2712 cancellation-policy rejection. Existing
   awaiter-protocol and ref-safety checks remain. Carry shared main fixes a23705567
-  and 262109b7f deliberately; select the existing no-EH disposal contract for native
+  and 262109b7f deliberately, followed by mixed-loop fix 0845f8db9; select the existing no-EH disposal contract for native
   state machines and qualify both lowerings in interpreter, macOS ARM64 JIT and AOT.
   Terminal Fault semantics and execution defaults are unchanged.
 - **2026-10-11:** Document macOS ARM64 JIT/AOT qualification of the existing explicit

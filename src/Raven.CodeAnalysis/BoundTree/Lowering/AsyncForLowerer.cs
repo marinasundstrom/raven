@@ -52,15 +52,48 @@ internal static class AsyncForLowerer
                 labels.Add(labeled.Label);
                 current = labeled.Statement;
             }
-            if (current is not BoundForStatement loop || loop.Iteration.Kind == ForIterationKind.Async)
-                return base.VisitLabeledStatement(node);
-            BoundStatement result = RewriteFor(loop, labels);
+            BoundStatement result;
+            switch (current)
+            {
+                case BoundForStatement loop when loop.Iteration.Kind != ForIterationKind.Async:
+                    result = RewriteFor(loop, labels);
+                    break;
+                case BoundWhileStatement loop:
+                    result = RewriteLoop(loop.Condition, loop.Body, labels);
+                    break;
+                case BoundLoopStatement loop:
+                    result = RewriteLoop(null, loop.Body, labels);
+                    break;
+                default:
+                    return base.VisitLabeledStatement(node);
+            }
             for (int i = labels.Count - 1; i >= 0; --i)
                 result = new BoundLabeledStatement(labels[i], result);
             return result;
         }
         public override BoundNode? VisitForStatement(BoundForStatement node)
             => node.Iteration.Kind == ForIterationKind.Async ? base.VisitForStatement(node) : RewriteFor(node, []);
+
+        public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
+            => RewriteLoop(node.Condition, node.Body, []);
+
+        public override BoundNode? VisitLoopStatement(BoundLoopStatement node)
+            => RewriteLoop(null, node.Body, []);
+
+        // Keep enclosing loop transfers explicit too. Otherwise a structured
+        // continue can bypass hoisted resource cleanup before the next acquisition.
+        private BoundStatement RewriteLoop(BoundExpression? condition, BoundStatement body, List<ILabelSymbol> labels)
+        {
+            var begin = Label("loop_begin");
+            var end = Label("loop_end");
+            var statements = new List<BoundStatement> { Mark(begin) };
+            if (condition is not null)
+                statements.Add(new BoundConditionalGotoStatement(end, VisitExpression(condition)!, jumpIfTrue: false));
+            statements.Add((BoundStatement)new Transfers(end, begin, labels).VisitStatement(VisitStatement(body)!)!);
+            statements.Add(new BoundGotoStatement(begin, isBackward: true));
+            statements.Add(Mark(end));
+            return new BoundBlockStatement(statements);
+        }
 
         private BoundStatement RewriteFor(BoundForStatement node, List<ILabelSymbol> sourceLabels)
         {

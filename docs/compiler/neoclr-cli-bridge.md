@@ -9901,3 +9901,13 @@ remains `target/data-cases-bundle`; compiler/runtime/input hashes are in that re
 Cancellation, pending waits, early and outward exits, and GC are exercised. Terminal
 Fault still has no managed-unwind guarantee, and this does not qualify Windows
 runtime suspension or async generators. No execution default changes.
+
+Mixed-loop exits use the same branch representation: enclosing `while` and `loop`
+statements are normalized before async capture as well, so `continue outer` cannot
+replace a hoisted scoped resource without first disposing it. A regression with
+`use` inside an awaiting `for` and an enclosing labeled `while` verifies this on
+ordinary .NET. Shared main fix `0845f8db9` is deliberately carried to the native
+line. The same twelve-run neoCLR qualification now includes outward `break` and
+`continue` from awaiting `for` loops to an enclosing `while`, in both lowerings and
+all three local execution modes. The shared final regression selection passes 74
+loop/resource, runtime-async and generator-delegation cases on .NET 11.
