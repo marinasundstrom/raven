@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document qualification of the native runtime-async provider against
+  a separately compiled generic operation interface and two implementations. Existing
+  metadata/interface dispatch suffices without compiler changes; final runtime
+  recognition and foreign ABI remain unimplemented. Record conformance/load rejection
+  and GC evidence from the neoCLR consumer.
+
 - **2026-10-11:** Extend explicit native runtime-async POC await lowering to reference
   awaiters with exact source-provider Wait mappings. Evaluate GetAwaiter once and
   retrieve results only after successful completion; reject missing/ambiguous mappings.

@@ -9753,3 +9753,31 @@ sample remains the regression consumer. neoCLR owns execution/GC evidence under
 must validate a cross-language metadata operation contract and ownership semantics;
 source helper names and concrete runtime handles are temporary bridge representations,
 not the final interface or foreign ABI. Thread-race and JIT/AOT qualification remain open.
+
+
+### Imported operation interface qualification (2026-10-11)
+
+neoCLR now qualifies the existing exact Wait mapping with a generic interface from a
+separately compiled native metadata assembly. Two consumer implementations return
+`Operation<int>` from GetAwaiter; one `Wait<T>(Operation<T>)` provider method invokes
+WaitCompletion through interface dispatch. The compiler does not inspect their
+fields or require a per-implementation overload. Async methods still return Task<T>.
+No compiler code or Runtime Contract configuration changed for this experiment;
+`--runtime-async-poc` and explicit `--reference` select the same bounded native path.
+
+The standalone contract is an experimental source declaration, not a compiler-known
+interface or stable public runtime API. Its current TaskAwaiter/IsCancelled members
+serve the existing binder protocol. Runtime parking occurs when the implementation
+calls private operation services; the runtime does not recognize an arbitrary
+WaitCompletion method by name. This proves imported metadata and interface dispatch,
+not a new intrinsic or foreign ABI. Owners and replacement remain as above: establish
+runtime validation, result/lifetime rules and native bindings before stabilizing the
+contract. .NET and Raven main remain unchanged.
+
+The neoCLR `RuntimeContract.rvn` consumer preserves shared/repeated waits, GC,
+cancellation and pre-wait completion, and adds immediate and pending implementations
+through an interface-typed parameter. Missing WaitCompletion fails interface conformance
+with RAV0330; omitting the contract module fails loading. Both heap observations
+reclaim all 3,064 allocated objects. Evidence is recorded under neoCLR's
+`docs/experiments/runtime-async/runtime-contract-validation.json` and
+`runtime-contract-heap.json`. No performance conclusion is drawn from this fixture.
