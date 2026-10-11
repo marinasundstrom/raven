@@ -9471,3 +9471,18 @@ repeated instances by identity; native property equality alone can merge distinc
 int/Index overloads. The neoCLR index-range consumer exercises ArrayList Index
 assignment alongside int and Range accessors. No Runtime Contract or wire encoding
 change is involved.
+
+### Let-else async lifetime correction (2026-10-11)
+
+Shared async lowering now preserves enclosing-scope pattern locals after a
+`let ... else` guard and later await. The native semantic intent is unchanged:
+a successfully bound value survives suspension. The temporary compiler-generated
+state machine uses private fields for these bindings, as ordinary .NET emission
+does; no public signature, Runtime Contract setting or new CLI encoding is added.
+The native metadata validator continues rejecting uninitialized local reads rather
+than weakening definite-assignment checks. Conservative hoisting can add private
+fields; runtime-owned suspension remains a later neoCLR replacement for this
+compiler state-machine mechanism. Owners are Raven async lowering and neoCLR's
+native metadata/runtime execution layers. The .NET regression demonstrates the
+previous incorrect default-value read; native HTTP benchmark consumers validate
+the corresponding native emission path separately.

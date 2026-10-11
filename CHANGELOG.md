@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Preserve `let ... else` pattern bindings across later `await`
+  suspension. Shared async analysis conservatively hoists these enclosing-scope
+  locals despite synthetic guard blocks introduced during lowering. This fixes
+  default-value reads on .NET and uninitialized-local rejection by native metadata
+  emission. Runtime Contract configuration and public signatures are unchanged.
+
 - **2026-10-11:** Preserve distinct imported native indexer overloads when merging
   readable/writable candidates. Deduplicate the repeated symbol instances rather
   than using property equality that can collapse int and Index overloads. Runtime

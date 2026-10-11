@@ -643,6 +643,32 @@ class Program {
     }
 
     [Fact]
+    public void AsyncMethod_LetElseLocalUsedAfterAwait_IsPreserved()
+    {
+        const string code = """
+import System.*
+import System.Option.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Read(input: Option<int>) -> Task<int> {
+        let Some(value) = input else { return -1 }
+        await Task.Yield()
+        return value
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Read(Some(42)))
+        Console.WriteLine(await Program.Read(None))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "42", "-1" }, output);
+    }
+
+    [Fact]
     public void MetadataOption_InferredMatchResult_ClosesParameterlessCaseCarrier()
     {
         const string code = """

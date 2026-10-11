@@ -3992,3 +3992,15 @@ support the static accessor calls and reconstruct equivalent symbols on import.
 Validation: the focused extension/indexer regression selection passed 159 tests
 on modern .NET, including source and metadata execution, operand evaluation order,
 instance precedence, invalid writes, and semantic/operation symbol shape.
+
+### Let-else bindings across suspension (2026-10-11)
+
+The shared state-machine lowerer retains locals declared by a `let ... else` guard
+across subsequent awaits. Such locals belong to the surrounding source scope;
+the synthetic guard block must not truncate their lifetime. Current analysis
+conservatively hoists these bindings, potentially adding private fields even when
+liveness analysis could avoid them. Binding, semantic-model symbols, public metadata
+and Runtime Contract configuration are unchanged. This corrects ordinary .NET
+execution as well as native metadata emission. The focused .NET regression checks
+both a suspended successful binding and the early-return failure path; existing
+`if let` suspension behavior remains covered.

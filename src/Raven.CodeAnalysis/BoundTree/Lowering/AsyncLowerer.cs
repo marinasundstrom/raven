@@ -4341,7 +4341,17 @@ internal static class AsyncLowerer
             foreach (var designator in pattern.GetDesignators())
             {
                 if (designator is BoundSingleVariableDesignator single)
+                {
                     DeclareLocal(single.Local, isUsing: false);
+                    // Lowered let/val ... else guards introduce a synthetic block
+                    // whose lifetime is shorter than the declared local's scope.
+                    // Conservatively retain these bindings in the state machine;
+                    // a later suspension can occur after that guard block ends.
+                    if (single.Local.DeclaringSyntaxReferences.Any(r =>
+                        r.GetSyntax().AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault()
+                            is PatternDeclarationAssignmentStatementSyntax { ElseClause: not null }))
+                        Merge(single.Local, requiresDispose: false);
+                }
             }
         }
 
