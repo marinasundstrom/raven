@@ -9494,3 +9494,27 @@ ordinary .NET generator. This backend exists only on the integration line; Raven
 main has no portable linear emitter to patch. Shared lifetime analysis is fixed
 on main independently. The executable HTTP regression checks reference bindings
 before and after repeated suspension in all three neoCLR execution modes.
+
+
+### Runtime-await consumer binder correction (2026-10-11)
+
+Carry shared main `d4c5e5128` to `codex/source-object-metadata-resolution`, preserving
+separate compiler lines as the author directs. Member binding now caches its
+compilation-unit scope before a property expression requests attributes in a later
+namespace; this prevents unbounded recursive registration. The shared regression
+covers both getter and initializer with retained obsolete warnings.
+
+The native compiler built with `NeoClrMetadataProject` compiles neoCLR's
+`docs/experiments/runtime-async/AwaitLanguage.rvn` with its intrinsic declarations
+in the same source file. The interpreter consumer passes pending/repeated awaits,
+completed fast paths, GC before resumption and completion during registration.
+Native compilation here describes the compiler's native metadata output, not AOT
+machine-code execution. Existing generated state machines remain.
+No Runtime Contract setting, metadata encoding, public API or async lowering changes.
+This removes a binder workaround, not the runtime-native-await integration gap.
+See neoCLR's `docs/experiments/runtime-async/single-source-validation.json` for
+compiler/runtime/reference hashes. The next projection still needs managed operation
+outcomes/lifetimes and eventual native codegen support.
+
+Validation: 74 focused attribute/obsolete/namespace/import/alias/multi-file/file-scoped
+codegen tests pass on this branch, plus the compiled neoCLR interpreter consumer.

@@ -2245,6 +2245,14 @@ public partial class SemanticModel
             BindAliases(fileScopedNamespace.Aliases, reportUnresolved: false);
         }
 
+        // Member signatures can bind property expressions which inspect attributes
+        // on declarations elsewhere in this file. Reuse this scope on re-entry
+        // instead of recursively rebuilding the compilation unit. The final
+        // top-level binder replaces it once member registration is complete.
+        CacheBinder(cu, compilationUnitBinder);
+        if (fileScopedNamespace is not null)
+            CacheBinder(fileScopedNamespace, compilationUnitBinder);
+
         var canBindIncrementalMemberSignatures =
             unresolvedAliases.Count == 0 &&
             deferredWildcardImports.Count == 0 &&

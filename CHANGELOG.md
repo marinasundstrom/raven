@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Carry main's `d4c5e5128` property/attribute binder fix to the
+  separate neoCLR compiler line. Cache the compilation-unit scope before member
+  registration, preserving obsolete diagnostics without recursive binding.
+  The native ordinary-await consumer now compiles and runs with attributed
+  intrinsics in the same file. Runtime Contract settings, signatures and lowering
+  are unchanged. Keep main/native lines separate per author direction.
+
 - **2026-10-11:** Preserve `let ... else` pattern bindings across later `await`
   suspension. Shared async analysis conservatively hoists these enclosing-scope
   locals despite synthetic guard blocks introduced during lowering. This fixes
