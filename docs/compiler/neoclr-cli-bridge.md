@@ -503,3 +503,37 @@ Validation uses the existing compiler bundle with a source-local declaration and
 focused neoCLR contracts. Public Task/Promise and compiler-generated state machines
 remain unchanged. See neoCLR `docs/experiments/runtime-async/README.md` for evidence
 and limitations; no native suspension support is implied by compiler hook availability.
+
+### Operation-wait proof of concept (2026-10-11)
+
+neoCLR now experiments with source-local InternalCalls `RuntimeAsyncCreate() -> Int64`,
+`RuntimeAsyncDelay(Int32) -> Int64`, `RuntimeAsyncComplete(Int64, Int32) -> Boolean`,
+`RuntimeAsyncCancel(Int64) -> Boolean` and `RuntimeAsyncAwait(Int64) -> Int32`, all
+under `neoCLR.Runtime` and classified as TaskDispatch. Raven emits ordinary calls;
+no Runtime Contract option or automatic `await` mapping has been added. These are
+private interpreter experiments, not public Task APIs or native ABI commitments.
+
+The runtime owns an execution-context operation table and retained caller frames.
+A pending wait returns to the host, releases managed graph access, and parks using
+the durable scheduler wake latch plus a bounded cancellation/deadline timeout.
+Queued callbacks may complete the operation, including after nested timer waits.
+Completion/registration checks serialize on the same dispatcher, so this POC has
+no cross-thread producer race. A future host completion ABI still needs atomic
+publication and wakeup qualification. Handles are globally unique, context-local,
+one-consumption tokens; they do not redefine Task's multiple-await contract.
+
+Temporary limits: Int32 results, 64 unconsumed operations, LIFO retained chains,
+no independent activation scheduling, no worker use, no legacy I/O callback pumping
+inside the wait, and no JIT/AOT implementation. Cancellation faults the invocation;
+unused operations are discarded on teardown. Native metadata/codegen must replace
+the integer bridge with explicit operation/activation ownership, result rooting,
+liveness and logical await links. Raven must use an explicit target capability
+contract before mapping language await. Existing CLR AsyncHelpers lowering and
+compiler-generated state machines remain unchanged.
+
+Evidence: neoCLR `docs/experiments/runtime-async/README.md`, `Await.rvn`, the focused
+runtime operation tests and consumer report. A bundled-compiler gap was exposed by
+initializing the Operation property directly with the locally declared attributed
+intrinsic: binding recurses to stack overflow, also with an explicit property type.
+The consumer instead passes the handle to a constructor. This gap is deferred for
+an independently minimized compiler regression; it is not a language restriction.

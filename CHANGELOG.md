@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's private operation-wait interpreter POC, its
+  source-local service signatures, retained-frame ownership and target limitations.
+  Record a deferred attributed-intrinsic property-initializer binding recursion;
+  compiler lowering and Runtime Contract configuration remain unchanged.
+
 - **2026-10-11:** Document the private neoCLR interpreter frame-yield probe and the
   boundary between future target await intent and runtime activation ownership.
   CLR AsyncHelpers lowering and Runtime Contract configuration remain unchanged;
