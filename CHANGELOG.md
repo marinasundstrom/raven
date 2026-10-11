@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's runtime-owned dormant continuation registration
+  bridge and its one-shot activation/cancellation semantics. Task/Promise keep their
+  operation/producer roles; compiler configuration and lowering are unchanged.
+
 - **2026-10-11:** Document neoCLR's captured invocation destination bridge: exact
   InternalCall capture/submit forms, non-owning identity and rejection of foreign or
   expired scopes. Runtime Contract settings and compiler lowering are unchanged;

@@ -458,3 +458,27 @@ and lifetime without fixing these forms as language semantics. The neoCLR
 all-mode consumers and native/interpreter rejection contracts. Reported execution is
 macOS ARM64; Windows is not newly qualified. No Raven compiler binary changes in this
 companion documentation slice and Raven main alone does not prove native support.
+
+
+### Runtime-owned continuation registration (2026-10-11)
+
+The neoCLR internal awaitable now emits existing InternalCall forms for
+SchedulerRegister(Int64 destination, fn<Void>) -> Int64, SchedulerActivate(Int64) ->
+Boolean and SchedulerCancel(Int64) -> Boolean. The scheduler backend opt-in is unchanged;
+Runtime Contract options, Raven semantics/lowering and .NET behavior are unchanged.
+The runtime owns dormant callback roots and reserved capacity. Activation transfers
+ownership to runnable dispatch once; cancellation releases a dormant root once and
+cannot retract admitted work. Unknown/foreign/expired handles return false on transition.
+Dormant registrations do not keep an invocation alive; teardown abandons their roots.
+
+Task remains the managed operation/state abstraction and Promise the producer-side
+TaskCompletionSource-like completion authority. Registration cancellation does not
+cancel that operation. The temporary Int64 token, unit callback and 64-slot prototype
+bound are not permanent language contracts. Native metadata/codegen should express
+registration ownership for callbacks or saved runtime activations. Cross-invocation
+routing, race semantics and automatic abandoned-operation cleanup remain runtime work.
+
+neoCLR reports six interpreter/JIT/AOT consumer runs and focused native/interpreter
+lifecycle contracts passing on macOS ARM64, with evidence in its scheduler-continuations
+experiment. Windows is not newly qualified. This is companion documentation only;
+no Raven compiler binary or public Task API is changed.
