@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Preserve labelled break/continue targets when lowering `await for`.
+  Labels now remain on the advancement loop inside its cleanup scope, so labelled
+  exits await disposal and labelled continuation advances the iterator.
+
 - **2026-10-11:** Add explicit asynchronous iteration selection to RuntimeIterationContract.
   Alternative nominal async iterable/iterator interfaces now bind in `await for`,
   with Boolean awaited advancement and required void/unit asynchronous disposal.

@@ -44,7 +44,23 @@ internal static class AwaitForLowerer
 
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
 
-        public override BoundNode? VisitForStatement(BoundForStatement node)
+        public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
+        {
+            var labels = new List<ILabelSymbol>();
+            BoundStatement current = node;
+            while (current is BoundLabeledStatement labeled)
+            {
+                labels.Add(labeled.Label);
+                current = labeled.Statement;
+            }
+            return current is BoundForStatement loop && loop.Iteration.Kind == ForIterationKind.Async
+                ? RewriteFor(loop, labels)
+                : base.VisitLabeledStatement(node);
+        }
+
+        public override BoundNode? VisitForStatement(BoundForStatement node) => RewriteFor(node, []);
+
+        private BoundNode? RewriteFor(BoundForStatement node, List<ILabelSymbol> labels)
         {
             if (node.Iteration.Kind != ForIterationKind.Async ||
                 node.Iteration.GetEnumeratorMethod is not IMethodSymbol getAsyncEnumeratorMethod ||
@@ -131,9 +147,13 @@ internal static class AwaitForLowerer
             }
 
             loopBodyStatements.Add(body);
-            var loop = new BoundBlockStatement([
-                new BoundWhileStatement(moveNextAwait, new BoundBlockStatement(loopBodyStatements)),
-            ]);
+            BoundStatement iterationLoop = new BoundWhileStatement(moveNextAwait, new BoundBlockStatement(loopBodyStatements));
+            // The source labels name the iteration loop, not the acquisition/
+            // disposal block. Preserve that target through both async lowerings.
+            for (int index = labels.Count - 1; index >= 0; --index)
+                iterationLoop = new BoundLabeledStatement(labels[index], iterationLoop);
+            var loop = new BoundBlockStatement([iterationLoop]);
+
             if (node.Iteration.DisposeAsyncMethod is { } disposeAsyncMethod)
             {
                 var dispose = new BoundInvocationExpression(disposeAsyncMethod, [], receiver: new BoundLocalAccess(enumeratorLocal));

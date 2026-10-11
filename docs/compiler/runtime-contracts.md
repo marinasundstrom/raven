@@ -2248,3 +2248,8 @@ policy. The ordinary .NET token protocol remains unchanged.
 Regression tests execute a hand-authored alternative iterator with pending advancement
 and disposal, including completion, break, return and cancellation, and validate
 malformed declarations. These tests run on .NET 11, not the native neoCLR backend.
+
+Labelled await-for loops preserve their source label on the generated advancement
+loop, inside the disposal scope. Labelled break therefore reaches awaited cleanup;
+labelled continue advances without disposing. This general lowering fix also applies
+to .NET, independent of RuntimeIterationContract selection.
