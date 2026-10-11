@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's terminal pending-self-await diagnostic and the
+  author's reaffirmed non-recoverable Fault contract. No compiler lowering, Runtime
+  Contract option, metadata representation or native/JIT support changes.
+
 - **2026-10-11:** Document neoCLR's private cancellation-notification bridge and
   ordinary await adapter validation. Runtime terminal notification now allows
   existing compiler cancellation lowering to cancel a managed Task without reading
