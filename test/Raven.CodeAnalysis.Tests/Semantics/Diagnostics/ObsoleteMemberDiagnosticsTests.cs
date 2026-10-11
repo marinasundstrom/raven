@@ -8,6 +8,32 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class ObsoleteMemberDiagnosticsTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("val IsCompleted: bool => Services.Ready(1)")]
+    [InlineData("val IsCompleted: bool = Services.Ready(1)")]
+    public void PropertyCallingAttributedFunctionInLaterNamespace_PreservesDiagnostic(string property)
+    {
+        var source = $$"""
+namespace Consumer {
+    class Operation {
+        {{property}}
+    }
+}
+namespace Services {
+    import System.*
+
+    [Obsolete("Use NewMethod")]
+    func Ready(value: long) -> bool => true
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics().AsEnumerable().ToArray();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Id == "RAV0505"));
+        Assert.Contains("Use NewMethod", diagnostic.GetMessage());
+    }
+
     [Fact]
     public void CallingObsoleteMethod_ReportsWarningDiagnostic()
     {

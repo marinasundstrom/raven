@@ -4,9 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Fix recursive compilation-unit binding when a property getter or
+  initializer calls an attributed function in a later namespace in the same file.
+  Preserve attribute diagnostics while reusing the in-progress declaration scope;
+  no Runtime Contract, metadata encoding or async lowering changes.
+  Record the author's direction to retain separate main and neoCLR compiler lines;
+  shared fix qualification does not imply native bundle qualification.
+
 - **2026-10-11:** Document ordinary Raven await compatibility with neoCLR runtime
   suspension through a source-local adapter and readiness bridge. Generated state
-  machines remain; separate intrinsic declarations avoid a still-open binding cycle.
+  machines remain; separate intrinsic declarations avoid the native bundle's binding
+  cycle pending integration of the shared compiler fix above.
   No compiler lowering/default or public awaiter-type change is made.
 
 - **2026-10-11:** Document retained/shared outcomes and guarded terminal-handle release

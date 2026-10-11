@@ -120,9 +120,10 @@ No external type-union analyzer project is part of this repository.
 
 - General Raven fixes belong on main, including fixes useful when targeting .NET
   Framework or NanoFramework, even when discovered through neoCLR integration.
-- Develop the shared compiler and the .NET and neoCLR targets together. The
-  current neoclr branch is a temporary integration branch toward main, not a
-  permanent separate compiler line. Reconcile and validate it before merging.
+- Keep main and the neoCLR compiler branch separate (author direction, 2026-10-11).
+  General fixes belong on main and may be carried deliberately to the neoCLR line
+  with target-specific validation. Do not treat full branch reconciliation or
+  merging the native compiler into main as the default next step.
 - Keep target-specific mappings, capabilities and policies behind explicit target
   contracts, preserving ordinary .NET behavior by default. Keep general regression
   fixtures independent of neoCLR when they test general Raven behavior.

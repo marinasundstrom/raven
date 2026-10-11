@@ -610,9 +610,33 @@ managed lifetime, general result types, native/JIT and compiler-native await rem
 open. The callback adapter is a temporary CLI compatibility path with allocation
 and submission costs, not a selected native activation ABI.
 
-Separate AwaitServices.rvn declarations avoid a bundled compiler attribute-binding
-recursion from the readiness property when declarations share the consumer file.
-The compiler bug remains open. See neoCLR's
+The older bundled compiler required separate AwaitServices.rvn declarations to avoid
+attribute-binding recursion from the readiness property. The shared compiler now
+caches the compilation-unit scope before member registration, allowing property
+getters/initializers to inspect attributed functions in later namespaces without
+re-entering declaration binding. This is a general .NET/neoCLR binder correction;
+Runtime Contract configuration, emitted signatures and await lowering are unchanged.
+The .NET-target regression covers getters and initializers with obsolete diagnostics.
+The native compiler remains on `codex/source-object-metadata-resolution`, while this
+fix is on shared `main`; the native compiler and bundled consumer have not yet been
+qualified with it. Keep the split source-file workaround until that integration is
+validated. Shared main's current driver does not provide the native `neoclr` command.
+See neoCLR's
 `docs/experiments/runtime-async/language-await-validation.json`. No public Task or
 awaiter type is added; author clarification favors the protocol over copying type
 structure, retaining the self-awaiter until a separate policy wrapper is justified.
+
+### Compiler branch ownership (2026-10-11)
+
+The author directs keeping shared `main` and the neoCLR compiler line separate.
+The native line is currently `codex/source-object-metadata-resolution`; its native
+metadata/backend and `neoclr` driver command are not all on main. Carry general fixes
+between lines deliberately, qualifying each target. This supersedes earlier plans
+that treated a full merge into main as the default integration destination.
+`codex/internals-visible-to-main` is already an ancestor of main and has no unique
+work. Worktree directory names are historical: `raven-internals-visible-to` currently
+hosts main, while `Raven` hosts the native line. No branches were merged or deleted.
+
+The property/attribute recursion fix on main passes 74 focused attribute, obsolete,
+namespace, import, alias, multi-file and file-scoped codegen tests on .NET 11.
+Native bundle qualification remains separate and pending.
