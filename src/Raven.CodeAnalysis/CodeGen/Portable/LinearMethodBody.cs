@@ -528,6 +528,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 slot = localTypes.Count; localTypes.Add(type); locals.Add(variable.Local, slot);
             }
             Add(LinearInstructionKind.StoreLocal, syntax, slot);
+            if (source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol machine &&
+                machine.TryGetHoistedLocalField(variable.Local, out var field))
+            {
+                if (!SupportedField(field) || !Receiver(null, machine, syntax))
+                    return Reject("unsupported hoisted pattern binding", syntax);
+                Add(LinearInstructionKind.LoadLocal, syntax, slot);
+                instructions.Add(new(LinearInstructionKind.StoreField, syntax, Field: field));
+            }
             return true;
         }
 

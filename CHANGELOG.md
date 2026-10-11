@@ -8,7 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   suspension. Shared async analysis conservatively hoists these enclosing-scope
   locals despite synthetic guard blocks introduced during lowering. This fixes
   default-value reads on .NET and uninitialized-local rejection by native metadata
-  emission. Runtime Contract configuration and public signatures are unchanged.
+  emission. Portable pattern emission also stores captured values into the hoisted
+  field, matching the ordinary .NET generator. Runtime Contract configuration and
+  public signatures are unchanged.
 
 - **2026-10-11:** Preserve distinct imported native indexer overloads when merging
   readable/writable candidates. Deduplicate the repeated symbol instances rather

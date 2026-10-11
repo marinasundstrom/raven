@@ -9486,3 +9486,11 @@ compiler state-machine mechanism. Owners are Raven async lowering and neoCLR's
 native metadata/runtime execution layers. The .NET regression demonstrates the
 previous incorrect default-value read; native HTTP benchmark consumers validate
 the corresponding native emission path separately.
+
+Native execution additionally exposed a portable-emitter gap: pattern designators
+stored only a temporary local, while subsequent reads used the hoisted field.
+Portable emission now writes the captured value into that field, matching the
+ordinary .NET generator. This backend exists only on the integration line; Raven
+main has no portable linear emitter to patch. Shared lifetime analysis is fixed
+on main independently. The executable HTTP regression checks reference bindings
+before and after repeated suspension in all three neoCLR execution modes.
