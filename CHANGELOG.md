@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's private eager async-body invocation bridge and
+  the separate body/Task outcome contract needed before target await lowering.
+  No compiler capability, Runtime Contract option or default is changed.
+
 - **2026-10-11:** Document neoCLR's independently resumed interpreter activation POC
   and the author-directed goal of default Raven runtime await after stability and
   comparative qualification. Compiler lowering, configuration and defaults are unchanged.
