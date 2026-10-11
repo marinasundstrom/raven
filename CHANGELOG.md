@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's independently resumed interpreter activation POC
+  and the author-directed goal of default Raven runtime await after stability and
+  comparative qualification. Compiler lowering, configuration and defaults are unchanged.
+
 - **2026-10-11:** Document neoCLR's private operation-wait interpreter POC, its
   source-local service signatures, retained-frame ownership and target limitations.
   Record a deferred attributed-intrinsic property-initializer binding recursion;

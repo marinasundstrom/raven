@@ -537,3 +537,21 @@ initializing the Operation property directly with the locally declared attribute
 intrinsic: binding recurses to stack overflow, also with an explicit property type.
 The consumer instead passes the handle to a constructor. This gap is deferred for
 an independently minimized compiler regression; it is not a language restriction.
+
+### Detached activations and default-await goal (2026-10-11)
+
+The existing private operation-wait signatures now permit the neoCLR interpreter to
+detach parked callback frames and resume ready parents independently. No CLI encoding,
+Runtime Contract option or Raven lowering changes. GC roots, frame permits and array
+charges remain runtime-owned while detached. A source-included Raven parent/callback
+handshake completes without generated state machines; evidence is in neoCLR's
+`docs/experiments/runtime-async/detached-validation.json`.
+
+The author now directs runtime await as Raven's default, with demonstrated stability
+and improvement. This is a goal, not a switched default. The next compiler contract
+must explicitly describe supported neoCLR await lowering and managed result/fault/
+cancellation projection, preserve state-machine fallback and keep ordinary CLR
+AsyncHelpers semantics unchanged. Qualification requires ordinary async consumers,
+root/lifetime stress and equivalent state-machine comparisons; JIT/AOT and Windows
+remain unqualified for this POC. Native activation metadata, source/await links and
+result rooting replace these private integer-only calls before production adoption.
