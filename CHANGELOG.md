@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's captured invocation destination bridge: exact
+  InternalCall capture/submit forms, non-owning identity and rejection of foreign or
+  expired scopes. Runtime Contract settings and compiler lowering are unchanged;
+  cross-invocation routing and public Task migration remain runtime follow-ups.
+
 - **2026-10-11:** Document neoCLR's runtime-backed Scheduler projection experiment:
   existing InternalCall/delegate emission and generated async state machines remain
   valid, with no new Runtime Contract option or shared compiler behavior. Record the

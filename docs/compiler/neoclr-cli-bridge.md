@@ -431,3 +431,30 @@ bundle. See `docs/experiments/scheduler-projection/validation.json` in neoCLR fo
 compiler/bundle hashes and executions. This is reported integration evidence, not
 validation of arbitrary Raven-main binaries or Windows support; the compiler bundle
 was not rebuilt from this docs-only shared-main change.
+
+
+### Captured invocation destination extension (2026-10-11)
+
+neoCLR's development scheduler projection adds exact InternalCall forms
+`neoCLR.Runtime.SchedulerCapture() -> Int64` and
+`neoCLR.Runtime.SchedulerSubmitTo(Int64, fn<Void>) -> Int32`. Runtime Contract settings,
+Raven semantic analysis and state-machine emission are unchanged; ordinary .NET remains
+the default. The native backend opts in through `--bind-scheduler`, `--compile-system`
+and `--native-gc`. Its development JIT CLI supplies that binding set.
+
+The native semantic intent is preserving a continuation's invocation placement identity.
+The source-included internal awaitable captures the opaque token per registration,
+retains the callback in managed storage, then submits to that destination at completion.
+The runtime checks identity before retaining the callback; foreign/expired identities
+fault instead of silently targeting the completing invocation. The token is non-owning,
+not persistent or a security capability. No cross-invocation/thread routing, custom
+scheduler capture, ExecutionContext flow or public Task API migration is implemented.
+
+neoCLR owns token generation, scope lifetime, dispatch validation and GC roots. Raven
+emits existing Int64/InternalCall/callable forms. The integer and unit-callback encoding
+are temporary bridge restrictions; native metadata/backend work must represent placement
+and lifetime without fixing these forms as language semantics. The neoCLR
+`docs/experiments/scheduler-continuations` experiment records exact binary/bundle hashes,
+all-mode consumers and native/interpreter rejection contracts. Reported execution is
+macOS ARM64; Windows is not newly qualified. No Raven compiler binary changes in this
+companion documentation slice and Raven main alone does not prove native support.
