@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Preserve pattern bindings declared by `let … else` across `await` in the shared async lowering. A focused .NET regression covers both successful extraction and the failure branch. The fix conservatively hoists these bindings into private state-machine fields; no public contract changes.
+
 - **2026-10-11:** Support instance extension indexers with generic receivers,
   getter/setter blocks and getter-only arrow bodies. Resolve instance indexers
   first, enforce setter accessibility, and preserve Index/Range overloads when

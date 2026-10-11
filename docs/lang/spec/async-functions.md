@@ -19,7 +19,9 @@ async func DownloadPage() {
 ```
 
 While an awaited operation is incomplete, execution of the function may be
-suspended. It resumes when the operation completes.
+suspended. It resumes when the operation completes. Locals that remain in scope,
+including bindings introduced by `let ... else`, retain their values across
+suspension.
 
 The `async` modifier can be used with top-level functions, methods, and local
 functions.
