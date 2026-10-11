@@ -247,6 +247,87 @@ public class RuntimeIterationContractTests
         });
     }
 
+    [Theory]
+    [InlineData("finish")]
+    [InlineData("break")]
+    [InlineData("return")]
+    [InlineData("cancel")]
+    public void AsyncContractAwaitsAdvancementAndDisposal(string exit)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var contract = Contract with { Async = new("Contracts.AsyncIterable`1", "Contracts.AsyncIterator`1") };
+            var compilation = Compilation.Create("AsyncConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                import System.Threading.Tasks.*
+                class Program {
+                    static async func Read(values: AsyncIterable<int>, exit: string) -> Task<int> {
+                        var sum = 0
+                        await for value in values {
+                            sum = sum + value
+                            if exit == "break" { break }
+                            if exit == "return" { return sum }
+                        }
+                        return sum
+                    }
+                }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: contract));
+            using var stream = new MemoryStream();
+            var emitted = compilation.Emit(stream);
+            Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+            using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+            var run = loaded.Assembly.GetType("Program")!.GetMethod("Read")!;
+            var probeType = run.GetParameters()[0].ParameterType.Assembly.GetType("Contracts.AsyncProbe")!;
+            var probe = Activator.CreateInstance(probeType)!;
+            var next = (TaskCompletionSource<bool>)probeType.GetField("Next")!.GetValue(probe)!;
+            var disposed = (TaskCompletionSource<bool>)probeType.GetField("Disposing")!.GetValue(probe)!;
+            var release = (TaskCompletionSource<bool>)probeType.GetField("Release")!.GetValue(probe)!;
+            var task = (Task<int>)run.Invoke(null, [probe, exit])!;
+            Assert.False(task.IsCompleted);
+            Assert.False(disposed.Task.IsCompleted);
+            if (exit == "cancel") next.SetCanceled(); else next.SetResult(true);
+            Assert.True(disposed.Task.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(task.IsCompleted);
+            release.SetResult(true);
+            if (exit == "cancel")
+                Assert.ThrowsAny<OperationCanceledException>(() => task.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult());
+            else
+                Assert.Equal(42, task.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult());
+            Assert.Equal(1, probeType.GetField("Disposals")!.GetValue(probe));
+        });
+    }
+
+    [Theory]
+    [InlineData("assembly")]
+    [InlineData("advance")]
+    [InlineData("dispose")]
+    [InlineData("iterator")]
+    public void InvalidAsyncContractDoesNotFallBack(string scenario)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var selected = new RuntimeAsyncIterationContract("Contracts.AsyncIterable`1", "Contracts.AsyncIterator`1");
+            var contract = Contract with { Async = selected };
+            contract = scenario switch
+            {
+                "assembly" => contract with { AssemblyName = "Missing" },
+                "advance" => contract with { Async = selected with { AdvanceMethod = "Missing" } },
+                "dispose" => contract with { Async = selected with { DisposalMethod = "Missing" } },
+                _ => contract with { Async = selected with { IteratorTypeName = "Contracts.Iterator`1" } }
+            };
+            var compilation = Compilation.Create("BadAsyncConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                import System.Threading.Tasks.*
+                async func Read(values: AsyncIterable<int>) -> Task<int> {
+                    await for value in values { return value }
+                    return 0
+                }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: contract));
+            Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAVT001");
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*
@@ -266,6 +347,31 @@ public class RuntimeIterationContractTests
             var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
             var source = $$"""
                 namespace Contracts {
+                    public interface AsyncDisposable { System.Threading.Tasks.Task DisposeAsync(); }
+                    public interface AsyncIterable<T> { AsyncIterator<T> GetAsyncIterator(); }
+                    public interface AsyncIterator<T> : AsyncDisposable {
+                        System.Threading.Tasks.Task<bool> MoveNextAsync();
+                        T Current { get; }
+                    }
+                    public sealed class AsyncProbe : AsyncIterable<int>, AsyncIterator<int> {
+                        public readonly System.Threading.Tasks.TaskCompletionSource<bool> Next = new();
+                        public readonly System.Threading.Tasks.TaskCompletionSource<bool> Disposing = new();
+                        public readonly System.Threading.Tasks.TaskCompletionSource<bool> Release = new();
+                        public int Disposals;
+                        private bool started;
+                        public AsyncIterator<int> GetAsyncIterator() => this;
+                        public System.Threading.Tasks.Task<bool> MoveNextAsync() {
+                            if (started) return System.Threading.Tasks.Task.FromResult(false);
+                            started = true;
+                            return Next.Task;
+                        }
+                        public int Current => 42;
+                        public System.Threading.Tasks.Task DisposeAsync() {
+                            Disposals++;
+                            Disposing.SetResult(true);
+                            return Release.Task;
+                        }
+                    }
                     public class WrongArity<T, U> { }
                     public struct ValueShape<T> { }
                     public interface Read<T> { T this[int index] { get; } }

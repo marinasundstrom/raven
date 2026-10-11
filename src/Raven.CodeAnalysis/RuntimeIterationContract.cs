@@ -13,4 +13,18 @@ public sealed record RuntimeIterationContract(
     string AdvanceMethod = "MoveNext",
     string CurrentProperty = "Current",
     bool ArraysImplementIterable = false,
-    string? ArrayShapeTypeName = null);
+    string? ArrayShapeTypeName = null,
+    RuntimeAsyncIterationContract? Async = null);
+
+/// <summary>
+/// Selects an alternative nominal asynchronous iteration protocol. Acquisition is
+/// parameterless; advancement must await to Boolean and disposal to void or unit.
+/// This describes consumption, not generator synthesis or runtime suspension.
+/// </summary>
+public sealed record RuntimeAsyncIterationContract(
+    string IterableTypeName,
+    string IteratorTypeName,
+    string AcquisitionMethod = "GetAsyncIterator",
+    string AdvanceMethod = "MoveNextAsync",
+    string CurrentProperty = "Current",
+    string DisposalMethod = "DisposeAsync");

@@ -2226,3 +2226,25 @@ and Runtime Contract configuration are unchanged. This corrects ordinary .NET
 execution as well as native metadata emission. The focused .NET regression checks
 both a suspended successful binding and the early-return failure path; existing
 `if let` suspension behavior remains covered.
+
+### Alternative asynchronous iteration (2026-10-11)
+
+`RuntimeIterationContract.Async` optionally selects a `RuntimeAsyncIterationContract`.
+The iterable and iterator must be accessible single-parameter interfaces in the
+parent contract's assembly. Acquisition is parameterless and returns the selected
+iterator; advancement awaits to Boolean; `Current` returns the element type;
+required asynchronous disposal awaits to void or unit. Member names are configurable.
+Malformed contracts report RAVT001 without falling back to a different protocol.
+A null Async selection preserves .NET's IAsyncEnumerable/pattern rules.
+
+This is an await-for consumption contract. It does not select generator synthesis,
+change yield metadata, or imply native runtime suspension. It uses existing bound
+async iteration and protected asynchronous cleanup. Semantic-model loop element
+inference follows the selected nominal iterable. Syntax, operations and editor
+grammar are unchanged. Parameterized acquisition/cancellation-token injection is
+not yet part of this alternative contract; sources may carry their cancellation
+policy. The ordinary .NET token protocol remains unchanged.
+
+Regression tests execute a hand-authored alternative iterator with pending advancement
+and disposal, including completion, break, return and cancellation, and validate
+malformed declarations. These tests run on .NET 11, not the native neoCLR backend.
