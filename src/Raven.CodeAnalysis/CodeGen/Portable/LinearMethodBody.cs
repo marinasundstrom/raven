@@ -72,10 +72,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     }
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
-        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null, BoundBlockStatement? preparedBody = null)
+        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null, BoundBlockStatement? preparedBody = null, bool forceFunctionInstance = false)
     {
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
-        var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
+        var isStaticBody = functionBody is not null ? captures.Length == 0 && !forceFunctionInstance : source.IsStatic;
         bool ReturnsValue(IMethodSymbol method) =>
             method.ContainingType is { TypeKind: TypeKind.Delegate } callable && capabilities is not null &&
                 CallableSignature.TryFunction(callable, out var callableShape, capabilities) ? callableShape.ReturnsValue :
@@ -1659,7 +1659,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         };
                         if (captured is null || capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
                             !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
-                            !(captured.Type.IsReferenceType || capturedType.Primitive is EmissionPrimitiveType.Int32 or
+                            !(captured.Type.IsReferenceType || captured.Type is ITypeParameterSymbol && capabilities.AllowsGenericFunctionCaptures || capturedType.Primitive is EmissionPrimitiveType.Int32 or
                                 EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Single or EmissionPrimitiveType.Double or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
                             return Reject("closure capture requires an immutable reference or supported primitive local or by-value parameter", Syntax(expression));
                         if (!LowerValue(captured)) return false;

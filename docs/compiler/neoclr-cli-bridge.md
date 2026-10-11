@@ -9970,3 +9970,46 @@ No Windows or performance readiness is claimed.
 Diagnostic fix `f5abf1dd0` is deliberately carried from Raven main. Its 37 focused
 contract tests pass; neoCLR's refreshed generator evidence qualifies interpreter,
 macOS ARM64 JIT and AOT with no RAV2706 on yield-only producers.
+
+### Generic native closure and generator methods (2026-10-11)
+
+Native emission now opts into `AllowsGenericFunctionCaptures`. The portable planner
+admits immutable unconstrained method-parameter captures only for that capability;
+other adapters retain their existing admission rules. The native backend emits a
+synthetic generic closure class with typed capture fields and an instance Invoke.
+Source method generic parameters become closure owner parameters. Callback signatures,
+locals, structural Function shapes, field constructions and constructed call arguments
+use that scope. Capture-free callbacks also have an explicit instance argument offset.
+
+Imported definitions keep their declaration scopes. Callable and imported-field
+reference caches are isolated for remapped callback scopes; normal method emission
+retains its shared caches. This avoids resolving an identical source symbol with a
+handle constructed in its enclosing method's different scope. Nested callback plans
+inherit the enclosing callback's parameter mapping.
+
+Like .NET generic display classes, this uses typed storage rather than boxing every
+capture as Object. Native metadata contains an ordinary generic class and bound
+structural Function, not a CLR delegate ABI or a new runtime opcode. Raven owns
+synthesis and native parameter mapping; neoCLR owns generic layout, binding and GC.
+The temporary CLI/bound representation does not turn source method parameters into
+owner parameters semantically: this is a backend storage transformation. Native
+suspension metadata and a production runtime carrier remain separate follow-ups.
+
+The retained async POC now accepts generic generator methods on nongeneric owners,
+including pending Task<T> waits and yield delegation. Generic Task-returning methods,
+generic owners and mutable captures remain restricted. Capture-free generic functions
+currently allocate a closure frame; allocation elimination and performance claims are
+outside this slice. No async/execution defaults or terminal Fault semantics change.
+
+This planner/backend subsystem is absent from Raven main, so the change remains on
+`codex/source-object-metadata-resolution`; it is not a general .NET change to merge
+independently. Focused portable capture tests also execute ordinary .NET closures to
+preserve the semantic comparison. Cross-mode consumer evidence lives in neoCLR's
+async-generator experiment, including generic locals/calls, scalar/reference captures,
+pending waits, delegation, early disposal and GC. Generic-owner receiver substitution
+and owner/method ordinal collisions still need their own qualification.
+
+Validation: 45 focused portable-capture/runtime-iteration tests pass on .NET 11.
+The generator and existing await-for lifecycle consumers each pass interpreter,
+macOS ARM64 JIT and AOT using the final compiler. This is functional and live-GC
+qualification, not a new performance measurement or abandoned-body collection proof.

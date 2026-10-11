@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Synthesize typed generic native closure frames, remapping source
+  method parameters into callback owner scope and isolating constructed-reference
+  caches. Enable generic retained-body async generators on nongeneric owners;
+  retain generic Task-method and generic-owner restrictions. Ordinary .NET emission
+  is unchanged; this portable/native emitter work remains on the native compiler line.
+
 - **2026-10-11:** Avoid the awaitless/synchronous warning for generator bodies
   using the explicit runtime generator capability: yield is a suspension boundary.
   Preserve the warning for ordinary awaitless Task methods and default .NET behavior.

@@ -768,6 +768,34 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GenericCaptureRequiresBackendCapability(bool enabled)
+    {
+        var compilation = Create("""
+            public static class Capture {
+                public static func Make<T>(value: T) -> () -> T {
+                    return () => value
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true,
+            allowsGenericMethods: true, allowsGenericFunctionCaptures: enabled);
+        Assert.Equal(enabled, LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out _, out _, capabilities));
+        var factory = Emit(compilation).GetType("Capture")!.GetMethod("Make")!;
+        var integer = (Delegate)factory.MakeGenericMethod(typeof(int)).Invoke(null, [42])!;
+        var text = (Delegate)factory.MakeGenericMethod(typeof(string)).Invoke(null, ["capture"])!;
+        Assert.Equal(42, integer.DynamicInvoke());
+        Assert.Equal("capture", text.DynamicInvoke());
+    }
+
     [Fact]
     public void ImmutableParameterCaptureCanBeReadByNestedFunctionBody()
     {
