@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Preserve distinct imported native indexer overloads when merging
+  readable/writable candidates. Deduplicate the repeated symbol instances rather
+  than using property equality that can collapse int and Index overloads. Runtime
+  Contract settings and CLI encoding are unchanged; the neoCLR ArrayList Index
+  setter consumer covers the regression.
+
 - **2026-10-11:** Qualify instance extension indexers for native emission and
   import: static accessor calls retain generic receivers and distinct overloads,
   with logical property symbols and documentation. Lower accessor block bodies with

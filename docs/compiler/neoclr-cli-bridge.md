@@ -9464,3 +9464,10 @@ identity. Native extension-container classification is computed once per type,
 so ordinary GetMembers calls do not repeatedly scan or allocate attribute lists.
 The pre-existing write-only indexer/accessor-contract work on this integration line
 remains a general shared-line reconciliation candidate; this feature preserves it.
+
+Native indexer qualification follow-up (2026-10-11): merging readable/writable
+indexer candidates must retain overloaded native property symbols. Deduplicate
+repeated instances by identity; native property equality alone can merge distinct
+int/Index overloads. The neoCLR index-range consumer exercises ArrayList Index
+assignment alongside int and Range accessors. No Runtime Contract or wire encoding
+change is involved.
