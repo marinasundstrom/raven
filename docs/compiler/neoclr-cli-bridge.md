@@ -591,3 +591,28 @@ invocation-terminal cancellation/faults, interpreter-only execution and missing
 compiler await integration remain limitations. neoCLR owns storage and release guards;
 future Raven target mapping must project Task lifetimes/outcomes explicitly. Evidence:
 neoCLR `docs/experiments/runtime-async/shared-results-validation.json`.
+
+### Ordinary await adapter and readiness bridge (2026-10-11)
+
+Private InternalCall `neoCLR.Runtime.RuntimeAsyncIsCompleted(Int64) -> Boolean`
+(TaskDispatch) observes terminal readiness without consuming an outcome; stale/foreign
+handles fault. Observing an expired timer fixes its terminal success. No Runtime
+Contract options, Raven lowering or defaults change. The source-local Operation
+awaiter returns itself and adapts OnCompleted by scheduling a callback that parks on
+RuntimeAsyncAwait, then invokes the generated continuation.
+
+The Raven consumer uses async Main and ordinary await over both the custom operation
+and managed Task. Existing state machines remain emitted. Pending delivery, completed
+fast path, repeated observation and completion between readiness and registration
+pass on the interpreter with the existing compiler bundle. Its completion-only
+adapter supplies IsCancelled=false for the current target protocol; cancellation,
+managed lifetime, general result types, native/JIT and compiler-native await remain
+open. The callback adapter is a temporary CLI compatibility path with allocation
+and submission costs, not a selected native activation ABI.
+
+Separate AwaitServices.rvn declarations avoid a bundled compiler attribute-binding
+recursion from the readiness property when declarations share the consumer file.
+The compiler bug remains open. See neoCLR's
+`docs/experiments/runtime-async/language-await-validation.json`. No public Task or
+awaiter type is added; author clarification favors the protocol over copying type
+structure, retaining the self-awaiter until a separate policy wrapper is justified.

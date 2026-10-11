@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document ordinary Raven await compatibility with neoCLR runtime
+  suspension through a source-local adapter and readiness bridge. Generated state
+  machines remain; separate intrinsic declarations avoid a still-open binding cycle.
+  No compiler lowering/default or public awaiter-type change is made.
+
 - **2026-10-11:** Document retained/shared outcomes and guarded terminal-handle release
   in neoCLR's private runtime-async bridge. Explicit handle cleanup is temporary,
   not a public Task disposal contract; compiler lowering/defaults remain unchanged.
