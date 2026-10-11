@@ -667,3 +667,9 @@ such a scope disposes and clears its saved field before transferring control;
 terminal completion/cancellation cleanup then observes an empty field. Focused
 .NET regressions cover labeled `break`/`continue` with an additional scoped resource
 inside the loop, as well as the loop iterator itself.
+
+Mixed-loop exits use the same branch representation: enclosing `while` and `loop`
+statements are normalized before async capture as well, so `continue outer` cannot
+replace a hoisted scoped resource without first disposing it. A regression with
+`use` inside an awaiting `for` and an enclosing labeled `while` verifies this on
+ordinary .NET; native qualification must also cover mixed-loop iterator disposal.

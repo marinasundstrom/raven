@@ -8,7 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
   state, mutate saved value-type enumerators by address, and dispose iterators on
   completion, cancellation, faults and outward loop exits, without disposing on
   suspension. Include jump-exit cleanup for hoisted scoped resources, clearing
-  disposed fields before later completion/cancellation cleanup. Remove the blanket
+  disposed fields before later completion/cancellation cleanup, including transfers
+  to enclosing `while`/`loop` statements. Remove the blanket
   RAV2712 cancellation-policy rejection. Existing
   awaiter-protocol and ref-safety checks remain. This is a shared compiler fix;
   neoCLR retained-body/native qualification is recorded separately.

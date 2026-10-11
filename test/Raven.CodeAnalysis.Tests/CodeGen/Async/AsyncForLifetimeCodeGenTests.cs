@@ -123,19 +123,24 @@ class Program {
     }
 
     [Theory]
-    [InlineData("continue", 80, 2, false)]
-    [InlineData("continue", 80, 2, true)]
-    [InlineData("break", 40, 1, false)]
-    [InlineData("break", 40, 1, true)]
-    public async Task OutwardLoopTransferDisposesInnerIterator(string transfer, int expected, int acquisitions, bool useResource)
+    [InlineData("continue", 80, 2, false, false)]
+    [InlineData("continue", 80, 2, true, false)]
+    [InlineData("break", 40, 1, false, false)]
+    [InlineData("break", 40, 1, true, false)]
+    [InlineData("continue", 80, 2, true, true)]
+    [InlineData("break", 40, 1, true, true)]
+    public async Task OutwardLoopTransferDisposesInnerIterator(string transfer, int expected, int acquisitions, bool useResource, bool whileLoop)
     {
+        var loop = whileLoop
+            ? "var index = 0\n        outer: while index < 2 {\n            index = index + 1"
+            : "outer: for index in 1..2 {";
         var source = $$"""
 import System.Collections.Generic.*
 import System.Threading.Tasks.*
 class Program {
     static async func Run(values: IEnumerable<int>, gate: Task<int>, cleanup: System.IDisposable) -> Task<int> {
         var sum = 0
-        outer: for index in 1..2 {
+        {{loop}}
             for item in values {
                 {{(useResource ? "use resource = cleanup" : "")}}
                 let value = await gate
