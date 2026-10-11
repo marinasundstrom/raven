@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document the native runtime-async provider's managed ownership
+  services, completion-to-dispatch lifetime transfer and automatic body/signal
+  reclamation. Existing explicit Runtime Contract configuration and compiler lowering
+  are unchanged; ordinary .NET behavior remains the default. These are private
+  neoCLR experiment bindings, not public APIs or a main-line compiler change.
+
 - **2026-10-11:** Synthesize typed generic native closure frames, remapping source
   method parameters into callback owner scope and isolating constructed-reference
   caches. Enable generic retained-body async generators on generic reference owners

@@ -10051,3 +10051,36 @@ under `use` therefore disposes before returning cancellation. Fault behavior is
 unchanged. This is a local fix to the native retained-body transform. A general audit
 of stateful visitors using the shared lazy VisitList remains a separate main-line
 candidate; changing all visitors eagerly is not required by this slice.
+
+
+### Managed runtime-async ownership services (2026-10-11)
+
+The neoCLR source-included provider replaces its `BodyLifetime` waiter with private
+`RuntimeAsyncStartManaged(Object, fn<Void>) -> Int64`,
+`RuntimeAsyncCurrentOwner() -> Object?`, and `RuntimeAsyncCreateOwned(Object) -> Int64`
+InternalCall declarations. This changes provider/runtime ownership, not Raven's
+lowering or default .NET behavior. `--runtime-async-poc RuntimeAwaitProvider.Bridge`
+and the existing explicit Runtime Contract Start/Wait/Complete/Cancel and iteration
+mappings remain the opt-in configuration. No new compiler capability is inferred.
+
+Native intent: managed reachability owns pending retained frames; live result,
+advancement/disposal tasks and externally awaited completion callbacks retain their
+producer. Completion transfers ownership to runnable work until dispatch. Body slots
+release automatically, while pending signals follow their receiver lifetime. GC can
+reclaim abandoned cycles without running managed cleanup.
+
+The temporary CLI representation remains ordinary class/callback graphs plus Int64
+operation ids and exact InternalCall names. Metadata does not yet describe native
+suspension ownership or an interop awaitable contract. The ids are private bookkeeping,
+not stable handles for consumers: StartManaged's id is discarded and can already be
+released when eager invocation returns. Legacy Start retains manual release semantics.
+neoCLR owns service binding, collector publication and stack-carrier behavior; Raven
+owns the explicit retained-body transform. Source-local callbacks add allocation and
+notification costs. Production operation metadata/codegen must replace this bridge;
+Windows carrier and performance/default qualification remain open.
+
+Validation uses the native compiler line `e349f4783` and records exact compiler/library
+hashes in neoCLR's managed ownership report. Focused interpreter tests cover abandoned
+frames/signals and the ready-before-dispatch GC transition; native sanitized tests cover
+slot reuse and stack reclamation. No Raven main merge or compiler implementation change
+is required by these new private runtime services.
