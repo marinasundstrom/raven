@@ -10156,3 +10156,19 @@ The focused scope-cleanup/generic-containing-type/generic-capture .NET suites pa
 and repeated native invocations; tested binaries and bundle hashes are retained in
 neoCLR's `docs/experiments/runtime-async/generic-cleanup/` evidence. Windows checks
 exercise state machines, not unsupported Windows runtime suspension.
+
+### General readonly initialization carry (2026-10-12)
+
+Main commit `3bfdf9b92` fixes explicit `self` initialization of generic readonly
+stored members and getter-only auto-properties. The native line carries that
+focused binder/test change without merging main. No Runtime Contract option or
+metadata format changes: binding resolves the source definition, retains constructor
+and self-receiver checks, and emits the existing backing field. Native generic
+async qualification now uses the explicit initializer that exposed the bug.
+
+The native scope mapper also preserves declared zero arity for ordinary nominal
+cases while flattening synthesized async frames. Payload-free case projection does
+not acquire enclosing arguments merely because its source view is constructed.
+Main's 35 focused property tests and neoCLR's cross-mode generic cleanup consumer
+provide separate validation; Windows gate evidence identifies its compiler revision
+rather than implying that every later binder change was included.

@@ -12825,8 +12825,8 @@ partial class BlockBinder : Binder
     {
         backingField = null;
 
-        if (propertySymbol is not SourcePropertySymbol sourceProperty ||
-            !sourceProperty.IsAutoProperty ||
+        if ((propertySymbol.OriginalDefinition ?? propertySymbol) is not SourcePropertySymbol sourceProperty ||
+            (!sourceProperty.IsAutoProperty && !sourceProperty.EmitAsFieldOnly) ||
             sourceProperty.BackingField is null)
         {
             return false;
@@ -12838,7 +12838,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (!SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, propertySymbol.ContainingType))
+        if (!SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType?.OriginalDefinition, sourceProperty.ContainingType?.OriginalDefinition))
         {
             return false;
         }

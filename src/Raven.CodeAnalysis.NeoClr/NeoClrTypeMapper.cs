@@ -14,7 +14,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     internal static ITypeSymbol[] OwnerArguments(INamedTypeSymbol type)
     {
         if (type.OriginalDefinition is not SynthesizedAsyncStateMachineTypeSymbol)
-            return type.TypeArguments.ToArray();
+            return type.Arity == 0 ? [] : type.TypeArguments.ToArray();
         var owners = new Stack<INamedTypeSymbol>();
         for (var owner = type; owner is not null; owner = owner.ContainingType)
             owners.Push(owner);

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Allow explicit `self` initialization of readonly stored members
+  and getter-only auto-properties in generic constructors. Check the source property
+  definition through substitution while retaining own-constructor/self restrictions.
+  Verify binding and .NET execution with scalar/reference values; no Runtime Contract
+  or metadata-format change is required.
+  On the native line, preserve ordinary zero-arity nominal case projection while
+  flattening synthesized async-frame generic scopes.
+
 - **2026-10-12:** Admit generic native runtime-async methods and generic compiler
   state machines, preserving enclosing/method type scopes in nested frames,
   constructors, storage and callbacks. Enable synchronous `use` cleanup across
