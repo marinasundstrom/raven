@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Admit generic native runtime-async methods and generic compiler
+  state machines, preserving enclosing/method type scopes in nested frames,
+  constructors, storage and callbacks. Enable synchronous `use` cleanup across
+  awaits when the native async library is selected, including ordinary completion
+  and cancellation before outcome publication. Fault remains terminal; this does
+  not add awaited disposal or Windows runtime suspension. Ordinary .NET behavior
+  is unchanged. Add cross-mode executable regression coverage in neoCLR and keep
+  the compiler main/native lines separate.
+
 - **2026-10-12:** Document the neoCLR current-stack capture integration, unchanged
   Runtime Contract/lowering, temporary diagnostic name projection and native service
   ownership. This native-line documentation does not change ordinary .NET behavior

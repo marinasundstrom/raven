@@ -403,7 +403,7 @@ internal static class Int32Emitter
                     _ => throw Unsupported("unsupported closure capture")
                 }).ToArray();
                 var context = prepared[index].Plan.Symbol;
-                var parameters = closureParameters.TryGetValue(context, out var inherited) ? inherited : (context.ContainingType?.TypeParameters ?? []).Concat(context.TypeParameters).ToArray();
+                var parameters = closureParameters.TryGetValue(context, out var inherited) ? inherited : (context.ContainingType is { } contextOwner ? NeoClrTypeMapper.OwnerParameters(contextOwner) : []).Concat(context.TypeParameters).ToArray();
                 if (parameters.Length != 0) closureParameters.Add(symbol, parameters);
                 if (captures.Length != 0 || parameters.Length != 0) closureCaptures.Add(symbol, captures);
                 signature = signature with { IsInstance = captures.Length != 0 || parameters.Length != 0 };
@@ -580,7 +580,9 @@ internal static class Int32Emitter
             if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
                 definition.SetSealedClass();
             nativeTypes.Add(type.Symbol, definition);
-            owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
+            var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
+            owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
+                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)));
         }
         foreach (var type in declaredTypes.Values) DefineClass(type);
         var extensionOwners = declaredTypes.Values.Where(t =>
@@ -655,15 +657,16 @@ internal static class Int32Emitter
                     contract.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, owner => nativeTypes[owner], ImportExternalType)).ToArray()));
             }
         foreach (var type in declaredTypes.Values.Where(t => !t.IsExtensionContainer))
-            foreach (var parameter in type.Symbol.TypeParameters)
+            foreach (var parameter in NeoClrTypeMapper.OwnerParameters(type.Symbol))
             {
+                var ordinal = Array.FindIndex(NeoClrTypeMapper.OwnerParameters(type.Symbol), p => SymbolEqualityComparer.Default.Equals(p, parameter));
                 foreach (var bound in parameter.ConstraintTypes)
-                    nativeTypes[type.Symbol].AddBaseTypeConstraint(parameter.Ordinal, nativeTypes[(INamedTypeSymbol)bound]);
+                    nativeTypes[type.Symbol].AddBaseTypeConstraint(ordinal, nativeTypes[(INamedTypeSymbol)bound]);
                 var flags = TypeParameterConstraints.None;
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
-                nativeTypes[type.Symbol].SetSpecialConstraints(parameter.Ordinal, flags);
+                nativeTypes[type.Symbol].SetSpecialConstraints(ordinal, flags);
             }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
@@ -671,7 +674,8 @@ internal static class Int32Emitter
         {
             if (primitiveFields.ContainsKey(field) || SymbolEqualityComparer.Default.Equals(field, graphemeField)) continue;
             CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
-            var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], ImportExternalType);
+            var fieldScope = field.ContainingType is { OriginalDefinition: SynthesizedAsyncStateMachineTypeSymbol } fieldOwner ? NeoClrTypeMapper.OwnerParameters(fieldOwner) : [];
+            var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], named => ScopedExternal(named, fieldScope), p => ScopedParameter(p, fieldScope));
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
             {
                 Accessibility.Public => FieldVisibility.Public,
@@ -688,11 +692,13 @@ internal static class Int32Emitter
                 throw Unsupported("configured array backing declaration is absent from output");
             assembly.SetArrayBacking(arrayDefinition);
         }
-        // Captured method parameters become parameters of the synthesized closure owner.
+        // Captured method parameters become parameters of synthesized closure/state owners.
         // Declaration imports retain their own scope; only caller constructions are remapped.
         SignatureType ScopedParameter(ITypeParameterSymbol parameter, ITypeParameterSymbol[] scope)
         {
-            var index = Array.FindIndex(scope, item => SymbolEqualityComparer.Default.Equals(item, parameter));
+            var index = Array.FindIndex(scope, item => SymbolEqualityComparer.Default.Equals(item, parameter) ||
+                item.DeclaringTypeParameterOwner is SynthesizedAsyncStateMachineTypeSymbol machine &&
+                SymbolEqualityComparer.Default.Equals(machine.AsyncMethod.TypeParameters[item.Ordinal], parameter));
             return index >= 0 ? SignatureType.TypeParameter(index)
                 : parameter.DeclaringMethodParameterOwner is not null ? SignatureType.MethodParameter(parameter.Ordinal)
                 : SignatureType.TypeParameter(parameter.Ordinal);
@@ -796,15 +802,15 @@ internal static class Int32Emitter
         {
             var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
             {
-                if (target.ContainingType is { Arity: > 0 } owner &&
+                if (target.ContainingType is { } owner && NeoClrTypeMapper.OwnerArguments(owner).Length > 0 &&
                     owner.OriginalDefinition is not SourceNamedTypeSymbol { IsExtensionDeclaration: true })
                 {
                     if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
                         return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeConstructedReference(
-                            owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope))),
+                            NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope))),
                             target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)))));
                     return NeoClrCallableReference.Create(definition.MakeConstructedReference(
-                        owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope))),
+                        NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope))),
                         target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)))));
                 }
                 if (target.IsGenericMethod)
@@ -858,7 +864,7 @@ internal static class Int32Emitter
                     : NeoClrCallableReference.Create(Import(target));
             });
             foreach (var declaration in methods)
-                if (!declaration.Plan.Symbol.IsGenericMethod && declaration.Plan.Symbol.ContainingType?.Arity is not > 0)
+                if (!declaration.Plan.Symbol.IsGenericMethod && (declaration.Plan.Symbol.ContainingType is not { } declarationOwner || NeoClrTypeMapper.OwnerArguments(declarationOwner).Length == 0))
                     references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method, declaration.Plan.Symbol.IsVirtual && declaration.Plan.Symbol.ContainingType?.IsValueType == false));
             return references;
         }
@@ -923,7 +929,9 @@ internal static class Int32Emitter
         foreach (var current in methods)
         {
             if (current.Body is null) continue;
-            emissionScope = closureParameters.GetValueOrDefault(current.Plan.Symbol) ?? [];
+            emissionScope = closureParameters.GetValueOrDefault(current.Plan.Symbol) ??
+                (current.Plan.Symbol.ContainingType is { OriginalDefinition: SynthesizedAsyncStateMachineTypeSymbol } machineOwner
+                    ? NeoClrTypeMapper.OwnerParameters(machineOwner) : []);
             // Cached constructed references are only valid within their generic scope.
             references = emissionScope.Length == 0 ? defaultReferences : CreateReferences(emissionScope);
             importedFields = emissionScope.Length == 0 ? defaultImportedFields : new(SymbolEqualityComparer.Default);
@@ -953,8 +961,8 @@ internal static class Int32Emitter
                     {
                         if (closureArguments.Length != 0)
                             output.BindFunction(bindingShape, target.MakeConstructedReference(closureArguments));
-                        else if (symbol.ContainingType is { Arity: > 0 } owner)
-                            output.BindFunction(bindingShape, target.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))), symbol.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)))));
+                        else if (symbol.ContainingType is { } owner && NeoClrTypeMapper.OwnerArguments(owner).Length > 0)
+                            output.BindFunction(bindingShape, target.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))), symbol.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)))));
                         else if (symbol.IsGenericMethod) output.BindFunction(bindingShape, target.MakeGenericInstance(symbol.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                         else output.BindFunction(bindingShape, target);
                     }
@@ -988,7 +996,7 @@ internal static class Int32Emitter
                 else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!.OriginalDefinition ?? instruction.Method, out var contract))
                 {
                     if (instruction.Method.ContainingType is { Arity: > 0 } owner)
-                        output.CallVirtual(contract.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)))));
+                        output.CallVirtual(contract.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)))));
                     else output.CallVirtual(contract);
                 }
                 else if (instruction.Kind == LinearInstructionKind.Call && IsTypeHandleIntrinsic(instruction.Method!))
@@ -1002,13 +1010,13 @@ internal static class Int32Emitter
                 if (primitiveFields.TryGetValue(field, out var primitive)) return new NeoClrFieldReference(null, IntrinsicStorage: primitive, StringConstructorStorage: current.Plan.Symbol.MethodKind == MethodKind.Constructor);
                 if (fields.TryGetValue(field, out var definition))
                 {
-                    if (emissionScope.Length != 0 && field.ContainingType is { Arity: > 0 } capturedOwner)
-                        return new NeoClrFieldReference(definition, definition.MakeConstructedReference(capturedOwner.TypeArguments
+                    if (field.ContainingType is { } capturedOwner && NeoClrTypeMapper.OwnerArguments(capturedOwner).Length > 0)
+                        return new NeoClrFieldReference(definition, definition.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(capturedOwner)
                             .Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                     return new NeoClrFieldReference(definition);
                 }
-                if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
-                    return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
+                if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { } owner && NeoClrTypeMapper.OwnerArguments(owner).Length > 0 && fields.TryGetValue(substituted.OriginalField, out definition))
+                    return new NeoClrFieldReference(definition, definition.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                 var originalField = field is SubstitutedFieldSymbol importedSubstitution ? importedSubstitution.OriginalField : field;
                 if (originalField is IInstanceFieldLayoutSymbol layout && originalField.ContainingType is { } declaring &&
                     IsSymbolOnlyReferenceDefinition(declaring) && CanImportVisibility(originalField) &&

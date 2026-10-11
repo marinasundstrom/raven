@@ -43,7 +43,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol machine)
         {
             if (capabilities?.Allows(EmissionDeclarationKind.AsyncStateMachine) != true ||
-                !machine.IsReferenceType || machine.Arity != 0 || machine.BaseType?.SpecialType != SpecialType.System_Object ||
+                !machine.IsReferenceType || machine.Arity != 0 && !capabilities.AllowsGenericClassOwners || machine.BaseType?.SpecialType != SpecialType.System_Object ||
                 machine.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedRelationship(i, machine.ContainingAssembly, capabilities))) return false;
             plan = new(type, machine.ContainingNamespace?.ToMetadataName() ?? "", machine.Name);
             return true;

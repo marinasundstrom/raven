@@ -1328,7 +1328,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundBaseExpression baseReceiver when !isStaticBody && capabilities?.AllowsClassVirtualSlots == true &&
                     SymbolEqualityComparer.Default.Equals(baseReceiver.Type, source.ContainingType?.BaseType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
-                case BoundSelfExpression self when !isStaticBody && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
+                case BoundSelfExpression self when !isStaticBody &&
+                    (SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType) ||
+                     self.Type is INamedTypeSymbol selfType && source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol owner &&
+                     SymbolEqualityComparer.Default.Equals(selfType.OriginalDefinition, owner)):
                     Add(LinearInstructionKind.Receiver, Syntax(expression));
                     if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
                     return true;

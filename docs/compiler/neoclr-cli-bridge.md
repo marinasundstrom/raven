@@ -10117,3 +10117,42 @@ retains it through dispatch. This changes neither the private service signatures
 nor Runtime Contract configuration; advancement/disposal ownership adapters remain.
 The compiler binary and lowering are unchanged. neoCLR's task-owned generator
 qualification report records the three-mode lifetime regression results.
+
+### Generic async methods and synchronous use scopes (2026-10-12)
+
+The native compiler line now admits generic Task-returning runtime-async methods,
+including methods on generic owners. They use the existing typed closure metadata;
+the old POC guard no longer rejects a shape the backend can represent. The explicit
+`--runtime-async-poc` provider remains required for retained runtime bodies.
+
+With `--async-library`, the native target also opts into
+`RuntimeDisposalContract.AllowAsyncScopeExitCleanup` for compiler-generated state
+machines. Synchronous `use` resources survive suspension and dispose in reverse
+scope order on ordinary completion or cancellation, before publishing the outcome.
+Fault remains invocation-terminal; it does not promise managed cleanup. This does
+not add awaited disposal to the state-machine path or relax iterator restrictions.
+The earlier runtime-provider-only admission described above is superseded.
+
+Generic state-machine admission now follows the target generic-owner capability.
+The native emitter explicitly includes enclosing and method parameters in the
+synthesized nested frame's generic scope, maps constructor signatures, fields,
+locals, callbacks and captured lambdas consistently, and isolates constructed
+reference caches by that scope. Lowered `self` may name a construction of its own
+state-machine definition. Original method parameters are remapped to frame slots
+inside MoveNext instead of escaping as method parameters on a nongeneric method.
+
+Native nested generic classes already represent this scope; no metadata version
+change is needed. The temporary CLI projection retains lexical ownership and
+constructed generic signatures. Raven's ordinary .NET emission remains unchanged;
+these portable/native adapter changes stay on the neoCLR compiler branch, with no
+merge into main. Native metadata/codegen is the owner of the eventual direct
+representation. Existing native type/layout and host platform bounds still apply.
+
+Validation uses neoCLR's `RuntimeGenericUse.rvn`, `RuntimeUse.rvn` and
+`validate_generic_cleanup.py`: value/reference/union results, private generic-owner
+state, captured values, pending GC, completion/cancellation and reverse disposal.
+The focused scope-cleanup/generic-containing-type/generic-capture .NET suites pass
+37 cases. Runtime and state-machine lowerings are checked with interpreter/JIT/AOT
+and repeated native invocations; tested binaries and bundle hashes are retained in
+neoCLR's `docs/experiments/runtime-async/generic-cleanup/` evidence. Windows checks
+exercise state machines, not unsupported Windows runtime suspension.

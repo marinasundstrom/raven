@@ -1,12 +1,28 @@
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 {
     internal static IEmissionTypeMapper<PrimitiveType> Instance { get; } = new NeoClrTypeMapper();
+
+    // Native nested types declare their entire generic scope explicitly. CLR
+    // state-machine symbols instead keep enclosing parameters on lexical owners.
+    internal static ITypeSymbol[] OwnerArguments(INamedTypeSymbol type)
+    {
+        if (type.OriginalDefinition is not SynthesizedAsyncStateMachineTypeSymbol)
+            return type.TypeArguments.ToArray();
+        var owners = new Stack<INamedTypeSymbol>();
+        for (var owner = type; owner is not null; owner = owner.ContainingType)
+            owners.Push(owner);
+        return owners.SelectMany(owner => owner.TypeArguments).ToArray();
+    }
+
+    internal static ITypeParameterSymbol[] OwnerParameters(INamedTypeSymbol type)
+        => OwnerArguments((INamedTypeSymbol)type.OriginalDefinition).Cast<ITypeParameterSymbol>().ToArray();
 
     internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     {
@@ -25,7 +41,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal, mapParameter), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal, mapParameter))));
         if (resolveExternal is not null && (named.TypeKind == TypeKind.Enum && named.DeclaringSyntaxReferences.IsEmpty || CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols))) return resolveExternal(named);
-        if (named.Arity > 0) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(named.TypeArguments.Select(t => Map(t, resolveClass, resolveExternal, mapParameter)).ToArray());
+        if (OwnerArguments(named) is { Length: > 0 } arguments) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(arguments.Select(t => Map(t, resolveClass, resolveExternal, mapParameter)).ToArray());
         // A payload-free case can be projected through a constructed generic union
         // while its physical case type still has arity zero.
         return resolveClass((INamedTypeSymbol)named.OriginalDefinition);

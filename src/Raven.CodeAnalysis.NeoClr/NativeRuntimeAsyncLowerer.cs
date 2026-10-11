@@ -15,8 +15,6 @@ internal static class NativeRuntimeAsyncLowerer
         if (plan.Symbol is not SourceMethodSymbol method)
             throw Unsupported("requires a source method");
         var generator = AsyncReturnTypeUtilities.TryGetRuntimeIterator(compilation, method.ReturnType, out var iteratorKind, out var elementType);
-        if (!generator && (method.IsGenericMethod || method.ContainingType?.Arity is > 0))
-            throw Unsupported("generic Task methods and owners remain unsupported");
         var task = method.ReturnType as INamedTypeSymbol;
         if (!generator && (method.IsIterator || task is not { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 }))
             throw Unsupported("requires Task<T> or a selected async iterator return type");

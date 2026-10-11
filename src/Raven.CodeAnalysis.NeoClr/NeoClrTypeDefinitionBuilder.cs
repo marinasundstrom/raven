@@ -34,7 +34,9 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             return plan.IsValueType
                 ? plan.Symbol.Arity > 0 ? owner.AddNestedGenericValueType(plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
                     : owner.AddNestedValueType(plan.Name, visibility)
-                : owner.AddNestedClass(plan.Name, visibility);
+                : NeoClrTypeMapper.OwnerParameters(plan.Symbol) is { Length: > 0 } parameters
+                    ? owner.AddNestedGenericClass(plan.Symbol.Name, parameters.Select((p, i) => "T" + i), visibility)
+                    : owner.AddNestedClass(plan.Name, visibility);
         }
         if (plan.IsValueType) return plan.Symbol.Arity > 0
             ? assembly.AddGenericValueType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)

@@ -298,7 +298,7 @@ internal static class NeoClrCommand
             var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
                 .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
             if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions, name, core.Name);
-            if (runtimeAsyncHelper is not null && compilationOptions.RuntimeDisposalContract is { } disposal)
+            if (asyncAssembly is not null && compilationOptions.RuntimeDisposalContract is { } disposal)
                 compilationOptions = compilationOptions.WithRuntimeDisposalContract(
                     disposal with { AllowAsyncScopeExitCleanup = true });
             if (runtimeAsyncHelper is not null && compilationOptions.RuntimeIterationContract is { Async: { } asyncIteration } iteration)
