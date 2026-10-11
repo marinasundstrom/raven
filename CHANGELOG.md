@@ -12,7 +12,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
   indexer without the receiver parameter. Static extension indexers remain
   unsupported; Runtime Contract configuration is unchanged. Native backend
   qualification is a separate integration step. Preserve source XML/Markdown
-  documentation on synthesized extension-indexer symbols.
+  documentation on synthesized extension-indexer symbols and use the emitted
+  nongeneric extension-container identity in type/property documentation IDs.
 
 - **2026-10-10:** Preserve the original instance receiver for base calls in async
   methods, including after suspension. Keep direct base dispatch rather than

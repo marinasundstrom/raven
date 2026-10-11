@@ -35,7 +35,7 @@ internal static class DocumentationCommentIdBuilder
     }
 
     public static string GetTypeMemberId(INamedTypeSymbol type)
-        => "T:" + GetTypeName(type);
+        => "T:" + GetDeclarationTypeName(type);
 
     public static string GetMethodMemberId(IMethodSymbol method)
     {
@@ -128,6 +128,15 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
+    private static string GetDeclarationTypeName(INamedTypeSymbol type)
+    {
+        if (TryGetSourceExtensionType(type) is not { } extension)
+            return GetTypeName(type);
+        var prefix = extension.ContainingNamespace is { IsGlobalNamespace: false } ns
+            ? ns.ToMetadataName() + "." : string.Empty;
+        return prefix + extension.Name;
+    }
+
     public static string GetPropertyMemberId(IPropertySymbol property)
     {
         var declaringType = property.ContainingType;
@@ -139,7 +148,7 @@ internal static class DocumentationCommentIdBuilder
 
         var builder = new StringBuilder();
         builder.Append("P:");
-        builder.Append(GetTypeName(declaringType));
+        builder.Append(GetDeclarationTypeName(declaringType));
         builder.Append('.');
         builder.Append(metadataName.Replace('.', '#'));
         AppendParameterList(builder, property.Parameters);

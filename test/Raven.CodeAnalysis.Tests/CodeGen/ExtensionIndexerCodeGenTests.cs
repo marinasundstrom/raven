@@ -77,6 +77,11 @@ class Harness {
         var references = TestMetadataReferences.Default;
         var compilation = Compilation.Create("ExtensionLibrary", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(SyntaxTree.ParseText(library)).AddReferences(references);
+        var extensionType = (INamedTypeSymbol)compilation.GetSemanticModel(compilation.SyntaxTrees.First())
+            .GetDeclaredSymbol(compilation.SyntaxTrees.First().GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single())!;
+        Assert.Equal("T:Access", Raven.CodeAnalysis.Documentation.DocumentationCommentIdBuilder.GetTypeMemberId(extensionType));
+        Assert.Contains(extensionType.GetMembers().OfType<IPropertySymbol>(), p =>
+            Raven.CodeAnalysis.Documentation.DocumentationCommentIdBuilder.GetPropertyMemberId(p) == "P:Access.Item(System.Index)");
         using var libraryStream = new MemoryStream();
         if (metadata)
         {
