@@ -85,6 +85,16 @@ internal static class Int32Emitter
                             plans.Add(GetPlan(conversionMethod));
                             continue;
                         }
+                        if (extensionMember is IndexerDeclarationSyntax extensionIndexer &&
+                            extensionIndexer.AttributeLists.Count == 0 &&
+                            model.GetDeclaredSymbol(extensionIndexer) is IPropertySymbol { IsExtensionProperty: true, IsIndexer: true } indexer)
+                        {
+                            if (indexer.SetMethod is { MethodKind: MethodKind.InitOnly })
+                                throw Unsupported("ordinary extension indexer setter");
+                            if (indexer.GetMethod is { } getter) plans.Add(GetPlan(getter));
+                            if (indexer.SetMethod is { } setter) plans.Add(GetPlan(setter));
+                            continue;
+                        }
                         if (extensionMember is MethodDeclarationSyntax asyncExtension &&
                             model.GetDeclaredSymbol(asyncExtension) is IMethodSymbol { IsAsync: true })
                             throw Unsupported("native async state-machine emission");

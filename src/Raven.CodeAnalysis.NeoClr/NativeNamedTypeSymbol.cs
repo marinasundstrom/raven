@@ -14,6 +14,8 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
     private readonly Compilation compilation;
+    private readonly Lazy<ImmutableArray<ISymbol>> extensionMembers;
+    private readonly bool isExtensionContainer;
     private readonly NominalTypeInfo view;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
@@ -27,6 +29,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         this.compilation = compilation;
         attributes = new(ReadAttributes);
         this.view = view;
+        isExtensionContainer = ReadExtensionContainer();
         // Erased Value has native storage semantics, but no corresponding CLR special
         // type. Preserve its declared identity; target contracts select its ownership.
         SpecialType = view.NativeGrapheme ? SpecialType.System_Char :
@@ -84,6 +87,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
             .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
         var properties = view.GetProperties().Select(property => new NativePropertySymbol(property, this)).ToArray();
+        extensionMembers = new(() => BuildExtensionMembers(methods));
         // Accessors remain available through their property and the token map,
         // matching PE import; they are not directly invocable named members.
         members = [.. methods.Where(method => method.AssociatedSymbol is null),
@@ -108,17 +112,15 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         return declared.Add(new AttributeData(marker, constructor, [], [], null));
     }
     internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
-    internal bool IsExtensionContainer
+    internal bool IsExtensionContainer => isExtensionContainer;
+    private bool ReadExtensionContainer()
     {
-        get
-        {
-            var markers = view.GetCustomAttributes().Where(a =>
-                a.Namespace == "System.Runtime.CompilerServices" && a.Name == "ExtensionAttribute").ToArray();
-            if (markers.Length == 0) return false;
-            if (markers.Length != 1 || markers[0].GetArguments().Count != 0 || !IsStatic)
-                throw new InvalidDataException("invalid native extension container marker");
-            return true;
-        }
+        var markers = view.GetCustomAttributes().Where(a =>
+            a.Namespace == "System.Runtime.CompilerServices" && a.Name == "ExtensionAttribute").ToArray();
+        if (markers.Length == 0) return false;
+        if (markers.Length != 1 || markers[0].GetArguments().Count != 0 || !IsStatic)
+            throw new InvalidDataException("invalid native extension container marker");
+        return true;
     }
     public override string MetadataName => view.Name;
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
@@ -153,7 +155,37 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
     public IMethodSymbol? StaticConstructor => null;
     public INamedTypeSymbol? UnderlyingTupleType => null;
     public ImmutableArray<IFieldSymbol> TupleElements => [];
-    public ImmutableArray<ISymbol> GetMembers() => members;
+    public ImmutableArray<ISymbol> GetMembers() => IsExtensionContainer ? extensionMembers.Value : members;
+
+    private ImmutableArray<ISymbol> BuildExtensionMembers(NativeMethodSymbol[] methods)
+    {
+        // Read signatures lazily, after the module has registered every type.
+        var accessors = methods.Where(m => m.IsStatic && m.AssociatedSymbol is null &&
+            (m.Name == "get_Item" && m.Parameters.Length > 1 || m.Name == "set_Item" && m.Parameters.Length > 2));
+        var properties = new List<IPropertySymbol>();
+        foreach (var group in accessors.GroupBy(m =>
+            m.TypeParameters.Length + ":" + string.Join(";", (m.Name == "get_Item" ? m.Parameters : m.Parameters.RemoveAt(m.Parameters.Length - 1))
+                .Select(p => p.RefKind + ":" + ExtensionSignatureKey(p.Type))) + "->" +
+            ExtensionSignatureKey(m.Name == "get_Item" ? m.ReturnType : m.Parameters[^1].Type)))
+        {
+            var getter = group.SingleOrDefault(m => m.Name == "get_Item");
+            var setter = group.SingleOrDefault(m => m.Name == "set_Item");
+            var property = new SynthesizedExtensionPropertySymbol(this, [], [], getter, setter, "Item", NativeDocumentation.Get);
+            getter?.Associate(property);
+            setter?.Associate(property);
+            properties.Add(property);
+        }
+        return [.. members.Where(m => m is not IMethodSymbol { AssociatedSymbol: not null }), .. properties];
+    }
+
+    private static string ExtensionSignatureKey(ITypeSymbol type) => type switch
+    {
+        ITypeParameterSymbol parameter => (parameter.ContainingSymbol is IMethodSymbol ? "!!" : "!") + parameter.Ordinal,
+        IArrayTypeSymbol array => ExtensionSignatureKey(array.ElementType) + "[" + array.Rank + "]",
+        INamedTypeSymbol named => named.ContainingAssembly?.Name + ":" + (named.ContainingType is { } owner ? ExtensionSignatureKey(owner) : named.ContainingNamespace?.ToDisplayString()) + "." + named.MetadataName +
+            "<" + string.Join(",", named.TypeArguments.Select(ExtensionSignatureKey)) + ">",
+        _ => type.ToDisplayString()
+    };
     public ImmutableArray<ISymbol> GetMembers(string name) => [.. GetMembers().Where(member => member.Name == name)];
     public ITypeSymbol? LookupType(string name) => members.OfType<INamedTypeSymbol>().SingleOrDefault(t => t.Name == name);
     public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = GetMembers().FirstOrDefault(member => member.Name == name); return symbol is not null; }

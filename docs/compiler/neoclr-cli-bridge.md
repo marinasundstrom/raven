@@ -9428,3 +9428,39 @@ The native portable backend is absent from main; this change belongs to its inte
 branch. Guest interpreter/AOT evidence is maintained in neoCLR's index-range design
 and runtime-library test report. The eventual backend retains semantic types and
 field identity directly rather than relying on CLI projection.
+
+
+## Native extension indexers (2026-10-11)
+
+Shared Raven main supports instance extension indexers (`32f2a35b8`); native support
+is separately integrated on `codex/source-object-metadata-resolution`. No Runtime
+Contract settings change. Portable lowering treats accessor receivers as leading
+static arguments and lowers extension accessor blocks with their callable owner.
+Generic native calls and metadata import retain method-level type parameters.
+
+Native semantic intent is a logical receiver indexer, with instance members taking
+precedence. The CLI bridge uses special-name static get_Item/set_Item methods in an
+extension container, with no CLR instance property on the receiver. The native
+writer currently uses the accessor/ExtensionAttribute convention too, and Raven's
+native importer reconstructs properties using generic arity and full receiver,
+index-parameter and value signatures. Documentation is resolved through property
+sidecar IDs. Runtime introspection still exposes static methods; richer native
+extension metadata should eventually replace name/marker recognition and preserve
+receiver identity directly. The compiler owns import, binding and static calls;
+neoCLR owns collection dispatch and copying behavior. Native constrained extension
+containers, property-level custom annotations and init-only extension setters are
+not admitted by this slice. Static extension indexers remain unsupported generally.
+
+neoCLR's index-range suite qualifies imported Sequence<T> extensions, List<T>
+interface dispatch, ArrayList direct copies, iterator fallback and native extension
+writes/compound assignments: 20 cases plus 10 guard processes each in interpreter
+and macOS ARM64 AOT, in target/extension-indexer-tests-v2/report.json. Windows and
+.NET Framework/NanoFramework execution are not claimed. The shared .NET feature
+selection passed 159 tests; source documentation retention has focused coverage.
+
+Shared source documentation retention comes from Raven main ca1d2d811;
+15ef17f85 makes type/property sidecar IDs use the emitted nongeneric extension-container
+identity. Native extension-container classification is computed once per type,
+so ordinary GetMembers calls do not repeatedly scan or allocate attribute lists.
+The pre-existing write-only indexer/accessor-contract work on this integration line
+remains a general shared-line reconciliation candidate; this feature preserves it.

@@ -3183,7 +3183,9 @@ partial class BlockBinder
         convertedArguments = arguments;
         var candidates = (extensionOnly
             ? LookupExtensionProperties("Item", receiverType).Where(p => p.IsIndexer)
-            : GetIndexerCandidates(receiverType, requireSetter: false, requireGetter: false))
+            : GetIndexerCandidates(receiverType, requireSetter, requireGetter)
+                .Concat(requireSetter ? GetIndexerCandidates(receiverType, requireSetter: false) : [])
+                .Distinct<IPropertySymbol>(SymbolEqualityComparer.Default))
             .Where(p => p.Parameters.Length == arguments.Length &&
                 (!extensionOnly || (!requireSetter || HasAccessibleOrdinarySetter(p)) &&
                  (!requireGetter && requireSetter || p.GetMethod is { } getter && IsSymbolAccessible(getter))))

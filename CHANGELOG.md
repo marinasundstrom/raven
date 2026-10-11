@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Qualify instance extension indexers for native emission and
+  import: static accessor calls retain generic receivers and distinct overloads,
+  with logical property symbols and documentation. Lower accessor block bodies with
+  their callable owner. Native constrained extension containers, property-level
+  annotations and init-only extension setters remain unsupported. Runtime Contract
+  settings are unchanged. neoCLR interpreter/macOS AOT sequence/list consumers pass;
+  Windows execution remains pending.
+
 - **2026-10-11:** Lower Index/Range values and array from-end reads/writes through
   portable library contracts, preserving evaluation order. Native libraries may
   declare ordinary conversion operators. Defensively copy readonly value fields for

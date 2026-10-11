@@ -94,12 +94,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         LinearBodyFailure? rejected = null;
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
-        // and Unit expression statements instead of synthesizing backend returns.
+        // and Unit expression statements instead of synthesizing backend returns. Extension
+        // accessor blocks also need lowering with their callable owner (including
+        // method-level generic parameters), rather than the container binding scope.
         var body = preparedBody ?? (functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && (bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax || bodySyntax is RecordDeclarationSyntax && !source.DeclaringSyntaxReferences.IsEmpty)
             ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
                 ? Lowerer.LowerBlock(source, arrowBody) : null
+            : source.AssociatedSymbol is IPropertySymbol { IsExtensionProperty: true } &&
+                model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement extensionBody
+                ? Lowerer.LowerBlock(source, extensionBody)
             : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement);
         if (body is not null && source.MethodKind == MethodKind.Constructor)
         {
@@ -682,7 +687,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var access = indexerAssignment.Left;
                     if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right, access.Indexer.Type))
                         return Reject("unsupported indexed property assignment", Syntax(statement));
-                    Add(InstanceCallKind(setter), Syntax(statement), method: setter);
+                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
                 }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
@@ -964,8 +969,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool LowerIndexerReceiverAndArguments(BoundIndexerAccessExpression access, IMethodSymbol accessor, bool setter)
         {
             var arguments = access.Arguments.ToArray();
-            if (!SupportedInstanceCall(accessor) || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.IndexerAccessor) ||
-                arguments.Length != accessor.Parameters.Length - (setter ? 1 : 0))
+            if (!SupportedPropertyCall(accessor) || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.IndexerAccessor) ||
+                arguments.Length != accessor.Parameters.Length - (setter ? 1 : 0) - (access.Indexer.IsExtensionProperty ? 1 : 0))
                 return Reject("unsupported indexed property accessor or arguments", Syntax(access));
             if (!LowerValue(access.Receiver)) return false;
             foreach (var argument in arguments) if (!LowerValue(argument)) return false;
@@ -1241,7 +1246,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return rangeConstructor is not null && LowerValue(new BoundObjectCreationExpression(rangeConstructor, [range.Left, range.Right]));
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
-                    Add(InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
+                    Add(indexGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
                     return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
                 case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):

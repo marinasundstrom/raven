@@ -35,20 +35,21 @@ internal static class DocumentationCommentIdBuilder
     }
 
     public static string GetTypeMemberId(INamedTypeSymbol type)
-        => "T:" + GetTypeName(type);
+        => "T:" + GetDeclarationTypeName(type);
 
     public static string GetMethodMemberId(IMethodSymbol method)
     {
         var declaringType = method.ContainingType;
-        if (declaringType is null && method.ContainingSymbol is not INamespaceSymbol)
+        if (declaringType is null)
             return string.Empty;
 
-        if (declaringType is not null && TryGetSourceExtensionType(declaringType) is { } extensionType)
+        if (TryGetSourceExtensionType(declaringType) is { } extensionType)
             return GetSourceExtensionMethodMemberId(method, extensionType);
 
         var builder = new StringBuilder();
         builder.Append("M:");
-        builder.Append(GetMemberOwnerPrefix(method));
+        builder.Append(GetTypeName(declaringType));
+        builder.Append('.');
         builder.Append(GetMethodName(method));
         AppendParameterList(builder, method.Parameters);
 
@@ -127,6 +128,15 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
+    private static string GetDeclarationTypeName(INamedTypeSymbol type)
+    {
+        if (TryGetSourceExtensionType(type) is not { } extension)
+            return GetTypeName(type);
+        var prefix = extension.ContainingNamespace is { IsGlobalNamespace: false } ns
+            ? ns.ToMetadataName() + "." : string.Empty;
+        return prefix + extension.Name;
+    }
+
     public static string GetPropertyMemberId(IPropertySymbol property)
     {
         var declaringType = property.ContainingType;
@@ -138,29 +148,23 @@ internal static class DocumentationCommentIdBuilder
 
         var builder = new StringBuilder();
         builder.Append("P:");
-        builder.Append(GetTypeName(declaringType));
+        builder.Append(GetDeclarationTypeName(declaringType));
         builder.Append('.');
         builder.Append(metadataName.Replace('.', '#'));
         AppendParameterList(builder, property.Parameters);
         return builder.ToString();
     }
 
-    private static string GetMemberOwnerPrefix(ISymbol member)
-        => member.ContainingType is { } type &&
-            type is not SynthesizedNamespaceMembersClassSymbol { Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR }
-                ? GetTypeName(type) + "."
-            : member.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToMetadataName() + "." : "";
-
     public static string GetFieldMemberId(IFieldSymbol field)
     {
         var declaringType = field.ContainingType;
-        if (declaringType is null && field.ContainingSymbol is not INamespaceSymbol)
+        if (declaringType is null)
             return string.Empty;
         var metadataName = GetMetadataName(field);
         if (metadataName.Length == 0)
             return string.Empty;
 
-        return $"F:{GetMemberOwnerPrefix(field)}{metadataName.Replace('.', '#')}";
+        return $"F:{GetTypeName(declaringType)}.{metadataName.Replace('.', '#')}";
     }
 
     public static string GetEventMemberId(IEventSymbol @event)
