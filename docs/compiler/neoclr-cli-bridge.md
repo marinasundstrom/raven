@@ -9839,3 +9839,26 @@ qualify complete --project builds followed by loopback execution. A separate cle
 project exercises --project --run. Missing async-library selection fails before output;
 the real server project without opt-in still emits state machines. Commands, source,
 project, provider, compiler and runtime hashes are in neoCLR's runtime-async evidence.
+
+
+### Compiled runtime-await qualification (2026-10-11)
+
+neoCLR now qualifies Raven native `2ef670ff1` retained application bodies in macOS
+ARM64 JIT and AOT, without interpreter fallback or generated application state
+machines. Both HTTP Native.rvnproj projects and HTTP timeout/cancellation/protocol
+recovery/terminal-Fault cases pass. The existing RuntimeAsyncHelper contract,
+RavenNeoClrRuntimeAsyncHelper property, source-local provider and retained-scope
+cleanup capability are unchanged; no general .NET lowering change is required.
+
+The temporary native InternalCall representation now maps to explicit compiled
+services. neoCLR owns stack retention, parked GC roots and dispatch/terminal lifetime;
+Task and Promise remain managed. The private macOS ucontext carrier is deprecated
+OS machinery used only as POC scaffolding, not a production/native async ABI choice.
+Windows, native Task.Run, custom scheduler context propagation, production provider
+and build-kit integration, native GC metrics and default readiness remain open.
+Referenced library state machines remain valid. Raven main is unchanged.
+
+Evidence: neoCLR `docs/experiments/runtime-async/native-validation.json`, reproduced
+by `validate_native.py`; architecture, configuration and limits are in the sibling
+README section “Compiled runtime suspension: JIT and AOT”. Native operation metadata
+and a supported stack carrier remain the eventual replacement for this bridge.

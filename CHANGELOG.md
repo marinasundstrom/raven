@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document macOS ARM64 JIT/AOT qualification of the existing explicit
+  native runtime-async helper contract, including both HTTP projects and lifecycle
+  outcomes. Compiler lowering is unchanged; the neoCLR stack carrier remains POC
+  scaffolding, with Windows, production integration and default readiness open.
+
 - **2026-10-11:** Add explicit native-project RavenNeoClrRuntimeAsyncHelper selection,
   matching the source CLI runtime-async provider and retained-scope cleanup behavior.
   Require RavenNeoClrAsyncLibrary; leave ordinary project lowering unchanged. Qualify
