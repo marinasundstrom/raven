@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Lower Index/Range values and array from-end reads/writes through
+  portable library contracts, preserving evaluation order. Native libraries may
+  declare ordinary conversion operators. Defensively copy readonly value fields for
+  method receivers and avoid dereferencing missing tuple assembly ownership during
+  native unit selection. Runtime Contract configuration and ordinary CLI emission
+  are unchanged; imported value-field reads require matching neoCLR metadata APIs.
+
 - **2026-10-10:** Admit explicit native external class inheritance contracts with
   dependency-owned storage, inherited interfaces and virtual/abstract slots. Preserve
   direct base calls through async hoisted receivers. Generic/nested bases and protected

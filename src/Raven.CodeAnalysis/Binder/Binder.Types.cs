@@ -191,8 +191,8 @@ internal abstract partial class Binder
             (SymbolEqualityComparer.Default.Equals(result.ResolvedType, selectedUnit) ||
              unitContract.TypeName == "System.Void" &&
              result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
-             bootstrapUnit.ContainingAssembly.Name == Compilation.Options.MetadataImportOptions?.CoreAssemblyName &&
-             bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName))
+             bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName &&
+             bootstrapUnit.ContainingAssembly?.Name == Compilation.Options.MetadataImportOptions?.CoreAssemblyName))
             result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
 
         if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&

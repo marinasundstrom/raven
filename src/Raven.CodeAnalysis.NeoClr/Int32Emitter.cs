@@ -251,6 +251,13 @@ internal static class Int32Emitter
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
                             continue;
                         }
+                        if (typeMember is ConversionOperatorDeclarationSyntax conversion && (conversion.Body is not null || conversion.ExpressionBody is not null) &&
+                            conversion.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword) &&
+                            model.GetDeclaredSymbol(conversion) is IMethodSymbol { IsStatic: true, MethodKind: MethodKind.Conversion } conversionMethod)
+                        {
+                            plans.Add(GetPlan(conversionMethod));
+                            continue;
+                        }
                         if (typeMember is OperatorDeclarationSyntax op && (op.Body is not null || op.ExpressionBody is not null) &&
                             op.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword))
                         {

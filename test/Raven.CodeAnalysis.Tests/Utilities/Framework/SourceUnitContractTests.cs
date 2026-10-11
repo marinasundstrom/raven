@@ -28,6 +28,18 @@ public class SourceUnitContractTests
                 .WithRuntimeUnitContract(new(owner, "System.Void")));
     }
 
+    [Fact]
+    public void NamedTupleSignatureDoesNotRequireAnAssemblyOwner()
+    {
+        var setup = Create();
+        var tree = SyntaxTree.ParseText("public static class Tuples { static func Bounds() -> (Offset: int, Length: int) => (1, 2) }");
+        var compilation = Compilation.Create("UnitLibrary", [.. setup.SyntaxTrees, tree],
+            setup.References.ToArray(), setup.Options);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var method = compilation.Assembly.GetTypeByMetadataName("Tuples")!.GetMembers("Bounds").OfType<IMethodSymbol>().Single();
+        Assert.True(((INamedTypeSymbol)method.ReturnType).IsTupleType);
+    }
+
     [Theory]
     [InlineData("Void")]
     [InlineData("System.Void")]

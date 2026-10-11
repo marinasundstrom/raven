@@ -9401,3 +9401,30 @@ and ordinary .NET async receiver tests pass. The ten HTTP lifetime/pipeline case
 pass in the neoCLR interpreter with the matching development bundle. Native AOT
 class dispatch remains separate backend work; compiler emission alone does not
 claim a completed AOT HTTP pipeline.
+
+
+## Index/Range and readonly value receivers (2026-10-11)
+
+On `codex/source-object-metadata-resolution`, portable lowering creates Index through
+FromStart/FromEnd, Range through All/StartAt/EndAt or its constructor, and array slices
+through RuntimeHelpers.GetSubArray. Direct from-end array access lowers to length
+minus distance; stored Index values call GetOffset. Receivers and bounds evaluate once
+in source order, including writes. No Runtime Contract configuration or opcode changes.
+Readonly value fields are copied to temporary receivers before instance calls. Native
+ordinary type conversion declarations are admitted through existing method planning.
+Unit selection checks metadata name before assembly identity, avoiding a null owner on
+synthesized tuple symbols. Existing .NET emission remains the default and unchanged.
+
+The matching neoCLR metadata API admits imported native value-field reads, required
+for Tuple<int,int> range results. Native output uses validated storage ordinals; the
+CLI projection uses MemberRef signatures. Value-field writes/addresses are not newly
+admitted. Runtime library bootstrapping still uses explicit Tuple<int,int>, because
+named tuple binding there lacks its selected tuple type; optional constructor parameters
+also remain unsupported, so Index exposes two overloads. These are temporary gaps.
+
+Focused SourceUnitContract, PortableIndexValue and PortableDefaultReceiver tests pass
+(14 cases). The normal .NET range/index baseline passed on shared main (5 cases).
+The native portable backend is absent from main; this change belongs to its integration
+branch. Guest interpreter/AOT evidence is maintained in neoCLR's index-range design
+and runtime-library test report. The eventual backend retains semantic types and
+field identity directly rather than relying on CLI projection.

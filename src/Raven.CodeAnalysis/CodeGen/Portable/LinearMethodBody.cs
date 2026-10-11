@@ -920,9 +920,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
                     BoundParameterAccess parameter => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
+                    BoundFieldAccess { Field.IsReadOnly: true } field => TemporaryReceiver(field, syntax),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
+                    BoundMemberAccessExpression { Member: IFieldSymbol { IsReadOnly: true } } access => TemporaryReceiver(access, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
-                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundObjectCreationExpression or BoundConversionExpression or BoundDefaultValueExpression => TemporaryReceiver(receiver, syntax),
+                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundObjectCreationExpression or BoundConversionExpression or BoundDefaultValueExpression or BoundIndexExpression or BoundRangeExpression => TemporaryReceiver(receiver, syntax),
                     BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
                     _ => Reject("value receiver requires addressable storage or a supported value result", syntax)
                 };
@@ -974,9 +976,39 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool ArrayReceiverAndIndex(BoundArrayAccessExpression access)
         {
             var indices = access.Indices.ToArray();
-            if (!SupportedArray(access.Receiver.Type) || indices.Length != 1 || indices[0].Type.SpecialType != SpecialType.System_Int32)
-                return Reject("only supported vectors with an Int32 index", Syntax(access));
-            return LowerValue(access.Receiver) && LowerValue(indices[0]);
+            if (!SupportedArray(access.Receiver.Type) || indices.Length != 1)
+                return Reject("only supported vectors with one index", Syntax(access));
+            var index = indices[0];
+            if (index.Type.SpecialType == SpecialType.System_Int32)
+                return LowerValue(access.Receiver) && LowerValue(index);
+            if (index is BoundIndexExpression direct)
+            {
+                if (!LowerValue(access.Receiver)) return false;
+                if (direct.IsFromEnd)
+                {
+                    Add(LinearInstructionKind.Duplicate, Syntax(access));
+                    Add(LinearInstructionKind.ArrayLength, Syntax(access));
+                }
+                if (!LowerValue(direct.Value)) return false;
+                if (direct.IsFromEnd) Add(LinearInstructionKind.Subtract, Syntax(access));
+                return true;
+            }
+            if (index.Type is not INamedTypeSymbol indexType || indexType.ToFullyQualifiedMetadataName() != "System.Index" ||
+                indexType.GetMembers("GetOffset").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic &&
+                    m.Parameters is [{ Type.SpecialType: SpecialType.System_Int32 }] &&
+                    m.ReturnType.SpecialType == SpecialType.System_Int32) is not { } getOffset || !SupportedInstanceCall(getOffset) ||
+                !TryType(access.Receiver.Type, false, out var arrayType))
+                return Reject("only Int32 or System.Index vector indexes", Syntax(access));
+            if (!LowerValue(access.Receiver)) return false;
+            var arraySlot = localTypes.Count;
+            localTypes.Add(arrayType);
+            Add(LinearInstructionKind.Duplicate, Syntax(access));
+            Add(LinearInstructionKind.StoreLocal, Syntax(access), arraySlot);
+            if (!TemporaryReceiver(index, Syntax(access))) return false;
+            Add(LinearInstructionKind.LoadLocal, Syntax(access), arraySlot);
+            Add(LinearInstructionKind.ArrayLength, Syntax(access));
+            Add(InstanceCallKind(getOffset), Syntax(access), method: getOffset);
+            return true;
         }
         bool ArrayLiteral(IArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
         {
@@ -1184,6 +1216,29 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundDefaultValueExpression value when TryType(value.Type, false, out var defaultType) &&
                     (capabilities is null || capabilities.Allows(defaultType)):
                     instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: value.Type)); return true;
+                case BoundIndexExpression indexValue when indexValue.Type is INamedTypeSymbol indexOwner:
+                    var indexFactory = indexOwner.GetMembers(indexValue.IsFromEnd ? "FromEnd" : "FromStart").OfType<IMethodSymbol>()
+                        .FirstOrDefault(m => m.IsStatic && m.Parameters is [{ Type.SpecialType: SpecialType.System_Int32 }] &&
+                            SymbolEqualityComparer.Default.Equals(m.ReturnType, indexOwner));
+                    if (indexFactory is null) return Reject("missing System.Index factory", Syntax(expression));
+                    return LowerValue(new BoundInvocationExpression(indexFactory, [indexValue.Value], receiver: null, extensionReceiver: null));
+                case BoundRangeExpression range when range.Type is INamedTypeSymbol rangeOwner:
+                    if (range.Left is null && range.Right is null)
+                    {
+                        var all = rangeOwner.GetMembers("All").OfType<IPropertySymbol>().FirstOrDefault(p => p.IsStatic)?.GetMethod;
+                        return all is not null && LowerValue(new BoundInvocationExpression(all, [], receiver: null, extensionReceiver: null));
+                    }
+                    if (range.Left is null || range.Right is null)
+                    {
+                        var boundary = range.Left ?? range.Right!;
+                        var factory = rangeOwner.GetMembers(range.Left is null ? "EndAt" : "StartAt").OfType<IMethodSymbol>()
+                            .FirstOrDefault(m => m.IsStatic && m.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, boundary.Type));
+                        return factory is not null && LowerValue(new BoundInvocationExpression(factory, [boundary], receiver: null, extensionReceiver: null));
+                    }
+                    var rangeConstructor = rangeOwner.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 2 &&
+                        SymbolEqualityComparer.Default.Equals(c.Parameters[0].Type, range.Left.Type) &&
+                        SymbolEqualityComparer.Default.Equals(c.Parameters[1].Type, range.Right.Type));
+                    return rangeConstructor is not null && LowerValue(new BoundObjectCreationExpression(rangeConstructor, [range.Left, range.Right]));
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
                     Add(InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
