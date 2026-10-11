@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Add explicit native `--runtime-async-poc <helper-type>` lowering
+  for nongeneric Task<T> methods, including async Main. Supported awaits execute in
+  retained runtime bodies instead of generated state machines; managed Tasks keep
+  results/cancellation and terminal faults remain terminal. The source-included
+  helper contract and interpreter support are experimental and opt-in. Qualify
+  nested, receiver/parameter, unit, cancellation, fault and GC samples; ordinary
+  .NET and default neoCLR lowering remain unchanged.
+
 - **2026-10-11:** Preserve empty evaluation-stack boundaries through portable
   short-circuit conditions and first numeric operands. Native async consumers can
   now use inline await in those conditions without a false control-flow rejection.

@@ -356,9 +356,12 @@ internal static class Int32Emitter
                 prepared.Add((plan, null));
                 continue;
             }
-            if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
+            var loweredPlan = plan;
+            if (options.RuntimeAsyncHelperTypeName is { } helper && plan.Symbol.IsAsync)
+                loweredPlan = NativeRuntimeAsyncLowerer.Rewrite(compilation, plan, helper);
+            if (!loweredPlan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
-            prepared.Add((plan, body!));
+            prepared.Add((loweredPlan, body!));
         }
         foreach (var machine in compilation.GetSynthesizedAsyncStateMachineTypes().ToArray())
         {

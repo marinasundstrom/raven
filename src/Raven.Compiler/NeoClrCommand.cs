@@ -124,6 +124,7 @@ internal static class NeoClrCommand
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
             Console.WriteLine("Optional --native-core-reference Core.dll selects native-only core semantics instead of --core-reference; runtime seeds remain execution inputs. Project mode selects it with RavenNeoClrNativeCoreReference.");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
+            Console.WriteLine("Experimental --runtime-async-poc <helper-type> lowers async methods to retained bodies; interpreter POC only, with an explicit matched provider.");
             Console.WriteLine("Optional --async-library <assembly-name> selects native Task/builder symbols from an explicit --reference. Native async emission is experimental.");
             Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Use --object-library for an explicitly referenced root; native emission remains capability-checked.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
@@ -145,6 +146,7 @@ internal static class NeoClrCommand
             var nativeCore = false;
             var bootstrapIntrinsics = false;
             var sourceObjectRoot = false;
+            string? runtimeAsyncHelper = null;
             string? systemPath = null;
             string? runtimeSeedPath = null;
             string? corePath = null;
@@ -180,6 +182,11 @@ internal static class NeoClrCommand
                         if (objectAssembly is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
                             throw new ArgumentException("Specify --object-library once with a registered native assembly name.");
                         objectAssembly = args[i];
+                        break;
+                    case "--runtime-async-poc":
+                        if (runtimeAsyncHelper is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
+                            throw new ArgumentException("Specify --runtime-async-poc once with an explicit helper type name.");
+                        runtimeAsyncHelper = args[i];
                         break;
                     case "--async-library":
                         if (asyncAssembly is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
@@ -231,6 +238,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Duplicate input path.");
             if (runtimeSeedPath is not null && (corePath is null || systemPath is not null || string.Equals(runtimeSeedPath, output, StringComparison.OrdinalIgnoreCase)))
                 throw new ArgumentException("--runtime-seed requires --core-reference, a distinct output and no legacy --system-symbols selection.");
+            if (runtimeAsyncHelper is not null && asyncAssembly is null)
+                throw new ArgumentException("--runtime-async-poc requires --async-library.");
             if (asyncAssembly is not null && corePath is null)
                 throw new ArgumentException("--async-library requires an explicit --core-reference.");
             if (objectAssembly is not null && (corePath is null || sourceObjectRoot || systemPath is not null))
@@ -320,7 +329,8 @@ internal static class NeoClrCommand
             var backend = new NeoClrEmissionBackend(
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, !nativeCore && systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
                     ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
-                    implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name));
+                    implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name,
+                    runtimeAsyncHelperTypeName: runtimeAsyncHelper));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;

@@ -9659,3 +9659,67 @@ Native await metadata/backend support must replace source-local handle/wrapper c
 its current restrictions are not permanent language semantics. See neoCLR's
 `docs/experiments/runtime-async/README.md` and `managed-task-validation.json` for the
 consumer, allocation/lifetime tradeoffs and exact artifact hashes.
+
+
+## Raven runtime-async language POC (2026-10-11)
+
+The native compiler now accepts `--runtime-async-poc RuntimeAwaitProvider.Bridge`
+with `--async-library System.Runtime` and the explicit source-included provider
+from neoCLR's `docs/experiments/runtime-async/RuntimeAsyncBridge.rvn`. Hosts can
+select the same contract with `NeoClrEmitOptions.RuntimeAsyncHelperTypeName`; null
+retains generated state machines. This is independent of the CLR `UseRuntimeAsync`
+option/AsyncHelpers contract. Project-file/default selection is not added.
+
+The provider is a type in the current source assembly with unambiguous generic
+static methods:
+
+- `Start<T>(() -> Outcome<T>) -> Task<T>`
+- `Wait<T>(Task<T>) -> bool`
+- `Complete<T>(T) -> Outcome<T>`
+- `Cancel<T>() -> Outcome<T>`
+
+Outcome here denotes a consistent provider-selected result type, not a new public
+compiler/runtime type. The qualified provider uses System.Tasks.TaskOutcome<T>.
+Start/Complete/Cancel signatures must agree, and Wait must accept the awaited
+managed Task<T> and return Boolean. Missing or incompatible providers produce
+native-emission diagnostics. The command requires explicit async-library selection.
+The experimental provider must be source-included; no implicit runtime search occurs.
+
+NativeRuntimeAsyncLowerer consumes the original bound method, creates a synchronous
+closure capturing immutable supported parameters and a reference receiver, rewrites
+successful returns through Complete, and wraps invocation in Start. Await evaluates
+its Task once, calls Wait, returns Cancel immediately on cancellation, and calls
+GetResult only on success. Unit fallthrough completes explicitly. A compiler
+invariant guard terminates invalid non-unit fallthrough, including after a terminal
+System.Fail call; it cannot manufacture a successful result. Terminal faults are
+never caught or converted to task outcomes. Existing portable closure, cleanup and
+instruction emission own the remaining lowering. Semantic binding and async method
+signatures remain unchanged; the backend's prepared bodies differ from the default
+lowered-tree view. No state-machine type is emitted by the qualified POC samples.
+
+Temporary native representation uses ordinary methods, structural function objects,
+managed Task/Promise storage and exact private InternalCall operation services.
+Runtime-owned frames replace resumable state fields, but the source provider still
+allocates completion signals and cleanup callbacks and uses legacy managed queue
+notifications. This is a deliberate alternative to the CLR's special async-method
+implementation flag, avoiding an unimplemented runtime Task-return transformation.
+It carries adapter/lifetime costs and is not yet an optimized or stable ABI.
+Native await metadata and runtime Task integration should replace that scaffolding.
+
+Bounds: interpreter only; nongeneric methods on nongeneric owners, static/module
+functions or reference receivers, and managed Task<T> awaits. Generic methods/owners,
+value receivers, nested async functions, other awaitable patterns and return
+expressions nested in value expressions are diagnosed as unsupported. Other portable
+body/expression/capture restrictions still apply; there is no silent state-machine
+fallback under this option. Complex cleanup/protected-region combinations need
+separate qualification. JIT/AOT, default switching, language-service presentation of
+native lowering and source-level async stack traces remain open.
+
+Validation uses executable Raven samples in neoCLR: pending/eager/repeated/nested
+awaits, reference locals across GC, receiver/parameter captures, unit completion,
+cancellation and a terminal fault after suspension. Metadata inspection finds no
+AsyncStateMachine references in those artifacts. Missing helper/configuration tests
+fail without producing output. An 80-cycle nested suspension sample checks reclamation
+and bounded post-GC live counts; its host observes zero final live objects. Equivalent
+state-machine/runtime-async benchmark sources qualify the unchanged fallback as well.
+The comparison is scoped to interpreter lowering, not .NET runtime performance.

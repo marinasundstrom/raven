@@ -62,7 +62,7 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
@@ -74,6 +74,7 @@ public sealed class NeoClrEmitOptions
         BootstrapReference = bootstrapReference;
         PrimitiveImplementations = primitiveImplementations?.ToImmutableHashSet() ?? ImmutableHashSet<PrimitiveType>.Empty;
         ImplementsGrapheme = implementsGrapheme;
+        RuntimeAsyncHelperTypeName = runtimeAsyncHelperTypeName;
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
@@ -85,6 +86,9 @@ public sealed class NeoClrEmitOptions
     public ImmutableHashSet<PrimitiveType> PrimitiveImplementations { get; }
     /// <summary>Whether this output implements canonical System.Char using runtime grapheme storage.</summary>
     public bool ImplementsGrapheme { get; }
+    /// <summary>Explicit experimental Start/Wait/Complete/Cancel provider for retained-body async lowering; null keeps generated state machines.</summary>
+    /// <remarks>Interpreter POC only. This is separate from the CLR runtime-async option and does not change ordinary .NET emission.</remarks>
+    public string? RuntimeAsyncHelperTypeName { get; }
     /// <summary>Gets the unsigned output identity; its name must match the compilation.</summary>
     public AssemblyIdentity Identity { get; }
     /// <summary>Gets the explicit core-library identity for primitive contracts.</summary>

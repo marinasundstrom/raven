@@ -4004,3 +4004,14 @@ and Runtime Contract configuration are unchanged. This corrects ordinary .NET
 execution as well as native metadata emission. The focused .NET regression checks
 both a suspended successful binding and the early-return failure path; existing
 `if let` suspension behavior remains covered.
+
+
+### Native runtime-async POC (2026-10-11)
+
+The experimental native backend has an explicit emission-only contract selected by
+`NeoClrEmitOptions.RuntimeAsyncHelperTypeName` (driver: `--runtime-async-poc`). It
+requires the native async provider and a matching source-included Start/Wait/
+Complete/Cancel helper. It does not enable CLR AsyncHelpers or change normal .NET
+behavior. See [configuration, lowering and limits](neoclr-cli-bridge.md#raven-runtime-async-language-poc-2026-10-11).
+Null retains the existing generated state-machine path; no project/default switch
+is part of this experiment.
