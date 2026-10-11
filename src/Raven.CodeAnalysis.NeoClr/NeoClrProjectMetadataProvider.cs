@@ -49,7 +49,7 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
             throw new InvalidDataException("Select exactly one of RavenNeoClrCoreReference or RavenNeoClrNativeCoreReference.");
         if (nativeCore is not null)
             foreach (var property in new[] { "RavenNeoClrBootstrapOwnership", "RavenNeoClrBootstrapIntrinsics",
-                "RavenNeoClrSourceObjectRoot", "RavenNeoClrObjectLibrary", "RavenNeoClrAsyncLibrary" })
+                "RavenNeoClrSourceObjectRoot", "RavenNeoClrObjectLibrary", "RavenNeoClrAsyncLibrary", "RavenNeoClrRuntimeAsyncHelper" })
                 if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
                     throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
         var catalog = nativeCore is not null
@@ -80,6 +80,15 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         if (ownership is not null) options = ownership.Apply(options, assemblyName, catalog.CoreIdentity.Name);
         if (properties.TryGetValue("RavenNeoClrAsyncLibrary", out var asyncLibrary) && !string.IsNullOrWhiteSpace(asyncLibrary))
             options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithAsyncAssemblyName(asyncLibrary));
+        var runtimeAsyncHelper = properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper");
+        if (string.IsNullOrWhiteSpace(runtimeAsyncHelper)) runtimeAsyncHelper = null;
+        if (runtimeAsyncHelper is not null)
+        {
+            if (string.IsNullOrWhiteSpace(asyncLibrary))
+                throw new InvalidDataException("RavenNeoClrRuntimeAsyncHelper requires RavenNeoClrAsyncLibrary.");
+            if (options.RuntimeDisposalContract is { } disposal)
+                options = options.WithRuntimeDisposalContract(disposal with { AllowAsyncScopeExitCleanup = true });
+        }
         var sourceRootText = properties.GetValueOrDefault("RavenNeoClrSourceObjectRoot");
         var sourceRoot = false;
         if (!string.IsNullOrWhiteSpace(sourceRootText) && !bool.TryParse(sourceRootText, out sourceRoot))
@@ -111,7 +120,7 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         var intrinsic = false;
         if (!string.IsNullOrWhiteSpace(intrinsicText) && !bool.TryParse(intrinsicText, out intrinsic))
             throw new InvalidDataException("RavenNeoClrBootstrapIntrinsics must be true or false.");
-        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath);
+        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath, runtimeAsyncHelper);
         return new(options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
             .WithMetadataImportOptions(options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)), catalog.References);
     }
@@ -120,10 +129,11 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
 /// <summary>Explicit host artifact snapshot shared by project import and native emission.</summary>
 public sealed class NeoClrProjectConfiguration
 {
-    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath)
-    { this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
+    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath, string? runtimeAsyncHelper = null)
+    { this.runtimeAsyncHelper = runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
     private readonly BootstrapOwnershipManifest? ownership;
     private readonly bool bootstrapIntrinsics;
+    private readonly string? runtimeAsyncHelper;
     /// <summary>Semantic and emission artifact identities from one read.</summary>
     public NeoClrReferenceCatalog Catalog { get; }
     /// <summary>Explicit native runtime dependency paths.</summary>
@@ -137,7 +147,8 @@ public sealed class NeoClrProjectConfiguration
         new(assemblyName, new Version(1, 0, 0, 0)), Catalog.CoreIdentity, Catalog.Dependencies,
         Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
             .Where(p => p.Value == assemblyName && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
-        implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == assemblyName));
+        implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == assemblyName,
+        runtimeAsyncHelperTypeName: runtimeAsyncHelper));
 
     /// <summary>Checks source/imported declaration ownership before publishing an assembly.</summary>
     public void Validate(Compilation compilation) => ownership?.Validate(compilation);

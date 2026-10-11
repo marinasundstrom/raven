@@ -9814,3 +9814,28 @@ runtime library is claimed. Source-provider/signature constraints remain; replac
 bridge as managed execution matures. This work stays on the native compiler branch.
 The disposal capability is a potential general API candidate, but promotion to Raven
 main is deferred until a main-line backend needs and independently qualifies it.
+
+
+### Runtime-async native project selection (2026-10-11)
+
+Native projects may explicitly set RavenNeoClrRuntimeAsyncHelper to the metadata name
+of the source-included provider (the showcase uses RuntimeAwaitProvider.Bridge).
+RavenNeoClrAsyncLibrary is required. The metadata provider carries this immutable
+selection into native emission and enables AllowAsyncScopeExitCleanup during semantic
+binding. Omitted/empty selection preserves existing generated-state-machine lowering.
+Native-core-only projects reject the option alongside unsupported bootstrap async
+configuration. This is the project equivalent of --runtime-async-poc, not a default
+change or a new runtime operation interface.
+
+Project Compile items must include the helper source when selected; the compiler does
+not inject dependencies or locate arbitrary provider implementations. The existing
+source-assembly/signature checks still apply. Configuration is local to the project;
+referenced library artifacts are not silently rebuilt with different async semantics.
+The temporary helper and private interpreter services remain necessary until managed
+runtime async has a production integration. JIT/AOT suspension is not implemented.
+
+neoCLR's native HTTP client/server projects conditionally include the provider and
+qualify complete --project builds followed by loopback execution. A separate cleanup
+project exercises --project --run. Missing async-library selection fails before output;
+the real server project without opt-in still emits state machines. Commands, source,
+project, provider, compiler and runtime hashes are in neoCLR's runtime-async evidence.

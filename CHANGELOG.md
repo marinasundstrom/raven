@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Add explicit native-project RavenNeoClrRuntimeAsyncHelper selection,
+  matching the source CLI runtime-async provider and retained-scope cleanup behavior.
+  Require RavenNeoClrAsyncLibrary; leave ordinary project lowering unchanged. Qualify
+  HTTP client/server project builds and execution with the source-included provider.
+
 - **2026-10-11:** Admit synchronous `use` cleanup in explicitly selected native
   runtime-async bodies through the opt-in RuntimeDisposalContract capability
   AllowAsyncScopeExitCleanup. Retained bodies reuse ordinary scope-exit lowering,

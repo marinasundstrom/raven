@@ -4032,3 +4032,9 @@ cleanup, DisposeAsync, exception capture or terminal-Fault unwinding. The native
 `--runtime-async-poc` driver selects it; normal .NET/neoCLR compilation stays unchanged.
 Native lowering rewrites cancellation to a return before the synchronous retained-body
 LowerBlock pass expands use cleanup. See the native bridge qualification below.
+
+
+Native project builds can select the same experiment through
+RavenNeoClrRuntimeAsyncHelper, with RavenNeoClrAsyncLibrary required. The selection is
+carried through project binding and emission; omission preserves default lowering.
+See [project configuration](neoclr-cli-bridge.md#runtime-async-native-project-selection-2026-10-11).
