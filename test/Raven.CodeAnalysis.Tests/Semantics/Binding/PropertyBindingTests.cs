@@ -9,6 +9,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PropertyBindingTests : DiagnosticTestBase
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GenericReadonlyStorageCanBeAssignedByItsConstructor(bool generic, bool explicitSelf)
+    {
+        var source = $$"""
+            class Store{{(generic ? "<T>" : "")}} {
+                private val value: {{(generic ? "T" : "int")}}
+                init(initial: {{(generic ? "T" : "int")}}) {
+                    {{(explicitSelf ? "self." : "")}}value = initial
+                }
+                val Value: {{(generic ? "T" : "int")}} => value
+            }
+            """;
+        CreateVerifier(source).Verify();
+    }
+
     [Fact]
     public void StoredVarProperty_DeclarationBindsAsProperty()
     {

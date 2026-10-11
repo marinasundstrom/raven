@@ -2253,3 +2253,19 @@ Labelled await-for loops preserve their source label on the generated advancemen
 loop, inside the disposal scope. Labelled break therefore reaches awaited cleanup;
 labelled continue advances without disposing. This general lowering fix also applies
 to .NET, independent of RuntimeIterationContract selection.
+
+
+### Generic readonly constructor initialization (2026-10-12)
+
+Explicit `self.Member = value` in a generic constructor now resolves a substituted
+property to its source definition when selecting writable initialization storage.
+This applies to readonly stored members and getter-only auto-properties; computed
+getters, writes outside constructors and writes through another instance remain
+rejected. Receiver binding still exposes the constructed member. Emission uses the
+existing source backing field in the constructor's generic scope; no new metadata,
+Runtime Contract option, syntax or editor behavior is introduced.
+
+This general fix was found by neoCLR's generic async consumer and implemented on
+Raven main first. Focused binding and .NET execution tests cover integer/reference
+values and rejected writes. Carrying it to the native compiler line requires its
+own native consumer validation; main is not merged with that line.

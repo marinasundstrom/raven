@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Allow explicit `self` initialization of readonly stored members
+  and getter-only auto-properties in generic constructors. Check the source property
+  definition through substitution while retaining own-constructor/self restrictions.
+  Verify binding and .NET execution with scalar/reference values; no Runtime Contract
+  or metadata-format change is required.
+
 - **2026-10-11:** Avoid the awaitless/synchronous warning for generator bodies
   using the explicit runtime generator capability: yield is a suspension boundary.
   Preserve the warning for ordinary awaitless Task methods and default .NET behavior.
