@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document the private neoCLR interpreter frame-yield probe and the
+  boundary between future target await intent and runtime activation ownership.
+  CLR AsyncHelpers lowering and Runtime Contract configuration remain unchanged;
+  this documentation does not introduce compiler or native suspension support.
+
 - **2026-10-11:** Document neoCLR's runtime-owned dormant continuation registration
   bridge and its one-shot activation/cancellation semantics. Task/Promise keep their
   operation/producer roles; compiler configuration and lowering are unchanged.
