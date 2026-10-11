@@ -4015,3 +4015,8 @@ Complete/Cancel helper. It does not enable CLR AsyncHelpers or change normal .NE
 behavior. See [configuration, lowering and limits](neoclr-cli-bridge.md#raven-runtime-async-language-poc-2026-10-11).
 Null retains the existing generated state-machine path; no project/default switch
 is part of this experiment.
+
+The native POC additionally accepts exact Wait mappings for reference awaiters,
+including types independent of Task<T>. This does not generalize async method return
+types or introduce a stable metadata interface. See the
+[independent-operation boundary](neoclr-cli-bridge.md#independent-operation-await-mapping-2026-10-11).

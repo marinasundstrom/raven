@@ -33,7 +33,8 @@ internal static class NativeRuntimeAsyncLowerer
         var start = Resolve("Start", 1).Construct(resultType);
         var complete = Resolve("Complete", 1).Construct(resultType);
         var cancel = Resolve("Cancel", 0).Construct(resultType);
-        var wait = Resolve("Wait", 1);
+        var waits = helper.GetMembers("Wait").OfType<IMethodSymbol>()
+            .Where(m => m.IsStatic && m.Arity <= 1 && m.Parameters.Length == 1).ToImmutableArray();
         var outcome = complete.ReturnType;
         var delegateType = start.Parameters[0].Type;
         if (!SymbolEqualityComparer.Default.Equals(start.ReturnType, task) ||
@@ -41,8 +42,7 @@ internal static class NativeRuntimeAsyncLowerer
             !SymbolEqualityComparer.Default.Equals(cancel.ReturnType, outcome) ||
             delegateType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } function ||
             function.GetDelegateInvokeMethod() is not { Parameters.Length: 0 } invoke ||
-            !SymbolEqualityComparer.Default.Equals(invoke.ReturnType, outcome) ||
-            wait.ReturnType.SpecialType != SpecialType.System_Boolean)
+            !SymbolEqualityComparer.Default.Equals(invoke.ReturnType, outcome) || waits.IsEmpty)
             throw Unsupported("helper Start/Complete/Cancel/Wait signatures do not match");
         var model = compilation.GetSemanticModel(plan.Syntax.SyntaxTree);
         if (plan.Body is null || model.GetBoundNode(plan.Body, BoundTreeView.Original) is not BoundBlockStatement body)
@@ -55,7 +55,7 @@ internal static class NativeRuntimeAsyncLowerer
         lambda.SetDelegateType(delegateType);
         lambda.SetCapturedVariables(captures);
         body = ImplicitReturnRewriter.RewriteIfNeeded(resultType, unit, body);
-        var rewriter = new Rewriter(lambda, unit, resultType, complete, cancel, wait, Unsupported);
+        var rewriter = new Rewriter(lambda, unit, resultType, complete, cancel, waits, Unsupported);
         body = (BoundBlockStatement)rewriter.VisitStatement(body)!;
         if (resultType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
             body = new BoundBlockStatement([.. body.Statements, rewriter.Completion(new BoundUnitExpression(unit))], body.LocalsToDispose);
@@ -71,7 +71,7 @@ internal static class NativeRuntimeAsyncLowerer
 
     private sealed class Rewriter(
         SourceLambdaSymbol owner, ITypeSymbol unit, ITypeSymbol resultType,
-        IMethodSymbol complete, IMethodSymbol cancel, IMethodSymbol wait,
+        IMethodSymbol complete, IMethodSymbol cancel, ImmutableArray<IMethodSymbol> waits,
         Func<string, UnsupportedInputException> unsupported) : BoundTreeRewriter
     {
         private int ordinal;
@@ -89,17 +89,22 @@ internal static class NativeRuntimeAsyncLowerer
         }
         public override BoundNode? VisitAwaitExpression(BoundAwaitExpression node)
         {
-            if (node.Expression.Type is not INamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } awaited)
-                throw unsupported("only the managed Task<T> await contract is supported");
-            var waitMethod = wait.Construct(awaited.TypeArguments[0]);
-            if (!SymbolEqualityComparer.Default.Equals(waitMethod.Parameters[0].Type, awaited))
-                throw unsupported("Wait<T> must accept the awaited Task<T>");
-            var temporary = Local(awaited);
+            if (node.GetAwaiterMethod.IsStatic || node.GetAwaiterMethod.Parameters.Length != 0 ||
+                !node.AwaiterType.IsReferenceType)
+                throw unsupported("requires a reference awaiter with an instance GetAwaiter method");
+            var matches = waits.Select(m => m.Arity == 1 ? m.Construct(node.ResultType) : m)
+                .Where(m => SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, node.AwaiterType))
+                .Take(2).ToArray();
+            if (matches.Length != 1 || matches[0].ReturnType.SpecialType != SpecialType.System_Boolean)
+                throw unsupported("requires one exact Boolean Wait mapping for the awaited type");
+            var waitMethod = matches[0];
+            var temporary = Local(node.AwaiterType);
             var completed = new BoundInvocationExpression(waitMethod, [new BoundLocalAccess(temporary)]);
             var success = new BoundBlockStatement([]);
             var cancellation = new BoundBlockStatement([new BoundReturnStatement(new BoundInvocationExpression(cancel, []))]);
             return new BoundBlockExpression([
-                Declare(temporary, VisitExpression(node.Expression)!),
+                Declare(temporary, new BoundInvocationExpression(node.GetAwaiterMethod, [],
+                    receiver: VisitExpression(node.Expression)!)),
                 new BoundIfStatement(completed, success, cancellation),
                 new BoundExpressionStatement(new BoundInvocationExpression(node.GetResultMethod, [], receiver: new BoundLocalAccess(temporary)))
             ], unit);

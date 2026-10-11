@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Extend explicit native runtime-async POC await lowering to reference
+  awaiters with exact source-provider Wait mappings. Evaluate GetAwaiter once and
+  retrieve results only after successful completion; reject missing/ambiguous mappings.
+  Qualify an independent runtime-backed manual operation, retaining Task<T> as the
+  async method result projection. No .NET/default or public metadata contract change.
+
 - **2026-10-11:** Add explicit native `--runtime-async-poc <helper-type>` lowering
   for nongeneric Task<T> methods, including async Main. Supported awaits execute in
   retained runtime bodies instead of generated state machines; managed Tasks keep

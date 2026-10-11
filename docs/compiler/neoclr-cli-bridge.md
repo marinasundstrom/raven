@@ -9723,3 +9723,33 @@ fail without producing output. An 80-cycle nested suspension sample checks recla
 and bounded post-GC live counts; its host observes zero final live objects. Equivalent
 state-machine/runtime-async benchmark sources qualify the unchanged fallback as well.
 The comparison is scoped to interpreter lowering, not .NET runtime performance.
+
+
+### Independent operation await mapping (2026-10-11)
+
+The same explicit RuntimeAsyncHelperTypeName contract now permits source-provider
+Wait overloads. For each await, lowering evaluates the operand and its bound instance
+GetAwaiter exactly once. It selects exactly one static Wait method accepting the exact
+reference awaiter type; candidates are nongeneric or constructed with the await result
+as their single type argument. The selected method must return Boolean: true permits
+GetResult on that same awaiter; false returns the enclosing cancelled outcome.
+Missing/ambiguous mappings are diagnosed rather than silently using state machines.
+This is deliberately bounded provider resolution, not general overload conversion.
+
+Start/Complete/Cancel still describe Task<T>-returning async methods. Awaited values
+no longer need to be Tasks or be their own awaiters. A neoCLR source sample supplies
+an independent manual operation with runtime-owned completion/result storage and an
+Envelope returning a distinct awaiter. OnCompleted deliberately faults if invoked.
+The existing binder's TaskAwaiter/cancellation protocol still applies. Extension/static
+GetAwaiter and value awaiters remain unsupported in this POC, as do the previously
+listed method/body restrictions. .NET lowering and Runtime Contract defaults do not
+change; this emitter-only feature stays on the native compiler line.
+
+Qualification: 80 shared/repeated suspension cycles, exact awaiter/result read counts,
+GC while parked, cancellation without GetResult, completion before waiting and handle
+reuse. Missing and ambiguous mappings fail compilation. The existing Task language
+sample remains the regression consumer. neoCLR owns execution/GC evidence under
+`docs/experiments/runtime-async/`; Raven owns binding/emission. The native replacement
+must validate a cross-language metadata operation contract and ownership semantics;
+source helper names and concrete runtime handles are temporary bridge representations,
+not the final interface or foreign ABI. Thread-race and JIT/AOT qualification remain open.
