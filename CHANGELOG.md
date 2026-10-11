@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Lower selected `await for` in the explicit native retained-body
+  async POC. Await advancement and cleanup; preserve lexical cleanup order across
+  return, loop transfers and cancellation, including mixed synchronous `use` scopes.
+  Carry the general labelled await-for fix from main 4972d9def. Native
+  compiler-generated state-machine cleanup and generator synthesis remain open.
+
 - **2026-10-11:** Add explicit asynchronous iteration selection to RuntimeIterationContract.
   Alternative nominal async iterable/iterator interfaces now bind in `await for`,
   with Boolean awaited advancement and required void/unit asynchronous disposal.

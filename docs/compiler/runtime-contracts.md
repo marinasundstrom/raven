@@ -4059,3 +4059,8 @@ policy. The ordinary .NET token protocol remains unchanged.
 Regression tests execute a hand-authored alternative iterator with pending advancement
 and disposal, including completion, break, return and cancellation, and validate
 malformed declarations. These tests run on .NET 11, not the native neoCLR backend.
+
+The native retained-body POC now consumes selected async iterables using runtime
+waits and explicit lexical cleanup; see the native bridge's retained-body asynchronous
+iteration section. General labelled-loop preservation is carried from Raven main
+`4972d9def`. No default lowering or generator synthesis contract changes.

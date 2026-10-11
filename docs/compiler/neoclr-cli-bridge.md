@@ -9911,3 +9911,26 @@ line. The same twelve-run neoCLR qualification now includes outward `break` and
 `continue` from awaiting `for` loops to an enclosing `while`, in both lowerings and
 all three local execution modes. The shared final regression selection passes 74
 loop/resource, runtime-async and generator-delegation cases on .NET 11.
+
+### Retained-body asynchronous iteration (2026-10-11)
+
+The native POC now lowers `await for` selected by
+`RuntimeIterationContract.Async`. The ownership manifest selects the async iterable
+and iterator names in its iteration contract; existing .NET defaults remain intact.
+The source-included Start/Wait/Complete/Cancel provider and explicit
+`--runtime-async-poc` remain required. Async iterator advancement and disposal must
+use awaiters supported by that provider. This does not synthesize generator methods.
+
+Implicit advancement/disposal awaits become runtime waits. Loop transfers are made
+explicit before a lexical cleanup pass routes return, break, continue and cancellation
+through the scopes they leave. Synchronous `use` and asynchronous iterator disposal
+share that stack, preserving inner-to-outer order. Cleanup may suspend; cancelling
+cleanup still runs outer cleanup before publishing cancellation. Terminal Fault
+remains nonrecoverable and does not acquire an unwinding guarantee. No CLR exception
+handling representation is introduced into native metadata.
+
+The ordinary generated-state-machine native path still lacks this awaited cleanup
+integration and is not qualified for `await for`. Alternative generator synthesis,
+parameterized acquisition/token forwarding, and a production retained-stack carrier
+remain open. The retained runtime is still platform-limited; this is not a default
+switch. neoCLR's runtime-async experiment owns cross-mode executable evidence.

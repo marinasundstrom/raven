@@ -263,10 +263,11 @@ public class RuntimeIterationContractTests
                 class Program {
                     static async func Read(values: AsyncIterable<int>, exit: string) -> Task<int> {
                         var sum = 0
-                        await for value in values {
+                        cursor: await for value in values {
                             sum = sum + value
-                            if exit == "break" { break }
+                            if exit == "break" { break cursor }
                             if exit == "return" { return sum }
+                            continue cursor
                         }
                         return sum
                     }
