@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Admit synchronous `use` cleanup in explicitly selected native
+  runtime-async bodies through the opt-in RuntimeDisposalContract capability
+  AllowAsyncScopeExitCleanup. Retained bodies reuse ordinary scope-exit lowering,
+  including cancellation and implicit unit returns. Default state-machine/iterator
+  restrictions stay in place; terminal Fault does not gain managed unwinding.
+  Qualify runtime-await HTTP showcase sources and cleanup/GC consumers in neoCLR.
+
 - **2026-10-11:** Document qualification of the native runtime-async provider against
   a separately compiled generic operation interface and two implementations. Existing
   metadata/interface dispatch suffices without compiler changes; final runtime

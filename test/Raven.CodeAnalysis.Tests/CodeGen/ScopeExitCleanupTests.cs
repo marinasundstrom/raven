@@ -23,7 +23,7 @@ public sealed class ScopeExitCleanupTests
         }
         """;
 
-    private static Compilation Create(string members, string protocol = "ResourceProtocol", bool valueResource = false)
+    private static Compilation Create(string members, string protocol = "ResourceProtocol", bool valueResource = false, bool retainedAsyncScopes = false)
         => Compilation.Create("UseCleanup", [SyntaxTree.ParseText((valueResource ? ResourceSource.Replace("public class Resource", "public struct Resource") : ResourceSource) + "\n" + $$"""
             public static class Probe {
                 static var Log: int = 0
@@ -36,7 +36,7 @@ public sealed class ScopeExitCleanupTests
             }
             """)], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithRuntimeDisposalContract(new("UseCleanup", protocol, UseExceptionHandling: false)));
+                .WithRuntimeDisposalContract(new("UseCleanup", protocol, UseExceptionHandling: false, AllowAsyncScopeExitCleanup: retainedAsyncScopes)));
 
     [Theory]
     [InlineData("""
@@ -212,6 +212,31 @@ public sealed class ScopeExitCleanupTests
                 return 7
             }
             """);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAVT006");
+    }
+
+    [Fact]
+    public void RetainedAsyncScopesPermitSynchronousUseCleanup()
+    {
+        var compilation = Create("""
+            public static async func Work() -> Task<int> {
+                use a = Resource(1)
+                await Task.Delay(1)
+                return 7
+            }
+            """, retainedAsyncScopes: true);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void RetainedAsyncScopesDoNotPermitIteratorCleanup()
+    {
+        var compilation = Create("""
+            public static func Work() -> IEnumerable<int> {
+                use a = Resource(1)
+                yield return 7
+            }
+            """, retainedAsyncScopes: true);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAVT006");
     }
 

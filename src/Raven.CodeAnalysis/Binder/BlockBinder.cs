@@ -1287,6 +1287,7 @@ partial class BlockBinder : Binder
 
     private bool UseRequiresSuspensionCleanup(SyntaxNode declaration)
     {
+        var allowAsync = Compilation.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup == true;
         var function = declaration.Ancestors().FirstOrDefault(node => node is
             MethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax or AccessorDeclarationSyntax);
         if (function is not null && function.ChildNodes().Any(Compilation.ContainsYieldOutsideNestedFunctions))
@@ -1297,13 +1298,13 @@ partial class BlockBinder : Binder
             switch (current.ContainingSymbol)
             {
                 case SourceLambdaSymbol lambda:
-                    return lambda.IsAsync || lambda.IsIterator;
+                    return (lambda.IsAsync && !allowAsync) || lambda.IsIterator;
                 case SourceMethodSymbol method:
-                    return method.IsAsync || method.IsIterator;
+                    return (method.IsAsync && !allowAsync) || method.IsIterator;
                 case ILambdaSymbol lambda:
-                    return lambda.IsAsync;
+                    return lambda.IsAsync && !allowAsync;
                 case IMethodSymbol method:
-                    return method.IsAsync;
+                    return method.IsAsync && !allowAsync;
             }
         }
         return false;

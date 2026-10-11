@@ -4020,3 +4020,15 @@ The native POC additionally accepts exact Wait mappings for reference awaiters,
 including types independent of Task<T>. This does not generalize async method return
 types or introduce a stable metadata interface. See the
 [independent-operation boundary](neoclr-cli-bridge.md#independent-operation-await-mapping-2026-10-11).
+
+
+### Retained async scope cleanup (2026-10-11)
+
+RuntimeDisposalContract adds optional AllowAsyncScopeExitCleanup (default false).
+This is an explicit backend capability: synchronous Dispose calls can use ordinary
+scope-exit cleanup when the backend retains scopes across async suspension and routes
+all normal/cancelled completion exits through that cleanup. It does not enable iterator
+cleanup, DisposeAsync, exception capture or terminal-Fault unwinding. The native
+`--runtime-async-poc` driver selects it; normal .NET/neoCLR compilation stays unchanged.
+Native lowering rewrites cancellation to a return before the synchronous retained-body
+LowerBlock pass expands use cleanup. See the native bridge qualification below.

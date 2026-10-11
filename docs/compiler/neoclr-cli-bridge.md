@@ -9781,3 +9781,36 @@ with RAV0330; omitting the contract module fails loading. Both heap observations
 reclaim all 3,064 allocated objects. Evidence is recorded under neoCLR's
 `docs/experiments/runtime-async/runtime-contract-validation.json` and
 `runtime-contract-heap.json`. No performance conclusion is drawn from this fixture.
+
+
+### Managed HTTP and retained async cleanup (2026-10-11)
+
+The neoCLR HTTP client/server showcase sources now execute with the explicit native
+runtime-async provider. Application async bodies emit no state machines; referenced
+runtime libraries retain their existing implementation. A same-process consumer runs
+eight exchanges, awaits scheduled work in the handler, collects while requests are
+pending and uses synchronous HttpClient disposal across awaits.
+
+The target previously rejected all async use declarations (RAVT006). The new
+RuntimeDisposalContract.AllowAsyncScopeExitCleanup capability, false by default, is
+selected only by the explicit native runtime-async CLI path. Original use declarations
+survive into the retained synchronous body, where existing scope-exit lowering inserts
+Dispose on explicit/implicit returns and cancellation exits. Iterator cleanup remains
+rejected. Scope cleanup runs on ordinary exits, not invocation-terminal Fault; this
+preserves the target's exception-free semantics rather than importing CLR finally
+unwinding. The runtime owns suspended frame roots. Unit and cancelled completion
+cannot publish the managed Task outcome until the retained body has performed cleanup.
+
+Validation: pending resources survive GC; successful and cancelled exits dispose twice
+in reverse declaration order; implicit unit completion disposes once. The same source
+without the runtime-async provider is still rejected. Existing scope-exit tests plus
+explicit capability/iterator checks qualify compiler behavior. neoCLR records executable
+HTTP, cleanup and heap evidence in `docs/experiments/runtime-async/`. A client peer uses
+HTTP/1.1 (the tested library's supported version) and localhost DNS; a server peer checks
+the exact UTF-8 response and pending-accept queued work.
+
+No default switch, project-level provider selection, JIT/AOT suspension or rebuilt
+runtime library is claimed. Source-provider/signature constraints remain; replace the
+bridge as managed execution matures. This work stays on the native compiler branch.
+The disposal capability is a potential general API candidate, but promotion to Raven
+main is deferred until a main-line backend needs and independently qualifies it.
