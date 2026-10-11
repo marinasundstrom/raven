@@ -1176,6 +1176,8 @@ partial class BlockBinder
 
     private bool TryClassifyAwaitForEnumerator(ITypeSymbol collectionType, out ForIterationInfo iteration)
     {
+        if (Compilation.Options.RuntimeIterationContract is { Async: not null } contract)
+            return TryClassifyTargetIteration(collectionType, contract, out iteration, out _, async: true);
         if (collectionType is INamedTypeSymbol namedType)
         {
             if (TryClassifyAsyncPatternGetEnumerator(namedType, out iteration))
@@ -2769,6 +2771,8 @@ partial class BlockBinder
     {
         var errorType = Compilation.ErrorTypeSymbol;
         var returnType = method.ReturnType;
+        if (method.IsAsync && AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, returnType, out var selectedKind, out var selectedElement))
+            return (selectedKind, selectedElement);
 
         if (returnType.SpecialType == SpecialType.System_Collections_IEnumerable)
         {

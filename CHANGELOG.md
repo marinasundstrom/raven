@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Add an explicit backend capability for binding generator bodies
+  against selected async iteration interfaces, including namespace functions and
+  async yield delegation. Ordinary .NET defaults remain unchanged; the capability
+  requires a target-specific producer backend and does not itself enable emission.
+
 - **2026-10-11:** Preserve labelled break/continue targets when lowering `await for`.
   Labels now remain on the advancement loop inside its cleanup scope, so labelled
   exits await disposal and labelled continuation advances the iterator.

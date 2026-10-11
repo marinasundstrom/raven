@@ -4,6 +4,28 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncReturnTypeUtilities
 {
+    // This is a backend capability, separate from selecting consumption interfaces.
+    internal static bool TryGetRuntimeIterator(Compilation compilation, ITypeSymbol? type,
+        out IteratorMethodKind kind, out ITypeSymbol element)
+    {
+        kind = IteratorMethodKind.None;
+        element = compilation.ErrorTypeSymbol;
+        if (compilation.Options.RuntimeIterationContract is not { Async: { AllowGeneratorBodies: true } selected } contract ||
+            type is not INamedTypeSymbol { TypeArguments.Length: 1 } named)
+            return false;
+        var definition = named.OriginalDefinition;
+        if (definition.ContainingAssembly?.Name != contract.AssemblyName || definition.TypeKind != TypeKind.Interface)
+            return false;
+        if (SymbolEqualityComparer.Default.Equals(definition, compilation.GetTypeByMetadataName(selected.IterableTypeName)))
+            kind = IteratorMethodKind.AsyncEnumerable;
+        else if (SymbolEqualityComparer.Default.Equals(definition, compilation.GetTypeByMetadataName(selected.IteratorTypeName)))
+            kind = IteratorMethodKind.AsyncEnumerator;
+        else
+            return false;
+        element = named.TypeArguments[0];
+        return true;
+    }
+
     internal static bool IsNonGenericTaskLike(ITypeSymbol type)
     {
         type = type.GetNonNullableType();

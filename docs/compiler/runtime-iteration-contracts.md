@@ -132,3 +132,23 @@ This contract selects iteration symbols; it does not select an exception model o
 change cleanup lowering. Iterator disposal and structured cleanup must be validated
 separately for a target. A target lacking the required cleanup facilities cannot gain
 correct disposal merely by renaming its iterable interfaces.
+
+## Selected generator bodies (2026-10-11)
+
+`RuntimeAsyncIterationContract.AllowGeneratorBodies` defaults to false. A backend
+that implements producer lowering can explicitly enable it. Async functions returning
+the selected nominal iterable or iterator interface then bind as async generators;
+this includes generic element arguments and namespace-level functions. Async
+`yield from` classifies the selected consumption protocol before synchronous fallback.
+Assembly identity, interface kind and generic arity remain checked.
+
+This is a binding capability, not a portable producer implementation. Ordinary .NET
+continues to use IAsyncEnumerable/IAsyncEnumerator and its existing state machines.
+A custom target must supply synthesis and qualify disposal, cancellation and lifetime
+independently. The neoCLR retained-body experiment opts in at its backend boundary;
+its source-method generic limitations do not constrain this shared binding contract.
+
+Validation: 36 RuntimeIterationContractTests pass on .NET 11, including opt-in and
+opt-out generator binding for both return shapes and namespace functions. The prior
+70-case runtime-iteration/async-iterator/delegation baseline passed before this change.
+These binding tests do not claim executable custom-generator support on .NET.
