@@ -21,7 +21,7 @@ public sealed class AsyncCancellationPolicyTests
     }
 
     [Fact]
-    public void AwaitInForLoopIsRejectedUntilIterationCleanupIsSuspensionAware()
+    public void AwaitInForLoopUsesTheOrdinaryCancellationProtocolChecks()
     {
         const string source = """
 import System.Threading.Tasks.*
@@ -35,7 +35,9 @@ class Program {
         var compilation = Compilation.Create("cancellation-loop",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAsyncCancellationPropagation(true))
             .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(TestMetadataReferences.Default);
-        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV2712");
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV2712");
+        Assert.Contains(diagnostics, d => d.GetMessage().Contains("IsCancelled", StringComparison.Ordinal));
     }
 
     [Theory]

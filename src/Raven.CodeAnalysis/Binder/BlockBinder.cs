@@ -3361,14 +3361,6 @@ partial class BlockBinder : Binder
 
         if (Compilation.Options.PropagateAsyncCancellation)
         {
-            var sourceScopes = awaitExpression.Ancestors().TakeWhile(node => node is not
-                (BaseMethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax or FunctionExpressionSyntax));
-            if (sourceScopes.Any(node => node is ForStatementSyntax))
-            {
-                _diagnostics.ReportAsyncCancellationUnsupportedContext(awaitExpression.GetLocation());
-                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
-            }
-
             var cancellation = AsyncCancellationProtocol.FindIsCancelled(awaitable.AwaiterType);
             if (cancellation is null || !IsSymbolAccessible(cancellation.GetMethod!))
             {

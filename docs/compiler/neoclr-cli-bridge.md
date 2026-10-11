@@ -640,3 +640,24 @@ hosts main, while `Raven` hosts the native line. No branches were merged or dele
 The property/attribute recursion fix on main passes 74 focused attribute, obsolete,
 namespace, import, alias, multi-file and file-scoped codegen tests on .NET 11.
 Native bundle qualification remains separate and pending.
+
+## Await in synchronous for loops (2026-10-11)
+
+The shared compiler normalizes synchronous iteration before async capture analysis.
+Array/range positions and iterators become bound locals; generated state machines
+can retain them across suspension. Value-type receiver calls address saved fields,
+and branches leaving protected regions use CLI `leave`. Finally blocks run only
+on a source-scope exit, not on a suspended `MoveNext` return. This repairs ordinary
+.NET execution and removes the RAV2712 blanket restriction under cancellation
+propagation; awaiter-protocol and ref-safety checks are unchanged.
+
+No new Runtime Contract option or metadata encoding is introduced. Ordinary .NET
+uses protected cleanup. The native compiler line must select its existing explicit
+scope-disposal contract and independently qualify state-machine and retained-body
+execution; it remains separate from main. Native metadata/codegen should represent
+iteration lifetime and suspension directly rather than relying on this CLI bridge.
+
+Validation on shared main covers pending awaits in reference/value-type iterators,
+arrays and ranges, cancellation/faults, early and labeled outer-loop exits, and
+cleanup before a subsequent await. Native bundle revisions and runtime evidence
+are recorded separately in neoCLR's integration documentation.

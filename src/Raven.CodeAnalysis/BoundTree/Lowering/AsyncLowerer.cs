@@ -248,6 +248,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        body = AsyncForLowerer.Rewrite(symbol, body);
         var compilation = GetCompilation(symbol);
         if (!compilation.IsRuntimeAsyncEnabled)
         {
@@ -319,6 +320,12 @@ internal static class AsyncLowerer
                     if (tryStatement.CatchClauses.Any(catchClause => catchClause.Block.Statements.Any(Contains)))
                         return true;
                     return tryStatement.FinallyBlock?.Statements.Any(Contains) == true;
+                case BoundWhileStatement loop:
+                    return Contains(loop.Body);
+                case BoundLoopStatement loop:
+                    return Contains(loop.Body);
+                case BoundForStatement loop:
+                    return Contains(loop.Body);
                 case BoundIfStatement ifStatement:
                     if (Contains(ifStatement.ThenNode))
                         return true;
@@ -2289,8 +2296,14 @@ internal static class AsyncLowerer
             if (node.FinallyBlock is not null)
             {
                 finallyBlock = (BoundBlockStatement)VisitBlockStatement(node.FinallyBlock)!;
-                if (!ReferenceEquals(finallyBlock, node.FinallyBlock))
-                    changed = true;
+                // Returning from MoveNext to suspend is not a source-scope exit.
+                // Resume resets the state to -1 before normal completion/throw.
+                var state = new BoundFieldAccess(_stateMachine.StateField);
+                var zero = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0, state.Type);
+                BoundBinaryOperator.TryLookup(_stateMachine.Compilation, SyntaxKind.LessThanToken, state.Type, zero.Type, out var less);
+                finallyBlock = new BoundBlockStatement([new BoundIfStatement(
+                    new BoundBinaryExpression(state, less!, zero), finallyBlock)]);
+                changed = true;
             }
 
             if (changed)
