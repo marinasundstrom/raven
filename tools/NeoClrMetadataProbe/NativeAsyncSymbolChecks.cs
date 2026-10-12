@@ -17,7 +17,7 @@ internal static class NativeAsyncSymbolChecks
         var owner = native.Definition.Name;
         Compilation Create(string? selected, TargetPlatform platform = TargetPlatform.NeoCLR) => Compilation.Create("AsyncContract",
             [SyntaxTree.ParseText("""
-                import System.Tasks.*
+                import System.Concurrency.Tasks.*
                 async func Value() -> Task<int> { return 42 }
                 async func Forward(value: Task<int>) -> Task<int> { return await value }
                 class Worker {
@@ -33,7 +33,7 @@ internal static class NativeAsyncSymbolChecks
                 .WithRuntimeTypeOfContract(null).WithTargetPlatform(platform)
                 .WithMetadataImportOptions(new MetadataImportOptions(core.Identity.Name).WithAsyncAssemblyName(selected)));
         var unselected = Create(null);
-        if (unselected.GetTypeByMetadataName("System.Tasks.Task`1")!.SpecialType != SpecialType.None)
+        if (unselected.GetTypeByMetadataName("System.Concurrency.Tasks.Task`1")!.SpecialType != SpecialType.None)
             throw new Exception("unselected native Task acquired a special identity");
         if (!unselected.GetDiagnostics().Any(d => d.Id == "RAV2704"))
             throw new Exception("unselected native async contract unexpectedly accepted");
@@ -41,7 +41,7 @@ internal static class NativeAsyncSymbolChecks
         var task = selected.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T);
         var builder = selected.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T);
         if (task.ContainingAssembly.Name != owner || builder.ContainingAssembly.Name != owner ||
-            !ReferenceEquals(task, ((IAssemblySymbol)selected.GetAssemblyOrModuleSymbol(native)!).GetTypeByMetadataName("System.Tasks.Task`1")))
+            !ReferenceEquals(task, ((IAssemblySymbol)selected.GetAssemblyOrModuleSymbol(native)!).GetTypeByMetadataName("System.Concurrency.Tasks.Task`1")))
             throw new Exception("native async selection used a different owner");
         var diagnostics = selected.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (diagnostics.Length != 0) throw new Exception(string.Join("\n", diagnostics.Select(d => d.ToString())));
@@ -67,7 +67,7 @@ internal static class NativeAsyncSymbolChecks
         if (seedPath is not null)
         {
             var entry = Compilation.Create("AsyncEntry", [SyntaxTree.ParseText("""
-                import System.Tasks.*
+                import System.Concurrency.Tasks.*
                 async func Main() -> Task<int> { return 23 }
                 """)], [bootstrap.Reference, native], selected.Options.WithOutputKind(OutputKind.ConsoleApplication));
             foreach (var includeRuntime in new[] { true, false })
@@ -93,7 +93,7 @@ internal static class NativeAsyncSymbolChecks
             }
         }
         var unsupportedEntry = Compilation.Create("UnsupportedEntry", [SyntaxTree.ParseText("""
-            import System.Tasks.*
+            import System.Concurrency.Tasks.*
             async func Main() -> Task<System.Result<int, string>> { return default }
             """)], [bootstrap.Reference, native], selected.Options.WithOutputKind(OutputKind.ConsoleApplication));
         using (var output = new MemoryStream())
@@ -107,8 +107,8 @@ internal static class NativeAsyncSymbolChecks
         }
         foreach (var source in new[]
         {
-            "import System.Tasks.*\nclass Worker<T> { public async func Value(value: T) -> Task<T> { return value } }",
-            "import System.Tasks.*\nasync func Value<T>(value: T) -> Task<T> { return value }"
+            "import System.Concurrency.Tasks.*\nclass Worker<T> { public async func Value(value: T) -> Task<T> { return value } }",
+            "import System.Concurrency.Tasks.*\nasync func Value<T>(value: T) -> Task<T> { return value }"
         })
         {
             var unsupported = Compilation.Create("UnsupportedAsync", [SyntaxTree.ParseText(source)],
@@ -124,7 +124,7 @@ internal static class NativeAsyncSymbolChecks
                 throw new Exception("unsupported async shape published output");
         }
         var malformed = new AssemblyBuilder(new("MalformedAsync", new(1, 0, 0, 0)), core.Identity);
-        malformed.AddGenericInterface("System.Tasks", "Task", ["T"]);
+        malformed.AddGenericInterface("System.Concurrency.Tasks", "Task", ["T"]);
         malformed.AddGenericValueType("System.Runtime.CompilerServices", "AsyncTaskMethodBuilder", ["T"]);
         var malformedReference = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteLibraryBinary(malformed), bootstrap);
         var malformedCompilation = Compilation.Create("MalformedConsumer", [], [bootstrap.Reference, malformedReference],

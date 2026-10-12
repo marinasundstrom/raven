@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Move the explicit neoCLR Task identity to System.Concurrency.Tasks
+  across source, native and temporary CLI provider selection. Keep ordinary .NET
+  Task mapping unchanged; consumers require matching renamed native libraries.
+  Eighteen focused provider/entrypoint tests pass before and after the migration;
+  the native compiler builds with the matching metadata project.
+
 - **2026-10-12:** Carry main `a459d4467` expression-position async return lowering.
   Early returns in match arms complete the selected builder instead of returning
   a value from native void MoveNext. The async-first source runtime library now

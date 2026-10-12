@@ -172,7 +172,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
                 return (ContainingNamespace?.ToMetadataName() + "." + MetadataName) switch
                 {
                     "System.Runtime.CompilerServices.AsyncStateMachine" => SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine,
-                    "System.Tasks.Task`1" => SpecialType.System_Threading_Tasks_Task_T,
+                    "System.Concurrency.Tasks.Task`1" => SpecialType.System_Threading_Tasks_Task_T,
                     "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1" => SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
                     _ => SpecialType.None
                 };

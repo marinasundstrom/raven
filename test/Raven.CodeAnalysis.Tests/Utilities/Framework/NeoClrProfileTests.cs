@@ -13,7 +13,7 @@ public sealed class NeoClrProfileTests
     public void ExplicitAsyncProviderCanOwnSourceDeclarations(string assemblyName, string provider, bool selected)
     {
         var syntax = SyntaxTree.ParseText("""
-            namespace System.Tasks {
+            namespace System.Concurrency.Tasks {
                 public class Task<T> { }
             }
             namespace System.Runtime.CompilerServices {

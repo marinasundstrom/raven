@@ -10246,3 +10246,16 @@ CLI representation is introduced. Main's four new settled/pending match-arm test
 and existing pattern receiver test pass; the complete source System.Runtime emits
 with the selected source-owned async provider. Downstream runtime tests remain a
 separate consumer gate.
+
+
+## Task namespace migration — 2026-10-12
+
+The explicit neoCLR async-provider mapping now selects
+`System.Concurrency.Tasks.Task<T>` from the configured source/imported provider.
+The System.Runtime assembly ownership and builder/state-machine protocols remain
+unchanged. .NET compilation retains System.Threading.Tasks. This is a breaking
+native/temporary CLI identity migration, requiring matching runtime libraries and
+compiler; no forwarding alias or additional CLI encoding is introduced. Runtime
+owners update scheduler guards and consumers together. Focused provider/entrypoint
+checks and native library execution are the validation gates; historical fixtures
+and published compiler docs retain their original toolchain identities where noted.

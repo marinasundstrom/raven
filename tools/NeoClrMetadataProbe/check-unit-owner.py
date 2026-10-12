@@ -17,7 +17,7 @@ for spelling in ('System.Void', 'unit'):
     work = output / ('nominal' if spelling == 'System.Void' else 'unit')
     work.mkdir()
     (work / 'Main.rvn').write_text('''import System.*
-import System.Tasks.*
+import System.Concurrency.Tasks.*
 union RequestError {
     case Failed
 }
