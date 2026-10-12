@@ -13,6 +13,40 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("IEnumerable<KeyValuePair<K, V>>", "IEqualityComparer<K>")]
+    [InlineData("string", "string")]
+    public void MethodGroups_DoNotMatchUnrelatedConstructorParameters(string first, string second)
+    {
+        var source = $$"""
+import System.Collections.Generic.*
+class Map<K, V> {
+    init(equal: (K, K) -> bool, hash: K -> int) { }
+    init(items: {{first}}, comparer: {{second}}) { }
+}
+func Same(left: int, right: int) -> bool => left == right
+func Hash(value: int) -> int => value
+let map = Map<int, string>(Same, Hash)
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol);
+        Assert.Equal(TypeKind.Delegate, constructor.Parameters[0].Type.TypeKind);
+    }
+
+    [Fact]
+    public void MethodGroup_NaturalFunctionTypeStillConvertsToObject()
+    {
+        const string source = """
+func Read(value: int) -> int => value
+func Accept(value: object) { }
+Accept(Read)
+""";
+        var (compilation, _) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
     [InlineData("Read(1)")]
     [InlineData("self.Read(1)")]
     public void OverrideAndBaseDeclaration_AreOneUnqualifiedCandidate(string call)

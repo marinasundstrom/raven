@@ -82,3 +82,18 @@ branch paired with a single non-nullable type becomes that type's nullable form.
 When multiple distinct types remain, the collector produces a union; otherwise the
 single type is returned. The inferred (and normalized) result is used as the
 default type when assigning the result to a declaration without an explicit annotation.
+
+### Method groups and unrelated overload parameters
+
+Method groups carry a placeholder error type before conversion. Overload applicability
+must not use error-recovery identity conversions from that placeholder to admit
+unrelated parameters. Delegate targets retain signature compatibility checking;
+other named targets use the group's natural function type for ordinary conversion
+classification. For example, function arguments select a comparer/hash constructor
+over an iterable/comparer constructor. Natural function-to-Object conversion remains
+available. This is shared .NET binding behavior; no Runtime Contract setting or
+metadata encoding changes.
+
+Validation: the overload-resolution feature suite passes 415 tests, plus 69 focused
+semantic/codegen tests. The pre-fix suite reproduced only the two new constructor
+regressions (413 existing checks passed).

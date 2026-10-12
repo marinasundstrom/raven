@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Fix method-group overload applicability against unrelated named
+  parameter types. Classify the natural function type rather than the placeholder
+  error type, preserving function-to-Object conversion and delegate signature checks.
+  This removes false constructor ambiguity exposed by collection copy overloads;
+  ordinary .NET semantics and Runtime Contract configuration remain unchanged.
+
 - **2026-10-12:** Fix Int32 literal patterns against Int64 subjects in .NET
   emission. Compare values at Int64 width instead of using differently typed
   boxed Object.Equals; preserve mismatches with identical low 32 bits. Add
