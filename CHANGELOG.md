@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Traverse unary operands in bound-tree analyses so awaits inside
+  expressions such as `!(await gate)` retain `use` resources across suspension.
+  Fix invalid .NET state-machine code and missing native resource capture without
+  changing Runtime Contracts or metadata. Cover completed and suspended Boolean
+  results with exactly-once cleanup checks.
+
 - **2026-10-12:** RavenDoc includes protected and protected-internal subclass
   contracts in member pages and cross-references, including constructors. Private,
   internal and private-protected members remain excluded. Suppress extension

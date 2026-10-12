@@ -13,6 +13,68 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class AsyncResourceLifetimeCodeGenTests
 {
     [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task AwaitUnderUnaryOperator_PreservesResourceUntilScopeExit(bool value, bool suspend)
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class Probe(trace: List<string>) : IDisposable {
+    func Dispose() -> () {
+        trace.Add("disposed")
+    }
+}
+
+class Program {
+    static async func Run(trace: List<string>, gate: Task<bool>) -> Task<int> {
+        use resource = Probe(trace)
+        trace.Add("entered")
+        if !(await gate) {
+            trace.Add("false")
+            return 10
+        }
+        trace.Add("true")
+        return 20
+    }
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("async-unary-resource", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source))
+            .AddReferences(references);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        var method = loaded.Assembly.GetType("Program")!.GetMethod("Run")!;
+        var trace = new List<string>();
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!suspend)
+            gate.SetResult(value);
+        var task = Assert.IsAssignableFrom<Task<int>>(method.Invoke(null, [trace, gate.Task]));
+        try
+        {
+            if (suspend)
+            {
+                Assert.False(task.IsCompleted);
+                Assert.Equal(new[] { "entered" }, trace);
+                gate.SetResult(value);
+            }
+            Assert.Equal(value ? 20 : 10, await task.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(new[] { "entered", value ? "true" : "false", "disposed" }, trace);
+        }
+        finally
+        {
+            gate.TrySetResult(value);
+        }
+    }
+
+    [Theory]
     [InlineData("return", true)]
     [InlineData("recover", true)]
     [InlineData("throw", true)]

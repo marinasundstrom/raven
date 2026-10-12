@@ -193,6 +193,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Condition);
     }
 
+    public override void VisitUnaryExpression(BoundUnaryExpression node)
+    {
+        VisitExpression(node.Operand);
+    }
+
     public override void VisitBinaryExpression(BoundBinaryExpression node)
     {
         VisitExpression(node.Left);
