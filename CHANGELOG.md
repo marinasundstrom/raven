@@ -6,7 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-10-12:** Carry RavenDoc protected/protected-internal subclass-contract
   documentation from main `08b5ef0b0`, preserving private/internal exclusions.
-  Main generation tests pass 38 cases; native-line publisher qualification uses
+  Carry `10b3565d7` to omit duplicate extension-indexer accessors and their broken
+  receiver-page links. Main generation tests pass 38 cases; native-line publisher qualification uses
   the neoCLR HTTP handler website reference. No compiler/runtime contract changes.
 
 - **2026-10-12:** Allow explicit `self` initialization of readonly stored members

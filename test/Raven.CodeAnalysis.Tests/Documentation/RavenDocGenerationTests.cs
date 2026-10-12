@@ -565,6 +565,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 func Extra() -> int => 4
                 func Repeat(count: int = 2) -> int => count
                 val ExtraValue: int => 7
+                val self[index: int]: int => index
                 static func From(value: Derived) -> int => 1
                 static func DefaultCount() -> int => 1
                 static val DefaultValue: int => 2
@@ -598,6 +599,10 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var options = new DocumentationSiteOptions([], ExtensionNamespaces: ["Relationships"], ApiContent: content);
             if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output, options);
             else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, options);
+            var receiverPage = File.ReadAllText(Path.Combine(output, "Relationships/Derived/index.html"));
+            receiverPage.ShouldContain("../Extras/indexer_Item.html");
+            receiverPage.ShouldNotContain("method_get_Item.html");
+            File.Exists(Path.Combine(output, "Relationships/Extras/indexer_Item.html")).ShouldBeTrue();
             var modulePage = File.ReadAllText(Path.Combine(output, "Relationships/index.html"));
             modulePage.ShouldContain("id=\"type-extensions\"");
             modulePage.ShouldContain(metadata ? "GenericExtras for IGeneric&lt;T&gt;" : "GenericExtras&lt;T&gt; for IGeneric&lt;T&gt;");
