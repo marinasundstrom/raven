@@ -16,6 +16,10 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--native-foreign-source", var foreignSourceCore, var foreignSourceLibrary, var foreignSourceOutput, var foreignSource]) { NativeForeignChecks.Run(foreignSourceCore, foreignSourceLibrary, foreignSourceOutput, foreignSource); return; }
+
+if (args is ["--native-foreign", var foreignCore, var foreignLibrary, var foreignOutput]) { NativeForeignChecks.Run(foreignCore, foreignLibrary, foreignOutput); return; }
+
 if (args is ["--native-friends", var friendCore, var friendOutput]) { NativeFriendChecks.Run(friendCore, friendOutput); return; }
 
 if (args is ["--native-attributes", var attributeCore]) { NativeAttributeChecks.Run(attributeCore); return; }
