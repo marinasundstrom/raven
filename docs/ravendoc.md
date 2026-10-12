@@ -1013,3 +1013,8 @@ members remain excluded. The same selection governs member pages and cross-refer
 This is publisher visibility, not a change to language accessibility, Runtime Contract
 configuration or emitted metadata. A .NET metadata fixture verifies inclusion and
 exclusion; neoCLR integration validates the HTTP handler reference pages.
+
+Applicable extension properties and indexers appear once on receiver pages. Their
+implementation accessors do not appear as separate callable methods or links.
+Source and metadata fixtures verify that the logical indexer page exists and
+receiver pages do not link to nonexistent getter-method pages.

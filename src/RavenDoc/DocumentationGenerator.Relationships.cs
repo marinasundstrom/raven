@@ -335,6 +335,7 @@ public static partial class DocumentationGenerator
         var result = ExtensionModel.LookupApplicableExtensionMembers(receiver);
         var members = result.InstanceMethods.Cast<ISymbol>().Concat(result.StaticMethods)
             .Concat(result.InstanceProperties).Concat(result.StaticProperties)
+            .Where(member => member is not IMethodSymbol { AssociatedSymbol: not null })
             .Where(member => IsDocumentationExtension(member) && IsPubliclyVisible(member) &&
                 CurrentSiteOptions.ExtensionNamespaces!.Contains(GetNamespaceFullName(member.ContainingNamespace)) &&
                 (CurrentSiteOptions.ExtensionMembers is not { Count: > 0 } selected || selected.Contains(GetXrefId(member))))

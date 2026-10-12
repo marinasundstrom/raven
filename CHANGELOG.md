@@ -6,7 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 - **2026-10-12:** RavenDoc includes protected and protected-internal subclass
   contracts in member pages and cross-references, including constructors. Private,
-  internal and private-protected members remain excluded.
+  internal and private-protected members remain excluded. Suppress extension
+  accessor implementation methods from receiver pages, retaining the linked
+  property/indexer instead of broken duplicate getter links.
 
 - **2026-10-12:** Allow explicit `self` initialization of readonly stored members
   and getter-only auto-properties in generic constructors. Check the source property
