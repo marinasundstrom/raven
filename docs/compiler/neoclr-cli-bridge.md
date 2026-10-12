@@ -10315,3 +10315,16 @@ and the managed TLS/networking and HTTP libraries emit against the explicit core
 and runtime seed. Runtime HTTPS execution remains a separate integration gate.
 Native CLI errors now include their source file/line/column when available, helping
 identify failures whose lowered nodes previously reported only a diagnostic message.
+
+### Foreign import symbol readback (2026-10-12)
+
+Native imported method symbols now report IsExtern from the native ABI descriptor.
+Namespace functions and static class imports retain that classification; ordinary
+managed methods remain non-extern. The public metadata MethodInfo.NativeImport view
+preserves descriptor data without loading libraries or synthesizing source attributes.
+This follows the .NET distinction between external and managed method symbols while
+using native metadata rather than CLI PInvoke flags. Runtime Contract configuration
+and emission are unchanged. Reference-only CLI stubs remain lossy; native artifact
+inspection is authoritative. The neoCLR compiler line owns symbol projection and the
+metadata API owns descriptor decoding. The foreign-import probe checks readback for
+all ten source cases, including missing-library/export names, before execution.

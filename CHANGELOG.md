@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Preserve IsExtern for imported neoCLR native functions and static
+  methods using the metadata ABI descriptor; managed methods stay non-extern.
+  Add binary artifact symbol readback to all ten native-import probe cases.
+  Runtime Contract configuration and reference-only CLI projection are unchanged.
+
 - **2026-10-12:** Fix portable native lowering for pattern subjects containing suspension
   or early returns, exact-type declaration-pattern assignments and implicit reads of
   original reference-instance fields inside async state machines. Preserve empty-stack

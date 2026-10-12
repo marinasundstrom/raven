@@ -70,6 +70,16 @@ internal static class NativeForeignChecks
             var artifact = RuntimeAssemblyContainer.WriteBinary(native, core);
             var reread = AssemblyDefinition.ReadNativeAssembly(artifact);
             if (reread.MainModule.Methods.Count(m => m.NativeImport is not null) != 1) throw new Exception("native import lost on reread");
+            var importedReference = NeoClrMetadataReference.ReadAssembly(artifact, bootstrap);
+            var inspector = Compilation.Create(name + "Inspector", [], [bootstrap.Reference, importedReference],
+                CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name));
+            _ = inspector.GetTypeByMetadataName("System.Object");
+            var assembly = (IAssemblySymbol)inspector.GetAssemblyOrModuleSymbol(importedReference)!;
+            var methods = assembly.GlobalNamespace.GetMembers().OfType<IMethodSymbol>()
+                .Concat(assembly.GlobalNamespace.GetTypeMembers().SelectMany(t => t.GetMembers().OfType<IMethodSymbol>()))
+                .Where(m => m.MethodKind == MethodKind.Ordinary).ToArray();
+            if (methods.Count(m => m.IsExtern) != 1 || methods.Single(m => m.Name == "Main").IsExtern)
+                throw new Exception(name + ": imported native/managed method classification lost");
             File.WriteAllText(Path.Combine(output, name + ".rvn"), source);
             File.WriteAllBytes(Path.Combine(output, name + ".dll"), artifact);
             Console.WriteLine("PASS " + name);
