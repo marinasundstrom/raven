@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Carry main `86bfabafd` top-level async fixes: resolve framework
+  Task types through compilation references and declare compilation-unit functions
+  before emitting method bodies. Restore normal .NET Task/Task<int> entry bridges;
+  target-owned native Main adaptation and Runtime Contracts remain unchanged.
+
 - **2026-10-12:** Carry main `99ae011b4` unary-operand traversal into the neoCLR
   compiler line. Awaited unary conditions now capture live `use` resources rather
   than emitting invalid resume-path local reads. The native project reproducer and

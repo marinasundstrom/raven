@@ -127,3 +127,27 @@ completed/suspended true/false cases which fail before the fix. The broader
 functions/async selection passes 132 of 147 cases; all 15 failures also reproduce
 with the unchanged walker, in top-level async/closure/entrypoint coverage. They
 remain separate baseline gaps, not qualification of those features.
+
+### Synthesized async entrypoint task lookup
+
+A top-level await synthesizes a task-returning implementation and a synchronous
+process-entry bridge. Resolve `Task`/`Task<int>` through the compilation's reference
+graph, not through the source assembly's declaration-only lookup. Framework task
+types normally live in a referenced assembly. Falling back to Unit in that case
+loses the asynchronous contract and can let the process return before work finishes.
+
+This restores ordinary .NET entrypoint semantics; no Runtime Contract option,
+metadata encoding or new entrypoint API is introduced. Explicit target-owned Main
+adaptation remains separate. Existing top-level-await symbol and executing closure
+regressions cover both task shape and completion behavior.
+
+Compilation-unit functions must also be declared alongside the synthesized Program
+members before any method bodies are emitted. Deferring their registration to the
+ordinary compilation-unit body makes async MoveNext calls depend on emission order.
+Both ordinary and async top-level programs now use member declaration for those
+functions. A dedicated execution regression awaits a top-level function and checks
+exit code 42.
+
+Follow-through validation (2026-10-12): all 148 functions/async cases pass with
+reference-aware task lookup and early function declaration. This closes the 15
+baseline failures recorded above, including executing captured async functions.

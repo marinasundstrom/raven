@@ -208,6 +208,9 @@ await Task.CompletedTask
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
 
+        // Task belongs to a referenced framework assembly, not the source assembly.
+        Assert.Null(program.ContainingAssembly.GetTypeByMetadataName("System.Threading.Tasks.Task"));
+        Assert.Same(compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"), asyncMain.ReturnType);
         Assert.True(asyncMain.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
 

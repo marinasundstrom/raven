@@ -10205,3 +10205,14 @@ carry. Main's resource-lifetime regression passes all 18 cases; its broader asyn
 selection has 15 independently reproduced pre-existing failures. Native host
 qualification is recorded in neoCLR's `docs/experiments/async-unary-cleanup/README.md`
 and HTTPS project evidence. Windows execution is not established by macOS results.
+
+### Top-level .NET async follow-through
+
+Carry main `86bfabafd` separately: synthesized .NET MainAsync resolves Task types
+from compilation references and compilation-unit functions are declared before
+method-body emission. Main's complete functions/async selection now passes 148
+cases, closing the 15 baseline failures noted above. This is shared compiler/.NET
+emission work, not a new native runtime startup contract, metadata or bridge format.
+Explicit target-owned Main selection is unchanged. The neoCLR compiler branch's
+ordinary .NET CLI path is qualified with a top-level awaited function returning
+exit code 42; native HTTPS project emission retains separate validation.
