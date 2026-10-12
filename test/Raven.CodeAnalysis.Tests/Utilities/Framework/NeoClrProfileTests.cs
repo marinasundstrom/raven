@@ -7,6 +7,41 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class NeoClrProfileTests
 {
+    [Theory]
+    [InlineData("SourceTasks", "SourceTasks", true)]
+    [InlineData("SourceTasks", "OtherTasks", false)]
+    public void ExplicitAsyncProviderCanOwnSourceDeclarations(string assemblyName, string provider, bool selected)
+    {
+        var syntax = SyntaxTree.ParseText("""
+            namespace System.Tasks {
+                public class Task<T> { }
+            }
+            namespace System.Runtime.CompilerServices {
+                public interface AsyncStateMachine { }
+                public class AsyncTaskMethodBuilder<T> { }
+            }
+            """);
+        var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime").WithAsyncAssemblyName(provider));
+        var compilation = Compilation.Create(assemblyName, [syntax], TestMetadataReferences.Default, options);
+        foreach (var special in new[] {
+            SpecialType.System_Threading_Tasks_Task_T,
+            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine })
+        {
+            var type = compilation.GetSpecialType(special);
+            if (selected)
+            {
+                Assert.Equal(special, type.SpecialType);
+                Assert.Same(compilation.Assembly, type.ContainingAssembly);
+            }
+            else
+            {
+                Assert.Equal(TypeKind.Error, type.TypeKind);
+            }
+        }
+    }
+
     [Fact]
     public void NativeMetadataSelectionIsExplicitAndImmutable()
     {

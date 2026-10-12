@@ -10216,3 +10216,22 @@ emission work, not a new native runtime startup contract, metadata or bridge for
 Explicit target-owned Main selection is unchanged. The neoCLR compiler branch's
 ordinary .NET CLI path is qualified with a top-level awaited function returning
 exit code 42; native HTTPS project emission retains separate validation.
+
+## Source-owned native async provider — 2026-10-12
+
+RavenNeoClrAsyncLibrary may select the current source assembly, in addition to an
+explicit imported native assembly. Source declaration lookup classifies the selected
+System.Tasks.Task<T>, System.Runtime.CompilerServices.AsyncTaskMethodBuilder<T> and
+AsyncStateMachine identities and validates their public shapes. Other source
+assemblies and ordinary .NET compilation do not gain these identities implicitly.
+
+The root neoCLR System.Runtime project uses this to author async stream adapters.
+Nested generated machines preserve their source Object base and enclosing owner;
+the matching metadata builder supports nested classes rooted in that assembly's
+native Object. No new CLI bridge encoding or metadata row kind is introduced.
+The native backend and neoCLR metadata library own this integration; the legacy
+CLI execution bridge is not extended to execute these stream signatures. Focused
+compiler provider/profile validation: 38 pass. Metadata authoring/native round-trip
+validation: neoCLR --generic-object-roots passes; consuming stream execution is a
+separate qualification. Assembly-function async registration and backend state
+size bounds remain separate limitations.

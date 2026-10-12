@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Allow an explicitly selected native async provider to define its
+  Task, builder and state-machine contracts in the current source assembly.
+  Preserve source-owned Object bases for nested generated state machines using
+  the matching neoCLR metadata builder. Imported providers and .NET defaults are
+  unchanged. The focused provider/profile suite passes 38 checks.
+
 - **2026-10-12:** Carry main `86bfabafd` top-level async fixes: resolve framework
   Task types through compilation references and declare compilation-unit functions
   before emitting method bodies. Restore normal .NET Task/Task<int> entry bridges;

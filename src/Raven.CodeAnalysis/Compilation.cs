@@ -2814,7 +2814,16 @@ public partial class Compilation
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider &&
             specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine)
         {
-            var selected = GetTypeByMetadataName(metadataName, asyncProvider);
+            INamedTypeSymbol? selected;
+            if (Options.TargetPlatform == TargetPlatform.NeoCLR && AssemblyName == asyncProvider)
+            {
+                EnsureSourceTypeDeclarationsDeclared();
+                selected = Assembly.GetTypeByMetadataName(metadataName);
+            }
+            else
+            {
+                selected = GetTypeByMetadataName(metadataName, asyncProvider);
+            }
             return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
         }
         var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;

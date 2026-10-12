@@ -102,17 +102,20 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider)
         {
+            bool IsAsyncProviderAssembly(IAssemblySymbol? assembly) =>
+                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } ||
+                (compilation.AssemblyName == asyncProvider && ReferenceEquals(assembly, compilation.Assembly));
             var stateMachine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
             if (stateMachine.TypeKind != TypeKind.Interface || stateMachine.Arity != 0 ||
                 stateMachine.DeclaredAccessibility != Accessibility.Public || stateMachine.ContainingAssembly?.Name != asyncProvider ||
-                stateMachine.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                !IsAsyncProviderAssembly(stateMachine.ContainingAssembly))
                 return "native async provider requires its public state-machine interface";
             foreach (var special in new[] { SpecialType.System_Threading_Tasks_Task_T, SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T })
             {
                 var type = compilation.GetSpecialType(special);
                 if (type.TypeKind != TypeKind.Class || type.Arity != 1 || type.IsStatic ||
                     type.DeclaredAccessibility != Accessibility.Public || type.ContainingAssembly?.Name != asyncProvider ||
-                    type.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    !IsAsyncProviderAssembly(type.ContainingAssembly))
                     return "native async provider requires public generic Task and builder declarations from its registered native assembly";
             }
         }
