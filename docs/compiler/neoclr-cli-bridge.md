@@ -10328,3 +10328,12 @@ and emission are unchanged. Reference-only CLI stubs remain lossy; native artifa
 inspection is authoritative. The neoCLR compiler line owns symbol projection and the
 metadata API owns descriptor decoding. The foreign-import probe checks readback for
 all ten source cases, including missing-library/export names, before execution.
+
+Internal-call follow-through (2026-10-12): imported runtime services now also retain
+IsExtern. The metadata MethodInfo.GetMethodImplementationFlags() API exposes recorded
+flags independently of NativeImport, following .NET inspection structure. Native
+InternalCall and foreign-import descriptors remain mutually exclusive; no new flags,
+wire representation or Runtime Contract option is introduced. Native metadata owns
+this identity; CLI projection and service admission remain unchanged. The focused
+foreign-import probe now verifies an unbound runtime service without resolving or
+executing it, alongside existing foreign and ordinary managed readback cases.

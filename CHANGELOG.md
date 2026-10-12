@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Retain IsExtern for native metadata InternalCall declarations as
+  well as foreign imports. Read implementation flags through the public metadata
+  inspection API; keep runtime-service resolution separate from symbol loading.
+  Add a regression check for unbound internal-call metadata.
+
 - **2026-10-12:** Preserve IsExtern for imported neoCLR native functions and static
   methods using the metadata ABI descriptor; managed methods stay non-extern.
   Add binary artifact symbol readback to all ten native-import probe cases.

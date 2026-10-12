@@ -50,6 +50,17 @@ internal static class NativeForeignChecks
             File.WriteAllBytes(Path.Combine(output, "System.Runtime.dll"), bytes);
             return NeoClrMetadataReference.ReadAssembly(bytes, bootstrap);
         }
+        var serviceGraph = new AssemblyBuilder(new("RuntimeServiceSymbols", new(1, 0, 0, 0)), core);
+        serviceGraph.AddFunction("RuntimeProvided", new(PrimitiveType.Void, [])).SetInternalCall();
+        var serviceReference = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteLibraryBinary(serviceGraph), bootstrap);
+        var serviceConsumer = Compilation.Create("RuntimeServiceConsumer", [], [bootstrap.Reference, serviceReference],
+            CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name));
+        _ = serviceConsumer.GetTypeByMetadataName("System.Object");
+        var serviceAssembly = (IAssemblySymbol)serviceConsumer.GetAssemblyOrModuleSymbol(serviceReference)!;
+        var serviceSymbol = serviceAssembly.GlobalNamespace.GetMembers("RuntimeProvided").OfType<IMethodSymbol>().Single();
+        if (!serviceSymbol.IsExtern || !serviceSymbol.IsStatic || serviceSymbol.IsAbstract)
+            throw new Exception("runtime internal call lost extern classification");
+        Console.WriteLine("PASS runtime internal-call symbol readback without service resolution");
         var provider = attributeSource is null ? Provider("System.Runtime") : SourceProvider(attributeSource);
         var impostor = Provider("Impostor");
         var path = JsonSerializer.Serialize(library);
