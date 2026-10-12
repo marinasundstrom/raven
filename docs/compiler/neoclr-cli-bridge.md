@@ -10380,3 +10380,10 @@ workaround, as does an inline awaited-query assertion in the split consumer. The
 unsplit SQL consumer still exceeds the separate metadata-writer local quota;
 execution qualification and local-budget work remain separate slices. These portable
 files are absent on main; no full Raven branch merge is implied.
+
+The following neoCLR metadata change (`a43fd6a41`) raises writer/readback local
+admission from 256 to the native backend's existing 1,024-slot budget. Rebuild the
+compiler against that metadata project to consume the new capacity. Integer slot
+encoding, Runtime Contract settings and source semantics do not change; older
+readers still reject larger artifacts. The 1,024th slot returns 42 in .NET and the
+neoCLR interpreter; authoring and readback reject 1,025 slots.

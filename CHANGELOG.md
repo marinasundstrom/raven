@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Document neoCLR metadata dependency admission of 1,024 locals,
+  aligned with existing native backend bounds; retain explicit quotas and record
+  boundary execution/readback validation. No language or Runtime Contract change.
+
 - **2026-10-12:** Fix native portable lowering of late value blocks at ordinary call
   boundaries and discarded converted terminal blocks. Spill operands in source
   order before calls so runtime-await cancellation exits with an empty stack.
