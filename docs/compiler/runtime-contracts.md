@@ -2269,3 +2269,15 @@ This general fix was found by neoCLR's generic async consumer and implemented on
 Raven main first. Focused binding and .NET execution tests cover integer/reference
 values and rejected writes. Carrying it to the native compiler line requires its
 own native consumer validation; main is not merged with that line.
+
+### Expression-position async returns (2026-10-12)
+
+Async lowering routes return expressions (for example, an early return in a match
+arm assigned to a local) through the same completion and scope-exit path as return
+statements. Task results are published by the selected builder and MoveNext returns
+without a value. This makes the shared lowered representation usable by portable
+backends while preserving the .NET emitter's existing behavior. Runtime Contract
+configuration, public semantic types and metadata signatures are unchanged.
+Validation: AsyncReturnExpressionTests covers selected/fallthrough arms with settled
+and pending tasks; that group plus AsyncPatternReceiverCodeGenTests passes five
+.NET execution cases. Native backend qualification belongs to the neoCLR branch.

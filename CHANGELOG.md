@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Normalize expression-position returns through async completion
+  lowering, including early returns inside match arms. This preserves existing
+  .NET behavior while preventing portable backends from treating an async result
+  as a value returned by void MoveNext. Five focused .NET execution cases pass,
+  covering both already-completed and pending awaited operations.
+
 - **2026-10-12:** Resolve synthesized top-level async entrypoint Task types across
   compilation references rather than searching only declarations in the application
   assembly. Preserve Task/Task<int> signatures and wait for asynchronous top-level
