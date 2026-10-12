@@ -10387,3 +10387,14 @@ compiler against that metadata project to consume the new capacity. Integer slot
 encoding, Runtime Contract settings and source semantics do not change; older
 readers still reject larger artifacts. The 1,024th slot returns 42 in .NET and the
 neoCLR interpreter; authoring and readback reject 1,025 slots.
+
+Native constant-pattern lowering also widens Int32 literals when the subject is
+Int64. It compares at the subject width rather than truncating the subject, matching
+ordinary .NET emission. This closes `SqlValue.Integer(42)` matching without a
+literal-suffix workaround. A focused regression includes a nonmatching value with
+the same low 32 bits and a negative subject. Semantic binding, Runtime Contract
+settings and reference CLI projection remain unchanged.
+
+The same regression exposed a general .NET emitter bug (differently typed boxed
+Object.Equals). It was fixed first on main (`ae05c124e`, four focused runtime tests)
+and deliberately carried to this native line, without merging branches.

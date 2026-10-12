@@ -4080,3 +4080,15 @@ This general fix was found by neoCLR's generic async consumer and implemented on
 Raven main first. Focused binding and .NET execution tests cover integer/reference
 values and rejected writes. Carrying it to the native compiler line requires its
 own native consumer validation; main is not merged with that line.
+
+## Int64 literal-pattern emission correction (2026-10-12)
+
+Ordinary .NET emission now widens an Int32 numeric literal when matching an Int64
+subject (`value is 42`). Previously the emitter boxed each side at its original
+width and Object.Equals incorrectly returned false for 42L. Comparison uses the
+full Int64 width, so 4294967338L does not alias 42. This is a general emitter fix
+developed on main, with no new Runtime Contract switch or semantic-model shape.
+Modern .NET execution tests cover the match, negative mismatch and equal-low-bits
+mismatch; .NET Framework/NanoFramework execution is not independently qualified.
+The native branch carries this fix deliberately alongside its separate portable
+lowering correction; there is no new temporary CLI encoding.

@@ -8,6 +8,22 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class ConstantPatternCodeGenTests
 {
+    [Theory]
+    [InlineData(42L, true)]
+    [InlineData(-42L, false)]
+    [InlineData(4294967338L, false)]
+    public void Int64SubjectMatchesInt32LiteralAtFullWidth(long input, bool expected)
+    {
+        var tree = SyntaxTree.ParseText("public static class Consumer { public static func Read(value: long) -> bool => value is 42 }");
+        var compilation = Compilation.Create("WideConstant" + Guid.NewGuid().ToString("N"),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)).AddSyntaxTrees(tree).AddReferences(TestMetadataReferences.Default);
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, TestMetadataReferences.Default);
+        Assert.Equal(expected, loaded.Assembly.GetType("Consumer")!.GetMethod("Read")!.Invoke(null, [input]));
+    }
+
     [Fact]
     public void MetadataConstantMemberPattern_MatchesExactValue()
     {

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Widen Int32 constant patterns against Int64 subjects in native
+  portable lowering; preserve full-width comparison instead of rejecting ordinary
+  integer literals. Add .NET/portable regression coverage for matching, negative
+  and equal-low-bits nonmatching subjects. Deliberately carry the corresponding
+  .NET fix from main ae05c124e; Runtime Contract settings are unchanged.
+
 - **2026-10-12:** Document neoCLR metadata dependency admission of 1,024 locals,
   aligned with existing native backend bounds; retain explicit quotas and record
   boundary execution/readback validation. No language or Runtime Contract change.

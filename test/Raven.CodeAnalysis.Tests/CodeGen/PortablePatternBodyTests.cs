@@ -162,6 +162,19 @@ public class PortablePatternBodyTests
             }
         }
         """)]
+    [InlineData("""
+        public static class Consumer {
+            public static func Read(value: long) -> int {
+                if value is 42 { return 42 }
+                return 0
+            }
+            public static func Run() -> int {
+                if Read(4294967338L) != 0 { return 0 }
+                if Read(-42L) != 0 { return 0 }
+                return Read(42L)
+            }
+        }
+        """)]
     public void PortablePatternsPreserveOrdinaryDotNetResults(string source)
     {
         var tree = SyntaxTree.ParseText(source);

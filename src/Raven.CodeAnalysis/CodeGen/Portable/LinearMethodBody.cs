@@ -460,10 +460,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (pattern is BoundConstantPattern scalar && scalar.Expression is { } scalarExpression &&
                 (input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean || input.TypeKind == TypeKind.Enum) &&
-                CallableSignature.SameStorageType(input, scalarExpression.Type) && scalar.Designator is null or BoundDiscardDesignator)
+                (CallableSignature.SameStorageType(input, scalarExpression.Type) ||
+                    input.SpecialType == SpecialType.System_Int64 && scalarExpression.Type.SpecialType == SpecialType.System_Int32) &&
+                scalar.Designator is null or BoundDiscardDesignator)
             {
                 if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));
                 if (!LowerValue(scalarExpression)) return false;
+                // Binding preserves the literal's Int32 type for an Int64 subject.
+                // Compare at the subject width; narrowing the subject would alias
+                // values whose low 32 bits happen to match the literal.
+                if (input.SpecialType == SpecialType.System_Int64 && scalarExpression.Type.SpecialType == SpecialType.System_Int32)
+                    Add(LinearInstructionKind.Convert64, syntax);
                 if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));
                 Add(LinearInstructionKind.Equal, syntax);
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);

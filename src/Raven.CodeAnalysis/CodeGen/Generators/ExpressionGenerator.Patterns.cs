@@ -1894,6 +1894,17 @@ internal partial class ExpressionGenerator
             return;
         }
 
+        // An Int32 literal is a value constant compatible with an Int64 subject.
+        // Object.Equals would compare different box types and always return false.
+        if (inputType.SpecialType == SpecialType.System_Int64 &&
+            constantPattern.Expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NumericLiteral } integer &&
+            integer.Type.SpecialType == SpecialType.System_Int32)
+        {
+            EmitLiteralInTargetType(integer.Value!, inputType, integer.Type);
+            ILGenerator.Emit(OpCodes.Ceq);
+            return;
+        }
+
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
         if (constantPattern.Expression is not null
             && !IsNullConstantExpression(constantPattern.Expression))
