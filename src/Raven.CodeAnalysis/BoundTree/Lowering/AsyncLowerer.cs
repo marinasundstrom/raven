@@ -2388,6 +2388,15 @@ internal static class AsyncLowerer
             return clause;
         }
 
+        public override BoundNode? VisitReturnExpression(BoundReturnExpression node)
+        {
+            // Expression-position returns must complete the async operation too;
+            // portable backends cannot emit a value-return from void MoveNext.
+            var rewritten = (BoundBlockStatement)VisitReturnStatement(
+                new BoundReturnStatement(node.Expression))!;
+            return new BoundBlockExpression(rewritten.Statements, node.Type, rewritten.LocalsToDispose);
+        }
+
         public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
         {
             if (node is null)

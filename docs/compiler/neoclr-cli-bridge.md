@@ -10235,3 +10235,14 @@ compiler provider/profile validation: 38 pass. Metadata authoring/native round-t
 validation: neoCLR --generic-object-roots passes; consuming stream execution is a
 separate qualification. Assembly-function async registration and backend state
 size bounds remain separate limitations.
+
+### Return expressions in source async bodies
+
+Main a459d4467 normalizes expression-position returns through builder completion.
+The native branch carries that shared fix: the source System.Runtime stream reader
+can return a Result early from a match arm after await without leaving a Result on
+void MoveNext's return stack. No new Runtime Contract configuration or temporary
+CLI representation is introduced. Main's four new settled/pending match-arm tests
+and existing pattern receiver test pass; the complete source System.Runtime emits
+with the selected source-owned async provider. Downstream runtime tests remain a
+separate consumer gate.

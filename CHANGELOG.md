@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Carry main `a459d4467` expression-position async return lowering.
+  Early returns in match arms complete the selected builder instead of returning
+  a value from native void MoveNext. The async-first source runtime library now
+  emits successfully; five .NET execution checks passed on main. Runtime Contract
+  configuration and native wire format are unchanged.
+
 - **2026-10-12:** Allow an explicitly selected native async provider to define its
   Task, builder and state-machine contracts in the current source assembly.
   Preserve source-owned Object bases for nested generated state machines using
