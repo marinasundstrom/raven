@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Resolve synthesized top-level async entrypoint Task types across
+  compilation references rather than searching only declarations in the application
+  assembly. Preserve Task/Task<int> signatures and wait for asynchronous top-level
+  work through the normal .NET entry bridge, and prepare top-level functions before
+  their calls are emitted in the synthesized async body. Target-owned Main
+  adaptation is unchanged.
+
 - **2026-10-12:** Traverse unary operands in bound-tree analyses so awaits inside
   expressions such as `!(await gate)` retain `use` resources across suspension.
   Fix invalid .NET state-machine code and missing native resource capture without

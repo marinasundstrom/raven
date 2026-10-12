@@ -191,16 +191,16 @@ internal static class EntryPointSignature
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
-    public static ITypeSymbol ResolveAsyncReturnType(Compilation compilation, IAssemblySymbol assembly, bool returnsInt)
+    public static ITypeSymbol ResolveAsyncReturnType(Compilation compilation, bool returnsInt)
     {
-        if (returnsInt && assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
+        if (returnsInt && compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
         {
             var intType = compilation.GetSpecialType(SpecialType.System_Int32);
             if (intType.TypeKind != TypeKind.Error)
                 return taskOfT.Construct(intType);
         }
 
-        if (assembly.GetTypeByMetadataName("System.Threading.Tasks.Task") is { } taskType)
+        if (compilation.GetTypeByMetadataName("System.Threading.Tasks.Task") is { } taskType)
             return taskType;
 
         return compilation.GetSpecialType(SpecialType.System_Unit);

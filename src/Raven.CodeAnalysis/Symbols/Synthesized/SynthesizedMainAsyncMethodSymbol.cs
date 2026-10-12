@@ -14,7 +14,7 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
         bool returnsInt)
         : base(
             "MainAsync",
-            EntryPointSignature.ResolveAsyncReturnType(type.Compilation, type.ContainingAssembly, returnsInt),
+            EntryPointSignature.ResolveAsyncReturnType(type.Compilation, returnsInt),
             parameters: [],
             type,
             type,

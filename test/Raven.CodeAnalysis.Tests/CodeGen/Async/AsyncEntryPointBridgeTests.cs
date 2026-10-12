@@ -13,6 +13,36 @@ namespace Raven.CodeAnalysis.Tests;
 public class AsyncEntryPointBridgeTests
 {
     [Fact]
+    public void TopLevelAwait_PreparesFunctionsAndPropagatesExitCode()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+func Increment(value: int) -> int {
+    value + 1
+}
+
+async func Run() -> Task<int> {
+    await Task.Yield()
+    return Increment(41)
+}
+
+return await Run()
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("top-level-async-functions",
+            [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        var entryPoint = loaded.Assembly.EntryPoint!;
+        var exitCode = entryPoint.Invoke(null, [Array.Empty<string>()]);
+        Assert.Equal(42, Assert.IsType<int>(exitCode));
+    }
+
+    [Fact]
     public void ProgramMain_ReturningTask_IsAwaitedByBridge()
     {
         var code = """

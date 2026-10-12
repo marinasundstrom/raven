@@ -919,7 +919,23 @@ internal class TypeGenerator
         if (TypeSymbol is SourceNamedTypeSymbol sourceType && sourceType.IsExtensionDeclaration)
             DefineExtensionGroupingMembers();
 
-        foreach (var memberSymbol in TypeSymbol.GetMembers())
+        // Top-level async MoveNext may be emitted before the compilation-unit
+        // implementation. Declare its functions with other members, not during IL
+        // emission, so source calls do not depend on type/body emission order.
+        IEnumerable<ISymbol> members = TypeSymbol.GetMembers();
+        if (TypeSymbol is SynthesizedProgramClassSymbol)
+        {
+            var functions = TypeSymbol.DeclaringSyntaxReferences
+                .Select(reference => reference.GetSyntax())
+                .OfType<CompilationUnitSyntax>()
+                .SelectMany(unit => unit.DescendantNodes().OfType<FunctionStatementSyntax>())
+                .Select(function => Compilation.GetSemanticModel(function.SyntaxTree).GetDeclaredSymbol(function))
+                .OfType<IMethodSymbol>()
+                .Where(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, TypeSymbol));
+            members = members.Concat(functions).Distinct(SymbolEqualityComparer.Default);
+        }
+
+        foreach (var memberSymbol in members)
         {
             if (memberSymbol.ContainingType is { } containingType &&
                 !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
