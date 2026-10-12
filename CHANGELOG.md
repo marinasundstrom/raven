@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Defer async return validation for unresolved namespace-function
+  signature skeletons until full binding. Forward-declared generic result types
+  no longer leave a false RAV2704 on targets without a non-generic Task fallback;
+  resolved invalid return types and unknown names still receive diagnostics.
+
 - **2026-10-12:** Fix method-group overload applicability against unrelated named
   parameter types. Classify the natural function type rather than the placeholder
   error type, preserving function-to-Object conversion and delegate signature checks.

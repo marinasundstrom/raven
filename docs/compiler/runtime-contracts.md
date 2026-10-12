@@ -2293,3 +2293,18 @@ Modern .NET execution tests cover the match, negative mismatch and equal-low-bit
 mismatch; .NET Framework/NanoFramework execution is not independently qualified.
 The native branch carries this fix deliberately alongside its separate portable
 lowering correction; there is no new temporary CLI encoding.
+
+## Async signature declaration and forward references
+
+Namespace function signature skeletons can temporarily fail to resolve a generic
+return argument declared in another source file. An unresolved skeleton is not an
+invalid async contract: final signature binding owns resolution and diagnostics.
+Resolved non-task return types still report RAV2704; unknown types still report
+normal binding diagnostics. No Runtime Contract setting or emitted metadata changes.
+
+This matters for targets without a non-generic Task fallback (including the native
+neoCLR bridge), where `Task<Result<unit, MappingError>>` previously left a spurious
+RAV2704 after `MappingError` became available. Ordinary .NET Task semantics remain
+unchanged. Focused coverage checks forward union results in both source orders and
+unresolved return-type diagnostics; native integration separately compiles the
+reduced example and the JSON roundtrip sample.

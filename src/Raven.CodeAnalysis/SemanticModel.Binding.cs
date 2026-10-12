@@ -899,7 +899,9 @@ public partial class SemanticModel
                 methodSymbol.TypeParameters);
             methodSymbol.SetReturnType(returnType);
 
-            if (isAsync && !AsyncReturnTypeUtilities.IsValidAsyncReturnType(returnType, allowErrorType: false) &&
+            // Skeleton lookup may precede declarations used by generic return arguments.
+            // FunctionBinder validates unresolved types once the full signature is bound.
+            if (isAsync && !AsyncReturnTypeUtilities.IsValidAsyncReturnType(returnType, allowErrorType: true) &&
                 !AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, returnType, out _, out _))
             {
                 var display = returnType.TypeKind == TypeKind.Error
