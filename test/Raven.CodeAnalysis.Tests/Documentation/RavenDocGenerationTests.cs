@@ -5,6 +5,56 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Fact]
+    public void ExternalSubclassContractsIncludeProtectedMembers()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            const string source = """
+                namespace Contracts;
+                public abstract class Handler {
+                    protected Handler() { }
+                    protected internal Handler(int value) { }
+                    protected abstract void Send();
+                    protected internal void Forward() { }
+                    private protected void AssemblyOnly() { }
+                    internal void InternalOnly() { }
+                    private void Hidden() { }
+                }
+                """;
+            var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net10.0"))
+                .Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path));
+            var assemblyPath = Path.Combine(root, "Contracts.dll");
+            var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("Contracts",
+                [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)], references,
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+            using (var stream = File.Create(assemblyPath))
+            {
+                var emitted = declarations.Emit(stream);
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var reference = MetadataReference.CreateFromFile(assemblyPath);
+            var (compilation, _) = CreateCompilation("", references: TestMetadataReferences.Default.Concat([reference]).ToArray());
+            _ = compilation.GetDiagnostics();
+            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var output = Path.Combine(root, "site");
+            DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+            var xrefs = string.Join("\n", DocumentationGenerator.ExportXrefs(output).Keys);
+            xrefs.ShouldContain("M:Contracts.Handler..ctor");
+            xrefs.ShouldContain("M:Contracts.Handler.Send");
+            xrefs.ShouldContain("M:Contracts.Handler.Forward");
+            xrefs.ShouldNotContain("M:Contracts.Handler.AssemblyOnly");
+            xrefs.ShouldNotContain("M:Contracts.Handler.InternalOnly");
+            xrefs.ShouldNotContain("M:Contracts.Handler.Hidden");
+            var page = File.ReadAllText(Path.Combine(output, "Contracts", "Handler", "index.html"));
+            page.ShouldContain("method_Send.html");
+            page.ShouldContain("method_Forward.html");
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

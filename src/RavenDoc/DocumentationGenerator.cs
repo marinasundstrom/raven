@@ -2393,7 +2393,9 @@ public static partial class DocumentationGenerator
            !ExcludedMembers.Contains(GetXrefId(symbol).Replace('+', '.').Replace("..ctor", ".#ctor")) &&
            !IsCompilerGeneratedExtensionArtifact(symbol) &&
            (symbol is INamespaceSymbol ||
-            symbol.DeclaredAccessibility == Accessibility.Public);
+            symbol.DeclaredAccessibility is Accessibility.Public
+                or Accessibility.ProtectedAndProtected
+                or Accessibility.ProtectedOrInternal);
 
     private static bool IsProjectedUnionCaseType(ISymbol symbol)
     {

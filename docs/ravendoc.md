@@ -1088,3 +1088,12 @@ containing types throughout their enclosing chain. Public methods on internal
 extension containers are implementation details and are excluded, including from
 specialized generic receiver lists. This applies equally to source, .NET metadata
 and native metadata input.
+
+## Externally accessible subclass contracts
+
+API pages include public, protected and protected-internal members, including
+constructors used by external derived types. Private, internal and private-protected
+members remain excluded. The same selection governs member pages and cross-references.
+This is publisher visibility, not a change to language accessibility, Runtime Contract
+configuration or emitted metadata. A .NET metadata fixture verifies inclusion and
+exclusion; neoCLR integration validates the HTTP handler reference pages.
