@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Carry main `99ae011b4` unary-operand traversal into the neoCLR
+  compiler line. Awaited unary conditions now capture live `use` resources rather
+  than emitting invalid resume-path local reads. The native project reproducer and
+  original HTTPS server compile without source workarounds; Runtime Contracts and
+  native metadata are unchanged.
+
 - **2026-10-12:** Carry RavenDoc protected/protected-internal subclass-contract
   documentation from main `08b5ef0b0`, preserving private/internal exclusions.
   Carry `10b3565d7` to omit duplicate extension-indexer accessors and their broken

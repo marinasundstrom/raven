@@ -10188,3 +10188,20 @@ RAVT006 through the added `.rvnproj` async-use consumer. The project runner now
 qualifies both lowerings on macOS, while the Windows gate checks state-machine
 projects with the corrected compiler. Evidence is kept in neoCLR's generic-cleanup
 checkpoint; a successful direct-source check is not substituted for project proof.
+
+## Awaited unary conditions and resource capture — 2026-10-12
+
+Carry general compiler fix `99ae011b4` from main without merging compiler lines.
+The shared bound-tree walker now visits unary operands. This makes `!(await task)`
+visible to capture analysis while a `use` resource is live; the resource is hoisted
+and disposed on actual scope exit, not on suspension. The native definite-assignment
+verifier remains strict. No new Runtime Contract option, CLI bridge encoding,
+metadata field or runtime ABI is introduced. Existing project async/disposal
+configuration still applies; this fixes generated state-machine emission and does
+not select runtime async by default.
+
+The reduced neoCLR native project and original HTTPS server compile with this
+carry. Main's resource-lifetime regression passes all 18 cases; its broader async
+selection has 15 independently reproduced pre-existing failures. Native host
+qualification is recorded in neoCLR's `docs/experiments/async-unary-cleanup/README.md`
+and HTTPS project evidence. Windows execution is not established by macOS results.

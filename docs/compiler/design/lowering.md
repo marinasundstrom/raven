@@ -106,3 +106,24 @@ The original semantic-model lowering path caught exceptions and returned an orig
 body, so runtime-only checks could pass while other backends received unlowered nodes.
 The direct lowering check prevents that masking; emitted-instruction assertions are
 not used. The ordinary CLR execution assertions still verify empty and payload paths.
+
+### Unary operands and suspension analysis
+
+Bound-tree walkers must traverse unary operands, including nested and parenthesized
+expressions. An `await` in `!(await gate)` is a suspension boundary just as an
+awaited initializer is. In particular, a `use` resource acquired before that
+boundary must survive suspension and be disposed once on scope exit, matching
+.NET async resource lifetime semantics. Unary negation must not alter that
+lifetime or the branch result.
+
+The shared walker fix requires no new Runtime Contract configuration, syntax,
+metadata, or ABI. The neoCLR compiler line needs a deliberate carry and native
+verification: its definite-assignment verifier exposes a missed resource capture
+as a local read without initialization on a resume path. This does not justify
+weakening native verification or requiring a source-level temporary.
+
+Validation (2026-10-12): all 18 resource-lifetime tests pass, including four new
+completed/suspended true/false cases which fail before the fix. The broader
+functions/async selection passes 132 of 147 cases; all 15 failures also reproduce
+with the unchanged walker, in top-level async/closure/entrypoint coverage. They
+remain separate baseline gaps, not qualification of those features.
