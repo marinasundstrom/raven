@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-12:** Fix Int32 literal patterns against Int64 subjects in .NET
+  emission. Compare values at Int64 width instead of using differently typed
+  boxed Object.Equals; preserve mismatches with identical low 32 bits. Add
+  focused runtime regressions. No Runtime Contract or semantic API change.
+
 - **2026-10-12:** Normalize expression-position returns through async completion
   lowering, including early returns inside match arms. This preserves existing
   .NET behavior while preventing portable backends from treating an async result

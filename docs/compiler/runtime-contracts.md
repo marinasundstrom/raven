@@ -2281,3 +2281,15 @@ configuration, public semantic types and metadata signatures are unchanged.
 Validation: AsyncReturnExpressionTests covers selected/fallthrough arms with settled
 and pending tasks; that group plus AsyncPatternReceiverCodeGenTests passes five
 .NET execution cases. Native backend qualification belongs to the neoCLR branch.
+
+## Int64 literal-pattern emission correction (2026-10-12)
+
+Ordinary .NET emission now widens an Int32 numeric literal when matching an Int64
+subject (`value is 42`). Previously the emitter boxed each side at its original
+width and Object.Equals incorrectly returned false for 42L. Comparison uses the
+full Int64 width, so 4294967338L does not alias 42. This is a general emitter fix
+developed on main, with no new Runtime Contract switch or semantic-model shape.
+Modern .NET execution tests cover the match, negative mismatch and equal-low-bits
+mismatch; .NET Framework/NanoFramework execution is not independently qualified.
+The native branch carries this fix deliberately alongside its separate portable
+lowering correction; there is no new temporary CLI encoding.
