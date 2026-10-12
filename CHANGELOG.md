@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Fix portable native lowering for pattern subjects containing suspension
+  or early returns, exact-type declaration-pattern assignments and implicit reads of
+  original reference-instance fields inside async state machines. Preserve empty-stack
+  restrictions in nested operand contexts. Native CLI diagnostics now include source
+  paths and positions. Nineteen focused portable/.NET regressions pass; unchanged main
+  separately passes eleven .NET async checks. Native networking/HTTP libraries emit;
+  runtime HTTPS integration qualification continues in neoCLR. No metadata format or
+  Runtime Contract configuration changes. The portable backend is absent on main.
+
+
 - **2026-10-12:** Move the explicit neoCLR Task identity to System.Concurrency.Tasks
   across source, native and temporary CLI provider selection. Keep ordinary .NET
   Task mapping unchanged; consumers require matching renamed native libraries.

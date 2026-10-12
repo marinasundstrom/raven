@@ -44,7 +44,12 @@ internal static class NeoClrCommand
             config.Validate(compilation);
             using var image = new MemoryStream();
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(config.CreateEmissionBackend(project.AssemblyName!)));
-            foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                var span = diagnostic.Location.GetLineSpan();
+                var prefix = string.IsNullOrEmpty(span.Path) ? "" : $"{span.Path}({span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1}): ";
+                Console.Error.WriteLine(prefix + diagnostic);
+            }
             if (!result.Success) return 1;
             var output = provider.GetOutputPath(projectPath, project.AssemblyName!);
             if (project.Documents.Any(d => string.Equals(d.FilePath, output, StringComparison.OrdinalIgnoreCase)) ||
@@ -338,7 +343,12 @@ internal static class NeoClrCommand
                     implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name,
                     runtimeAsyncHelperTypeName: runtimeAsyncHelper));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
-            foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                var span = diagnostic.Location.GetLineSpan();
+                var prefix = string.IsNullOrEmpty(span.Path) ? "" : $"{span.Path}({span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1}): ";
+                Console.Error.WriteLine(prefix + diagnostic);
+            }
             if (!result.Success) return 1;
             // No destination is opened until binding and native encoding succeed.
             using var destination = new FileStream(output, FileMode.CreateNew, FileAccess.Write);

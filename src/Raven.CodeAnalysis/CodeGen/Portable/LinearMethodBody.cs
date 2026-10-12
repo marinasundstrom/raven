@@ -260,9 +260,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool LowerPattern(BoundExpression input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        bool LowerPattern(BoundExpression input, BoundPattern pattern, int fail, SyntaxNode syntax, bool atStatementBoundary = false)
         {
-            if (!LowerValue(input)) return false;
+            // Pattern evaluation starts with its subject: preserve the caller's empty-stack
+            // boundary for early returns and async suspension in that subject.
+            if (!LowerValue(input, atStatementBoundary: atStatementBoundary)) return false;
             return PatternValue(input.Type, pattern, fail, syntax);
         }
 
@@ -307,9 +309,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (condition is BoundIsPatternExpression pattern && capabilities?.AllowsCasePatterns == true)
             {
-                if (!jumpIfTrue) return LowerPattern(pattern.Expression, pattern.Pattern, target, syntax);
+                if (!jumpIfTrue) return LowerPattern(pattern.Expression, pattern.Pattern, target, syntax, atStatementBoundary);
                 var failed = nextLabel++;
-                if (!LowerPattern(pattern.Expression, pattern.Pattern, failed, syntax)) return false;
+                if (!LowerPattern(pattern.Expression, pattern.Pattern, failed, syntax, atStatementBoundary)) return false;
                 Add(LinearInstructionKind.Branch, syntax, target);
                 Add(LinearInstructionKind.Label, syntax, failed);
                 return true;
@@ -652,6 +654,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     else return Reject("unsupported discarded result", Syntax(statement));
                     continue;
                 }
+                if (memberAssignment is BoundPatternAssignmentExpression { Pattern: BoundDeclarationPattern assignedDeclaration } patternAssignment &&
+                    CallableSignature.SameStorageType(patternAssignment.Right.Type, assignedDeclaration.DeclaredType))
+                {
+                    if (!LowerValue(patternAssignment.Right, assignedDeclaration.DeclaredType, atStatementBoundary) ||
+                        !PatternDesignator(assignedDeclaration.Designator, assignedDeclaration.DeclaredType, Syntax(statement))) return false;
+                    continue;
+                }
                 if (memberAssignment is BoundPatternAssignmentExpression { Pattern: BoundDeconstructPattern deconstruction } deconstructAssignment)
                 {
                     var method = deconstruction.DeconstructMethod;
@@ -813,7 +822,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (statement is not BoundReturnStatement { Expression: { } value })
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
                         (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name +
-                            (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : unsupported.Expression is BoundConversionExpression converted ? "/" + converted.Expression.GetType().Name + " " + converted.Expression.Type.ToDisplayString() + " -> " + converted.Type.ToDisplayString() : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
+                            (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : unsupported.Expression is BoundConversionExpression converted ? "/" + converted.Expression.GetType().Name + " " + converted.Expression.Type.ToDisplayString() + " -> " + converted.Type.ToDisplayString() : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + (assigned.Expression is BoundPatternAssignmentExpression pattern ? "/" + pattern.Pattern.GetType().Name + " " + pattern.Right.Type.ToDisplayString() + " -> " + pattern.Pattern.Type.ToDisplayString() : "") + ")" : ""), Syntax(statement));
                 if (!LowerValue(value, source.ReturnType, atStatementBoundary)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
@@ -968,6 +977,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (selfCapture >= 0)
             {
                 Add(LinearInstructionKind.LoadCapture, syntax, selfCapture);
+                return true;
+            }
+            if (!isStaticBody && owner.IsReferenceType &&
+                source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol { ThisField: { } originalReceiver } &&
+                SymbolEqualityComparer.Default.Equals(originalReceiver.Type, owner))
+            {
+                // Implicit reads produced by compound assignment still belong to
+                // the original instance, just as explicit self does in MoveNext.
+                Add(LinearInstructionKind.Receiver, syntax);
+                instructions.Add(new(LinearInstructionKind.LoadField, syntax, Field: originalReceiver));
                 return true;
             }
             if (isStaticBody || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
@@ -1362,13 +1381,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundIsPatternExpression { Pattern: BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested } typeTest when
                     capabilities?.Allows(LinearInstructionKind.TypeTest) == true && typeTest.Expression.Type.IsReferenceType &&
                     TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType):
-                    if (!LowerValue(typeTest.Expression)) return false;
+                    if (!LowerValue(typeTest.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.TypeTest, Syntax(expression), Type: tested.DeclaredType));
                     return true;
                 case BoundIsPatternExpression caseTest when capabilities?.AllowsCasePatterns == true:
                     var failedPattern = nextLabel++;
                     var completedPattern = nextLabel++;
-                    if (!LowerPattern(caseTest.Expression, caseTest.Pattern, failedPattern, Syntax(expression))) return false;
+                    if (!LowerPattern(caseTest.Expression, caseTest.Pattern, failedPattern, Syntax(expression), atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Boolean, Syntax(expression), 1);
                     Add(LinearInstructionKind.Branch, Syntax(expression), completedPattern);
                     Add(LinearInstructionKind.Label, Syntax(expression), failedPattern);

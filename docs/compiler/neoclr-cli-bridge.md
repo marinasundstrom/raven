@@ -10294,3 +10294,24 @@ qualify JIT/AOT imports, installed compiler bundles or other hosts. Bounded outp
 owned handles, record layout, errno/GetLastError capture and callbacks remain separate
 contracts. Native JIT/AOT lowering must replace the execution gap rather than encode
 these bridge limits as platform rules. Raven main is not merged or modified by this work.
+
+## Async pattern and receiver lowering (2026-10-12)
+
+The native portable backend now propagates its empty-stack boundary into pattern
+subjects, admitting `if let Error(error) = await operation` without discarding
+suspension/early-return control flow. Nested operand contexts retain their rejection
+when live operands would be abandoned. Exact-type declaration-pattern assignments
+store through the existing local/hoisted-field designator path. Implicit reads of
+original reference-instance fields in MoveNext use the captured receiver, including
+reads introduced by compound assignment.
+
+This is native backend support for existing Raven semantics, not a new Runtime
+Contract switch or CLI bridge encoding. Native metadata/codegen owns the emitted
+operations; no metadata version changes or loss of source typing are introduced.
+The .NET emitter remains unchanged. The portable backend is absent on main, where
+seven existing async propagation/return tests and four completed/pending heap/value
+state-machine field probes pass. On the neoCLR line, nineteen focused tests pass,
+and the managed TLS/networking and HTTP libraries emit against the explicit core
+and runtime seed. Runtime HTTPS execution remains a separate integration gate.
+Native CLI errors now include their source file/line/column when available, helping
+identify failures whose lowered nodes previously reported only a diagnostic message.
