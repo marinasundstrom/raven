@@ -203,6 +203,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     terminal = terminal is BoundConversionExpression c ? c.Expression : ((BoundRequiredResultExpression)terminal).Operand;
                 if (terminal is BoundReturnExpression returned)
                     return new BoundReturnStatement(returned.Expression);
+                if (terminal is BoundBlockExpression terminalBlock && BoundNodeFacts.IsAbruptExpression(terminalBlock))
+                    return new BoundBlockStatement(terminalBlock.Statements, terminalBlock.LocalsToDispose);
                 // At a statement boundary the expression is discarded; wrappers used
                 // by match lowering must not hide blocks, calls or assignments.
                 if (!ReferenceEquals(expression, expressionStatement.Expression))
@@ -805,13 +807,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(LinearInstructionKind.ConsoleWrite, Syntax(call), method: call.Method);
                         continue;
                     }
-                    if (!LowerValue(call)) return false;
+                    if (!LowerValue(call, atStatementBoundary: atStatementBoundary)) return false;
                     if (ReturnsValue(call.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
                     // CLI void signatures cannot express a terminal call. Preserve the
                     // call (and its dynamic message), then guard its impossible return.
                     if (BoundNodeFacts.IsTerminalRuntimeFault(call.Method))
                         Add(LinearInstructionKind.CompilerFailure, Syntax(statement),
                             text: "A terminal runtime failure unexpectedly returned.");
+                    continue;
+                }
+                if (statement is BoundExpressionStatement { Expression: var discarded } &&
+                    TryType(discarded.Type, false, out var discardedType) && discardedType.Primitive != EmissionPrimitiveType.NoResult)
+                {
+                    if (!LowerValue(discarded, atStatementBoundary: atStatementBoundary)) return false;
+                    Add(LinearInstructionKind.Pop, Syntax(statement));
                     continue;
                 }
                 if (statement is BoundReturnStatement { Expression: null or BoundUnitExpression } && !ReturnsValue(source))
@@ -1211,6 +1220,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             // bound operand has no explicit conversion node.
             if (expectedType.SpecialType != operand.Type.SpecialType && IsNumeric(expectedType.SpecialType) && IsNumeric(operand.Type.SpecialType))
                 ConvertNumeric(operand.Type.SpecialType, expectedType.SpecialType, Syntax(operand));
+            return true;
+        }
+
+        bool SpillOperand(BoundExpression expression, ITypeSymbol type, List<int> spills)
+        {
+            if (!TryType(type, false, out var storage) || storage.IsByReference ||
+                capabilities is not null && !capabilities.Allows(storage))
+                return Reject("target does not support argument spill storage", Syntax(expression));
+            if (!LowerValue(expression, type, atStatementBoundary: true)) return false;
+            var slot = localTypes.Count;
+            localTypes.Add(storage);
+            Add(LinearInstructionKind.StoreLocal, Syntax(expression), slot);
+            spills.Add(slot);
             return true;
         }
 
@@ -1730,11 +1752,29 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
-                    if (!call.Method.IsStatic && !Receiver(call.Receiver, call.Method.ContainingType!, Syntax(expression))) return false;
-                    for (int i = 0; i < arguments.Length; i++)
+                    // Late target rewrites (notably runtime-await cancellation) can
+                    // introduce method exits inside an argument. Spill operands in
+                    // source order so those blocks execute with an empty stack.
+                    var spillCall = atStatementBoundary && call.Method.Parameters.All(p => p.RefKind == RefKind.None) &&
+                        (call.Method.IsStatic || call.Receiver?.Type.IsReferenceType == true) &&
+                        arguments.Any(ContainsValueBlock);
+                    if (spillCall)
                     {
-                        if (call.Method.Parameters[i].RefKind is RefKind.Ref or RefKind.Out
-                            ? !LowerReference(arguments[i]) : !LowerValue(arguments[i], call.Method.Parameters[i].Type)) return false;
+                        var spills = new List<int>();
+                        if (!call.Method.IsStatic && !SpillOperand(call.Receiver!, call.Receiver!.Type, spills)) return false;
+                        for (int i = 0; i < arguments.Length; i++)
+                            if (!SpillOperand(arguments[i], call.Method.Parameters[i].Type, spills)) return false;
+                        foreach (var spillSlot in spills) Add(LinearInstructionKind.LoadLocal, Syntax(expression), spillSlot);
+                    }
+                    else
+                    {
+                        if (!call.Method.IsStatic && !Receiver(call.Receiver, call.Method.ContainingType!, Syntax(expression))) return false;
+                        for (int i = 0; i < arguments.Length; i++)
+                        {
+                            if (call.Method.Parameters[i].RefKind is RefKind.Ref or RefKind.Out
+                                ? !LowerReference(arguments[i]) : !LowerValue(arguments[i], call.Method.Parameters[i].Type,
+                                    atStatementBoundary && call.Method.IsStatic && i == 0)) return false;
+                        }
                     }
                     Add(call.Method.IsStatic ? LinearInstructionKind.Call : call.Receiver is BoundBaseExpression ? LinearInstructionKind.DirectInstanceCall : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;
@@ -1747,4 +1787,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
         }
     }
+    private static bool ContainsValueBlock(BoundExpression expression)
+    {
+        var finder = new ValueBlockFinder();
+        finder.VisitExpression(expression);
+        return finder.Found;
+    }
+
+    private sealed class ValueBlockFinder : BoundTreeWalker
+    {
+        internal bool Found { get; private set; }
+        public override void VisitBlockExpression(BoundBlockExpression node) => Found = true;
+        public override void VisitFunctionExpression(BoundFunctionExpression node) { }
+    }
+
 }

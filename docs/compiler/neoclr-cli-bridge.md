@@ -10360,3 +10360,23 @@ remain open at this checkpoint. See neoCLR's
 The union representation still stores separate ordinary case payload fields.
 More compact native union storage remains separate compiler/metadata/GC work;
 raising a checked budget does not claim a representation or performance improvement.
+
+## Late runtime-await expression boundaries (2026-10-12)
+
+On `codex/source-object-metadata-resolution`, portable lowering now preserves
+terminal blocks beneath required-result/conversion wrappers when their value is
+discarded. Ordinary static/reference-instance calls containing late value blocks
+spill receiver/arguments in source order at an empty-stack boundary. This permits
+runtime-await cancellation returns introduced after the ordinary expression spill
+pass, including awaited SQL queries used as assertion arguments. Ref/out and
+value-type receivers retain their existing restrictions. This is native lowering,
+not a new source-language rule; semantic APIs, Runtime Contract configuration and
+.NET emission are unchanged. The temporary reference CLI projection is unchanged;
+direct native bodies carry these branches and locals without a new bridge encoding.
+
+Validation: 22 focused prepared-expression, pattern-body and enumeration-cleanup
+tests pass. System.Data's reflected parameter loop compiles without its source
+workaround, as does an inline awaited-query assertion in the split consumer. The
+unsplit SQL consumer still exceeds the separate metadata-writer local quota;
+execution qualification and local-budget work remain separate slices. These portable
+files are absent on main; no full Raven branch merge is implied.

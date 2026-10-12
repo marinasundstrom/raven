@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Fix native portable lowering of late value blocks at ordinary call
+  boundaries and discarded converted terminal blocks. Spill operands in source
+  order before calls so runtime-await cancellation exits with an empty stack.
+  Add focused prepared-body and source execution regressions; .NET emission and
+  Runtime Contract configuration are unchanged.
+
 - **2026-10-12:** Document matching neoCLR native function/layout and host-root
   admission for the managed TLS consumer. Runtime Contract configuration, Raven
   lowering and .NET emission are unchanged; record local AOT evidence and pending
