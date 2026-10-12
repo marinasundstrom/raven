@@ -12,6 +12,37 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class AsyncMethodTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AsyncFunction_WithForwardUnionResult_ResolvesAcrossSourceOrder(bool reverse)
+    {
+        var function = SyntaxTree.ParseText("""
+            import System.Threading.Tasks.*
+            import Result.*
+            async func Make() -> Task<Result<unit, MappingError>> { return Ok(()) }
+            """);
+        var types = SyntaxTree.ParseText("""
+            union MappingError { case Schema(message: string) }
+            union Result<T, E> { case Ok(value: T); case Error(error: E) }
+            """);
+        var compilation = CreateCompilation(reverse ? [types, function] : [function, types]);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var declaration = function.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(function).GetDeclaredSymbol(declaration));
+        var task = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, task.OriginalDefinition.SpecialType);
+        var result = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(task.TypeArguments));
+        Assert.Equal("MappingError", result.TypeArguments[1].Name);
+    }
+
+    [Fact]
+    public void AsyncFunction_WithUnresolvedReturnType_StillReportsDiagnostic()
+    {
+        var (compilation, _) = CreateCompilation("async func Make() -> MissingTask { }");
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0103");
+    }
+
+    [Theory]
     [InlineData("Task")]
     [InlineData("ValueTask")]
     public void AsyncNonGenericTask_WithUnitReturn_ReportsDiagnostic(string taskType)

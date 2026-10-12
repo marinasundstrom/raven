@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Carry Raven main's async signature fix (0ccb9a265): defer
+  validation of unresolved function skeletons to full binding. Native generic
+  async results with forward-declared unions no longer retain a false RAV2704;
+  invalid return types still receive diagnostics. No Runtime Contract change.
+
 - **2026-10-12:** Carry the general method-group overload correction from Raven
   main: classify natural function types for unrelated named targets rather than
   admitting placeholder error conversions. Preserve delegate signature checks and
