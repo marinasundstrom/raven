@@ -10398,3 +10398,8 @@ settings and reference CLI projection remain unchanged.
 The same regression exposed a general .NET emitter bug (differently typed boxed
 Object.Equals). It was fixed first on main (`ae05c124e`, four focused runtime tests)
 and deliberately carried to this native line, without merging branches.
+
+Cross-width admission is specifically limited to numeric literal expressions.
+Runtime value patterns keep their prior admission rules; this fix does not impose
+new numeric-coercion semantics on arbitrary member values. The SQL qualification
+bundle remains pinned to `7b48ce117`; its literal cases have identical lowering.

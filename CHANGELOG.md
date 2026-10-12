@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Keep cross-width native pattern widening scoped to numeric
+  literals, matching the .NET correction. Runtime value patterns retain their
+  prior admission rules instead of acquiring implicit numeric comparison.
+
 - **2026-10-12:** Widen Int32 constant patterns against Int64 subjects in native
   portable lowering; preserve full-width comparison instead of rejecting ordinary
   integer literals. Add .NET/portable regression coverage for matching, negative

@@ -461,7 +461,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (pattern is BoundConstantPattern scalar && scalar.Expression is { } scalarExpression &&
                 (input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean || input.TypeKind == TypeKind.Enum) &&
                 (CallableSignature.SameStorageType(input, scalarExpression.Type) ||
-                    input.SpecialType == SpecialType.System_Int64 && scalarExpression.Type.SpecialType == SpecialType.System_Int32) &&
+                    input.SpecialType == SpecialType.System_Int64 &&
+                    scalarExpression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NumericLiteral, Type.SpecialType: SpecialType.System_Int32 }) &&
                 scalar.Designator is null or BoundDiscardDesignator)
             {
                 if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));
