@@ -10,6 +10,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Eighteen focused provider/entrypoint tests pass before and after the migration;
   the native compiler builds with the matching metadata project.
 
+- **2026-10-12:** Add neoCLR-target extern NativeImport/MarshalAs lowering for namespace
+  functions and static methods: explicit Cdecl/System, UTF-8/UTF-16 per-parameter
+  overrides and Bool8/Bool32 parameters/results. Validate resolved attribute identity
+  and reject unsupported bodies/signatures/conversions before output; preserve .NET
+  extern/DllImport behavior. Native descriptors replace import annotations and remain
+  authoritative over reference-only CLI stubs. Add actual Raven attribute-source,
+  metadata and native-consumer checks; JIT/AOT and installed bundle gates remain open.
+
 - **2026-10-12:** Carry main `a459d4467` expression-position async return lowering.
   Early returns in match arms complete the selected builder instead of returning
   a value from native void MoveNext. The async-first source runtime library now

@@ -20,6 +20,7 @@ internal static class Int32Emitter
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
         var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var foreignImports = new Dictionary<IMethodSymbol, NativeImportDefinition>(SymbolEqualityComparer.Default);
         var interfaces = new List<SourceInterfacePlan>();
         var flagsEnums = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         var unions = new List<SourceUnionDeclarationPlan>();
@@ -44,8 +45,14 @@ internal static class Int32Emitter
                     if (symbol.IsAsync && compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null) throw Unsupported("explicit native async provider required");
                     if (symbol.IsExtern)
                     {
+                        if (NeoClrForeignDeclaration.TryCreate(options, symbol, declaration, out var foreign, out var import))
+                        {
+                            foreignImports.Add(symbol, import!);
+                            plans.Add(foreign!);
+                            continue;
+                        }
                         if (!NeoClrRuntimeServiceDeclaration.TryCreate(options.CoreLibrary, symbol, declaration, out var service))
-                            throw Unsupported("runtime services require internal nongeneric bodyless functions in neoCLR.Runtime with the core MethodImpl(InternalCall) attribute");
+                            throw Unsupported("extern requires a supported NativeImport attribute or an internal neoCLR.Runtime MethodImpl(InternalCall) service");
                         runtimeServices.Add(symbol);
                         plans.Add(service!);
                         continue;
@@ -278,6 +285,15 @@ internal static class Int32Emitter
                             model.GetDeclaredSymbol(asyncMember) is IMethodSymbol { IsAsync: true } &&
                             compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null)
                             throw Unsupported("explicit native async provider required");
+                        if (typeMember is MethodDeclarationSyntax externalMethod &&
+                            model.GetDeclaredSymbol(externalMethod) is IMethodSymbol { IsExtern: true } externalSymbol)
+                        {
+                            if (!NeoClrForeignDeclaration.TryCreate(options, externalSymbol, externalMethod, out var foreign, out var import))
+                                throw Unsupported("extern static method with a supported NativeImport attribute");
+                            foreignImports.Add(externalSymbol, import!);
+                            plans.Add(foreign!);
+                            continue;
+                        }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.UnsafeKeyword)))
@@ -351,7 +367,7 @@ internal static class Int32Emitter
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
-            if (runtimeServices.Contains(plan.Symbol) || plan.Symbol.IsAbstract)
+            if (runtimeServices.Contains(plan.Symbol) || foreignImports.ContainsKey(plan.Symbol) || plan.Symbol.IsAbstract)
             {
                 prepared.Add((plan, null));
                 continue;
@@ -754,6 +770,7 @@ internal static class Int32Emitter
                 definition = plan.Define(owner);
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
+            if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) definition.SetNativeImport(foreignImport);
             definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
             {
@@ -1040,6 +1057,10 @@ internal static class Int32Emitter
         }
         // Bind first, then publish user annotations against complete output declarations.
         // Synthesized markers (flags, unions, nullable and params) retain their own encoders.
+        foreach (var method in foreignImports.Keys.OfType<SourceMethodSymbol>())
+            foreach (var attribute in method.GetReturnTypeAttributes())
+                if (attribute.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax syntax)
+                    emittedAttributes.Add((syntax.SyntaxTree, syntax.Span));
         EmitAttributes(compilation.Assembly, assembly.Definition.CustomAttributes);
         foreach (var (symbol, definition) in nativeTypes)
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
@@ -1049,7 +1070,7 @@ internal static class Int32Emitter
             EmitAttributes(symbol, definition.CustomAttributes);
         foreach (var (symbol, definition) in definedMethods.Concat(interfaceMethods))
         {
-            if (symbol.GetReturnTypeAttributes().Select(a => a.ApplicationSyntaxReference?.GetSyntax()).OfType<AttributeSyntax>().FirstOrDefault() is { } returnAttribute)
+            if (!foreignImports.ContainsKey(symbol) && symbol.GetReturnTypeAttributes().Select(a => a.ApplicationSyntaxReference?.GetSyntax()).OfType<AttributeSyntax>().FirstOrDefault() is { } returnAttribute)
                 throw new UnsupportedInputException("native return-value attributes are not yet supported", returnAttribute.GetLocation());
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
             for (var i = 0; i < symbol.Parameters.Length; i++)
@@ -1080,6 +1101,12 @@ internal static class Int32Emitter
                 if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } && IsFlagsAttribute(attribute)) continue;
                 if (symbol is IMethodSymbol method && runtimeServices.Contains(method) &&
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.MethodImplAttribute") continue;
+                if (symbol is IMethodSymbol foreignMethod && foreignImports.ContainsKey(foreignMethod) &&
+                    attribute.AttributeClass.ToFullyQualifiedMetadataName() == NeoClrForeignDeclaration.AttributeName) continue;
+                if (symbol is IParameterSymbol parameter && parameter.ContainingSymbol is IMethodSymbol foreignOwner && foreignImports.ContainsKey(foreignOwner) &&
+                    attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.InteropServices.MarshalAsAttribute") continue;
+                if (attribute.AttributeClass.ToFullyQualifiedMetadataName() is NeoClrForeignDeclaration.AttributeName or "System.Runtime.InteropServices.MarshalAsAttribute")
+                    throw Unsupported("NativeImport requires a supported extern declaration");
                 var constructor = attribute.AttributeConstructor;
                 var arguments = attribute.ConstructorArguments.Select(Constant).ToArray();
                 var named = attribute.NamedArguments.Select(argument =>

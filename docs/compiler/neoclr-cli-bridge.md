@@ -10259,3 +10259,38 @@ compiler; no forwarding alias or additional CLI encoding is introduced. Runtime
 owners update scheduler guards and consumers together. Focused provider/entrypoint
 checks and native library execution are the validation gates; historical fixtures
 and published compiler docs retain their original toolchain identities where noted.
+
+## Foreign imports and per-slot marshalling (2026-10-12)
+
+The separate neoCLR compiler line now admits extern namespace functions and static
+methods with System.Runtime.InteropServices.NativeImportAttribute from the explicit
+core or registered System.Runtime dependency. The target-specific collector lowers
+library/export, Cdecl/System and string defaults into NativeImportDefinition. MarshalAs
+parameter/return attributes lower Utf8/Utf16 input Strings and Bool8/Bool32 Booleans.
+Invalid signatures, managed bodies, generics, instance methods and incompatible or
+unapproved attributes diagnose without output. Ordinary .NET extern/DllImport behavior
+is unchanged; no new Runtime Contract setting or language keyword is introduced.
+
+Native metadata owns the ABI contract; import attributes are consumed into descriptors.
+No library or attribute constructor runs during compilation. Reference-only CLI projections
+use throwing stubs, never an approximate DllImport marshaller. Executable CLI metadata
+writing rejects these imports. Runtime metadata validation repeats descriptor restrictions;
+libffi dispatch uses the selected convention. String buffers are call-scoped, readonly,
+terminated copies; NULs reject. Boolean inputs normalize to 0/1 and nonzero results to true.
+Native code must match the actual ABI and may neither retain buffers nor unwind across it.
+Missing libraries/exports fault lazily; wrong native signatures can corrupt memory/crash.
+
+Validation: NeoClrMetadataProbe --native-foreign-source compiles the actual neoCLR Raven
+attribute source and checks valid/rejected declarations, descriptor readback, static
+methods, mixed encodings and boolean results. neoCLR's foreign-interop harness executes
+those artifacts against a native fixture on macOS ARM64. The existing seven extern
+syntax/semantic/.NET emission checks pass. The initial build-based baseline collided
+with another RavenDoc build; the focused no-build baseline succeeded. Source/runtime
+hashes and full commands are recorded by neoCLR's docs/experiments/foreign-interop harness.
+
+Owners: Raven target admission/lowering; neoCLR metadata validation, native ABI dispatch,
+buffer/library lifetime and native backend follow-through. The source proof does not
+qualify JIT/AOT imports, installed compiler bundles or other hosts. Bounded output buffers,
+owned handles, record layout, errno/GetLastError capture and callbacks remain separate
+contracts. Native JIT/AOT lowering must replace the execution gap rather than encode
+these bridge limits as platform rules. Raven main is not merged or modified by this work.
