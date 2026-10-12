@@ -10403,3 +10403,18 @@ Cross-width admission is specifically limited to numeric literal expressions.
 Runtime value patterns keep their prior admission rules; this fix does not impose
 new numeric-coercion semantics on arbitrary member values. The SQL qualification
 bundle remains pinned to `7b48ce117`; its literal cases have identical lowering.
+
+### Preview constructor overload correction (2026-10-12)
+
+The packaged collections sample exposed a shared binder defect: method-group error
+placeholders made unrelated iterable/comparer constructors applicable. The general
+fix is developed and validated on Raven main, then deliberately carried here.
+Delegate signature checking remains unchanged; other named targets classify the
+natural function type. There is no new Runtime Contract option, CLI/native encoding
+or platform-specific semantic rule. The preview bundle will be rebuilt and validated
+with matching compiler/library artifacts; older bundle hashes remain historical.
+
+Main commit `04de9de64` passes 415 overload-suite tests and 69 focused semantic/codegen
+checks. The native compiler rebuild and the unchanged packaged collections consumer
+now compile successfully. Runtime package acceptance is recorded by neoCLR's preview
+candidate work; compilation alone does not establish execution or editor readiness.

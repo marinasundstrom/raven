@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Carry the general method-group overload correction from Raven
+  main: classify natural function types for unrelated named targets rather than
+  admitting placeholder error conversions. Preserve delegate signature checks and
+  natural function-to-Object conversion; no native Runtime Contract change.
+
 - **2026-10-12:** Keep cross-width native pattern widening scoped to numeric
   literals, matching the .NET correction. Runtime value patterns retain their
   prior admission rules instead of acquiring implicit numeric comparison.

@@ -2773,6 +2773,16 @@ internal sealed class OverloadResolver
                 LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.Success, "method group accepted for System.Delegate-like parameter");
                 return true;
             }
+
+            // The bound method-group placeholder is an error type, not a value
+            // convertible to every reference type. Use its natural function type
+            // for ordinary conversions (for example to object).
+            argType = methodGroup.DelegateType;
+            if (argType is null || argType.ContainsErrorType())
+            {
+                LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.ConversionFailed, "method group has no natural function type for this target");
+                return false;
+            }
         }
 
         bool lambdaCompatible = false;
