@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Document matching neoCLR native function/layout and host-root
+  admission for the managed TLS consumer. Runtime Contract configuration, Raven
+  lowering and .NET emission are unchanged; record local AOT evidence and pending
+  execution-mode qualification.
+
 - **2026-10-12:** Retain IsExtern for native metadata InternalCall declarations as
   well as foreign imports. Read implementation flags through the public metadata
   inspection API; keep runtime-service resolution separate from symbol loading.

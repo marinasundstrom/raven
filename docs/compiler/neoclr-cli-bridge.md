@@ -10337,3 +10337,26 @@ wire representation or Runtime Contract option is introduced. Native metadata ow
 this identity; CLI projection and service admission remain unchanged. The focused
 foreign-import probe now verifies an unbound runtime service without resolving or
 executing it, alongside existing foreign and ordinary managed readback cases.
+
+### Managed TLS consumer native admission — 2026-10-12
+
+neoCLR commits `d7729e3fc`, `4cc761172` and `c3f2cedf8` extend bounded native
+function/layout admission and align host GC root checks for the managed SSL/HTTP
+consumer. The selected-function cap is 2,048; inline values, reference payloads
+and record-array elements admit 128 private eight-byte lanes. Existing stack/heap
+budgets remain active. These are neoCLR backend/host resource bounds, not Raven
+language restrictions or a CLI aggregate ABI.
+
+Runtime Contract service mappings, ordinary .NET emission and native metadata
+encoding are unchanged. Rebuild the native compiler and linked host together,
+including prepared JIT bundles. The consumer compiler includes `6fe7d630a`'s native
+async pattern/receiver fixes. No additional Raven lowering change is needed for
+these bounds. The local AOT HTTP client/server exchanges nested JSON over managed
+SslStream, with GC during handling; interpreter/JIT and broader SSL qualification
+remain open at this checkpoint. See neoCLR's
+`docs/experiments/shared-tls/native-layout-budget.md` and
+`native-selection-budget.md` for admission, GC/canary tests and remaining gates.
+
+The union representation still stores separate ordinary case payload fields.
+More compact native union storage remains separate compiler/metadata/GC work;
+raising a checked budget does not claim a representation or performance improvement.
