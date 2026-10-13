@@ -46,6 +46,10 @@ bridge. The neoCLR target needs its matching development library and compiler;
 its temporary nominal carriers are not native structural union values. Structural
 identity, normalization and future native representation are separate work.
 
+Ad-hoc error unions can also appear directly in generic constructor and explicit
+generic method type arguments, including nested Result types. A type alias is not
+required to construct a promise or other generic container for such a result.
+
 ## Try expressions
 
 `try` captures exceptions as values. `try expression?` combines capture with carrier

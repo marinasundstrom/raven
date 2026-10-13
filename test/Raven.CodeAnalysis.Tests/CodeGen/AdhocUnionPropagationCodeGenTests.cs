@@ -56,6 +56,42 @@ public class AdhocUnionPropagationCodeGenTests
         Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [failure]));
     }
 
+    [Theory]
+    [InlineData("IOError")]
+    [InlineData("ParseError")]
+    public void InlineUnionTypeArguments_ConstructAndInvoke(string errorType)
+    {
+        const string code = """
+            import System.*
+            class IOError { }
+            class ParseError { }
+            class Box<T> {
+                val Value: T
+                init(value: T) { Value = value }
+            }
+            class Harness {
+                private static func Identity<T>(value: T) -> T => value
+                public static func Check() -> bool {
+                    let direct = Box<IOError | ParseError>(SelectedError())
+                    let nested = Box<Result<int, IOError | ParseError>>(.Error(SelectedError()))
+                    let invoked = Identity<IOError | ParseError>(SelectedError())
+                    if nested.Value is .Error(let actual) {
+                        return direct.Value is SelectedError && invoked is SelectedError && actual is SelectedError
+                    }
+                    return false
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("inline-union-type-arguments", [SyntaxTree.ParseText(code.Replace("SelectedError", errorType, StringComparison.Ordinal))], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, null));
+    }
+
     [Fact]
     public void ResultPropagation_RejectsErrorOutsideAlternatives()
     {

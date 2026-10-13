@@ -275,6 +275,17 @@ internal static class NativeRuntimeAsyncLowerer
             var temporary = Local(resultType);
             return new BoundBlockStatement([Declare(temporary, value), .. CleanupTo(0), Completion(new BoundLocalAccess(temporary))]);
         }
+        public override BoundNode? VisitPropagateExpression(BoundPropagateExpression node)
+        {
+            // Expand residual returns before wrapping exits in the runtime outcome.
+            // Otherwise the later general lowering pass returns Result directly
+            // from the TaskOutcome-producing closure and skips its cleanup stack.
+            var lowered = Lowerer.LowerExpression(owner, node);
+            if (lowered is BoundPropagateExpression)
+                throw unsupported("propagation could not be lowered");
+            return VisitExpression(lowered);
+        }
+
         public override BoundNode? VisitAwaitExpression(BoundAwaitExpression node)
         {
             if (node.GetAwaiterMethod.IsStatic || node.GetAwaiterMethod.Parameters.Length != 0 ||

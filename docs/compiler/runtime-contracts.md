@@ -4125,3 +4125,13 @@ alternatives and early return; a negative check rejects an unrelated error.
 neoCLR additionally qualifies separately imported value-type errors with native
 metadata and its own runtime. Modern .NET evidence does not qualify .NET Framework
 or NanoFramework. See the [language guidance](../lang/spec/async-and-error-propagation.md#combining-error-types-with-an-ad-hoc-union).
+
+
+### Inline union type arguments (2026-10-13)
+
+Expression-side type binding now delegates UnionTypeSyntax to ordinary type binding,
+just as declaration-side binding already did. Generic constructor calls and explicit
+generic method calls can use ad-hoc unions directly, including nested Result types.
+No Runtime Contract flag or metadata encoding changes. Regression execution constructs
+direct and nested generic values and invokes a generic method with both error
+alternatives. The fix belongs on main and is carried separately to the neoCLR line.
