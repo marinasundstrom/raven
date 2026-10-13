@@ -10495,7 +10495,7 @@ Validation: neoCLR’s `scripts/validate-runtime-await-sdk.py` rebuilds SDK-defa
 and an explicit state-machine control, inspects application lowering, stages a
 matching installed JIT bundle, then exercises interpreter/JIT/AOT language, cleanup,
 fault, HTTP server/client and generator cases. The hosted Windows HTTP workflow can run this
-gate with `runtime_await=true`. All 21 macOS SDK cases pass, including generators and the explicit state-machine
-fallback; source hashes remain unchanged through execution. Windows application
-qualification is running. The raw carrier gate passes on both platforms. See
+gate with `runtime_await=true`. All 21 SDK cases pass on both macOS and Windows, including generators and the
+explicit state-machine fallback; source hashes remain unchanged through execution.
+The Windows gate is run `38467065990`; the raw carrier gate also passes on both platforms. See
 [retained evidence](https://github.com/marinasundstrom/neoCLR/tree/main/docs/validation/runtime-product/runtime-await-sdk).

@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-13:** Document rebuilt neoCLR SDK runtime-await defaults, the assembly-private await/generator source providers, upgrade guidance, explicit state-machine override, and Windows/macOS carrier integration. Existing Runtime Contract, emission behavior and ordinary .NET defaults are unchanged; all 21 macOS SDK application cases pass, with Windows application qualification tracked in neoCLR.
+- **2026-10-13:** Document rebuilt neoCLR SDK runtime-await defaults, the assembly-private await/generator source providers, upgrade guidance, explicit state-machine override, and Windows/macOS carrier integration. Existing Runtime Contract, emission behavior and ordinary .NET defaults are unchanged; all 21 SDK application cases pass on macOS and Windows. The shared native backend is now named neoclr-codegen; ordinary .NET compilation remains separate.
 
 - **2026-10-13:** Document neoCLR incoming HTTP stream reference declarations,
   native-library ownership and tested compiler/renderer identities. Runtime Contract,
