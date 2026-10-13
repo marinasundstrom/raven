@@ -7056,6 +7056,11 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(BindTypeSyntaxAndReport(functionTypeSyntax));
         }
 
+        if (syntax is UnionTypeSyntax unionTypeSyntax)
+        {
+            return new BoundTypeExpression(BindTypeSyntaxAndReport(unionTypeSyntax));
+        }
+
         if (syntax is NullableTypeSyntax nullableTypeSyntax)
         {
             return new BoundTypeExpression(BindTypeSyntaxAndReport(nullableTypeSyntax));

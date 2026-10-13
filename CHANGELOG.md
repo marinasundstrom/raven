@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
-- **2026-10-13:** Normalize synthesized propagation error conversions in shared lowering, including injection into ad-hoc union alternatives. Preserve ordinary .NET execution and reject unrelated errors; add success/both-error/early-return coverage. Document ad-hoc error unions on the website as an alternative to converter-only aggregation, while preferring domain error types or nominal unions for many public APIs. neoCLR uses a matching temporary nominal carrier library pending native structural union values.
+- **2026-10-13:** Normalize synthesized propagation error conversions in shared lowering, including injection into ad-hoc union alternatives. Preserve ordinary .NET execution and reject unrelated errors; add success/both-error/early-return coverage. Document ad-hoc error unions on the website as an alternative to converter-only aggregation, while preferring domain error types or nominal unions for many public APIs. neoCLR uses a matching temporary nominal carrier library pending native structural union values. Bind inline ad-hoc unions in generic constructor and method type arguments, including nested generic types, using ordinary type binding. Add execution regressions for both alternatives; no alias or Runtime Contract setting is required.
 
 - **2026-10-12:** Defer async return validation for unresolved namespace-function
   signature skeletons until full binding. Forward-declared generic result types
