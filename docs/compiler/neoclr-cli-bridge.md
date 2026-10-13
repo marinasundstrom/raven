@@ -10445,3 +10445,51 @@ no unavailable packaged git revision is inferred. RavenDoc rendering uses native
 branch 6b5e052ce3648f9247ac76aba275587a3a5a1bb4. Windows and TLS streaming runs
 remain separate qualification work. See neoCLR's
 `docs/experiments/http-body-stream/README.md` for evidence and limits.
+
+## SDK-default runtime-await integration — 2026-10-13
+
+Development SDK builds now set `RavenNeoClrRuntimeAsyncHelper` to
+`RuntimeAwaitProvider.Bridge` in `NeoCLR.ClassLibrary.props` and include the matching
+`RuntimeAwait.rvn` from the SDK library directory. Its canonical source is
+`runtime/raven/compiler-services/RuntimeAwait.rvn`; callers no longer copy an
+experiment file. This source-included, assembly-private provider uses the existing
+explicit Raven Runtime Contract. It does not add public managed API or change
+ordinary Raven/.NET lowering. Existing source-provider type names remain private
+compatibility details, not a new module-authoring convention.
+
+To select compiler state machines explicitly, place this property **after** the SDK
+import in the project (an empty environment variable alone is not an override):
+
+```xml
+<PropertyGroup>
+  <RavenNeoClrRuntimeAsyncHelper></RavenNeoClrRuntimeAsyncHelper>
+</PropertyGroup>
+```
+
+The SDK conditionally excludes its provider for that selection. Historical
+state-machine benchmark controls select it explicitly. Library bootstrap projects
+retain their existing lowering; default application lowering does not retroactively
+rewrite referenced assemblies. The PostgreSQL library retains its explicit runtime
+provider selection, now from the canonical source.
+
+AOT project builds admit the shared suspension bindings on macOS ARM64 and Windows
+x64 and link the carrier only when selected code uses it. Async console programs
+receive the task/scheduler invocation host as well. Installed JIT helper builds
+include the carrier and expose it on both platforms; old JIT helper binaries must
+not be paired with new compiler/runtime inputs. Generated Windows code keeps its
+stack probes and the carrier preserves floating-point state through OS fibers.
+
+Native intent is runtime-owned suspension/resumption with rooted activation
+lifetimes. The current provider still adapts `Task` through managed callback
+notifications and private runtime intrinsic declarations; source inclusion,
+per-assembly helper metadata and callback allocations are temporary costs. A future
+compiler/runtime provider contract can remove that bridge without changing Task's
+operation semantics. The native module compiler uses this explicit contract; it
+does not redefine ordinary .NET async behavior or promise Windows ARM64 support.
+
+Validation: neoCLR’s `scripts/validate-runtime-await-sdk.py` rebuilds SDK-default applications
+and an explicit state-machine control, inspects application lowering, stages a
+matching installed JIT bundle, then exercises interpreter/JIT/AOT language, cleanup,
+fault, HTTP server and client cases. The hosted Windows HTTP workflow can run this
+gate with `runtime_await=true`. Full gate evidence is pending while this integration
+is qualified; the preceding raw carrier gate passes on macOS and Windows.
