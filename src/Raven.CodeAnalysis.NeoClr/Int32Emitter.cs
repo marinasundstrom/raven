@@ -211,15 +211,15 @@ internal static class Int32Emitter
                         if (typeMember is ClassDeclarationSyntax or StructDeclarationSyntax) continue;
                         if (!typeSymbol.IsStatic && typeMember is FieldDeclarationSyntax fieldSyntax)
                         {
-                            if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
-                                throw Unsupported("only public/internal/private mutable instance fields with target-supported storage types");
+                            if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ReadonlyKeyword)))
+                                throw Unsupported("only public/internal/private instance fields with target-supported storage types");
                             foreach (var variable in fieldSyntax.Declaration.Declarators)
                             {
                                 diagnosticSyntax = variable;
-                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, RefKind: RefKind.None } field ||
+                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsConst: false, RefKind: RefKind.None } field ||
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
                                     !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
-                                    throw Unsupported("only public/internal/private mutable instance fields with target-supported storage types");
+                                    throw Unsupported("only public/internal/private instance fields with target-supported storage types");
                                 storageFields.Add(field);
                             }
                             continue;

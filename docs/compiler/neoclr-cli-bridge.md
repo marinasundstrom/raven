@@ -10560,3 +10560,21 @@ native library compiles without aliases; neoCLR's HTTP JSON gate executes its cl
 async error/cleanup and flat/nested domain-adapter consumers and compiles/verifies
 both report client/server pairs. See neoCLR's
 `docs/experiments/http-json-client/validation-20261013.json` for artifact hashes and commands.
+
+
+### Explicit readonly instance fields (2026-10-14)
+
+The native declaration collector now accepts `readonly field`, matching the
+existing private `val` storage path. Native field metadata carries the existing
+InitOnly flag; the reference projection preserves it as CLI `FieldAttributes.InitOnly`
+and native imports expose `IFieldSymbol.IsReadOnly`. Constructor and field
+initializer assignments work; ordinary writes remain RAV0191. No new bridge encoding,
+Runtime Contract setting or ordinary .NET behavior is introduced. The owner of this
+fix is Raven.CodeAnalysis.NeoClr; the runtime already verifies readonly stores.
+
+`NeoClrMetadataProbe --readonly-fields <bootstrap-Core.dll> <neoclr> <output>`
+checks initialized public/internal/private fields, separate-library imports, native
+verification/execution (42), metadata flags and source/imported mutation diagnostics.
+All five AssignmentExpressionSemanticTests pass on .NET 11. The fix is on
+`codex/source-object-metadata-resolution`; it is target-specific, not a pending
+general Raven main fix. This does not add static storage or static initialization.

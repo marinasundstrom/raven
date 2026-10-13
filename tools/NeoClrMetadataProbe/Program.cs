@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--readonly-fields", var readonlyCore, var readonlyRuntime, var readonlyOutput]) { await ReadonlyFieldChecks.Run(readonlyCore, readonlyRuntime, readonlyOutput); return; }
+
 if (args is ["--native-foreign-source", var foreignSourceCore, var foreignSourceLibrary, var foreignSourceOutput, var foreignSource]) { NativeForeignChecks.Run(foreignSourceCore, foreignSourceLibrary, foreignSourceOutput, foreignSource); return; }
 
 if (args is ["--native-foreign", var foreignCore, var foreignLibrary, var foreignOutput]) { NativeForeignChecks.Run(foreignCore, foreignLibrary, foreignOutput); return; }
