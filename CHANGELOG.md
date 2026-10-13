@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-13:** Document neoCLR incoming HTTP stream reference declarations,
+  native-library ownership and tested compiler/renderer identities. Runtime Contract,
+  compiler lowering and ordinary .NET behavior are unchanged.
+
 - **2026-10-12:** Carry Raven main's async signature fix (0ccb9a265): defer
   validation of unresolved function skeletons to full binding. Native generic
   async results with forward-declared unions no longer retain a false RAV2704;

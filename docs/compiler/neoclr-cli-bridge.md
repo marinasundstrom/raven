@@ -10418,3 +10418,30 @@ Main commit `04de9de64` passes 415 overload-suite tests and 69 focused semantic/
 checks. The native compiler rebuild and the unchanged packaged collections consumer
 now compile successfully. Runtime package acceptance is recorded by neoCLR's preview
 candidate work; compilation alone does not establish execution or editor readiness.
+
+## Incoming HTTP stream reference surface (2026-10-13)
+
+neoCLR's managed System.Web library now supplies HttpCompletionOption, the client
+Send overloads selecting final-header completion, HttpServer.AcceptHeaders,
+HttpContent.TryGetStream and disposable HttpResponse ownership. The aggregate CLI
+reference adds declaration-only signatures for RavenDoc; native library metadata
+and its sidecars remain authoritative. These are ordinary enum, interface and
+method declarations. No Runtime Contract option, IL instruction, compiler async
+lowering or metadata format changes are required. The interpreter/JIT/AOT execute
+the same managed framing implementation over HttpConnection.
+
+The reference projection does not implement transport semantics, body ownership or
+cancellation; these remain library behavior. New signatures do not qualify the
+historical CLI importer for all streaming implementations. Native metadata/codegen
+already replaces that path for the tested consumers. neoCLR owns API/runtime tests
+and reference maintenance; Raven owns native emission and rendering. Ordinary .NET
+behavior is unchanged and main remains separate from the native compiler line.
+
+The neoCLR http-body-stream experiment qualifies 48 client/server cases across
+local macOS interpreter, JIT and AOT against independent peers, plus buffered
+controls and diagnostic GC. The tested packaged compiler is identified by SHA-256
+c56bf5da468c40afcd302c186465a83f6374c65d029ee8f6b2157884964d8319;
+no unavailable packaged git revision is inferred. RavenDoc rendering uses native
+branch 6b5e052ce3648f9247ac76aba275587a3a5a1bb4. Windows and TLS streaming runs
+remain separate qualification work. See neoCLR's
+`docs/experiments/http-body-stream/README.md` for evidence and limits.
