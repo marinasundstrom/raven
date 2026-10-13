@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
@@ -13,8 +14,13 @@ internal sealed record SourceUnionDeclarationPlan(
         var types = ImmutableArray.CreateBuilder<SourceUnionTypeDeclaration>();
         var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         Add(union);
-        var caseOwner = union.GetMetadataCaseContainer();
-        if (!SymbolEqualityComparer.Default.Equals(caseOwner, union)) Add(caseOwner);
+        // Parenthesized unions contain existing alternatives, not generated cases.
+        // They must not invent a shared non-generic companion across carrier arities.
+        if (!union.DeclaredCaseTypes.IsEmpty)
+        {
+            var caseOwner = union.GetMetadataCaseContainer();
+            if (!SymbolEqualityComparer.Default.Equals(caseOwner, union)) Add(caseOwner);
+        }
         foreach (var @case in union.DeclaredCaseTypes) Add(@case);
         return new(union, types.ToImmutable());
 

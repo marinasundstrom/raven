@@ -10499,3 +10499,35 @@ gate with `runtime_await=true`. All 21 SDK cases pass on both macOS and Windows,
 explicit state-machine fallback; source hashes remain unchanged through execution.
 The Windows gate is run `38467065990`; the raw carrier gate also passes on both platforms. See
 [retained evidence](https://github.com/marinasundstrom/neoCLR/tree/main/docs/validation/runtime-product/runtime-await-sdk).
+
+
+## Ad-hoc Result error alternatives (2026-10-13)
+
+The neoCLR development library supplies temporary nominal System.Union carriers
+of arities two through five for Raven's existing `A | B` spelling. A Result error
+can be injected into either listed alternative during `?` propagation, with no
+converter required solely to aggregate errors. No new Runtime Contract option or
+.NET default is introduced. Ordinary .NET 11 already executes this behavior;
+shared residual-conversion lowering from main `3abc0c954` is carried separately
+to the native compiler branch; no full branch merge is performed.
+
+Native source union planning and metadata emission now omit case companions for
+parenthesized unions. Their existing-type alternatives have no generated cases;
+a shared empty companion for several generic arities otherwise accumulates
+conflicting markers. The native metadata probe checks same-name generic arities
+and imported member types without companions. The neoCLR consumer validates a
+separately compiled config library, both value-type error alternatives and an
+unrelated-error rejection.
+
+The native semantic intent is a structural union value. This bridge emits ordinary
+generic nominal metadata, typed payload fields, constructors, extractors and union
+markers. The API documentation reference uses ordinary CLI carriers; executable
+legacy CLI importer policy is unchanged. Two-to-five arity, ordered generic
+identity and inactive defaults are temporary representation limits. Structural
+identity/normalization, arbitrary arity and native union value operations require
+coordinated metadata, compiler/backend, verifier and runtime replacement. These
+limits are not permanent neoCLR language rules, and no performance gain is claimed.
+The runtime owns the temporary source carriers; Raven owns binding/lowering and
+native metadata. Consumers must rebuild with matching development artifacts.
+See neoCLR's `docs/experiments/adhoc-error-unions/README.md` and
+`docs/raven-cli-bridge.md#ad-hoc-error-union-bridge-2026-10-13` for exact evidence.

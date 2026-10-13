@@ -347,7 +347,7 @@ internal sealed partial class Lowerer
         return new PropagateLowering(statements, successExpression);
     }
 
-    private static BoundExpression? CreatePropagateCaughtExceptionExpression(
+    private BoundExpression? CreatePropagateCaughtExceptionExpression(
         BoundPropagateExpression propagate,
         BoundExpression caughtException,
         Compilation compilation)
@@ -515,16 +515,20 @@ internal sealed partial class Lowerer
         return new BoundObjectCreationExpression(carrierConstructor, new[] { argument });
     }
 
-    private static BoundExpression ApplyErrorConversion(
+    private BoundExpression ApplyErrorConversion(
         BoundExpression payload,
         ITypeSymbol targetType,
         Conversion conversion,
         Compilation compilation)
     {
-        if (conversion.Exists && !conversion.IsIdentity)
-            return new BoundConversionExpression(payload, targetType, conversion);
+        var converted = conversion.Exists && !conversion.IsIdentity
+            ? new BoundConversionExpression(payload, targetType, conversion)
+            : ApplyConversionIfNeeded(payload, targetType, compilation);
 
-        return ApplyConversionIfNeeded(payload, targetType, compilation);
+        // These expressions are synthesized after the ordinary visitor has run.
+        // Materialize union injections here so every backend sees the constructor,
+        // including residuals extracted through the propagation protocol.
+        return VisitExpression(converted) ?? converted;
     }
 
     private static BoundExpression CreatePropagateSuccessExpression(

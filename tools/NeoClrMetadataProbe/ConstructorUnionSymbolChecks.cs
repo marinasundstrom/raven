@@ -1,4 +1,5 @@
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -11,13 +12,17 @@ internal static class ConstructorUnionSymbolChecks
     {
         var catalog = NeoClrReferenceCatalog.Read(corePath, [libraryPath], seedPath);
         var bootstrap = catalog.Bootstrap;
-        var options = CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null).WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name,
-            new Dictionary<SpecialType, string> { [SpecialType.System_String] = "Numbers" }));
+        var libraryName = Path.GetFileNameWithoutExtension(libraryPath);
+        var imports = new MetadataImportOptions(catalog.CoreIdentity.Name,
+            new Dictionary<SpecialType, string> { [SpecialType.System_String] = libraryName });
+        if (libraryName == "System.Runtime") imports = imports.WithObjectAssemblyName(libraryName);
+        var options = CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null).WithMetadataImportOptions(imports);
         var source = """
             public struct Left { }
             public struct Right { }
             public union Choice(Left | Right)
             public union Generic<T>(T | Right)
+            public union Generic<T, U>(T | U)
             """;
         var library = Compilation.Create("ConstructorUnions", [SyntaxTree.ParseText(source)], catalog.References.ToArray(),
             options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
@@ -36,7 +41,11 @@ internal static class ConstructorUnionSymbolChecks
         Check(generic.MemberTypes[0].TypeKind == TypeKind.TypeParameter, "open generic scope lost");
         var constructed = (IUnionSymbol)((INamedTypeSymbol)generic).Construct(consumer.GetSpecialType(SpecialType.System_Int32));
         Check(constructed.MemberTypes[0].SpecialType == SpecialType.System_Int32, "constructed generic scope lost");
-        Console.WriteLine("PASS native constructor union alternatives and generic scopes");
+        var pair = (IUnionSymbol)consumer.GetTypeByMetadataName("Generic`2")!;
+        Check(pair.MemberTypes.Length == 2 && pair.MemberTypes.All(t => t.TypeKind == TypeKind.TypeParameter),
+            "second generic arity alternatives lost");
+        Check(consumer.GetTypeByMetadataName("Generic") is null, "constructor union invented a case companion");
+        Console.WriteLine("PASS native constructor union alternatives, generic scopes and multiple arities without companions");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
 }

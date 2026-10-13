@@ -24,7 +24,8 @@ internal static class NeoClrUnionMetadata
                 owner.AddCustomAttribute(new(caseMarker.Definition,
                     [new(PrimitiveType.String, ((INamedTypeSymbol)@case).ToFullyQualifiedMetadataName()),
                      new(PrimitiveType.String, @case.Name), new(PrimitiveType.Int32, @case.Ordinal)]));
-            if (plan.Union.GetMetadataCaseContainer() is SynthesizedUnionCompanionTypeSymbol companion)
+            if (!plan.Union.DeclaredCaseTypes.IsEmpty &&
+                plan.Union.GetMetadataCaseContainer() is SynthesizedUnionCompanionTypeSymbol companion)
                 resolve(companion).AddCustomAttribute(new(companionMarker.Definition,
                     [new(PrimitiveType.String, plan.Union.ToFullyQualifiedMetadataName())]));
         }

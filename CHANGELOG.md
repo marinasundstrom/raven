@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-13:** Carry main `3abc0c954`: normalize synthesized propagation error conversions in shared lowering, including injection into ad-hoc union alternatives. Preserve ordinary .NET execution and reject unrelated errors; add success/both-error/early-return coverage. Document ad-hoc error unions on the website as an alternative to converter-only aggregation, while preferring domain error types or nominal unions for many public APIs. neoCLR uses a matching temporary nominal carrier library pending native structural union values; omit empty case companions for parenthesized unions so different carrier arities import without conflicting metadata. Native constructor-import checks and interpreter/JIT/AOT consumers pass.
+
 - **2026-10-13:** Document rebuilt neoCLR SDK runtime-await defaults, the assembly-private await/generator source providers, upgrade guidance, explicit state-machine override, and Windows/macOS carrier integration. Existing Runtime Contract, emission behavior and ordinary .NET defaults are unchanged; all 21 SDK application cases pass on macOS and Windows. The shared native backend is now named neoclr-codegen; ordinary .NET compilation remains separate.
 
 - **2026-10-13:** Document neoCLR incoming HTTP stream reference declarations,

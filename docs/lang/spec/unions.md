@@ -25,6 +25,10 @@ spelling supports three, four, and five alternatives. The standard union
 carriers are provided by `Raven.Core` as a temporary bridge until .NET adopts a
 standard union type.
 
+Use ad-hoc unions to expose several existing error types in a Result without
+conversion boilerplate; see [combining error types](async-and-error-propagation.md#combining-error-types-with-an-ad-hoc-union).
+Nominal error unions remain preferable when a public API needs its own domain contract.
+
 ## Nominal unions
 
 Use a nominal union when a fixed set of variants has a domain identity of its

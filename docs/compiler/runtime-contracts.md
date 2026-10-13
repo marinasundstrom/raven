@@ -4107,3 +4107,21 @@ RAV2704 after `MappingError` became available. Ordinary .NET Task semantics rema
 unchanged. Focused coverage checks forward union results in both source orders and
 unresolved return-type diagnostics; native integration separately compiles the
 reduced example and the JSON roundtrip sample.
+
+
+## Ad-hoc error union propagation (2026-10-13)
+
+An error alternative can propagate from `Result<T, E>` into
+`Result<U, E | F>` through the existing union conversion. No new Runtime Contract
+setting is required. The semantic model retains the declared union carrier and
+classifies the error conversion as an implicit union injection; unrelated errors
+remain diagnostics. Shared lowering now visits conversions it synthesizes for
+propagation residuals (including the existing exception-capture path), so portable
+backends receive the ordinary carrier constructor rather than an unlowered union
+conversion. Ordinary .NET behavior remains unchanged.
+
+The .NET 11 regression exercises success, both independent reference-type error
+alternatives and early return; a negative check rejects an unrelated error.
+neoCLR additionally qualifies separately imported value-type errors with native
+metadata and its own runtime. Modern .NET evidence does not qualify .NET Framework
+or NanoFramework. See the [language guidance](../lang/spec/async-and-error-propagation.md#combining-error-types-with-an-ad-hoc-union).
