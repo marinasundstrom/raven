@@ -10578,3 +10578,25 @@ verification/execution (42), metadata flags and source/imported mutation diagnos
 All five AssignmentExpressionSemanticTests pass on .NET 11. The fix is on
 `codex/source-object-metadata-resolution`; it is target-specific, not a pending
 general Raven main fix. This does not add static storage or static initialization.
+
+### Static field storage (2026-10-14 development)
+
+The neoCLR adapter opts into `AllowsStaticFields`; ordinary .NET adapter defaults
+are unchanged. Static loads/stores omit a receiver in the shared plan and emit
+`ldsfld`/`stsfld` with an explicit closed owner and static ordinal. The toolkit
+projects normal CLI Static/InitOnly flags while the native artifact owns separate
+`static_fields` rows. Instance layout is unaffected. No Runtime Contract option is
+required. Generic class instantiations retain distinct storage identities.
+
+Default-initialized mutable storage, explicit static fields, private static `var`
+storage and implemented static properties are admitted. Source static initializers
+are rejected: no implicit `.cctor` execution, static readonly initialization or
+static-field address support is claimed. This is a native-branch capability, not
+a Raven-main runtime feature. The neoCLR runtime owns rooting, initialization and
+lifetime; compiler admission alone does not qualify an execution mode.
+
+Validation: `NeoClrMetadataProbe --static-fields <bootstrap-core> <runtime> <output>`
+checks imported Static flags, lazy property reuse, and separate `Cache<int>` and
+`Cache<string>` counters through a separate assembly. macOS interpreter returned
+42; the matching native backend also returned 42 across three fresh invocations
+and reclaimed every allocation. HTTP/JIT integration validation follows in neoCLR.

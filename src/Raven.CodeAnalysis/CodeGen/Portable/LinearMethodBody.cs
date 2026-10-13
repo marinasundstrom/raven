@@ -740,7 +740,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var owner = fieldAssignment.Field.ContainingType!;
                     if (!SupportedField(fieldAssignment.Field))
                         return Reject("unsupported instance field assignment", Syntax(statement));
-                    if (owner.IsReferenceType)
+                    if (fieldAssignment.Field.IsStatic)
+                    {
+                        if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type, atStatementBoundary)) return false;
+                    }
+                    else if (owner.IsReferenceType)
                     {
                         // Async dispatch can resume inside the RHS. Reload the generated
                         // self receiver afterwards instead of relying on a pre-await local.
@@ -866,7 +870,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 foreach (var nested in WalkStatements(child)) yield return nested;
         }
 
-        bool SupportedField(IFieldSymbol field) => !field.IsStatic &&
+        bool SupportedField(IFieldSymbol field) => (!field.IsStatic || capabilities?.AllowsStaticFields == true) &&
             (field.ContainingType?.Arity is not > 0 || capabilities is null || capabilities.AllowsConstructedFieldReferences ||
                 SymbolEqualityComparer.Default.Equals(field.ContainingType, source.ContainingType)) &&
             TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
@@ -1397,10 +1401,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantMember } when constantMember.GetConstantValue() is double memberValue:
                     instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(memberValue))); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):
-                    if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
+                    if (!field.Field.IsStatic && !Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;
                 case BoundMemberAccessExpression { Member: IFieldSymbol memberField } fieldAccess when SupportedField(memberField):
-                    if (!Receiver(fieldAccess.Receiver, memberField.ContainingType!, Syntax(expression))) return false;
+                    if (!memberField.IsStatic && !Receiver(fieldAccess.Receiver, memberField.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: memberField)); return true;
                 case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedPropertyCall(getter):
                     if (!PropertyReceiver(null, getter, Syntax(expression))) return false;

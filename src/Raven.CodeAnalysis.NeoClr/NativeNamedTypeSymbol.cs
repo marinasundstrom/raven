@@ -91,7 +91,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         // Accessors remain available through their property and the token map,
         // matching PE import; they are not directly invocable named members.
         members = [.. methods.Where(method => method.AssociatedSymbol is null),
-            .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
+            .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, view.GetFields().Take(ordinal).Count(f => f.IsStatic == field.IsStatic))),
             .. properties];
     }
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;

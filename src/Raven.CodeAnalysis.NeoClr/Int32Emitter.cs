@@ -209,17 +209,19 @@ internal static class Int32Emitter
                     {
                         diagnosticSyntax = typeMember;
                         if (typeMember is ClassDeclarationSyntax or StructDeclarationSyntax) continue;
-                        if (!typeSymbol.IsStatic && typeMember is FieldDeclarationSyntax fieldSyntax)
+                        if (typeMember is FieldDeclarationSyntax fieldSyntax)
                         {
-                            if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ReadonlyKeyword)))
-                                throw Unsupported("only public/internal/private instance fields with target-supported storage types");
+                            if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ReadonlyKeyword or SyntaxKind.StaticKeyword)))
+                                throw Unsupported("only public/internal/private fields with target-supported storage types");
                             foreach (var variable in fieldSyntax.Declaration.Declarators)
                             {
                                 diagnosticSyntax = variable;
-                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsConst: false, RefKind: RefKind.None } field ||
+                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: false, RefKind: RefKind.None } field ||
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
                                     !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
-                                    throw Unsupported("only public/internal/private instance fields with target-supported storage types");
+                                    throw Unsupported("only public/internal/private fields with target-supported storage types");
+                                if (field.IsStatic && variable.Initializer is not null)
+                                    throw Unsupported("static field initializers require runtime type initialization");
                                 storageFields.Add(field);
                             }
                             continue;
@@ -245,9 +247,9 @@ internal static class Int32Emitter
                         {
                             if (propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
-                                property.IsStatic && (property.BackingField is not null || propertySyntax.Initializer is not null) ||
+                                property.IsStatic && propertySyntax.Initializer is not null ||
                                 !CallableSignature.TryType(property.Type, false, out _, NeoClrCapabilities.Shared))
-                                throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
+                                throw Unsupported("only supported properties/storage without static initializers");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration) ||
                                 (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
@@ -698,7 +700,7 @@ internal static class Int32Emitter
                 Accessibility.Internal => FieldVisibility.Internal,
                 Accessibility.Private => FieldVisibility.Private,
                 _ => throw Unsupported("unsupported field visibility")
-            }, isReadOnly: field.IsReadOnly));
+            }, isReadOnly: field.IsReadOnly, isStatic: field.IsStatic));
         }
         if (compilation.Options.RuntimeIterationContract is { ArrayShapeTypeName: { } arrayName } arrayContract &&
             arrayContract.AssemblyName == options.Identity.Name)
@@ -1036,13 +1038,13 @@ internal static class Int32Emitter
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                 var originalField = field is SubstitutedFieldSymbol importedSubstitution ? importedSubstitution.OriginalField : field;
                 if (originalField is IInstanceFieldLayoutSymbol layout && originalField.ContainingType is { } declaring &&
-                    IsSymbolOnlyReferenceDefinition(declaring) && CanImportVisibility(originalField) &&
-                    !originalField.IsStatic && IsSymbolOnlyType(originalField.Type, false))
+                    IsSymbolOnlyOwnerDefinition(declaring) && CanImportVisibility(originalField) &&
+                    IsSymbolOnlyType(originalField.Type, false))
                 {
                     if (importedFields.TryGetValue(field, out var cached)) return cached;
                     _ = ImportExternalType(declaring);
                     var reference = assembly.CreateFieldReference(importedTypes[declaring], originalField.MetadataName,
-                        MapSymbolOnlyType(originalField.Type), layout.InstanceStorageOrdinal, originalField.IsReadOnly);
+                        MapSymbolOnlyType(originalField.Type), layout.InstanceStorageOrdinal, originalField.IsReadOnly, isStatic: originalField.IsStatic);
                     cached = declaring.Arity == 0 ? new NeoClrFieldReference(null, Import: reference)
                         : new NeoClrFieldReference(null, ImportedConstruction: reference.MakeConstructedReference(
                             field.ContainingType!.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
