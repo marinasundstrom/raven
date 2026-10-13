@@ -10450,12 +10450,16 @@ remain separate qualification work. See neoCLR's
 
 Development SDK builds now set `RavenNeoClrRuntimeAsyncHelper` to
 `RuntimeAwaitProvider.Bridge` in `NeoCLR.ClassLibrary.props` and include the matching
-`RuntimeAwait.rvn` from the SDK library directory. Its canonical source is
-`runtime/raven/compiler-services/RuntimeAwait.rvn`; callers no longer copy an
-experiment file. This source-included, assembly-private provider uses the existing
+`RuntimeAwait.rvn` and `RuntimeGenerator.rvn` from the SDK library directory.
+Their canonical sources live in neoCLR’s `runtime/raven/compiler-services`; callers
+no longer copy experiment files. The generator companion implements the existing
+`BridgeGenerator` contract, including demand-driven yield, cancellation and disposal. This source-included, assembly-private provider uses the existing
 explicit Raven Runtime Contract. It does not add public managed API or change
 ordinary Raven/.NET lowering. Existing source-provider type names remain private
-compatibility details, not a new module-authoring convention.
+compatibility details, not a new module-authoring convention. Remove manually
+copied provider sources when upgrading to avoid duplicate helper declarations.
+The SDK sets `RavenNeoClrRuntimeAsyncProviderImported` for projects that also
+support older bundles.
 
 To select compiler state machines explicitly, place this property **after** the SDK
 import in the project (an empty environment variable alone is not an override):
@@ -10490,6 +10494,8 @@ does not redefine ordinary .NET async behavior or promise Windows ARM64 support.
 Validation: neoCLR’s `scripts/validate-runtime-await-sdk.py` rebuilds SDK-default applications
 and an explicit state-machine control, inspects application lowering, stages a
 matching installed JIT bundle, then exercises interpreter/JIT/AOT language, cleanup,
-fault, HTTP server and client cases. The hosted Windows HTTP workflow can run this
-gate with `runtime_await=true`. Full gate evidence is pending while this integration
-is qualified; the preceding raw carrier gate passes on macOS and Windows.
+fault, HTTP server/client and generator cases. The hosted Windows HTTP workflow can run this
+gate with `runtime_await=true`. All 21 macOS SDK cases pass, including generators and the explicit state-machine
+fallback; source hashes remain unchanged through execution. Windows application
+qualification is running. The raw carrier gate passes on both platforms. See
+[retained evidence](https://github.com/marinasundstrom/neoCLR/tree/main/docs/validation/runtime-product/runtime-await-sdk).
