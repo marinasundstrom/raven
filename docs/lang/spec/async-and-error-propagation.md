@@ -4,6 +4,48 @@
 throwing an exception. Raven provides short forms for returning those cases
 early so the main path stays easy to read.
 
+## Combining error types with an ad-hoc union
+
+Use an ad-hoc union when a function should preserve several existing error types
+without inventing a common error type or writing implicit converters solely for
+propagation. For example, given `ReadFile` returning `Result<string, IOError>` and
+`ParseConfig` returning `Result<Config, ParseError>`:
+
+```raven
+func LoadConfig(path: string) -> Result<Config, IOError | ParseError> {
+    let text = ReadFile(path)?
+    let config = ParseConfig(text)?
+    return Ok(config)
+}
+```
+
+Each `?` extracts the success value or injects the error into the enclosing error
+union and returns immediately. Both alternatives are visible in the signature and
+can be discovered and distinguished with typed patterns after extracting
+`Error(let error)`. Neither error type needs a shared interface or base class, and
+no application-defined conversion is needed for either listed alternative. An
+unrelated error is rejected. `?` yields the success payload; `Ok(config)` explicitly
+constructs the final successful Result.
+
+This is an alternative to propagating one particular error type or mapping into a
+nominal error union. Prefer a dedicated error type or nominal union for many public
+APIs: it gives the contract a domain name, meaningful cases and a boundary that can
+remain independent of implementation dependencies. Use an implicit converter when
+that domain adaptation is intentional, rather than just to aggregate alternatives.
+
+Review existing APIs as well as new ones: an error wrapper that only forwards
+one of several unchanged errors may be clearer as an ad-hoc union. Weigh the
+simpler contract and discoverable alternatives against source compatibility,
+public dependency exposure and any meaning carried by the old case names. A
+preference for nominal public contracts is not a reason to retain wrappers that
+add no useful domain meaning.
+
+Raven's ordinary .NET implementation backs `A | B` with the Raven.Core
+`System.Union<A, B>` carrier. Two through five alternatives are supported by that
+bridge. The neoCLR target needs its matching development library and compiler;
+its temporary nominal carriers are not native structural union values. Structural
+identity, normalization and future native representation are separate work.
+
 ## Try expressions
 
 `try` captures exceptions as values. `try expression?` combines capture with carrier
