@@ -7,6 +7,48 @@ CLI encodings below are migration mechanisms, not the specification of that targ
 New platform features must not be restricted merely because CLI metadata cannot
 express them. Until a supported path exists, diagnose unsupported use explicitly.
 
+## Structural reference compositions: runtime experiment (2026-10-14)
+
+The companion neoCLR branch `codex/structural-union-intersection` now has opt-in
+interpreter support for `union<A,B>` and `intersection<A,B>` in neoIL. This Raven
+branch, `codex/neoclr-union-intersection`, starts at native compiler `caa787a96` and
+selectively carries semantic intersection symbols and reference conversion queries
+from `02d669acd` and `c4d57d282`. See the [compiler API contract](intersection-types.md).
+There is no new source binding, storage gate, Runtime Contract setting or emission mapping.
+Ordinary .NET behavior and existing ad-hoc `System.Union` carriers are unchanged.
+
+Native intent: compose nominal reference contracts by either/all membership while
+preserving one allocation, with no selected-arm tag or carrier wrapper. Temporary
+transport is the Rust runtime's `Union`/`Intersection` signature operand arrays in
+its existing JSON/CBOR execution schema. There is no selected CLI bridge encoding
+and no support claim for Raven's native metadata adapter importing/emitting these
+variants. Runtime-only success must not remove source diagnostics prematurely.
+
+The neoCLR experiment supports nongeneric free-function locals, parameters/results,
+checked reference casts and guaranteed interface dispatch. It rejects fields,
+generic/byref/array/Function nesting, compound reflection and JIT/AOT layout. Only
+class allocations are currently admitted as non-null values; boxed/intrinsic
+references may fail even behind compatible static Object/interface views. This is
+a temporary runtime completeness gap, not the desired type algebra. Typed nulls
+follow reference cast/storage behavior; locals still require definite assignment.
+
+Archived reuse candidates: former `codex/intersection-constraints` at `6c112574c` has semantic
+symbols, normalization, conversions and ambiguity tests; `codex/neoclr-structural-types`
+at `b92a0d4a7` provides native Function integration precedent. Reuse bounded changes
+behind an explicit native target capability. Do not merge either branch wholesale
+or equate existing modern-.NET tests with neoCLR execution. Local branch tips are
+retained under `archive/2026-10-14/intersection-constraints` and
+`archive/2026-10-14/neoclr-structural-types`; their local branches were removed
+after validation.
+
+Ownership: Raven owns symbols, conversions, diagnostics and target-selected emission;
+neoCLR owns runtime admission/verification, metadata contracts, checked membership,
+GC representation and backend layout. Final descriptor identity and metadata/backend
+support must replace this limited runtime transport before general source enablement.
+Validation is retained in neoCLR `docs/experiments/structural-compositions/README.md`
+and `tests/structural_compositions.rs`: interpreter behavior, invalid-artifact rejection
+and explicit backend rejection. No Raven-generated compound program was executed.
+
 ## Current-stack diagnostics (2026-10-12)
 
 The native compiler line consumes `System.Diagnostics.StackTrace` from the rebuilt

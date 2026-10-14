@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Carry normalized intersection symbol APIs, substitution/display and conservative reference conversions selectively from the parked experiment onto the dedicated neoCLR compiler branch. Preserve distinct declared members and reject portable signature storage; source syntax, Runtime Contract configuration and native metadata/emission support remain pending. Document runtime transport limits and the differing compiler/runtime normalization rules. Archive the two superseded local experiment tips as dated tags before deleting those branches.
+
 - **2026-10-14:** Validate the separately carried union display/hover fixes on the native compiler line: 41 display and 127 hover/resolution tests pass, plus real-editor JSON union hovers before and after an edit. Document the required native metadata host adapter for editor probes; bridge encoding and emission are unchanged.
 
 - **2026-10-14:** Resolve hover on each ad-hoc union alternative independently inside nested generic type arguments, preserving its own type and range. Render separator hovers through compiler symbol display and keep generic arguments compact. Source/imported alternatives pass cold and post-diagnostics checks; no Runtime Contract or emission change.

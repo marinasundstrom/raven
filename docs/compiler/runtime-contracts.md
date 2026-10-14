@@ -4135,3 +4135,12 @@ generic method calls can use ad-hoc unions directly, including nested Result typ
 No Runtime Contract flag or metadata encoding changes. Regression execution constructs
 direct and nested generic values and invokes a generic method with both error
 alternatives. The fix belongs on main and is carried separately to the neoCLR line.
+
+## Experimental semantic intersections (2026-10-14)
+
+The isolated `codex/neoclr-union-intersection` branch adds compiler-created
+intersection symbols and reference conversion queries. There is no Runtime
+Contract setting or source enablement. Native metadata mapping and an explicit
+emission capability must precede source storage; ordinary .NET union carriers
+remain unchanged. See [the API contract and limitations](intersection-types.md)
+and [the neoCLR handoff](neoclr-cli-bridge.md).

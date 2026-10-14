@@ -680,6 +680,13 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     }
 }
 
+/// <summary>A semantic all-of type expression without an implied runtime representation.</summary>
+public interface IIntersectionTypeSymbol : ITypeSymbol
+{
+    /// <summary>Gets normalized bounds in presentation order; identity ignores this order.</summary>
+    ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+}
+
 public enum TypeKind
 {
     Unknown,
@@ -697,7 +704,8 @@ public enum TypeKind
     Tuple,
     Nullable,
     Null,
-    Unit
+    Unit,
+    Intersection
 }
 
 [Flags]

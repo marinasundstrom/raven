@@ -949,6 +949,17 @@ public static partial class SymbolExtensions
         if (typeSymbol is LiteralTypeSymbol literal)
             return literal.Name;
 
+        if (typeSymbol is IIntersectionTypeSymbol intersection)
+        {
+            return string.Join(" & ", intersection.ConstituentTypes.Select(type =>
+            {
+                var display = FormatType(type, format);
+                return IsStandardUnionType(type) || type.TypeKind == TypeKind.Delegate
+                    ? $"({display})"
+                    : display;
+            }));
+        }
+
         // Nullable<T> => T?
         if (typeSymbol is NullableTypeSymbol nullable)
         {
@@ -962,7 +973,7 @@ public static partial class SymbolExtensions
             }
 
             var underlyingDisplay = FormatType(underlying, format);
-            if (IsStandardUnionType(underlying))
+            if (IsStandardUnionType(underlying) || underlying is IIntersectionTypeSymbol)
                 underlyingDisplay = $"({underlyingDisplay})";
 
             return underlyingDisplay + "?";
@@ -980,6 +991,9 @@ public static partial class SymbolExtensions
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementDisplay = FormatType(arrayType.ElementType, format);
+
+            if (arrayType.ElementType is IIntersectionTypeSymbol)
+                elementDisplay = $"({elementDisplay})";
 
             if (arrayType.Rank == 1)
                 return arrayType.FixedLength is int fixedLength
