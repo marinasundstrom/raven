@@ -32,6 +32,14 @@ internal static class StructuralConstraintChecks
             func Main() -> int { return Read<BothTraits>(BothTraits()) }
             """)], catalog.References.ToArray(), options);
         Emit(traits, catalog, "TraitSource", Path.Combine(output, "TraitSource.neox"));
+        var shapeOnly = Compilation.Create("ShapeOnly", traits.SyntaxTrees.Append(SyntaxTree.ParseText("""
+            class ShapeOnly : ReadsB {
+                func ReadA() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            func RejectShape() -> int { return Read<ShapeOnly>(ShapeOnly()) }
+            """)).ToArray(), catalog.References.ToArray(), options);
+        Check(shapeOnly.GetDiagnostics().Any(d => d.Id == "RAV0320"), "member shape was accepted as nominal interface conformance");
         var traitLibraryPath = Path.Combine(output, "TraitLibrary.neox");
         var traitLibrary = Compilation.Create("TraitLibrary", [SyntaxTree.ParseText("""
             public interface ImportedReadsA {

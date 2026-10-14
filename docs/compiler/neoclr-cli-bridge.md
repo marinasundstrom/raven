@@ -11309,3 +11309,23 @@ nominal/Self constrained calls retain their prior path. Raven's `ConstructedTrai
 probe inherits `ImportedReads<int>` through a local intersection constituent and
 calls it using the existing borrowed native dispatch. No CLI encoding is added.
 Direct external structural-bound authoring and open operands remain unsupported.
+
+
+The companion neoCLR `docs/experiments/structural-poc/verify.py` is the consolidated
+closed-reference acceptance runner. It builds this compiler with the explicit
+`NeoClrMetadataProject` contract and the runtime with `experimental-compositions`,
+then compiles source signature/descriptor/Task examples and separate constraint
+consumers. The source Task example includes completed and queued delivery of each
+union alternative, with native async state machines and payload checks. No CLI
+carrier or rewritten metadata is used. Full open generics, direct external structural
+bounds, guest constraint reflection and JIT/AOT remain subsequent qualification work.
+
+
+Nominal interface contract (author clarification, 2026-10-14): intersections make
+existing nominal interfaces composable. Types must explicitly implement those
+interfaces, directly or through declared inheritance. Structural identity belongs
+to the union/intersection signature; it does not introduce member-shape matching,
+implicit conformance or Rust-style traits. References to “traits” in earlier probe
+notes describe guaranteed interface capabilities, not a separate runtime trait
+system. A future compiler-level feature simulating trait characteristics is an
+exploratory possibility, not an implementation commitment or a runtime contract.
