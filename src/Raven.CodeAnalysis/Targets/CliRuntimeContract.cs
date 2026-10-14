@@ -14,7 +14,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     internal abstract string TupleTypeName { get; }
     internal virtual string UnionInterfaceTypeName => "System.Runtime.CompilerServices.IUnion";
     internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";
-    internal virtual bool UsesStructuralUnions => false;
+    internal virtual bool UsesStructuralCompositions => false;
 
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }

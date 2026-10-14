@@ -810,13 +810,13 @@ internal abstract partial class Binder
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
-        // Only conjunctions flattened by constraint analysis have an implemented
-        // runtime contract. A generic argument or other wrapper is not such a bound.
+        // Ordinary targets admit constraint conjunctions only. The explicit native
+        // composition contract also admits structural signature/storage positions.
         SyntaxNode root = intersection;
         while (root.Parent is ParenthesizedTypeSyntax or IntersectionTypeSyntax)
             root = root.Parent;
 
-        if (root.Parent is not TypeConstraintSyntax || intersection.Types.Count == 0)
+        if ((!Compilation.UsesStructuralCompositions && root.Parent is not TypeConstraintSyntax) || intersection.Types.Count == 0)
             return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
 
         var constituents = ImmutableArray.CreateBuilder<ITypeSymbol>(intersection.Types.Count);
@@ -878,7 +878,7 @@ internal abstract partial class Binder
         }
 
         var resolvedTypeArguments = typeArguments.ToImmutable();
-        if (Compilation.UsesStructuralUnions)
+        if (Compilation.UsesStructuralCompositions)
         {
             if (!resolvedTypeArguments.All(CompositionTypeBounds.IsUnionAlternative))
                 return Fail(union, TypeResolutionFailureKind.UnionElementFailed);

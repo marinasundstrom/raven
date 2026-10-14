@@ -870,6 +870,8 @@ internal static class MemberSignatureDeclarationPass
                 fallbackType,
                 containingType,
                 methodTypeParameters),
+            IntersectionTypeSyntax intersection when compilation.UsesStructuralCompositions => ResolveIntersectionSkeletonType(
+                semanticModel, intersection, fallbackType, containingType, methodTypeParameters),
             QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(
                 semanticModel,
                 qualifiedName,
@@ -889,6 +891,22 @@ internal static class MemberSignatureDeclarationPass
             GenericNameSyntax genericName => ResolveGenericSkeletonType(semanticModel, genericName, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+    }
+
+    private static ITypeSymbol ResolveIntersectionSkeletonType(
+        SemanticModel semanticModel,
+        IntersectionTypeSyntax intersection,
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        var bounds = intersection.Types.Select(type => ResolveSkeletonType(
+            semanticModel, type, fallbackType, containingType, methodTypeParameters)).ToArray();
+        return bounds.Length > 0 && bounds.All(type => type is IIntersectionTypeSymbol ||
+            type is INamedTypeSymbol { TypeKind: TypeKind.Interface } ||
+            type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
+            ? semanticModel.Compilation.CreateIntersectionTypeSymbol(bounds)
+            : fallbackType;
     }
 
     private static ITypeSymbol ResolveUnionSkeletonType(
@@ -912,7 +930,7 @@ internal static class MemberSignatureDeclarationPass
             return fallbackType;
         }
 
-        if (semanticModel.Compilation.UsesStructuralUnions)
+        if (semanticModel.Compilation.UsesStructuralCompositions)
             return memberTypes.All(CompositionTypeBounds.IsUnionAlternative)
                 ? semanticModel.Compilation.CreateStructuralUnionTypeSymbol(memberTypes)
                 : fallbackType;

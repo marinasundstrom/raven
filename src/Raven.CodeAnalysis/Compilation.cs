@@ -2351,7 +2351,7 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
-    internal bool UsesStructuralUnions => _target.RuntimeContract.UsesStructuralUnions;
+    internal bool UsesStructuralCompositions => _target.RuntimeContract.UsesStructuralCompositions;
 
     internal string RuntimeUnionInterfaceTypeName => _target.RuntimeContract.UnionInterfaceTypeName;
 

@@ -11158,3 +11158,26 @@ The metadata builder independently rejects invalid bounds and output ownership.
 Validation includes source semantic queries with the option enabled/disabled and
 on .NET, native source `typeof(A | B)` introspection and generic-wrapper identity.
 The companion runtime experiment records executable Task delivery evidence separately.
+
+### Source intersections (2026-10-14 experiment)
+
+The same `RavenNeoClrStructuralCompositions=true` contract now enables `A & B`
+in parameters, results, locals and generic arguments, plus structural `typeof`.
+The metadata authoring path emits intersection signatures and preserves trait
+membership without a generated nominal declaration. Direct member access uses
+members guaranteed by the bounds. Return types are allowed; input-oriented usage
+is guidance rather than a restriction.
+
+Bounds must be interfaces or reference classes open to extension. Raven `sealed`
+hierarchy roots are allowed; ordinary closed classes and value types are rejected
+before normalization. Closed generic reference bounds are admitted; open native
+generic execution and mixed nesting remain outside the POC. Default .NET storage
+remains diagnosed; existing conjunction constraints retain their prior semantics.
+
+Validation: source semantic tests cover open, abstract, sealed-hierarchy, closed
+and value bounds and default-target gates. The companion native source consumer
+exercises Animal & Quacks parameter/result/local storage, interface dispatch,
+IntersectionTypeInfo, type membership and Box<Animal & Quacks> identity. The host
+`--source-compositions` probe checks native union/intersection signature readback,
+opt-in catalog imports, downstream compilation and default-reader rejection. Both
+separately linked consumers execute with result 42; 86 focused semantic tests pass.

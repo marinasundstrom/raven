@@ -514,7 +514,7 @@ internal static class Int32Emitter
             if (symbol is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
             {
                 if (compositionTypes.TryGetValue(symbol, out var signature)) return signature;
-                if (!compilation.UsesStructuralUnions || !options.AllowExperimentalCompositionCalls)
+                if (!compilation.UsesStructuralCompositions || !options.AllowExperimentalCompositionCalls)
                     throw Unsupported("composition storage requires an exact imported contract or native structural authoring");
                 var bounds = symbol is IStructuralUnionTypeSymbol union ? union.ConstituentTypes : ((IIntersectionTypeSymbol)symbol).ConstituentTypes;
                 signature = assembly.CreateExperimentalReferenceComposition(
@@ -1139,7 +1139,7 @@ internal static class Int32Emitter
             foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
-        if (metadataAssembly && compilation.UsesStructuralUnions && options.AllowExperimentalCompositionCalls)
+        if (metadataAssembly && compilation.UsesStructuralCompositions && options.AllowExperimentalCompositionCalls)
             return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly.WriteNativeAssembly());
         return metadataAssembly
             ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary

@@ -24,7 +24,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-// Composition locals retain the imported producer contract; general authored storage stays closed.
+// Imported composition locals retain exact producer contracts; native source locals use structural signatures.
 internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null, IMethodSymbol? CompositionProducer = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
@@ -101,8 +101,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 source.IsGenericMethod) return false;
             while (expression is BoundConversionExpression { IsIdentity: true } conversion)
                 expression = conversion.Expression;
-            if (expression is BoundInvocationExpression call && TrySignature(call.Method, out var signature) &&
-                signature.ReturnType.Composition is not null)
+            if (expression is BoundInvocationExpression call &&
+                call.Method.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+                TrySignature(call.Method, out var signature) && signature.ReturnType.Composition is not null)
             {
                 type = signature.ReturnType with { CompositionProducer = call.Method };
                 return true;
@@ -1005,6 +1006,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (receiver is not null)
             {
                 if (!LowerValue(receiver)) return false;
+                if (receiver.Type is IIntersectionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true)
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 if (receiver.Type.IsValueType && owner.SpecialType == SpecialType.System_Object)
                 {
                     if (capabilities?.Allows(LinearInstructionKind.BoxToObject) != true) return Reject("target does not support boxed Object receivers", syntax);

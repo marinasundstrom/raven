@@ -34,7 +34,7 @@ public static class NeoClrCompilationEmitter
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
         if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalCompositions) &&
-            (!options.AllowExperimentalIntersectionCalls || metadataAssembly && !compilation.UsesStructuralUnions ||
+            (!options.AllowExperimentalIntersectionCalls || metadataAssembly && !compilation.UsesStructuralCompositions ||
              compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalUnions) && !options.AllowExperimentalCompositionCalls))
             return Fail(Unsupported, "experimental native composition references require the explicit native-only call option; PE/CLI projection is not enabled");
         if (compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))

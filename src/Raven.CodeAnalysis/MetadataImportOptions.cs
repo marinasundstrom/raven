@@ -95,12 +95,12 @@ public sealed record MetadataImportOptions
         return this with { ObjectAssemblyName = assemblyName };
     }
 
-    /// <summary>Whether the experimental native target binds ad hoc union syntax as structural types.</summary>
+    /// <summary>Whether the experimental native target binds ad hoc unions and intersection storage syntax as structural types.</summary>
     /// <remarks>Defaults to false. Requires native composition emission and a matching experimental runtime.
     /// Declared unions and the ordinary .NET runtime contract are unchanged.</remarks>
     public bool UseStructuralCompositions { get; private init; }
 
-    /// <summary>Selects native structural ad hoc unions instead of nominal carrier types.</summary>
+    /// <summary>Selects native structural unions and intersection storage signatures.</summary>
     public MetadataImportOptions WithStructuralCompositions(bool enabled = true) => this with { UseStructuralCompositions = enabled };
 
     /// <summary>Whether semantic loading uses only native references, without a .NET metadata session.</summary>
