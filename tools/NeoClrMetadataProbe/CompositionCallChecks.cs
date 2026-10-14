@@ -12,18 +12,34 @@ internal static class CompositionCallChecks
 {
     internal static void Run(string corePath, string output)
     {
+        RunCase(corePath, output, false);
+        RunCase(corePath, Path.Combine(output, "generic"), true);
+    }
+    private static void RunCase(string corePath, string output, bool generic)
+    {
         var bytes = File.ReadAllBytes(corePath);
         var coreDefinition = AssemblyDefinition.ReadAssembly(bytes, expectedExtended: false);
         var core = coreDefinition.Identity;
         var bootstrap = NeoClrPrimitiveBootstrap.ReadAssembly(bytes);
         var provider = new AssemblyBuilder(new("CompositionPocProvider", new(1, 0, 0, 0)), core);
-        var a = provider.AddInterface("Example", "A");
-        var b = provider.AddInterface("Example", "B");
+        var aDefinition = generic ? provider.AddGenericInterface("Example", "A", ["T"]) : provider.AddInterface("Example", "A");
+        var bDefinition = generic ? provider.AddGenericInterface("Example", "B", ["T"]) : provider.AddInterface("Example", "B");
+        SignatureType a = generic ? aDefinition.MakeGenericInstance(PrimitiveType.Int32) : aDefinition;
+        SignatureType b = generic ? bDefinition.MakeGenericInstance(PrimitiveType.Int32) : bDefinition;
         foreach (var name in new[] { "First", "Second" })
         {
             var type = provider.AddClass("Example", name);
             type.SetSealedClass();
-            type.AddInterfaceImplementation(a); type.AddInterfaceImplementation(b);
+            if (generic)
+            {
+                type.AddInterfaceImplementation(a.GenericInstance!);
+                type.AddInterfaceImplementation(b.GenericInstance!);
+            }
+            else
+            {
+                type.AddInterfaceImplementation(aDefinition);
+                type.AddInterfaceImplementation(bDefinition);
+            }
             var ctor = type.AddConstructor(Array.Empty<PrimitiveType>()); ctor.Return();
             var make = provider.AddFunction("Make" + name, new MethodSignature(a, Array.Empty<SignatureType>()));
             make.NewObject(ctor); make.Return();
@@ -38,10 +54,18 @@ internal static class CompositionCallChecks
             var method = provider.AddFunction(name, new MethodSignature(PrimitiveType.Int32, new SignatureType[] { a }));
             method.LoadConstant(42); method.Return();
         }
+        if (generic)
+        {
+            var wrong = provider.AddFunction("NeedWrong", new MethodSignature(PrimitiveType.Int32, new SignatureType[] { a }));
+            wrong.LoadConstant(42); wrong.Return();
+            provider.AddGenericClass("Example", "SealedBox", ["T"]).SetSealedClass();
+        }
         var root = JsonNode.Parse(provider.WriteNativeAssembly())!;
         JsonNode Shape(string kind, params int[] indices) => new JsonObject
         {
-            [kind] = new JsonArray(indices.Select(i => (JsonNode)new JsonObject { ["Named"] = root["types"]![i]!["name"]!.DeepClone() }).ToArray())
+            [kind] = new JsonArray(indices.Select(i => generic && (i < 2 || i == 4)
+                ? (JsonNode)new JsonObject { ["Constructed"] = new JsonObject { ["definition"] = root["types"]![i]!["name"]!.DeepClone(), ["arguments"] = new JsonArray("Int32") } }
+                : new JsonObject { ["Named"] = root["types"]![i]!["name"]!.DeepClone() }).ToArray())
         };
         var functions = root["functions"]!;
         functions[0]!["returns"] = Shape("Union", 2, 3);
@@ -52,6 +76,36 @@ internal static class CompositionCallChecks
         functions[3]!["returns"] = Shape("Union", 0, 1);
         functions[4]!["parameters"]![0] = Shape("Union", 1, 0);
         functions[5]!["parameters"]![0] = Shape("Intersection", 0, 1);
+        if (generic)
+        {
+            var wrong = Shape("Intersection", 0, 1);
+            wrong["Intersection"]![0]!["Constructed"]!["arguments"]![0] = "Boolean";
+            functions[6]!["parameters"]![0] = wrong;
+            byte[] Encode(JsonNode node) => NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(node.ToJsonString()));
+            foreach (var argument in new JsonNode[] { JsonValue.Create("Void")!, new JsonObject { ["TypeParameter"] = 0 }, Shape("Union", 2, 3) })
+            {
+                var invalid = root.DeepClone();
+                invalid["functions"]![2]!["returns"]!["Intersection"]![0]!["Constructed"]!["arguments"]![0] = argument.DeepClone();
+                Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(invalid), true));
+            }
+            var wrongArity = root.DeepClone();
+            wrongArity["functions"]![2]!["returns"]!["Intersection"]![0]!["Constructed"]!["arguments"] = new JsonArray();
+            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(wrongArity), true));
+            foreach (var kind in new[] { "Union", "Intersection" })
+            {
+                var sealedBound = root.DeepClone();
+                sealedBound["functions"]![2]!["returns"] = Shape(kind, 4, 4);
+                if (kind == "Intersection") Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound), true));
+                else _ = AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound), true);
+            }
+            var snapshot = AssemblyDefinition.ReadNativeAssembly(Encode(root), true);
+            var host = new AssemblyBuilder(new("WrongGenericComposition", new(1, 0, 0, 0)), core);
+            var main = host.AddFunction("Main"); host.EntryPoint = main;
+            main.Call(host.ImportExperimentalCompositionReference(snapshot.MainModule.Functions.Single(m => m.Name == "MakeFirst"), core));
+            main.Call(host.ImportExperimentalCompositionReference(snapshot.MainModule.Functions.Single(m => m.Name == "NeedWrong"), core));
+            main.Return();
+            Reject(() => host.WriteNativeAssembly());
+        }
         var image = NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(root.ToJsonString()));
         Reject(() => NeoClrMetadataReference.ReadAssembly(image, bootstrap));
         Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(image, bootstrap));
@@ -91,6 +145,13 @@ internal static class CompositionCallChecks
             using var stream = new MemoryStream();
             var result = NeoClrCompilationEmitter.Emit(compilation, stream, EmitOptions("Rejected"));
             Check(!result.Success && stream.Length == 0, "unsafe narrowing/storage rejection");
+        }
+        if (generic)
+        {
+            var mismatch = Create("WrongArgument", "func Main() -> int => NeedWrong(MakeFirst())");
+            using var stream = new MemoryStream();
+            Check(!NeoClrCompilationEmitter.Emit(mismatch, stream, EmitOptions("WrongArgument")).Success && stream.Length == 0,
+                "generic argument mismatch rejects before output");
         }
         var semantic = Create("Semantic", "func Main() -> int => NeedBoth(MakeFirst())");
         _ = semantic.GetDiagnostics();

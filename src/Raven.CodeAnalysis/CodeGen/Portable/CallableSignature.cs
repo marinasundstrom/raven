@@ -104,6 +104,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature, EmissionCapabilities? capabilities = null)
     {
         signature = null!;
+        bool ClosedCompositionBound(ITypeSymbol type) => type is IArrayTypeSymbol array
+            ? ClosedCompositionBound(array.ElementType)
+            : type is INamedTypeSymbol { IsUnboundGenericType: false } named &&
+                named.TypeArguments.All(ClosedCompositionBound) &&
+                (named.ContainingType is null || ClosedCompositionBound(named.ContainingType));
         bool TryCallType(ITypeSymbol type, bool result, out EmissionType value)
         {
             var bounds = type switch
@@ -115,7 +120,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             if (capabilities?.AllowsImportedCompositionCalls == true && method.IsStatic &&
                 method.ContainingType is null && !method.IsGenericMethod && method.DeclaringSyntaxReferences.IsEmpty &&
                 !bounds.IsDefault && bounds.All(t =>
-                    t is INamedTypeSymbol { Arity: 0, IsReferenceType: true } nominal &&
+                    t is INamedTypeSymbol { IsReferenceType: true } nominal && ClosedCompositionBound(nominal) &&
                     IsExternalReference(nominal, capabilities.AllowsNestedExternalTypes, capabilities.AllowsInternalExternalSymbols)))
             {
                 value = new(Composition: type);
