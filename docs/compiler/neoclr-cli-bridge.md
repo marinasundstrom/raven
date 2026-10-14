@@ -11329,3 +11329,29 @@ implicit conformance or Rust-style traits. References to “traits” in earlier
 notes describe guaranteed interface capabilities, not a separate runtime trait
 system. A future compiler-level feature simulating trait characteristics is an
 exploratory possibility, not an implementation commitment or a runtime contract.
+
+
+## External union constraint alternatives — 2026-10-14 development
+
+The native `MethodBuilder.AddExperimentalStructuralConstraint` API now accepts
+output-owned imported closed reference alternatives in union bounds, including
+constructed interfaces such as `ImportedReads<int> | ImportedReadsB`. Constraint
+metadata retains the external type identity and exact generic arguments. Argument
+checks continue to require explicit nominal implementation/inheritance, with every
+source-union alternative covered. Matching member names are insufficient.
+
+Raven uses its existing explicit native structural-composition capability contract;
+no CLI carrier, schema change or new compiler switch is introduced. Its constraint
+probe emits `TraitLibrary.neox`, then `ExternalBoundLibrary.neox` with these bounds,
+then a separate `ExternalBoundConsumer.neox`. Import resolution requires both exact
+native dependencies. Host tests reject mismatched constructed arguments, partially
+covered unions and direct external intersection operands; source diagnostics reject
+nonimplementing lookalikes and arguments satisfying neither alternative.
+
+External bounds beneath any intersection remain rejected by this method-authoring
+API: the current snapshot reader cannot establish their extension eligibility
+without resolving external definitions. This is a reader/authoring gap, not a
+permanent type-system restriction. Local intersections and existing nominal/Self
+contracts are unchanged. Open operands, guest constraint reflection and JIT/AOT
+remain outside this slice. Compared with CLR constraints, the native signature
+preserves disjunction rather than changing it into a conjunctive nominal list.

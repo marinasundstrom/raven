@@ -55,6 +55,36 @@ internal static class StructuralConstraintChecks
         Emit(traitLibrary, catalog, "TraitLibrary", traitLibraryPath);
         var traitCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
             [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var externalBoundSource = """
+            public class ExternalOnlyA : ImportedReadsA {
+                func ReadA() -> int { return 40 }
+            }
+            public class ExternalShapeOnly {
+                func ReadA() -> int { return 40 }
+            }
+            public func ExternalEither<T>() -> int where T: ImportedReadsA | ImportedReadsB { return 40 }
+            public func ExternalClosed<T>() -> int where T: ImportedReads<int> | ImportedReadsB { return 2 }
+            public class ExternalIntReader : ImportedReads<int> {
+                func Read() -> int { return 42 }
+            }
+            """;
+        var externalBoundLibrary = Compilation.Create("ExternalBoundLibrary", [SyntaxTree.ParseText(externalBoundSource)],
+            traitCatalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var externalBoundPath = Path.Combine(output, "ExternalBoundLibrary.neox");
+        Emit(externalBoundLibrary, traitCatalog, "ExternalBoundLibrary", externalBoundPath);
+        var externalBoundCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
+            [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath, externalBoundPath],
+            Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var externalBoundConsumer = Compilation.Create("ExternalBoundConsumer", [SyntaxTree.ParseText("""
+            func Main() -> int { return ExternalEither<ExternalOnlyA>() + ExternalClosed<ExternalIntReader>() }
+            """)], externalBoundCatalog.References.ToArray(), options);
+        Emit(externalBoundConsumer, externalBoundCatalog, "ExternalBoundConsumer", Path.Combine(output, "ExternalBoundConsumer.neox"));
+        foreach (var call in new[] { "ExternalEither<ExternalShapeOnly>()", "ExternalClosed<ExternalOnlyA>()" })
+        {
+            var invalid = Compilation.Create("InvalidExternalBound", [SyntaxTree.ParseText($"func Main() -> int {{ return {call} }}")],
+                externalBoundCatalog.References.ToArray(), options);
+            Check(invalid.GetDiagnostics().Any(d => d.Id == "RAV0320"), "external union bound admitted an invalid argument: " + call);
+        }
         var externalTraits = Compilation.Create("ExternalTraits", [SyntaxTree.ParseText("""
             interface LocalA : ImportedReadsA {}
             interface LocalB : ImportedReadsB {}
