@@ -11443,3 +11443,14 @@ Runtime-library validation uses compiler revision
 `793219d855b17f01fb805e215968b78871eb3804`; the experimental branch currently misparses
 existing `(flags & flag)` in GZipDecoder as an intersection type. Record this as a
 deferred general parser candidate; do not change valid bitwise source to hide it.
+
+
+### Native tuple signature authoring — 2026-10-14
+
+The companion metadata builder exposes `CreateExperimentalTuple` and an immutable
+ordered `SignatureType.Tuple` descriptor. Native writing preserves nested/repeated
+positions without a nominal Tuple definition; typed echo signatures and tuple tokens
+are validated by an interpreter fixture returning 42. CLI projection rejects these
+outputs. Runtime Contract settings and ordinary .NET tuple behavior are unchanged.
+Native C# reading/import, positional-operation authoring and Raven tuple lowering
+remain subsequent integration slices; the compiler does not call this factory yet.
