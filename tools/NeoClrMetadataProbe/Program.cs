@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--intersection-symbols", var intersectionCore]) { IntersectionSymbolChecks.Run(intersectionCore); return; }
+
 if (args is ["--static-fields", var staticCore, var staticRuntime, var staticOutput]) { await StaticFieldChecks.Run(staticCore, staticRuntime, staticOutput); return; }
 
 if (args is ["--readonly-fields", var readonlyCore, var readonlyRuntime, var readonlyOutput]) { await ReadonlyFieldChecks.Run(readonlyCore, readonlyRuntime, readonlyOutput); return; }

@@ -10,8 +10,9 @@ namespace Raven.CodeAnalysis.NeoClr;
 /// <remarks>The profile supports unconstrained generic root classes, unconstrained generic interfaces and static generic methods/functions with supported local/external nongeneric interface bounds, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI bootstrap or native semantic core supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
-    private NeoClrMetadataReference(AssemblyDefinition definition, string sha256, NeoClrPrimitiveBootstrap? bootstrap = null, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? documentation = null)
+    private NeoClrMetadataReference(AssemblyDefinition definition, string sha256, NeoClrPrimitiveBootstrap? bootstrap = null, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? documentation = null, bool hasExperimentalIntersections = false)
     {
+        HasExperimentalIntersections = hasExperimentalIntersections;
         Documentation = documentation;
         Definition = definition;
         Bootstrap = bootstrap;
@@ -22,6 +23,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath)
         => new(AssemblyDefinition.ReadNativeAssembly(image), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet.TryLoad(assemblyPath));
 
+    internal bool HasExperimentalIntersections { get; }
     internal NeoClrPrimitiveBootstrap? Bootstrap { get; }
     internal ResolvedAssemblyArtifact Artifact { get; }
     /// <summary>Gets the immutable native definition snapshot.</summary>
@@ -40,6 +42,36 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         return new(AssemblyDefinition.ReadNativeAssembly(image),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
     }
+    /// <summary>Reads native reference intersections for experimental semantic inspection only.</summary>
+    /// <param name="image">A native declaration image; the reader copies its contents.</param>
+    /// <param name="bootstrap">Optional matching CLI primitive bootstrap, whose reference must also be supplied to the compilation.</param>
+    /// <returns>An immutable reference admitting intersection free-function signatures.</returns>
+    /// <exception cref="InvalidDataException">The image is invalid, exceeds reader limits, or contains a structural union in an exposed callable signature.</exception>
+    /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax or compound emission.
+    /// Compiler symbols normalize nominal supertypes; the definition retains the original native descriptor.</remarks>
+    public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
+    {
+        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
+        var hasIntersections = false;
+        foreach (var method in definition.MainModule.Functions)
+        {
+            if (!method.TryGetSignature(out var signature))
+                throw new InvalidDataException("unsupported experimental native callable signature");
+            hasIntersections |= Check(signature!.ReturnType);
+            foreach (var parameter in signature.ParameterTypes) hasIntersections |= Check(parameter);
+        }
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalIntersections: hasIntersections);
+
+        static bool Check(SignatureType type)
+        {
+            if (type.Composition is not { } composition) return false;
+            if (composition.Kind != ReferenceCompositionKind.Intersection)
+                throw new InvalidDataException("structural union import is not supported by the experimental intersection profile");
+            foreach (var bound in composition.Constituents) Check(bound);
+            return true;
+        }
+    }
+
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);
     public override bool Equals(MetadataReference? other) => ReferenceEquals(this, other);
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);

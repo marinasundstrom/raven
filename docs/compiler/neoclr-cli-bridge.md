@@ -24,24 +24,33 @@ Native intent: compose nominal reference contracts by either/all membership whil
 preserving one allocation, with no selected-arm tag or carrier wrapper. Temporary
 transport is the Rust runtime's `Union`/`Intersection` signature operand arrays in
 its existing JSON/CBOR execution schema. There is no selected CLI bridge encoding
-and no support claim for Raven's native metadata adapter importing/emitting these
-variants. Runtime-only success must not remove source diagnostics prematurely.
+and only the explicit intersection inspection profile below admits compiler imports;
+compound emission remains unsupported. Runtime-only success must not remove source diagnostics prematurely.
 
 The companion metadata facade at neoCLR `97bbcf76b` projects admitted signatures
 as canonical `ReferenceCompositionTypeInfo` views. Reordered bounds share identity
 within one context; mixed kinds and separate contexts remain distinct. Focused
-host tests, the public documentation build and API snapshot check pass. This
-inspection support does not enable Raven symbol import, Runtime Contract
-capabilities or native emission; the adapter still uses its default reader.
+host tests, the public documentation build and API snapshot check pass. Raven now exposes `ReadExperimentalIntersectionAssembly(image, bootstrap)` for
+semantic-only intersection import. Default readers remain closed to compositions.
+It maps canonical views to compiler intersection symbols, retaining original native
+descriptors separately from compiler nominal-supertype reduction. Normalized
+structural unions, including nested unions, are rejected before reference creation.
+There is no new Runtime Contract setting or storage/emission capability. See the
+[API contract](intersection-types.md#experimental-native-semantic-import-2026-10-14).
 
 The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only profile through
 `AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true)`
 and `SignatureType.Composition`. It preserves normalized same-kind compounds and
 snapshot-owned bounds, with no nominal-supertype reduction. Default reads, native
-callable import and CLI projection still reject compounds. Raven's adapter has not
-opted in; mapping these descriptors and enabling storage require an explicit native
-capability and executable validation. Host tests cover schema-2/schema-3 NEOX,
-identity, limits and rejection; they do not establish Raven source execution.
+callable import and CLI projection still reject compounds. Raven's ordinary adapter has not opted in; the separate experimental API supports
+semantic inspection only. Native emission reports NEOMETA001 for any reference
+with compound callables, including signatures whose compiler type normalizes to
+one nominal type. Enabling storage still requires a native capability and
+executable validation. Host tests cover schema-2/schema-3 NEOX,
+identity, limits and rejection. Raven's `--intersection-symbols` probe adds cold/warm
+semantic queries, retained native descriptors, union/default-reader rejection and
+no-output checks for both emitter entry points; the nullable-symbol baseline remains
+green. These checks do not establish Raven compound source execution.
 
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,

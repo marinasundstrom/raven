@@ -4140,7 +4140,11 @@ alternatives. The fix belongs on main and is carried separately to the neoCLR li
 
 The isolated `codex/neoclr-union-intersection` branch adds compiler-created
 intersection symbols, reference conversion queries and source generic-constraint
-conjunctions. There is no Runtime Contract setting or value-storage enablement. Native metadata mapping and an explicit
-emission capability must precede source storage; ordinary .NET union carriers
+conjunctions. An explicit `ReadExperimentalIntersectionAssembly` host API now
+admits native intersection signatures for semantic inspection. There is no Runtime
+Contract setting or value-storage emission enablement. References containing
+compound callables cause NEOMETA001 before output, even after nominal-supertype
+normalization. An explicit emission capability must precede source storage;
+ordinary .NET union carriers
 remain unchanged. See [the API contract and limitations](intersection-types.md)
 and [the neoCLR handoff](neoclr-cli-bridge.md).

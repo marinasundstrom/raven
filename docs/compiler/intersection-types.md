@@ -52,7 +52,7 @@ neoCLR's branch-only interpreter transport is described in the
 [bridge handoff](neoclr-cli-bridge.md#structural-reference-compositions-runtime-experiment-2026-10-14).
 Compiler normalization additionally removes nominal supertypes; runtime syntax
 normalization currently flattens/deduplicates operands without that reduction.
-Descriptor identity must be reconciled before import/export is enabled. No
+The experimental importer retains the native descriptor independently of normalized compiler symbols; native export remains gated. No
 Raven-generated compound program or native JIT/AOT execution is claimed.
 
 ## Validation on the native compiler branch
@@ -128,3 +128,51 @@ full baseline is claimed.
 This slice does not claim native compound execution, native generic-constraint
 coverage beyond existing capabilities, or real-editor validation. Whitespace
 formatting and diff checks passed.
+
+## Experimental native semantic import (2026-10-14)
+
+`NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image,
+NeoClrPrimitiveBootstrap? bootstrap = null)` copies a native declaration image into
+an immutable semantic reference. This explicit API admits the metadata reader's
+bounded nongeneric reference-intersection free-function parameters/results. The
+optional CLI primitive bootstrap must be supplied as the matching compilation
+reference; otherwise use the existing native semantic core configuration. Existing
+`ReadAssembly` APIs, project loading and CLI switches retain their default closed
+composition profile. There is no new Runtime Contract option.
+
+Invalid images, exceeded native reader limits and normalized structural unions in
+exposed parameter/result signatures (including unions nested in intersections)
+throw `InvalidDataException` before reference publication. Bodies/locals remain
+opaque to compiler import. This API is not an executable-body verifier. A union
+that the metadata reader has already collapsed to one nominal constituent has no
+remaining structural-union descriptor. Existing dependency and target validation
+continue to produce compiler diagnostics.
+
+Canonical `ReferenceCompositionTypeInfo` views map through
+`Compilation.CreateIntersectionTypeSymbol`. Cold `GetSymbolInfo`/`GetTypeInfo`,
+method parameter/result queries and inferred local types therefore preserve
+intersection semantics. Compiler normalization may remove nominal supertypes;
+`reference.Definition` keeps the unreduced native signature. No metadata identity
+is reconstructed from display text or a normalized compiler symbol.
+
+Emission of a compilation referencing any admitted compound callable is rejected
+with NEOMETA001, including when normalization reduces that callable's compiler
+type to a nominal type and even when the reference is unused. Both native and
+PE/#Neo entry points preserve the output stream. This conservative reference-wide
+gate prevents accidental ABI erasure until native emission is implemented.
+Explicit intersection value-type syntax still reports RAV0363. Receiver/member
+merging, structural union symbols, source storage emission and JIT/AOT remain open.
+There is no CLI carrier or object-erasure encoding for these imports.
+
+Validation uses `NeoClrMetadataProbe --intersection-symbols <core.dll>` against
+neoCLR metadata checkpoint `97bbcf76b`: schema-2/schema-3 NEOX, cold/warm semantic
+queries, order-independent symbol identity, nominal-supertype reduction with
+retained native descriptors, insufficient-bound rejection, nested union rejection,
+default-reader rejection and both emission gates pass. The existing
+`--nullable-symbols <core.dll>` control passes before and after. These are semantic
+and rejection checks, not evidence of Raven-generated compound execution.
+
+A probe setup also exposed an unrelated cold `GetAssemblyOrModuleSymbol` null
+loader failure before compilation setup. It is deferred as a general compiler
+candidate for Raven main with independent validation; this slice uses the intended
+source semantic query paths and does not change that API.
