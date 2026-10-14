@@ -11407,8 +11407,9 @@ No Runtime Contract setting, CLI encoding or nominal conformance rule changes.
 
 The author directs replacing neoCLR's nominal Tuple family with structural tuples.
 The first native slice adds an ordered Tuple signature node, roundtrip preservation
-and nested generic/Self substitution. Executable structural tuples remain explicitly
-rejected. Raven still binds/emits existing tuples through nominal field/constructor
+and nested generic/Self substitution. That initial metadata-only slice rejected
+executable structural tuples; the follow-up below adds opt-in interpreter values.
+Raven still binds/emits existing tuples through nominal field/constructor
 mappings; ordinary .NET ValueTuple behavior and Runtime Contract configuration are
 unchanged. No temporary CLI encoding is introduced. The native replacement requires
 runtime storage and positional operations, TupleTypeInfo, host authoring/import and
@@ -11416,3 +11417,11 @@ carrier-independent compiler lowering before removing nominal neoCLR declaration
 The runtime owns the signature/value work; Raven owns binding/lowering and import.
 Focused Rust structural-tuple tests cover the metadata stage; existing source tuple
 consumers remain the evidence for the still-nominal executable path.
+
+The next runtime slice admits closed structural tuple values only with the explicit
+`experimental-tuples` Cargo feature. Native aggregate construction and positional
+field operations use synthesized ItemN members and existing value storage, preserving
+copying and reference-element lifetimes without a nominal tuple declaration. Default
+runtime and JIT/AOT paths reject these signatures. Runtime Contract settings and
+Raven source emission remain unchanged; compiler wiring must follow native host
+signature authoring/import and tuple introspection. This is not a CLI bridge encoding.
