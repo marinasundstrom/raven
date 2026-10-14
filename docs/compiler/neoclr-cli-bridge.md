@@ -11454,3 +11454,15 @@ are validated by an interpreter fixture returning 42. CLI projection rejects the
 outputs. Runtime Contract settings and ordinary .NET tuple behavior are unchanged.
 Native C# reading/import, positional-operation authoring and Raven tuple lowering
 remain subsequent integration slices; the compiler does not call this factory yet.
+
+
+### Native tuple snapshot/import boundary — 2026-10-14
+
+The companion C# metadata layer now exposes `ReadExperimentalTupleAssembly` and
+`ImportExperimentalTupleReference`. Ordered tuple signatures survive snapshots,
+callable import and native consumer emission, including closed nominal generic
+elements. External definitions use explicit exact-identity resolution. Ordinary and
+composition-only readers/importers remain unchanged and reject tuple contracts.
+CLI projection remains rejected; Runtime Contract settings are unchanged. The separate
+native consumer returns 42 and verifies tuple-forwarding signatures. This does not
+claim Raven tuple lowering or C# tuple value-construction/element APIs are implemented.
