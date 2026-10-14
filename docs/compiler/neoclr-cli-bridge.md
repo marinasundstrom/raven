@@ -11110,3 +11110,21 @@ Guest structural TypeInfo construction remains gated. neoCLR's classification an
 route-mapper consumers validate the split against rebuilt native libraries; its
 obsolete CLI runtime-slice generator remains separately blocked. Other nominal
 helper grouping is follow-up work.
+
+## Structural descriptor interfaces (2026-10-14 experimental runtime)
+
+The companion neoCLR branch adds UnionTypeInfo and IntersectionTypeInfo, both
+extending TypeInfo with Types for direct normalized constituents. Matching native
+System.Runtime sources and experimental-compositions interpreter builds are
+required. Runtime snapshot construction preserves nested and closed generic
+structural identities. Direct member/hierarchy queries remain unsupported.
+
+This does not change Raven Runtime Contract configuration or ordinary .NET
+semantics. Current typeof(A | B) still emits a nominal Union<A,B> carrier token.
+The runtime descriptor probe explicitly replaces four placeholder tokens with
+native compositions and executes otherwise unchanged Raven introspection code.
+This fixture is not source structural-token emission support. Native compiler
+emission must replace it before that support is claimed; ownership is shared by
+compiler emission and runtime metadata/introspection. No JIT/AOT or legacy CLI
+bootstrap qualification is implied. See neoCLR's
+`docs/experiments/composition-type-info/README.md` for reproduction and evidence.
