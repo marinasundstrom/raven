@@ -78,6 +78,12 @@ mixed compositions and general storage remain gaps. This replaces the blanket na
 it adds no CLI encoding or Runtime Contract setting. See the
 [call-only API and limits](intersection-types.md#native-call-only-emission-2026-10-14).
 
+The companion host at neoCLR `33af11209` also proves flat union/union and cross-kind composition
+calls using the interpreter's every-alternative/every-bound reference rules. Three
+host-generated consumers return 42 and unsafe narrowing rejects; this compiler's
+structural-union importer remains closed. No Runtime Contract, CLI encoding or
+compiler semantic rule changes. The existing intersection call probe still passes.
+
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,
 generic/byref/array/Function nesting, compound reflection and JIT/AOT layout. Only
