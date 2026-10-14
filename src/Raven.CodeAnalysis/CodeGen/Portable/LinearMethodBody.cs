@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -642,6 +642,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
+                        else if (variable.Local.Type is ITupleTypeSymbol)
+                        {
+                            if (!TryType(variable.Local.Type, false, out localType) || capabilities?.Allows(localType) != true)
+                                return Reject("target does not support tuple locals", Syntax(variable));
+                        }
                         else if (variable.Local.Type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) &&
                             TryType(variable.Local.Type, false, out var structuralLocal) && capabilities?.Allows(structuralLocal) == true)
                             localType = structuralLocal;
@@ -768,6 +773,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         initializer.Right, model.Compilation.GetSpecialType(SpecialType.System_Unit));
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
+                    if (fieldAssignment.Receiver?.Type is ITupleTypeSymbol && capabilities?.Allows(LinearInstructionKind.NewTuple) == true)
+                        return Reject("structural tuple element assignment", Syntax(statement));
                     var owner = fieldAssignment.Field.ContainingType!;
                     if (!SupportedField(fieldAssignment.Field))
                         return Reject("unsupported instance field assignment", Syntax(statement));
@@ -1390,6 +1397,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);
                     if (!LowerValue(conditional.ElseBranch, conditional.Type, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Label, Syntax(expression), joined);
+                    return true;
+                case BoundTupleExpression tuple when capabilities?.Allows(LinearInstructionKind.NewTuple) == true &&
+                    TryType(tuple.Type, false, out var tupleType) && capabilities.Allows(tupleType):
+                    foreach (var element in tuple.Elements)
+                        if (!LowerValue(element)) return false;
+                    instructions.Add(new(LinearInstructionKind.NewTuple, Syntax(expression), Type: tuple.Type));
+                    return true;
+                case BoundFieldAccess { Receiver: { Type: ITupleTypeSymbol } receiver, Field: var tupleField } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
+                    if (!LowerValue(receiver)) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((ITupleTypeSymbol)receiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleField.MetadataName), Type: receiver.Type));
+                    return true;
+                case BoundMemberAccessExpression { Receiver: { Type: ITupleTypeSymbol } tupleReceiver, Member: IFieldSymbol tupleMember } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
+                    if (!LowerValue(tupleReceiver)) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((ITupleTypeSymbol)tupleReceiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleMember.MetadataName), Type: tupleReceiver.Type));
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
                     (SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType, capabilities) && !createdType!.IsStatic ||

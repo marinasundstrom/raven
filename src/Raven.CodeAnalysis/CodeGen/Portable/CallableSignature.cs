@@ -14,6 +14,14 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         value = default;
         if (depth >= 16) return false;
+        if (type is ITupleTypeSymbol tuple)
+        {
+            if (capabilities?.Allows(LinearInstructionKind.NewTuple) != true || tuple.TupleElements.Length is 0 or > 256 || tuple.TupleElements.Any(e =>
+                e.Type is not ITupleTypeSymbol && !EmissionPrimitiveTypes.TryGetValueType(e.Type, out _) ||
+                !TryType(e.Type, false, out _, capabilities, depth + 1))) return false;
+            value = new(Nominal: (INamedTypeSymbol)tuple);
+            return true;
+        }
         if (capabilities?.AllowsImportedCompositionCalls == true && type is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
         {
             value = new(Composition: type);
@@ -51,7 +59,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Nominal: contract); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan, capabilities) && !plan!.IsStatic)
         { value = new(Nominal: named); return true; }
-        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null } array && array.ElementType is not IPointerTypeSymbol && TryType(array.ElementType, false, out _, capabilities, depth + 1))
+        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null } array && array.ElementType is not (IPointerTypeSymbol or ITupleTypeSymbol) && TryType(array.ElementType, false, out _, capabilities, depth + 1))
         { value = new(Array: array); return true; }
         return false;
     }
@@ -92,12 +100,12 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         Enumerable.SequenceEqual<ITypeSymbol>(a.TypeArguments, b.TypeArguments, SymbolEqualityComparer.Default);
 
     internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false, bool allowInternal = false) =>
-        type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&
+        type.OriginalDefinition?.DeclaringSyntaxReferences.IsEmpty == true && type.TypeKind == TypeKind.Struct &&
         type.IsValueType && (type.ContainingType is null || allowNested) &&
         (type.DeclaredAccessibility == Accessibility.Public || allowInternal && type.DeclaredAccessibility == Accessibility.Internal);
 
     internal static bool IsExternalReference(INamedTypeSymbol type, bool allowNested = false, bool allowInternal = false) =>
-        type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
+        type.OriginalDefinition?.DeclaringSyntaxReferences.IsEmpty == true && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
         type.IsReferenceType && !type.IsStatic && (type.ContainingType is null || allowNested) &&
         (type.DeclaredAccessibility == Accessibility.Public || allowInternal && type.DeclaredAccessibility == Accessibility.Internal);
 
@@ -175,7 +183,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {
-            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryCallType(parameter.Type, false, out var type)) return false;
+            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.Type is ITupleTypeSymbol || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryCallType(parameter.Type, false, out var type)) return false;
             parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ? 0 : method.ContainingType?.Arity ?? 0, method.ContainingType is { } physicalOwner && SourceTypePlan.IsStaticContainer(physicalOwner), method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),

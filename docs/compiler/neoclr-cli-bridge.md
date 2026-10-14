@@ -11478,3 +11478,32 @@ The separate consumer executes nested construction, imported echo, reads and cop
 update with result 42. No nominal carrier, constructor or FieldDef is introduced.
 Runtime Contract configuration and ordinary .NET lowering are unchanged; CLI output
 still rejects tuple admission. Managed-address authoring and Raven lowering remain.
+
+
+### Source-local tuple lowering — 2026-10-14
+
+The experimental Raven host option `NeoClrEmitOptions.AllowExperimentalTuples`
+(default false) admits tuple literals, parameters/results, locals/copies and named
+or positional reads for scalar and nested tuple elements. Native output uses Tuple
+signatures, aggregate construction and positional loads, without a nominal tuple
+TypeDef/constructor/field. The tuple capability does not enable composition calls.
+There is no new CLI/project property; Runtime Contract configuration is unchanged.
+Ordinary .NET ValueTuple emission is unchanged. Unlike .NET's nominal carrier and
+name attributes, the intended neoCLR contract stores names directly in native
+metadata while preserving positional type equality and compatibility.
+
+This slice still binds through the configured nominal tuple family. Source-local
+names work, but the current native Tuple node stores element types only: preserving
+names across metadata import and reflection is required follow-up work, not completed
+by this slice. Do not remove the nominal family yet. Native compiler imports,
+element mutation/address lowering, non-scalar elements, tuple arrays/byref parameters
+and open generic tuple elements remain outside this compiler profile.
+
+Validation: `NeoClrMetadataProbe --source-tuples <bundle> <output>` emits a nested
+tuple consumer using named reads and copies; the matching experimental interpreter
+returns 42. The probe checks ordered native signatures, absence of a local nominal
+tuple declaration, default rejection, and atomic rejection of mutation/open tuples.
+The source composition regression also passes. The runtime library fixture is
+`target/tuple-info-libraries-v2` from compiler
+`793219d855b17f01fb805e215968b78871eb3804`; the emitting compiler is the dedicated
+`codex/neoclr-union-intersection` branch, runtime `codex/structural-union-intersection`.

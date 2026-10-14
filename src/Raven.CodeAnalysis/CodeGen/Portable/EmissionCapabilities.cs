@@ -89,6 +89,8 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
     internal bool Allows(EmissionType type)
     {
+        if (type.Nominal is ITupleTypeSymbol tuple && Allows(LinearInstructionKind.NewTuple))
+            return !type.IsByReference && tuple.TupleElements.All(e => CallableSignature.TryType(e.Type, false, out var element, this) && Allows(element));
         if (type.Composition is not null) return AllowsImportedCompositionCalls && !type.IsByReference;
         if (type.IsByReference) return AllowsManagedReferences && Allows(type with { IsByReference = false });
         if (type.Pointer is { } pointer) return AllowsUnmanagedPointers && CallableSignature.IsSupportedPointer(pointer);

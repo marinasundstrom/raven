@@ -165,7 +165,7 @@ internal abstract partial class Binder
         if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             Compilation.Options.MetadataImportOptions is { ObjectAssemblyName: not null } rootImports &&
             result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
-            objectType.ContainingAssembly.Name == rootImports.CoreAssemblyName &&
+            objectType.ContainingAssembly?.Name == rootImports.CoreAssemblyName &&
             objectType.ToFullyQualifiedMetadataName() == "System.Object")
         {
             var root = Compilation.GetSpecialType(SpecialType.System_Object);

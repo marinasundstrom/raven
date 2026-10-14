@@ -39,6 +39,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             return SignatureType.ArrayOf(Map(element, resolveClass, resolveExternal, mapParameter));
         }
         var named = type.Nominal!;
+        if (named is ITupleTypeSymbol && resolveExternal is not null) return resolveExternal(named);
         if (named.SpecialType == SpecialType.System_RuntimeTypeHandle) return PrimitiveType.RuntimeTypeHandle;
         if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal, mapParameter), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal, mapParameter))));
@@ -51,7 +52,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 
     internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     {
-        if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.ExperimentalIntersectionCalls)) throw new InvalidOperationException("unsupported native value type");
+        if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.ExperimentalTuplesAndIntersections)) throw new InvalidOperationException("unsupported native value type");
         return Map(value, resolveClass, resolveExternal, mapParameter);
     }
 

@@ -7,9 +7,12 @@ internal static class NeoClrCapabilities
 {
     internal static EmissionCapabilities Shared { get; } = Create(false);
     internal static EmissionCapabilities ExperimentalIntersectionCalls { get; } = Create(true);
-    private static EmissionCapabilities Create(bool intersections) => new(
+    internal static EmissionCapabilities ExperimentalTuples { get; } = Create(false, true);
+    internal static EmissionCapabilities ExperimentalTuplesAndIntersections { get; } = Create(true, true);
+    private static EmissionCapabilities Create(bool intersections, bool tuples = false) => new(
         [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte, EmissionPrimitiveType.Single, EmissionPrimitiveType.Double, EmissionPrimitiveType.SByte, EmissionPrimitiveType.Int16, EmissionPrimitiveType.UInt16, EmissionPrimitiveType.UInt32, EmissionPrimitiveType.UInt64, EmissionPrimitiveType.IntPtr, EmissionPrimitiveType.UIntPtr],
         [
+            .. (tuples ? new[] { LinearInstructionKind.NewTuple, LinearInstructionKind.LoadTupleElement } : []),
             LinearInstructionKind.LoadTypeToken, LinearInstructionKind.DirectInstanceCall, LinearInstructionKind.BaseConstructorCall, LinearInstructionKind.ConstrainedCall, LinearInstructionKind.EnumFromInt32, LinearInstructionKind.EnumToInt32, LinearInstructionKind.LoadCapture, LinearInstructionKind.UnboxAny, LinearInstructionKind.ReferenceIsNull, LinearInstructionKind.TypeTest, LinearInstructionKind.FieldAddress, LinearInstructionKind.BoxToObject, LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
             LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return, LinearInstructionKind.CompilerFailure,

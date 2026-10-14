@@ -62,13 +62,14 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null, bool allowExperimentalIntersectionCalls = false, bool allowExperimentalCompositionCalls = false)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null, bool allowExperimentalIntersectionCalls = false, bool allowExperimentalCompositionCalls = false, bool allowExperimentalTuples = false)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
         ArgumentNullException.ThrowIfNull(dependencies);
         AllowExperimentalIntersectionCalls = allowExperimentalIntersectionCalls || allowExperimentalCompositionCalls;
         AllowExperimentalCompositionCalls = allowExperimentalCompositionCalls;
+        AllowExperimentalTuples = allowExperimentalTuples;
         Identity = identity;
         CoreLibrary = coreLibrary;
         ConsoleReference = consoleReference;
@@ -85,6 +86,9 @@ public sealed class NeoClrEmitOptions
     public bool AllowExperimentalIntersectionCalls { get; }
     /// <summary>Enables native-only imported union and intersection calls; does not enable authored storage or CLI projection.</summary>
     public bool AllowExperimentalCompositionCalls { get; }
+    /// <summary>Enables native-only scalar/nested tuple literals, signatures, locals and reads. Defaults to false.</summary>
+    /// <remarks>Names currently survive source binding only. Native name preservation, tuple imports, mutation and open elements remain unsupported. Does not change ordinary .NET output.</remarks>
+    public bool AllowExperimentalTuples { get; }
     /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
     /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>
     public MetadataReference? BootstrapReference { get; }

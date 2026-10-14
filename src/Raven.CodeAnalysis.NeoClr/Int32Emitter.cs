@@ -16,7 +16,7 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies, bool metadataAssembly = false)
     {
-        var bodyCapabilities = options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalIntersectionCalls : NeoClrCapabilities.Shared;
+        var bodyCapabilities = options.AllowExperimentalTuples ? (options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalTuplesAndIntersections : NeoClrCapabilities.ExperimentalTuples) : options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalIntersectionCalls : NeoClrCapabilities.Shared;
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
@@ -506,6 +506,8 @@ internal static class Int32Emitter
 
         SignatureType ImportExternalType(ITypeSymbol symbol)
         {
+            if (options.AllowExperimentalTuples && symbol is ITupleTypeSymbol tuple)
+                return assembly.CreateExperimentalTuple(tuple.TupleElements.Select(e => NeoClrTypeMapper.Map(e.Type, owner => nativeTypes[owner], ImportExternalType)).ToArray());
             // A normalized nominal symbol cannot identify which original compound
             // contract belongs in synthesized storage. Preserve call-only transport,
             // but reject storage instead of silently erasing that descriptor.
@@ -1148,7 +1150,7 @@ internal static class Int32Emitter
             foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
-        if (metadataAssembly && compilation.UsesStructuralCompositions && options.AllowExperimentalCompositionCalls)
+        if (metadataAssembly && (options.AllowExperimentalTuples || compilation.UsesStructuralCompositions && options.AllowExperimentalCompositionCalls))
             return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly.WriteNativeAssembly());
         return metadataAssembly
             ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
@@ -1428,6 +1430,7 @@ internal static class Int32Emitter
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, bodyCapabilities) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             options.AllowExperimentalIntersectionCalls && type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) ||
+            options.AllowExperimentalTuples && type is ITupleTypeSymbol tuple && tuple.TupleElements.All(e => IsSymbolOnlyType(e.Type, false)) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Object or SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
