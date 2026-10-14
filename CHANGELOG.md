@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-14:** Validate a native intersection-constrained generic body calling both constituent interface methods, with result 42. Companion metadata/runtime proofs now admit owned nongeneric trait calls. Extend the probe to imported nongeneric interface methods via local inherited intersection bounds; the separately compiled consumer returns 42. Direct external bounds, constructed targets and broader open bounds remain pending.
+- **2026-10-14:** Validate a native intersection-constrained generic body calling both constituent interface methods, with result 42. Companion metadata/runtime proofs now admit owned nongeneric trait calls. Extend the probe to imported nongeneric interface methods via local inherited intersection bounds; the separately compiled consumer returns 42. Add a consumer using an imported closed generic interface through a local intersection bound. Direct external bounds and broader open bounds remain pending.
 
 - **2026-10-14:** Validate native generic-method forwarding under closed union/intersection bounds, including exported wrappers and rejection of weaker caller guarantees. The companion metadata checker supplies entailment; open bound operands and owner-parameter forwarding remain pending.
 

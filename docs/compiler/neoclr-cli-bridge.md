@@ -11299,3 +11299,13 @@ This adds no CLI carrier or metadata schema: default composition rejection remai
 Direct external structural-bound authoring, constructed interface targets under
 structural bounds and open bound operands remain pending. The host metadata emitter
 owns admission; Raven retains its existing imported-interface emission path.
+
+
+Closed constructed trait targets (2026-10-14): native structural method bounds now
+also authorize imported constructed interface calls when their closed guarantees
+prove the exact target construction. `Reads<int>` does not prove `Reads<string>`;
+every source-union alternative must prove the requested construction. Existing
+nominal/Self constrained calls retain their prior path. Raven's `ConstructedTraits`
+probe inherits `ImportedReads<int>` through a local intersection constituent and
+calls it using the existing borrowed native dispatch. No CLI encoding is added.
+Direct external structural-bound authoring and open operands remain unsupported.

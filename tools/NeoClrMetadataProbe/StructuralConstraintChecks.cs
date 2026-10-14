@@ -37,6 +37,9 @@ internal static class StructuralConstraintChecks
             public interface ImportedReadsA {
                 func ReadA() -> int
             }
+            public interface ImportedReads<T> {
+                func Read() -> T
+            }
             public interface ImportedReadsB {
                 func ReadB() -> int
             }
@@ -57,6 +60,19 @@ internal static class StructuralConstraintChecks
             func Main() -> int { return Read<BothTraits>(BothTraits()) }
             """)], traitCatalog.References.ToArray(), options);
         Emit(externalTraits, traitCatalog, "ExternalTraits", Path.Combine(output, "ExternalTraits.neox"));
+        var constructedTraits = Compilation.Create("ConstructedTraits", [SyntaxTree.ParseText("""
+            interface LocalA : ImportedReads<int> {}
+            interface LocalB : ImportedReadsB {}
+            class BothTraits : LocalA, LocalB {
+                func Read() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            func Read<T>(value: T) -> int where T: LocalA & LocalB {
+                return value.Read() + value.ReadB()
+            }
+            func Main() -> int { return Read<BothTraits>(BothTraits()) }
+            """)], traitCatalog.References.ToArray(), options);
+        Emit(constructedTraits, traitCatalog, "ConstructedTraits", Path.Combine(output, "ConstructedTraits.neox"));
         var source = """
             public interface A {}
             public interface B {}
