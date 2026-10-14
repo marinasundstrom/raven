@@ -27,6 +27,15 @@ its existing JSON/CBOR execution schema. There is no selected CLI bridge encodin
 and no support claim for Raven's native metadata adapter importing/emitting these
 variants. Runtime-only success must not remove source diagnostics prematurely.
 
+The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only profile through
+`AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true)`
+and `SignatureType.Composition`. It preserves normalized same-kind compounds and
+snapshot-owned bounds, with no nominal-supertype reduction. Default reads, native
+callable import and CLI projection still reject compounds. Raven's adapter has not
+opted in; mapping these descriptors and enabling storage require an explicit native
+capability and executable validation. Host tests cover schema-2/schema-3 NEOX,
+identity, limits and rejection; they do not establish Raven source execution.
+
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,
 generic/byref/array/Function nesting, compound reflection and JIT/AOT layout. Only
