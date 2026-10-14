@@ -11425,3 +11425,21 @@ copying and reference-element lifetimes without a nominal tuple declaration. Def
 runtime and JIT/AOT paths reject these signatures. Runtime Contract settings and
 Raven source emission remain unchanged; compiler wiring must follow native host
 signature authoring/import and tuple introspection. This is not a CLI bridge encoding.
+
+
+### Structural tuple guest descriptors — 2026-10-14
+
+The native runtime now provides `System.Introspection.TupleTypeInfo.ElementTypes`
+through a dedicated TypeTupleElements service and provider dispatch. Ordered element
+snapshots preserve duplicates and nested tuples. This requires `experimental-tuples`
+and matching reference/source-library artifacts. Runtime Contract configuration and
+ordinary .NET tuple lowering are unchanged; no CLI carrier encodes this identity.
+The Raven consumer uses one explicit native type-token fixture, so this is guest
+reflection validation, not structural tuple source emission. Native C# authoring/import,
+Raven lowering and nominal Tuple removal remain follow-ups owned by the runtime and
+compiler integration work.
+
+Runtime-library validation uses compiler revision
+`793219d855b17f01fb805e215968b78871eb3804`; the experimental branch currently misparses
+existing `(flags & flag)` in GZipDecoder as an intersection type. Record this as a
+deferred general parser candidate; do not change valid bitwise source to hide it.

@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-14:** Record the author-directed migration from nominal neoCLR Tuple declarations to structural tuple signatures. Companion runtime metadata groundwork and opt-in native interpreter tuple values/positional operations are available; Raven lowering, tuple reflection and nominal-family removal remain pending. Ordinary .NET tuple behavior is unchanged.
+- **2026-10-14:** Record the author-directed migration from nominal neoCLR Tuple declarations to structural tuple signatures. Companion runtime metadata groundwork and opt-in native interpreter tuple values/positional operations are available. Guest `TupleTypeInfo.ElementTypes` now exposes ordered recursive snapshots, validated using a native token fixture. Raven lowering and nominal-family removal remain pending. Record a separate bitwise/intersection parser regression affecting runtime-library builds. Ordinary .NET tuple behavior is unchanged.
 
 - **2026-10-14:** Emit external intersection method bounds with definition-backed eligibility checks, including closed generic interfaces. Resolve selected native catalog snapshots independent of input order while rejecting missing/cyclic intersection dependencies. Keep nominal conformance explicit and default .NET behavior unchanged; add a separate library/consumer probe and shape-only negative. Add explicit dependency resolution to Raven’s intersection-only reader, preserving union-profile and missing-dependency rejection.
 
