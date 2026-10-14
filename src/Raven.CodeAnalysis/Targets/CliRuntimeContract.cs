@@ -15,6 +15,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     internal virtual string UnionInterfaceTypeName => "System.Runtime.CompilerServices.IUnion";
     internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";
     internal virtual bool UsesStructuralCompositions => false;
+    internal virtual bool UsesStructuralTuples => false;
 
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }
@@ -25,6 +26,8 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (Options.MetadataImportOptions?.UseStructuralTuples == true && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "structural tuple binding requires the NeoCLR target";
         if (Options.MetadataImportOptions?.UseNativeMetadata == true && Options.TargetPlatform != TargetPlatform.NeoCLR)
             return "native metadata loading requires the NeoCLR target";
         if (GetPlatformConfigurationError() is { } platformError)

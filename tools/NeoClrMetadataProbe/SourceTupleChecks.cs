@@ -13,7 +13,7 @@ internal static class SourceTupleChecks
         Directory.CreateDirectory(output);
         var catalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll")], Path.Combine(inputs, "System.runtime.neox"));
         var options = CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null).WithOutputKind(OutputKind.ConsoleApplication)
-            .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime"));
+            .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime").WithStructuralTuples());
         var source = """
             func Echo(value: (left: int, right: int)) -> (left: int, right: int) {
                 return value
@@ -94,9 +94,57 @@ internal static class SourceTupleChecks
             if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "TupleMutation.neox"), stream.ToArray());
         }
+        CheckCarrierFreeBinding(catalog, options, output);
         CheckImports(catalog, options, output);
         Console.WriteLine("PASS source tuple construction, signature, reads and default gate");
     }
+    private static void CheckCarrierFreeBinding(NeoClrReferenceCatalog catalog, CompilationOptions options, string output)
+    {
+        // Nine elements prove that binding does not look up the nominal family's
+        // arity-specific definitions (the supplied library has no Tuple`9).
+        var compilation = Compilation.Create("CarrierFreeTuple", [SyntaxTree.ParseText("""
+            func Main() -> int {
+                var values = (1, 2, 3, 4, 5, 6, 7, 0, 0)
+                let original = values
+                values.Item9 = 14
+                return values.Item1 + values.Item2 + values.Item3 + values.Item4 + values.Item5 + values.Item6 + values.Item7 + values.Item8 + values.Item9 + original.Item9
+            }
+            """)], catalog.References.ToArray(), options);
+        using (var cliStream = new MemoryStream())
+        {
+            var cli = compilation.Emit(cliStream);
+            if (cli.Success || cliStream.Length != 0 || !cli.Diagnostics.Any(d => d.Id == "RAVT003"))
+                throw new Exception("structural tuples escaped through CLI emitter");
+        }
+        using var stream = new MemoryStream();
+        var emitOptions = new NeoClrEmitOptions(new("CarrierFreeTuple", new(1, 0, 0, 0)), catalog.CoreIdentity, catalog.Dependencies,
+            bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalTuples: true);
+        var result = compilation.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
+        if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+        if (compilation.GetTypeByMetadataName("System.Tuple`9") is not null) throw new Exception("fixture unexpectedly has a nominal 9-tuple");
+        File.WriteAllBytes(Path.Combine(output, "CarrierFreeTuple.neox"), stream.ToArray());
+        var legacy = Compilation.Create("CarrierFreeTuple", [SyntaxTree.ParseText("func Main() -> int { return 42 }")], catalog.References.ToArray(),
+            options.WithMetadataImportOptions(options.MetadataImportOptions!.WithStructuralTuples(false)));
+        using (var mismatch = new MemoryStream())
+        {
+            var failedContract = legacy.Emit(mismatch, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
+            if (failedContract.Success || mismatch.Length != 0 || !failedContract.Diagnostics.Any(d => d.Id == "NEOMETA002")) throw new Exception("native tuples accepted nominal binding contract");
+        }
+        var immutable = Compilation.Create("ImmutableTuple", [SyntaxTree.ParseText("""
+            func Main() -> int {
+                let pair = (1, 2)
+                pair.Item1 = 40
+                return pair.Item1
+            }
+            """)], catalog.References.ToArray(), options);
+        using var rejected = new MemoryStream();
+        var rejectedOptions = new NeoClrEmitOptions(new("ImmutableTuple", new(1, 0, 0, 0)), catalog.CoreIdentity, catalog.Dependencies,
+            bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalTuples: true);
+        var failed = immutable.Emit(rejected, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(rejectedOptions, emitMetadataAssembly: true)));
+        if (failed.Success || rejected.Length != 0 || !failed.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+            throw new Exception("immutable tuple root accepted");
+    }
+
     private static void CheckImports(NeoClrReferenceCatalog catalog, CompilationOptions options, string output)
     {
         var producer = Compilation.Create("TupleLibrary", [SyntaxTree.ParseText("""
@@ -152,6 +200,7 @@ internal static class SourceTupleChecks
         var importedAssembly = (IAssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!;
         var rename = importedAssembly.GlobalNamespace.GetMembers("RenameImported").OfType<IMethodSymbol>().Single();
         if (rename.ReturnType is not ITupleTypeSymbol returned || rename.Parameters[0].Type is not ITupleTypeSymbol parameter ||
+            returned.UnderlyingTupleType is not null || parameter.UnderlyingTupleType is not null ||
             !returned.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "x", "y" }) ||
             !parameter.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "left", "right" }) ||
             !SymbolEqualityComparer.Default.Equals(returned, parameter)) throw new Exception("imported tuple symbols lost names or structural equality");

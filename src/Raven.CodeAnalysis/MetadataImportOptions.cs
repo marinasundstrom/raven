@@ -103,6 +103,13 @@ public sealed record MetadataImportOptions
     /// <summary>Selects native structural unions and intersection storage signatures.</summary>
     public MetadataImportOptions WithStructuralCompositions(bool enabled = true) => this with { UseStructuralCompositions = enabled };
 
+    /// <summary>Whether neoCLR tuple syntax binds directly to structural signature symbols without a nominal tuple carrier.</summary>
+    /// <remarks>Defaults to false. Requires the native experimental tuple emitter and runtime. The CLI bridge and ordinary .NET contract remain unchanged.</remarks>
+    public bool UseStructuralTuples { get; private init; }
+
+    /// <summary>Selects native structural tuple binding, independently of native emission capability.</summary>
+    public MetadataImportOptions WithStructuralTuples(bool enabled = true) => this with { UseStructuralTuples = enabled };
+
     /// <summary>Whether semantic loading uses only native references, without a .NET metadata session.</summary>
     /// <remarks>Experimental NeoCLR-only contract. Every reference must supply native semantic data;
     /// a named core and native emission backend are required. Does not change compiler hosting.</remarks>

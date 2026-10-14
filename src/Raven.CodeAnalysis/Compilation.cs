@@ -2351,6 +2351,8 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
+    internal bool UsesStructuralTuples => _target.RuntimeContract.UsesStructuralTuples;
+
     internal bool UsesStructuralCompositions => _target.RuntimeContract.UsesStructuralCompositions;
 
     internal string RuntimeUnionInterfaceTypeName => _target.RuntimeContract.UnionInterfaceTypeName;
@@ -2365,6 +2367,9 @@ public partial class Compilation
         var arity = elementArray.Length;
         if (arity == 0)
             return GetSpecialType(SpecialType.System_Unit);
+
+        if (UsesStructuralTuples)
+            return new StructuralTupleTypeSymbol(elementArray);
 
         var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"{RuntimeTupleTypeName}`{arity}")
             ?? GetTypeByMetadataName($"{RuntimeTupleTypeName}`{arity}");

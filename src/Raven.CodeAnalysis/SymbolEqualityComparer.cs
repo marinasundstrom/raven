@@ -87,6 +87,15 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return true;
         visited.Add(new SymbolPair(y, x));
 
+        if (x is StructuralTupleTypeSymbol || y is StructuralTupleTypeSymbol)
+        {
+            if (x is not StructuralTupleTypeSymbol tupleX || y is not StructuralTupleTypeSymbol tupleY ||
+                tupleX.TupleElements.Length != tupleY.TupleElements.Length) return false;
+            for (var i = 0; i < tupleX.TupleElements.Length; i++)
+                if (!EqualsCore(tupleX.TupleElements[i].Type, tupleY.TupleElements[i].Type, visited)) return false;
+            return true;
+        }
+
         // >>> NEW BLOCK: relaxed comparison for type parameters
         if (_ignoreContainingNamespaceOrType &&
             x is ITypeParameterSymbol tpx &&
@@ -475,6 +484,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is StructuralTupleTypeSymbol tuple)
+        {
+            hash.Add(tuple.TupleElements.Length);
+            foreach (var element in tuple.TupleElements)
+                hash.Add(GetHashCodeCore(element.Type, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            return hash.ToHashCode();
         }
 
         if (obj is IStructuralUnionTypeSymbol union)

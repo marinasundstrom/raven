@@ -33,6 +33,10 @@ public static class NeoClrCompilationEmitter
         var diagnostics = ImmutableArray<Diagnostic>.Empty;
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
+        if (options.AllowExperimentalTuples && !compilation.UsesStructuralTuples)
+            return Fail(Configuration, "native tuple emission requires structural tuple binding");
+        if (compilation.UsesStructuralTuples && !options.AllowExperimentalTuples)
+            return Fail(Unsupported, "structural tuple binding requires the explicit native tuple emitter option");
         if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalTuples) && !options.AllowExperimentalTuples)
             return Fail(Unsupported, "experimental tuple references require the explicit native-only tuple option");
         if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalCompositions) &&

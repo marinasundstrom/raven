@@ -9,6 +9,8 @@ internal sealed class DotNetCompilationEmitter(Compilation compilation) : ICompi
 {
     public EmitResult Emit(Stream output, Stream? debugOutput, EmitOptions? options)
     {
+        if (compilation.UsesStructuralTuples)
+            return new EmitResult(false, [TargetDiagnostics.InvalidConfiguration("structural tuple binding requires a native tuple emission backend")!]);
         if (compilation.UsesSourceObjectRoot)
             return new EmitResult(false, [TargetDiagnostics.InvalidConfiguration("source Object root emission requires native root authoring support")!]);
         if (compilation.References.Any(reference => reference is ISemanticMetadataReference))

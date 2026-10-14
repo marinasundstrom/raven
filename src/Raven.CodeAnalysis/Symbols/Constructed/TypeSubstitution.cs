@@ -73,7 +73,10 @@ internal static class TypeSubstitution
         if (!changed)
             return tuple;
 
-        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType);
+        if (tuple is StructuralTupleTypeSymbol)
+            return new StructuralTupleTypeSymbol(elements.Select((element, index) => ((string?)element.Name, substitutedElements[index])));
+
+        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType!);
         if (underlyingDefinition.Arity != substitutedElements.Length)
             return tuple;
 

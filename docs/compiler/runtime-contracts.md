@@ -4150,3 +4150,47 @@ PE/#Neo and general authored storage stay gated. This is an explicit native back
 capability, not a Runtime Contract flag or a project/CLI default. Ordinary .NET union carriers
 remain unchanged. See [the API contract and limitations](intersection-types.md)
 and [the neoCLR handoff](neoclr-cli-bridge.md).
+
+### Native tuple binding without nominal carriers — 2026-10-14
+
+The explicit neoCLR Runtime Contract now offers
+`MetadataImportOptions.UseStructuralTuples` (default false) and immutable
+`WithStructuralTuples(bool enabled = true)`. With this option, tuple syntax and
+native tuple imports produce structural symbols directly; they never look up or
+construct System.Tuple. Native tuple emission now requires both this binding option
+and `NeoClrEmitOptions.AllowExperimentalTuples`. Existing experimental hosts must
+add `WithStructuralTuples()` to their metadata import options. Non-neoCLR targets
+reject this option; CLI emission rejects the structural profile before output.
+There is no project/catalog switch yet. Ordinary .NET and the legacy CLI bridge
+keep their existing nominal tuple representation.
+
+The native symbol has TypeKind.Tuple, no UnderlyingTupleType, assembly ownership,
+metadata declaration name, constructors, inherited nominal members or interfaces.
+Ordered TupleElements carry native names; ItemN aliases remain available for source
+access. TypeArguments is empty: elements are not generic carrier arguments. Tuple
+identity/hash uses ordered recursive element types, ignores names, and remains
+distinct from nominal tuples. Substitution preserves the native shape and names.
+Semantic lookup/display uses these fields directly; no syntax or TextMate change
+is needed. This is the semantic counterpart of the existing native signature API,
+not a new CLI transport.
+
+Compared with .NET ValueTuple, the benefit is no arity-specific declaration or
+attribute-name dependency. The cost is a dedicated structural symbol and explicit
+identity/substitution handling. Native mutation requires a mutable local root;
+immutable let roots and nonlocal roots reject before output. A general review of
+value-type field writes through immutable bindings belongs on Raven main; this
+slice enforces the native writeback boundary without changing .NET policy.
+
+Validation covers carrier-free factory construction with no references, positional
+identity/hash (including nested/repeated types), type-parameter substitution, member
+names/display, target rejection, CLI rejection, source/import symbols, and separate
+interpreter consumers. A nine-element tuple executes and mutates without any
+System.Tuple`9 declaration; it returns 42. Nested mutation/copy and imported tuple
+consumers also return 42 using `tuple-names-libraries-v2`. Focused ordinary .NET
+tuple tests retain the existing carrier behavior.
+
+This removes Raven's nominal backing dependency for the native structural profile.
+It does not delete the old tuple declarations from the runtime library or CLI
+bootstrap: those remain for existing bridge consumers pending bundle migration.
+Open-element emission, nonlocal mutation, managed element addresses and broader
+backend support remain separate work.

@@ -66,7 +66,7 @@ public static partial class SymbolExtensions
 
     private static bool ContainsStructuralComposition(ITypeSymbol type) => type switch
     {
-        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol => true,
+        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or StructuralTupleTypeSymbol => true,
         ITupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
         INamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
             named.ContainingType is { } owner && ContainsStructuralComposition(owner),

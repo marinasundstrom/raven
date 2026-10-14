@@ -1306,7 +1306,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 path.Add((receiver.Type, index));
                 if (receiver is BoundLocalAccess local)
                 {
-                    if (!locals.TryGetValue(local.Local, out var root) ||
+                    if (!local.Local.IsMutable || !locals.TryGetValue(local.Local, out var root) ||
                         capabilities?.Allows(LinearInstructionKind.StoreTupleElement) != true ||
                         !TryType(assignment.Field.Type, false, out var valueType))
                         return Reject("unsupported structural tuple storage", Syntax(assignment));

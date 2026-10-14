@@ -136,8 +136,8 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     /// <param name="image">Native image copied into an immutable snapshot.</param>
     /// <param name="bootstrap">Matching primitive bootstrap, also registered with the compilation.</param>
     /// <param name="resolver">Explicit dependency resolver for imported nominal elements.</param>
-    /// <returns>A tuple-enabled native reference; emission requires AllowExperimentalTuples.</returns>
-    /// <remarks>Composition admission is independent. This bounded compiler profile supports scalar/nested tuple elements and retains the configured nominal tuple family for binding.</remarks>
+    /// <returns>A tuple-enabled native reference; emission requires AllowExperimentalTuples and MetadataImportOptions.WithStructuralTuples.</returns>
+    /// <remarks>Composition admission is independent. This bounded compiler profile supports scalar/nested tuple elements. Select WithStructuralTuples for native binding without a nominal tuple carrier.</remarks>
     public static NeoClrMetadataReference ReadExperimentalTupleAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null, IAssemblyResolver? resolver = null)
     {
         var definition = AssemblyDefinition.ReadExperimentalTupleAssembly(image, resolver);
