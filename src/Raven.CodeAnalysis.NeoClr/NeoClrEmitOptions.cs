@@ -87,7 +87,7 @@ public sealed class NeoClrEmitOptions
     /// <summary>Enables native-only imported union and intersection calls; does not enable authored storage or CLI projection.</summary>
     public bool AllowExperimentalCompositionCalls { get; }
     /// <summary>Enables native-only scalar/nested tuple literals, signatures, locals and reads. Defaults to false.</summary>
-    /// <remarks>Names currently survive source binding only. Native name preservation, tuple imports, mutation and open elements remain unsupported. Does not change ordinary .NET output.</remarks>
+    /// <remarks>Native names are preserved in emitted signatures. Tuple imports, mutation and open elements remain unsupported. Does not change ordinary .NET output.</remarks>
     public bool AllowExperimentalTuples { get; }
     /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
     /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>

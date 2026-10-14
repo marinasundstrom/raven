@@ -46,6 +46,11 @@ internal static class SourceTupleChecks
             var snapshot = AssemblyDefinition.ReadExperimentalTupleAssembly(image);
             var echo = snapshot.MainModule.Functions.Single(m => m.Name == "Echo");
             if (!echo.TryGetSignature(out var signature) || signature!.ReturnType.Tuple?.ElementTypes.Count != 2) throw new Exception("tuple signature erased");
+            if (!signature.ReturnType.Tuple.ElementNames.SequenceEqual(new[] { "left", "right" })) throw new Exception("native tuple names erased");
+            if (!snapshot.MainModule.Functions.Single(m => m.Name == "Rename").TryGetSignature(out var renamed) ||
+                !renamed!.ReturnType.Tuple!.ElementNames.SequenceEqual(new[] { "x", "y" }) ||
+                !renamed.ParameterTypes[0].Tuple!.ElementNames.SequenceEqual(new[] { "left", "right" }) ||
+                renamed.ReturnType != renamed.ParameterTypes[0]) throw new Exception("renamed signature metadata or identity lost");
             if (snapshot.MainModule.Types.Any(t => t.Name.Contains("Tuple"))) throw new Exception("nominal tuple emitted");
         }
         foreach (var unsupported in new[]

@@ -507,7 +507,7 @@ internal static class Int32Emitter
         SignatureType ImportExternalType(ITypeSymbol symbol)
         {
             if (options.AllowExperimentalTuples && symbol is ITupleTypeSymbol tuple)
-                return assembly.CreateExperimentalTuple(tuple.TupleElements.Select(e => NeoClrTypeMapper.Map(e.Type, owner => nativeTypes[owner], ImportExternalType)).ToArray());
+                return assembly.CreateExperimentalTuple(tuple.TupleElements.Select(e => NeoClrTypeMapper.Map(e.Type, owner => nativeTypes[owner], ImportExternalType)).ToArray(), tuple.TupleElements.Select(e => (string?)e.Name).ToArray());
             // A normalized nominal symbol cannot identify which original compound
             // contract belongs in synthesized storage. Preserve call-only transport,
             // but reject storage instead of silently erasing that descriptor.
