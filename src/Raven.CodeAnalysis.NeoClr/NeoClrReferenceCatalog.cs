@@ -51,11 +51,12 @@ public sealed class NeoClrReferenceCatalog
     /// <param name="corePath">Required ordinary CLI primitive bootstrap, at most 4 MiB.</param>
     /// <param name="nativeReferencePaths">Native PE/#Neo libraries, at most 16 MiB each; never projected to CLI.</param>
     /// <param name="runtimeSeedPath">Optional retained System runtime seed, at most 8 MiB. Adds no semantic declarations.</param>
+    /// <param name="allowExperimentalCompositions">Explicitly admit experimental native composition signatures, including standalone NEOX libraries.</param>
     /// <returns>A new catalog; existing catalogs are unaffected by subsequent file changes.</returns>
     /// <exception cref="ArgumentException">Duplicate paths or identities, including the core identity.</exception>
     /// <exception cref="IOException">An artifact is missing, inaccessible, too large or changes length during reading.</exception>
     /// <exception cref="InvalidDataException">An artifact is malformed or has an unsupported metadata contract.</exception>
-    public static NeoClrReferenceCatalog Read(string corePath, IEnumerable<string> nativeReferencePaths, string? runtimeSeedPath = null)
+    public static NeoClrReferenceCatalog Read(string corePath, IEnumerable<string> nativeReferencePaths, string? runtimeSeedPath = null, bool allowExperimentalCompositions = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(corePath);
         ArgumentNullException.ThrowIfNull(nativeReferencePaths);
@@ -80,8 +81,8 @@ public sealed class NeoClrReferenceCatalog
         foreach (var path in paths)
         {
             var image = ReadImage(path, 16 * 1024 * 1024);
-            _ = RuntimeAssemblyContainer.Read(image);
-            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, bootstrap, path);
+            if (!allowExperimentalCompositions) _ = RuntimeAssemblyContainer.Read(image);
+            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, bootstrap, path, allowExperimentalCompositions);
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
             references.Add(reference);
@@ -93,6 +94,7 @@ public sealed class NeoClrReferenceCatalog
     /// <summary>Snapshots a native semantic core and native libraries without a CLI bootstrap or projection.</summary>
     /// <param name="corePath">Native PE/#Neo core, at most 16 MiB; no core completeness is inferred from its filename.</param>
     /// <param name="nativeReferencePaths">Explicit native library paths, at most 16 MiB each, in host order.</param>
+    /// <param name="allowExperimentalCompositions">Explicitly admit experimental native composition signatures, including standalone NEOX libraries.</param>
     /// <returns>An immutable catalog with the core first in References and Dependencies, using the same reference instances.</returns>
     /// <remarks>Use MetadataImportOptions.WithNativeMetadata and explicit runtime contracts. Runtime seeds are separate
     /// execution inputs, not translated implementations attached to the native core. Missing semantic dependencies remain
@@ -100,7 +102,7 @@ public sealed class NeoClrReferenceCatalog
     /// <exception cref="ArgumentException">Paths or assembly identities are duplicated.</exception>
     /// <exception cref="IOException">An input cannot be read or changes length during reading.</exception>
     /// <exception cref="InvalidDataException">An input is oversized, malformed, or lacks the supported native metadata contract.</exception>
-    public static NeoClrReferenceCatalog ReadNative(string corePath, IEnumerable<string> nativeReferencePaths)
+    public static NeoClrReferenceCatalog ReadNative(string corePath, IEnumerable<string> nativeReferencePaths, bool allowExperimentalCompositions = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(corePath);
         ArgumentNullException.ThrowIfNull(nativeReferencePaths);
@@ -114,8 +116,8 @@ public sealed class NeoClrReferenceCatalog
         foreach (var path in paths)
         {
             var image = ReadImage(path, 16 * 1024 * 1024);
-            _ = RuntimeAssemblyContainer.Read(image);
-            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, null, path);
+            if (!allowExperimentalCompositions) _ = RuntimeAssemblyContainer.Read(image);
+            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, null, path, allowExperimentalCompositions);
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
             core ??= reference;

@@ -1162,3 +1162,5 @@ member binding and deduplication. `import Shared.*` therefore agrees with qualif
 Namespace scopes, aliases, type-scope static members and accessibility checks retain
 their existing roles. A missing configured provider does not fall back to the original
 namespace candidate. The regression covers all three forms and both reference orders.
+
+Experimental native composition source and catalog configuration is documented in [the neoCLR bridge contract](neoclr-cli-bridge.md#source-structural-unions-2026-10-14-experiment).

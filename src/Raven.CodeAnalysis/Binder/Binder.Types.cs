@@ -878,6 +878,15 @@ internal abstract partial class Binder
         }
 
         var resolvedTypeArguments = typeArguments.ToImmutable();
+        if (Compilation.UsesStructuralUnions)
+        {
+            if (!resolvedTypeArguments.All(CompositionTypeBounds.IsUnionAlternative))
+                return Fail(union, TypeResolutionFailureKind.UnionElementFailed);
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.CreateStructuralUnionTypeSymbol(resolvedTypeArguments.ToArray())
+            };
+        }
         var unionMetadataName = $"System.Union`{resolvedTypeArguments.Length}";
         if (Compilation.GetTypeByMetadataName(unionMetadataName) is INamedTypeSymbol unionDefinition &&
             unionDefinition.TypeParameters.Length == resolvedTypeArguments.Length)

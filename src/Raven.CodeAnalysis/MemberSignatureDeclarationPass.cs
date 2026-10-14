@@ -912,6 +912,11 @@ internal static class MemberSignatureDeclarationPass
             return fallbackType;
         }
 
+        if (semanticModel.Compilation.UsesStructuralUnions)
+            return memberTypes.All(CompositionTypeBounds.IsUnionAlternative)
+                ? semanticModel.Compilation.CreateStructuralUnionTypeSymbol(memberTypes)
+                : fallbackType;
+
         var definition = semanticModel.Compilation.GetTypeByMetadataName(
             $"System.Union`{memberTypes.Length}");
         return definition is { } namedDefinition &&

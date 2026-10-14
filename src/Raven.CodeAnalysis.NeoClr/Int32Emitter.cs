@@ -512,8 +512,17 @@ internal static class Int32Emitter
             if (compositionTypes.ContainsKey(symbol) && symbol is not (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol))
                 throw Unsupported("normalized composition storage requires an unambiguous structural descriptor");
             if (symbol is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
-                return compositionTypes.TryGetValue(symbol, out var signature) ? signature
-                    : throw Unsupported("composition storage requires an exact imported contract");
+            {
+                if (compositionTypes.TryGetValue(symbol, out var signature)) return signature;
+                if (!compilation.UsesStructuralUnions || !options.AllowExperimentalCompositionCalls)
+                    throw Unsupported("composition storage requires an exact imported contract or native structural authoring");
+                var bounds = symbol is IStructuralUnionTypeSymbol union ? union.ConstituentTypes : ((IIntersectionTypeSymbol)symbol).ConstituentTypes;
+                signature = assembly.CreateExperimentalReferenceComposition(
+                    symbol is IStructuralUnionTypeSymbol ? ReferenceCompositionKind.Union : ReferenceCompositionKind.Intersection,
+                    bounds.Select(bound => NeoClrTypeMapper.Map(bound, owner => nativeTypes[owner], ImportExternalType)).ToArray());
+                compositionTypes[symbol] = signature;
+                return signature;
+            }
             var type = (INamedTypeSymbol)symbol;
             // The configured semantic marker is transport only; native metadata keeps Self.
             if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
@@ -1130,6 +1139,8 @@ internal static class Int32Emitter
             foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
+        if (metadataAssembly && compilation.UsesStructuralUnions && options.AllowExperimentalCompositionCalls)
+            return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly.WriteNativeAssembly());
         return metadataAssembly
             ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
                 ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)

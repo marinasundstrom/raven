@@ -11128,3 +11128,33 @@ emission must replace it before that support is claimed; ownership is shared by
 compiler emission and runtime metadata/introspection. No JIT/AOT or legacy CLI
 bootstrap qualification is implied. See neoCLR's
 `docs/experiments/composition-type-info/README.md` for reproduction and evidence.
+
+### Source structural unions (2026-10-14 experiment)
+
+On `codex/neoclr-union-intersection`, projects can explicitly set
+`RavenNeoClrStructuralCompositions=true`. The NeoCLR Runtime Contract then binds
+ad hoc `A | B` syntax to structural union symbols and emits native composition
+signatures, including closed generic arguments and type tokens. It does not create
+`System.Union<A, B>` carriers. Declared nominal unions retain their declarations.
+The ordinary .NET Runtime Contract and default native setting retain existing
+carrier behavior. The divergence is necessary because CLR signatures have no union
+or intersection element encoding; it trades CLI interoperability for native identity.
+
+Host API: `MetadataImportOptions.UseStructuralCompositions` defaults to false;
+`WithStructuralCompositions(bool enabled = true)` returns an immutable configuration.
+Native emission also requires `NeoClrEmitOptions`' composition-call opt-in.
+`NeoClrReferenceCatalog.Read` and `ReadNative` accept optional
+`allowExperimentalCompositions = false`; true permits experimental NEOX references
+and preserves adjacent XML documentation. Defaults still reject composition imports.
+
+Opted-in project output is standalone NEOX (even at the project's `.dll` output
+path), with no CLI reference projection. Consumers must use the explicit native
+profile and matching experimental runtime. Source emission admits closed nominal
+reference alternatives and closed generic reference wrappers. Open type variables,
+value alternatives, mixed nested compositions and generic-method runtime
+specialization remain outside this bounded native POC. JIT/AOT are not enabled.
+The metadata builder independently rejects invalid bounds and output ownership.
+
+Validation includes source semantic queries with the option enabled/disabled and
+on .NET, native source `typeof(A | B)` introspection and generic-wrapper identity.
+The companion runtime experiment records executable Task delivery evidence separately.

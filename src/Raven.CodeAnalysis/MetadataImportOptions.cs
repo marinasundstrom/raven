@@ -95,6 +95,14 @@ public sealed record MetadataImportOptions
         return this with { ObjectAssemblyName = assemblyName };
     }
 
+    /// <summary>Whether the experimental native target binds ad hoc union syntax as structural types.</summary>
+    /// <remarks>Defaults to false. Requires native composition emission and a matching experimental runtime.
+    /// Declared unions and the ordinary .NET runtime contract are unchanged.</remarks>
+    public bool UseStructuralCompositions { get; private init; }
+
+    /// <summary>Selects native structural ad hoc unions instead of nominal carrier types.</summary>
+    public MetadataImportOptions WithStructuralCompositions(bool enabled = true) => this with { UseStructuralCompositions = enabled };
+
     /// <summary>Whether semantic loading uses only native references, without a .NET metadata session.</summary>
     /// <remarks>Experimental NeoCLR-only contract. Every reference must supply native semantic data;
     /// a named core and native emission backend are required. Does not change compiler hosting.</remarks>

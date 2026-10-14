@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Add explicit native source structural union binding and NEOX emission, preserving structural parameters, results, closed generic arguments and type tokens. Keep declared unions nominal and ordinary .NET behavior unchanged. Add opt-in composition reference catalogs and document native-only output and bounded generic support.
+
 - **2026-10-14:** Document companion neoCLR UnionTypeInfo/IntersectionTypeInfo runtime descriptors
   and the explicit native-token probe. Raven structural typeof emission remains
   pending; ordinary .NET carrier behavior and Runtime Contract settings are unchanged.
