@@ -51,6 +51,10 @@ internal static class StructuralConstraintChecks
             public interface ImportedReadsB {
                 func ReadB() -> int
             }
+            public open class ExternalAnimal {}
+            public class ExternalDuck : ExternalAnimal, ImportedReadsB {
+                func ReadB() -> int { return 42 }
+            }
             """)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         Emit(traitLibrary, catalog, "TraitLibrary", traitLibraryPath);
         var traitCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
@@ -85,6 +89,41 @@ internal static class StructuralConstraintChecks
                 externalBoundCatalog.References.ToArray(), options);
             Check(invalid.GetDiagnostics().Any(d => d.Id == "RAV0320"), "external union bound admitted an invalid argument: " + call);
         }
+        var intersectionLibrary = Compilation.Create("ExternalIntersectionLibrary", [SyntaxTree.ParseText("""
+            public class BothExternal : ImportedReads<int>, ImportedReadsB {
+                func Read() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            public class ShapeOnlyExternal : ImportedReadsB {
+                func Read() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            public func ReadExternal<T>(value: T) -> int where T: ImportedReads<int> & ImportedReadsB {
+                return value.Read() + value.ReadB()
+            }
+            public func CheckAnimal<T>() -> int where T: ExternalAnimal & ImportedReadsB { return 0 }
+            """)], traitCatalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var intersectionPath = Path.Combine(output, "ExternalIntersectionLibrary.neox");
+        Emit(intersectionLibrary, traitCatalog, "ExternalIntersectionLibrary", intersectionPath);
+        // Deliberately put the dependent first: selected snapshots resolve independent of input order.
+        var intersectionCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
+            [intersectionPath, Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath],
+            Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var intersectionConsumer = Compilation.Create("ExternalIntersectionConsumer", [SyntaxTree.ParseText("""
+            func Main() -> int { return ReadExternal<BothExternal>(BothExternal()) + CheckAnimal<ExternalDuck>() }
+            """)], intersectionCatalog.References.ToArray(), options);
+        Emit(intersectionConsumer, intersectionCatalog, "ExternalIntersectionConsumer", Path.Combine(output, "ExternalIntersectionConsumer.neox"));
+        var invalidIntersection = Compilation.Create("InvalidExternalIntersection", [SyntaxTree.ParseText("""
+            func Main() -> int { return ReadExternal<ShapeOnlyExternal>(ShapeOnlyExternal()) }
+            """)], intersectionCatalog.References.ToArray(), options);
+        Check(invalidIntersection.GetDiagnostics().Any(d => d.Id == "RAV0320"), "external intersection accepted member-only conformance");
+        try
+        {
+            _ = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [intersectionPath, Path.Combine(inputs, "System.Runtime.dll")],
+                Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+            throw new Exception("missing intersection dependency accepted");
+        }
+        catch (InvalidDataException) { }
         var externalTraits = Compilation.Create("ExternalTraits", [SyntaxTree.ParseText("""
             interface LocalA : ImportedReadsA {}
             interface LocalB : ImportedReadsB {}

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Emit external intersection method bounds with definition-backed eligibility checks, including closed generic interfaces. Resolve selected native catalog snapshots independent of input order while rejecting missing/cyclic intersection dependencies. Keep nominal conformance explicit and default .NET behavior unchanged; add a separate library/consumer probe and shape-only negative.
+
 - **2026-10-14:** Exercise native union constraints over imported interfaces, including a closed generic alternative, through a separate constraint library and consumer. Reject nonimplementing lookalikes and mismatched arguments; the companion metadata authoring API retains external-intersection/open-bound restrictions.
 
 - **2026-10-14:** Document the companion closed-reference POC acceptance runner: matching compiler rebuild, native source Task delivery, structural descriptors, separate consumers and constraint validation. Clarify that composition preserves explicit nominal interface implementation, without Rust-style traits or member-shape matching; reject a matching-member class that omits a required interface declaration. Preserve the explicit remaining open-generic and backend limitations.

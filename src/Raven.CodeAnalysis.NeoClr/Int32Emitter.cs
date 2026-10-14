@@ -639,7 +639,16 @@ internal static class Int32Emitter
             if (root.ContainingAssembly.GetTypeByMetadataName("System.Value") is INamedTypeSymbol value && IsRuntimeErasedValue(value))
                 _ = ImportExternalType(value);
         }
-        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType, structuralConstraints: options.AllowExperimentalIntersectionCalls);
+        void AdmitExternalConstraint(INamedTypeSymbol type)
+        {
+            _ = ImportExternalType(type);
+            var original = (INamedTypeSymbol)type.OriginalDefinition;
+            var binding = dependencies.Single(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency;
+            var snapshot = binding.Reference is NeoClrMetadataReference native ? native.Definition : binding.Definition;
+            var definition = snapshot.MainModule.Types.Single(t => MatchesType(t, original));
+            _ = assembly.ImportReference(definition, binding.CoreLibrary);
+        }
+        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType, structuralConstraints: options.AllowExperimentalIntersectionCalls, admitExternalConstraint: AdmitExternalConstraint);
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
@@ -654,7 +663,7 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
-                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: options.AllowExperimentalIntersectionCalls));
+                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: options.AllowExperimentalIntersectionCalls, admitExternalConstraint: AdmitExternalConstraint));
         }
         foreach (var type in declaredTypes.Values) DefineClass(type);
         var extensionOwners = declaredTypes.Values.Where(t =>

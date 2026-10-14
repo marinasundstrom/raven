@@ -78,11 +78,8 @@ public sealed class NeoClrReferenceCatalog
             dependencies.Add(new(bootstrap.Reference, bootstrap.Definition, bootstrap.Definition.Identity, seed));
         }
         var identities = new HashSet<AssemblyIdentity> { bootstrap.Definition.Identity };
-        foreach (var path in paths)
+        foreach (var reference in ReadSelectedReferences(paths, bootstrap, allowExperimentalCompositions))
         {
-            var image = ReadImage(path, 16 * 1024 * 1024);
-            if (!allowExperimentalCompositions) _ = RuntimeAssemblyContainer.Read(image);
-            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, bootstrap, path, allowExperimentalCompositions);
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
             references.Add(reference);
@@ -98,7 +95,8 @@ public sealed class NeoClrReferenceCatalog
     /// <returns>An immutable catalog with the core first in References and Dependencies, using the same reference instances.</returns>
     /// <remarks>Use MetadataImportOptions.WithNativeMetadata and explicit runtime contracts. Runtime seeds are separate
     /// execution inputs, not translated implementations attached to the native core. Missing semantic dependencies remain
-    /// compilation diagnostics. Adjacent XML documentation is optional, as for Read; no adjacent assemblies are searched.</remarks>
+    /// compilation diagnostics, except external intersection operands require resolved selected snapshots during reading.
+    /// Unresolvable intersection dependency cycles fail explicitly. Adjacent XML documentation is optional, as for Read; no adjacent assemblies are searched.</remarks>
     /// <exception cref="ArgumentException">Paths or assembly identities are duplicated.</exception>
     /// <exception cref="IOException">An input cannot be read or changes length during reading.</exception>
     /// <exception cref="InvalidDataException">An input is oversized, malformed, or lacks the supported native metadata contract.</exception>
@@ -113,11 +111,8 @@ public sealed class NeoClrReferenceCatalog
         var dependencies = ImmutableArray.CreateBuilder<NeoClrMetadataDependency>();
         var identities = new HashSet<AssemblyIdentity>();
         NeoClrMetadataReference? core = null;
-        foreach (var path in paths)
+        foreach (var reference in ReadSelectedReferences(paths, null, allowExperimentalCompositions))
         {
-            var image = ReadImage(path, 16 * 1024 * 1024);
-            if (!allowExperimentalCompositions) _ = RuntimeAssemblyContainer.Read(image);
-            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, null, path, allowExperimentalCompositions);
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
             core ??= reference;
@@ -140,6 +135,49 @@ public sealed class NeoClrReferenceCatalog
             if (seed.TypeNames.Contains(nativeName))
                 throw new InvalidDataException("Runtime seed duplicates a source-owned declaration: " + name);
         }
+    }
+
+    private sealed class SelectedResolver(Dictionary<AssemblyIdentity, AssemblyDefinition> definitions) : IAssemblyResolver
+    {
+        public AssemblyDefinition? Resolve(AssemblyIdentity identity) => definitions.GetValueOrDefault(identity);
+    }
+
+    private static NeoClrMetadataReference[] ReadSelectedReferences(string[] paths, NeoClrPrimitiveBootstrap? bootstrap, bool compositions)
+    {
+        var images = paths.Select(path => ReadImage(path, 16 * 1024 * 1024)).ToArray();
+        var references = new NeoClrMetadataReference?[paths.Length];
+        var errors = new InvalidDataException?[paths.Length];
+        var definitions = new Dictionary<AssemblyIdentity, AssemblyDefinition>();
+        if (bootstrap is not null) definitions.Add(bootstrap.Definition.Identity, bootstrap.Definition);
+        var resolver = new SelectedResolver(definitions);
+        var remaining = paths.Length;
+        while (remaining != 0)
+        {
+            var progress = false;
+            for (var i = 0; i < paths.Length; i++)
+            {
+                if (references[i] is not null) continue;
+                try
+                {
+                    if (!compositions) _ = RuntimeAssemblyContainer.Read(images[i]);
+                    var reference = NeoClrMetadataReference.ReadDocumentedAssembly(images[i], bootstrap, paths[i], compositions, resolver);
+                    if (!definitions.TryAdd(reference.Definition.Identity, reference.Definition))
+                        throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
+                    references[i] = reference;
+                    remaining--;
+                    progress = true;
+                }
+                catch (InvalidDataException error) when (compositions)
+                {
+                    // Retry only after another selected snapshot becomes available; never search for dependencies.
+                    errors[i] = error;
+                }
+            }
+            if (!progress)
+                throw new InvalidDataException("Selected native metadata cannot be resolved; an image is invalid or an intersection dependency is missing or cyclic.",
+                    errors.First(e => e is not null));
+        }
+        return references.Select(reference => reference!).ToArray();
     }
 
     private static byte[] ReadImage(string path, int limit)

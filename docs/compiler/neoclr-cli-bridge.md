@@ -11355,3 +11355,41 @@ permanent type-system restriction. Local intersections and existing nominal/Self
 contracts are unchanged. Open operands, guest constraint reflection and JIT/AOT
 remain outside this slice. Compared with CLR constraints, the native signature
 preserves disjunction rather than changing it into a conjunctive nominal list.
+
+
+## Resolved external intersection bounds — 2026-10-14 development
+
+Native method intersection bounds now admit imported closed reference types after
+importing their definition snapshots. The composition factory checks CLR-style
+finality and reference/value classification; a Raven closed hierarchy remains a
+valid bound because its hierarchy flag is distinct from finality. Interfaces remain
+nominal and require explicit implementation or declared interface inheritance.
+Matching member shape does not establish conformance.
+
+`AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions,
+IAssemblyResolver? resolver)` resolves each external intersection operand against an
+explicit exact-identity assembly snapshot. It checks the named definition, enclosing
+scope and generic arity, rejects final/value definitions, and caches resolved
+snapshots for the duration of the read. The two existing overloads remain available;
+without a resolver, external intersections fail closed. Default composition opt-in
+and native runtime verification are still required. Bodies remain opaque; this API
+does not load executable assemblies or infer interface implementation from members.
+
+Raven's experimental catalog snapshots only the selected paths, then retries
+unresolved images as selected dependency snapshots become available. Returned
+references retain host input order. Missing dependencies, invalid metadata and cycles
+that prevent external-intersection validation fail explicitly; ordinary nominal
+cycles do not acquire a new resolver requirement. No adjacent assembly search occurs.
+The explicit native composition capability now admits closed conjunctive interface
+constructions in method bounds. Only intersection operands request definition-backed
+admission; ordinary .NET and nominal emission remain unchanged.
+
+The probe builds an interface library, a constraint library with
+`T: ImportedReads<int> & ImportedReadsB`, and a separate consumer. Its generic body
+calls both interfaces. The catalog is supplied in reverse dependency order, and the
+negative consumer has matching methods but omits one required interface declaration.
+This replaces the earlier external-intersection authoring restriction for the closed
+profile. Open operands, generic owner constraint emission, guest constraint reflection
+and JIT/AOT qualification remain follow-up work. Like CLR nominal interfaces, declared
+relationships govern membership; unlike a CLR constraint list, native metadata also
+retains structural grouping and an introspectable intersection signature.

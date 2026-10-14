@@ -20,10 +20,10 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         Artifact = new(identity.Name, identity.Version, identity.Culture, identity.PublicKeyToken, identity.Flags, sha256);
     }
     internal Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? Documentation { get; }
-    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath, bool allowExperimentalCompositions = false)
+    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath, bool allowExperimentalCompositions = false, IAssemblyResolver? resolver = null)
     {
         var reference = allowExperimentalCompositions
-            ? ReadExperimentalCompositionAssembly(image, bootstrap)
+            ? ReadExperimentalCompositionAssembly(image, bootstrap, resolver)
             : new NeoClrMetadataReference(AssemblyDefinition.ReadNativeAssembly(image), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
         return new(reference.Definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
             Raven.CodeAnalysis.Symbols.ExternalDocumentationSet.TryLoad(assemblyPath), reference.HasExperimentalCompositions)
@@ -86,8 +86,17 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     /// <summary>Reads experimental native union and intersection signatures and method bounds.</summary>
     /// <remarks>Requires the separate composition-call emit option for native execution. Default readers and PE projection remain closed.</remarks>
     public static NeoClrMetadataReference ReadExperimentalCompositionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
+        => ReadExperimentalCompositionAssembly(image, bootstrap, null);
+
+    /// <summary>Reads experimental compositions, resolving external intersection operands from explicit dependency snapshots.</summary>
+    /// <param name="image">Owned native image snapshot to read.</param>
+    /// <param name="bootstrap">Optional matching CLI primitive bootstrap.</param>
+    /// <param name="resolver">Explicit dependency lookup; required for external intersection operands.</param>
+    /// <returns>An immutable native semantic reference preserving structural grouping.</returns>
+    /// <exception cref="InvalidDataException">Invalid metadata, unsupported composition, or absent/mismatched/ineligible intersection dependency.</exception>
+    public static NeoClrMetadataReference ReadExperimentalCompositionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, IAssemblyResolver? resolver)
     {
-        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
+        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true, resolver);
         bool hasComposition = false, hasUnion = false;
         void Inspect(SignatureType type)
         {

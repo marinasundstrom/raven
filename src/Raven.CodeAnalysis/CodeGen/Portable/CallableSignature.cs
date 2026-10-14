@@ -153,6 +153,8 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
             (capabilities?.AllowsMethodInterfaceBounds != true ||
              (parameter.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) != 0 ||
+             !(capabilities?.AllowsImportedCompositionCalls == true && parameter.ConstraintTypes.Length > 1 &&
+                parameter.ConstraintTypes.All(t => t is INamedTypeSymbol { IsReferenceType: true } named && ClosedCompositionBound(named))) &&
              parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } &&
                 !(capabilities?.AllowsImportedCompositionCalls == true && StructuralConstraint(t))));
         bool StructuralConstraint(ITypeSymbol type)

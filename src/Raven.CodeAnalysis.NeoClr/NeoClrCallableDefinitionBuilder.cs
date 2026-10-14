@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, bool structuralConstraints = false)
+internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, bool structuralConstraints = false, Action<INamedTypeSymbol>? admitExternalConstraint = null)
     : ICallableDefinitionBuilder<MethodBuilder>
 {
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
@@ -30,10 +30,10 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
         {
             var constraints = parameter.ConstraintTypes;
             // Raven's source intersection constraints are represented as conjunctive bounds.
-            if (structuralConstraints && constraints.Length > 1 && constraints.All(t => t is INamedTypeSymbol && !t.DeclaringSyntaxReferences.IsEmpty))
+            if (structuralConstraints && constraints.Length > 1 && constraints.All(t => t is INamedTypeSymbol))
             {
                 method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Intersection,
-                    constraints.Select(MapConstraint).ToArray());
+                    constraints.Select(MapIntersectionConstraint).ToArray());
                 continue;
             }
             foreach (var constraint in constraints)
@@ -41,13 +41,19 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
                 if (constraint is IStructuralUnionTypeSymbol union)
                     method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Union, union.ConstituentTypes.Select(MapConstraint).ToArray());
                 else if (constraint is IIntersectionTypeSymbol intersection)
-                    method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Intersection, intersection.ConstituentTypes.Select(MapConstraint).ToArray());
+                    method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Intersection, intersection.ConstituentTypes.Select(MapIntersectionConstraint).ToArray());
                 else if (constraint.DeclaringSyntaxReferences.IsEmpty)
                     method.AddInterfaceConstraint(parameter.Ordinal, resolveExternal!(constraint).ImportedType!);
                 else method.AddInterfaceConstraint(parameter.Ordinal, resolveClass!((INamedTypeSymbol)constraint));
             }
         }
         SignatureType MapConstraint(ITypeSymbol type) => NeoClrTypeMapper.Map(type, resolveClass!, resolveExternal, mapParameter);
+        SignatureType MapIntersectionConstraint(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol named && type.DeclaringSyntaxReferences.IsEmpty)
+                admitExternalConstraint?.Invoke(named);
+            return NeoClrTypeMapper.Map(type, resolveClass!, resolveExternal, mapParameter);
+        }
         return method;
     }
     private MethodSignature ToOwnedMetadata(CallableSignature signature)
