@@ -270,3 +270,19 @@ the immutable compilation snapshot used by analyzer callbacks. A watched
 `.editorconfig` change updates project options, invalidates cached analyzer
 results, and republishes diagnostics for affected open documents without a full
 project reload.
+
+
+### Union alternative hovers
+
+In a type annotation such as `Task<Result<unit, StreamError | JsonError>>`,
+hovering either alternative resolves that type and uses its own hover range and
+documentation. Type-argument boundaries must not promote the selected identifier
+to the whole union. This also applies to imported and generic alternatives.
+Hovering `|` selects the combined structural type, rendered compactly through the
+compiler's `ToDisplayString` as `StreamError | JsonError`; nested nominal unions
+are type uses, not recursively expanded declarations.
+
+Focused tests exercise source and imported alternatives with cold and
+post-diagnostics semantic models. The compiler answers remain authoritative;
+this fix changes LSP syntax selection and presentation only. It adds no Runtime
+Contract configuration and changes neither metadata nor emitted code.

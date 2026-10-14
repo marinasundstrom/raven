@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Resolve hover on each ad-hoc union alternative independently inside nested generic type arguments, preserving its own type and range. Render separator hovers through compiler symbol display and keep generic arguments compact. Source/imported alternatives pass cold and post-diagnostics checks; no Runtime Contract or emission change.
+
 - **2026-10-14:** Keep ad-hoc unions structural in `ToDisplayString`, including declaration formats: `A | B` receives no nominal union keyword or case expansion. Named union alternatives and generic arguments remain compact; nominal declarations retain opt-in case display. No Runtime Contract, semantic identity or emission change.
 
 - **2026-10-14:** Watch imported MSBuild `.props` and `.targets` files explicitly in the VS Code client so configuration-only edits and restoration can trigger workspace reload without an unrelated source edit. No compiler or Runtime Contract change.
