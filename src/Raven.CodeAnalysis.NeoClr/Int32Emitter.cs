@@ -1056,7 +1056,8 @@ internal static class Int32Emitter
                     throw Unsupported("native field requires a supported symbol-only emission contract and layout");
                 throw Unsupported("undeclared instance field");
             },
-                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)));
+                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope),
+                producer => current.Method.DeclareExperimentalCompositionResultLocal(Import(producer))));
         }
         // Bind first, then publish user annotations against complete output declarations.
         // Synthesized markers (flags, unions, nullable and params) retain their own encoders.

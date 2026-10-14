@@ -7,12 +7,20 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
-    Action<LinearInstruction, IILGenerator> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null) : ILinearMethodBuilder
+    Action<LinearInstruction, IILGenerator> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, Action<IMethodSymbol>? declareCompositionLocal = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
 
-    public void DeclareLocal(EmissionType type) => method.DeclareLocal(NeoClrTypeMapper.Map(type, resolveType!, resolveExternal, mapParameter));
+    public void DeclareLocal(EmissionType type)
+    {
+        if (type.CompositionProducer is { } producer)
+        {
+            if (declareCompositionLocal is null) throw new InvalidOperationException("Composition local allocation is unavailable");
+            declareCompositionLocal(producer);
+        }
+        else method.DeclareLocal(NeoClrTypeMapper.Map(type, resolveType!, resolveExternal, mapParameter));
+    }
 
     public void Emit(LinearInstruction instruction)
     {

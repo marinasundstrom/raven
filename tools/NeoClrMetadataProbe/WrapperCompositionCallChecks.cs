@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Nodes;
+
 using NeoCLR.Metadata.Experimental;
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -42,9 +44,12 @@ internal static class WrapperCompositionCallChecks
         foreach (var kind in new[] { "Union", "Intersection" })
         {
             var root = original.DeepClone();
-            JsonNode Shape(bool reversed = false) => new JsonObject { [kind] = new JsonArray(
+            JsonNode Shape(bool reversed = false) => new JsonObject
+            {
+                [kind] = new JsonArray(
                 new JsonObject { ["Named"] = root["types"]![reversed ? 1 : 0]!["name"]!.DeepClone() },
-                new JsonObject { ["Named"] = root["types"]![reversed ? 0 : 1]!["name"]!.DeepClone() }) };
+                new JsonObject { ["Named"] = root["types"]![reversed ? 0 : 1]!["name"]!.DeepClone() })
+            };
             void Rewrite(JsonNode? node)
             {
                 if (node is JsonObject obj)
@@ -109,14 +114,14 @@ internal static class WrapperCompositionCallChecks
             var reference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap);
             var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
             var wrongReference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(Encode(wrongKind), bootstrap);
-            var wrongCompilation = Compilation.Create("WrongWrapper" + kind, [SyntaxTree.ParseText("func Main() -> int => Consume(Echo(Make()))")], [bootstrap.Reference, wrongReference], options);
+            var wrongCompilation = Compilation.Create("WrongWrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, wrongReference], options);
             var wrongDiagnostics = wrongCompilation.GetDiagnostics();
             var wrongAssembly = (IAssemblySymbol)wrongCompilation.GetAssemblyOrModuleSymbol(wrongReference)!;
             var from = wrongAssembly.GlobalNamespace.GetMembers("Make").OfType<IMethodSymbol>().Single().ReturnType;
             var to = wrongAssembly.GlobalNamespace.GetMembers("Echo").OfType<IMethodSymbol>().Single().Parameters[0].Type;
             Check(!from.MetadataIdentityEquals(to) && !wrongCompilation.ClassifyConversion(from, to).IsImplicit &&
                 wrongDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "compiler wrapper invariance");
-            var compilation = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int => Consume(Echo(Make()))")], [bootstrap.Reference, reference], options);
+            var compilation = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, reference], options);
             NeoClrEmitOptions EmitOptions(bool enabled, bool old = false) => new(new("Wrapper" + kind, new(1, 0, 0, 0)), core,
                 [new(bootstrap.Reference, coreDefinition, core), new(reference, core)], allowExperimentalCompositionCalls: enabled, allowExperimentalIntersectionCalls: old);
             using var stream = new MemoryStream();
@@ -127,8 +132,9 @@ internal static class WrapperCompositionCallChecks
             if (kind == "Union")
                 Check(!NeoClrCompilationEmitter.Emit(compilation, denied, EmitOptions(false, true)).Success && denied.Length == 0, "nested union rejects intersection-only option");
             Check(!NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, denied, EmitOptions(true)).Success && denied.Length == 0, "nested PE gate");
-            var stored = Compilation.Create("StoredWrapper", [SyntaxTree.ParseText("func Main() -> int { let value = Make(); return Consume(value) }")], [bootstrap.Reference, reference], options);
-            Check(!NeoClrCompilationEmitter.Emit(stored, denied, EmitOptions(true)).Success && denied.Length == 0, "authored wrapper storage gate");
+            var stored = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); return Consume(value) }")], [bootstrap.Reference, reference], options);
+            var storedResult = NeoClrCompilationEmitter.Emit(stored, denied, EmitOptions(true));
+            Check(storedResult.Success, string.Join("; ", storedResult.Diagnostics));
             Directory.CreateDirectory(output);
             File.WriteAllBytes(Path.Combine(output, kind + "Provider.neox"), image);
             File.WriteAllBytes(Path.Combine(output, kind + "Host.neox"), hostImage);

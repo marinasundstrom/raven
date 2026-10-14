@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Nodes;
+
 using NeoCLR.Metadata.Experimental;
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -118,10 +120,11 @@ internal static class CompositionCallChecks
             allowExperimentalIntersectionCalls: oldOption, allowExperimentalCompositionCalls: enabled);
         Directory.CreateDirectory(output);
         File.WriteAllBytes(Path.Combine(output, "CompositionPocProvider.neox"), image);
-        foreach (var name in new[] { "First", "Second", "Direct", "Discard" })
+        foreach (var name in new[] { "First", "Second", "Direct", "Discard", "Local" })
         {
             var source = name switch
             {
+                "Local" => "func Main() -> int { let value = MakeFirst(); let copy = value; let both = AsIntersection(copy); return Consume(AsUnion(both)) }",
                 "Direct" => "func Main() -> int => NeedBoth(MakeFirst())",
                 "Discard" => "func Main() -> int { AsUnion(AsIntersection(MakeSecond())); return 42 }",
                 _ => $"func Main() -> int => Consume(AsUnion(AsIntersection(Make{name}())))"
@@ -140,7 +143,7 @@ internal static class CompositionCallChecks
         }
         foreach (var source in new[] {
             "func Main() -> int => NeedBoth(AsUnion(AsIntersection(MakeFirst())))",
-            "func Main() -> int { let value = MakeFirst(); return NeedBoth(value) }" })
+            "func Main() -> int { let value = AsUnion(AsIntersection(MakeFirst())); return NeedBoth(value) }" })
         {
             var compilation = Create("Rejected", source);
             using var stream = new MemoryStream();

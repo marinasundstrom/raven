@@ -10994,3 +10994,22 @@ in the intended model, represented through signatures rather than separate nomin
 declarations: tuples (later), unions, intersections and functions. Arrays retain
 Array<T> backing. Present opt-in/storage/reflection restrictions are implementation
 gaps rather than limits on the meaning of a structural type.
+
+
+### Imported composition source locals — 2026-10-14
+
+The experimental composition-call option now admits initialized Raven locals and
+local copies whose exact type comes from an imported composition-producing function.
+Portable lowering retains the producer symbol; the native adapter allocates the
+local from its original metadata result descriptor, avoiding nominal normalization.
+Flat unions/intersections, closed generic bounds and reference wrappers execute.
+Unsafe union narrowing, default emission and PE projection still reject before output.
+General authored structural storage, instance bodies and async state-machine fields
+are not enabled by this slice. Runtime Contract settings and CLI encoding are unchanged.
+This follows ordinary typed-local/definite-assignment semantics with a native structural
+signature; it does not introduce a CLI carrier. Existing semantic type/hover identity
+is reused, so syntax and TextMate grammar need no changes.
+
+Validation: the paired runner passes fourteen interpreter consumers, including flat
+and generic local/copy cases and both wrapper kinds. Wrapper fixture output identity
+now matches its compilation, so its local check reaches the intended emission path.

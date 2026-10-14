@@ -24,8 +24,8 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-// Composition is call-only; TryType deliberately keeps authored storage closed.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null);
+// Composition locals retain the imported producer contract; general authored storage stays closed.
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null, IMethodSymbol? CompositionProducer = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -94,6 +94,27 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Lowering can create distinct temporaries with the same name and no source
         // declaration. Their storage identity is the bound symbol instance.
         var locals = new Dictionary<ILocalSymbol, int>(ReferenceEqualityComparer.Instance);
+        bool TryCompositionLocal(BoundExpression? expression, out EmissionType type)
+        {
+            type = default;
+            if (capabilities?.AllowsImportedCompositionCalls != true || !source.IsStatic ||
+                source.IsGenericMethod) return false;
+            while (expression is BoundConversionExpression { IsIdentity: true } conversion)
+                expression = conversion.Expression;
+            if (expression is BoundInvocationExpression call && TrySignature(call.Method, out var signature) &&
+                signature.ReturnType.Composition is not null)
+            {
+                type = signature.ReturnType with { CompositionProducer = call.Method };
+                return true;
+            }
+            if (expression is BoundLocalAccess access && locals.TryGetValue(access.Local, out var index) &&
+                localTypes[index].CompositionProducer is not null)
+            {
+                type = localTypes[index];
+                return true;
+            }
+            return false;
+        }
         LinearBodyFailure? rejected = null;
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
@@ -612,7 +633,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         if (variable.Initializer is null && capabilities?.AllowsManagedReferences != true || variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
                             return Reject("only initialized value locals", Syntax(variable));
                         EmissionType localType;
-                        if (EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var primitive))
+                        if (TryCompositionLocal(variable.Initializer, out var compositionLocal) &&
+                            CallableSignature.SameStorageType(variable.Local.Type, compositionLocal.Composition!))
+                            localType = compositionLocal;
+                        else if (EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var primitive))
                         {
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
