@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Watch imported MSBuild `.props` and `.targets` files explicitly in the VS Code client so configuration-only edits and restoration can trigger workspace reload without an unrelated source edit. No compiler or Runtime Contract change.
+
 - **2026-10-14:** Carry the general VS Code inlay-range supersession fix from Raven main 6a2c55db4. Concurrent visible ranges complete independently; stale/cancelled results are discarded and completed request tracking is released. No native compiler, metadata or Runtime Contract change.
 
 - **2026-10-14:** Add explicit native static-field emission and shared lowering behind an opt-in capability. Preserve separate closed generic storage and static field ordinals across assembly references; exercise lazy static properties and generic counters through a separate-library consumer. Static initializers remain diagnosed until runtime type initialization is available. Runtime Contract configuration and ordinary .NET defaults are unchanged.
