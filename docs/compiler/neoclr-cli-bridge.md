@@ -11581,3 +11581,29 @@ new compilation before reference initialization exposed a NullReferenceException
 This slice reads that symbol after the emit pipeline has initialized references;
 it does not claim to fix or validate the cold assembly-query API. A general fix
 should be validated independently on Raven main before deliberate carry-over.
+
+### Guest tuple name reflection — 2026-10-14
+
+`System.Introspection.TupleTypeInfo.ElementNames: Sequence<string>` now exposes
+ordered effective native names, using ItemN for unnamed positions. The runtime
+queries the retained signature descriptor, not its name-free resolved identity.
+Consequently equal tuple types can report different names; nested descriptors keep
+their own names. Snapshots are independent. Identity-only reconstructed handles
+report positional defaults. Unlike .NET TupleElementNamesAttribute, these names
+live directly in native signature metadata; the cost is carrying descriptive data
+separately from canonical type identity. The effective-name guest API intentionally
+does not distinguish an explicit ItemN from its default; host APIs retain that detail.
+
+This requires `experimental-tuples` and matching rebuilt source libraries. It adds
+no Runtime Contract flag or CLI encoding; ordinary .NET output is unchanged. The
+native TypeTupleNames runtime service backs the source provider. CLI reference
+bindings exist only for compiler/documentation bootstrap. The guest fixture tests
+two equal renamed native tokens, nested names, unnamed defaults and 180 repeated
+queries per signature. The fixture isolates reflection from source tuple lowering.
+
+Validation uses `target/tuple-names-libraries-v2` built with compiler
+`793219d855b17f01fb805e215968b78871eb3804`, the existing explicit primitive bootstrap,
+and the structural runtime branch. See
+[guest name evidence](../../../neoclr/docs/experiments/structural-tuples/name-info-results.json).
+Tuple mutation, carrier-independent Raven symbols and project/catalog opt-in remain
+separate follow-ups.
