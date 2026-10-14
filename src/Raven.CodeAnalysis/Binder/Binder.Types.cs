@@ -825,6 +825,10 @@ internal abstract partial class Binder
             var result = BindTypeCore(syntax, typeParams, importedScopes, allowBinderLookup);
             if (!result.Success)
                 return result;
+            if (result.ResolvedType is not IIntersectionTypeSymbol &&
+                (result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                 result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false }))
+                return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
             constituents.Add(result.ResolvedType);
         }
 

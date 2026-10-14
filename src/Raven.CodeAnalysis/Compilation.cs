@@ -2299,6 +2299,10 @@ public partial class Compilation
     public ITypeSymbol CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)
         => IntersectionTypeSymbol.Create(constituentTypes);
 
+    /// <summary>Creates an experimental structural reference union without selecting a carrier representation.</summary>
+    public ITypeSymbol CreateStructuralUnionTypeSymbol(params ITypeSymbol[] constituentTypes)
+        => StructuralUnionTypeSymbol.Create(constituentTypes);
+
     public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)
     {
         return new PointerTypeSymbol(pointedAtType);

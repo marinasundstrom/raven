@@ -10,9 +10,9 @@ namespace Raven.CodeAnalysis.NeoClr;
 /// <remarks>The profile supports unconstrained generic root classes, unconstrained generic interfaces and static generic methods/functions with supported local/external nongeneric interface bounds, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI bootstrap or native semantic core supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
-    private NeoClrMetadataReference(AssemblyDefinition definition, string sha256, NeoClrPrimitiveBootstrap? bootstrap = null, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? documentation = null, bool hasExperimentalIntersections = false)
+    private NeoClrMetadataReference(AssemblyDefinition definition, string sha256, NeoClrPrimitiveBootstrap? bootstrap = null, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? documentation = null, bool hasExperimentalCompositions = false)
     {
-        HasExperimentalIntersections = hasExperimentalIntersections;
+        HasExperimentalCompositions = hasExperimentalCompositions;
         Documentation = documentation;
         Definition = definition;
         Bootstrap = bootstrap;
@@ -23,7 +23,8 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath)
         => new(AssemblyDefinition.ReadNativeAssembly(image), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet.TryLoad(assemblyPath));
 
-    internal bool HasExperimentalIntersections { get; }
+    internal bool HasExperimentalCompositions { get; }
+    internal bool HasExperimentalUnions { get; private init; }
     internal NeoClrPrimitiveBootstrap? Bootstrap { get; }
     internal ResolvedAssemblyArtifact Artifact { get; }
     /// <summary>Gets the immutable native definition snapshot.</summary>
@@ -42,12 +43,12 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         return new(AssemblyDefinition.ReadNativeAssembly(image),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
     }
-    /// <summary>Reads native reference intersections for experimental semantic inspection only.</summary>
+    /// <summary>Reads native reference intersections for experimental semantic inspection and opt-in native calls.</summary>
     /// <param name="image">A native declaration image; the reader copies its contents.</param>
     /// <param name="bootstrap">Optional matching CLI primitive bootstrap, whose reference must also be supplied to the compilation.</param>
     /// <returns>An immutable reference admitting intersection free-function signatures.</returns>
     /// <exception cref="InvalidDataException">The image is invalid, exceeds reader limits, or contains a structural union in an exposed callable signature.</exception>
-    /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax or compound emission.
+    /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax; native calls require the separate emitter opt-in.
     /// Compiler symbols normalize nominal supertypes; the definition retains the original native descriptor.</remarks>
     public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
     {
@@ -60,7 +61,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             hasIntersections |= Check(signature!.ReturnType);
             foreach (var parameter in signature.ParameterTypes) hasIntersections |= Check(parameter);
         }
-        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalIntersections: hasIntersections);
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalCompositions: hasIntersections);
 
         static bool Check(SignatureType type)
         {
@@ -70,6 +71,31 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             foreach (var bound in composition.Constituents) Check(bound);
             return true;
         }
+    }
+
+    /// <summary>Reads experimental native union and intersection free-function signatures.</summary>
+    /// <remarks>Requires the separate composition-call emit option for native execution. Default readers and PE projection remain closed.</remarks>
+    public static NeoClrMetadataReference ReadExperimentalCompositionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
+    {
+        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
+        bool hasComposition = false, hasUnion = false;
+        void Inspect(SignatureType type)
+        {
+            if (type.Composition is not { } composition) return;
+            if (composition.Constituents.Any(bound => bound.Composition is not null))
+                throw new InvalidDataException("the composition-call profile requires flat nominal bounds");
+            hasComposition = true;
+            hasUnion |= composition.Kind == ReferenceCompositionKind.Union;
+            foreach (var bound in composition.Constituents) Inspect(bound);
+        }
+        foreach (var method in definition.MainModule.Functions)
+        {
+            if (!method.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported composition signature");
+            Inspect(signature!.ReturnType);
+            foreach (var parameter in signature.ParameterTypes) Inspect(parameter);
+        }
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
+            hasExperimentalCompositions: hasComposition) { HasExperimentalUnions = hasUnion };
     }
 
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);

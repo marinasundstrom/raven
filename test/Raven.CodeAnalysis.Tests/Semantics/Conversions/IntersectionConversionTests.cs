@@ -14,7 +14,7 @@ public sealed class IntersectionConversionTests : CompilationTestBase
             interface C {}
             interface ChildA: A {}
             open class Base {}
-            class Both: Base, A, B {}
+            open class Both: Base, A, B {}
             class OnlyA: A {}
             struct ValueBoth: A, B {}
             class Converts {
@@ -102,8 +102,7 @@ public sealed class IntersectionConversionTests : CompilationTestBase
         Assert.False(compilation.ClassifyConversion(compilation.NullTypeSymbol, ab).Exists);
         AssertReference(compilation.ClassifyConversion(compilation.NullTypeSymbol, ab.GetNullableType()));
         Assert.False(compilation.ClassifyConversion(ab.GetNullableType(), a).IsImplicit);
-        var nullableBounds = compilation.CreateIntersectionTypeSymbol(a.GetNullableType(), b.GetNullableType());
-        Assert.False(compilation.ClassifyConversion(both, nullableBounds).Exists);
+        Assert.Throws<System.ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(a.GetNullableType(), b.GetNullableType()));
     }
 
     [Fact]
@@ -123,8 +122,7 @@ public sealed class IntersectionConversionTests : CompilationTestBase
         var compilation = CreateTypes();
         var a = compilation.GetTypeByMetadataName("A")!;
         var array = compilation.CreateArrayTypeSymbol(a);
-        var compoundArray = compilation.CreateIntersectionTypeSymbol(array, a);
-        Assert.False(compilation.ClassifyConversion(compoundArray, array).Exists);
+        Assert.Throws<System.ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(array, a));
 
         var (genericCompilation, _) = CreateCompilation("""
             interface A {}
@@ -143,9 +141,7 @@ public sealed class IntersectionConversionTests : CompilationTestBase
     {
         var compilation = CreateTypes();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var numeric = compilation.CreateIntersectionTypeSymbol(intType, compilation.GetSpecialType(SpecialType.System_Int64));
-        Assert.False(compilation.ClassifyConversion(intType, numeric).Exists);
-        Assert.False(compilation.ClassifyConversion(numeric, compilation.GetSpecialType(SpecialType.System_Object)).Exists);
+        Assert.Throws<System.ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(intType, compilation.GetSpecialType(SpecialType.System_Int64)));
     }
 
     private static void AssertReference(Conversion conversion)

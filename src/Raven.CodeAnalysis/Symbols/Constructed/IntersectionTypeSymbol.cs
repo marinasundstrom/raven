@@ -37,6 +37,11 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
                 foreach (var constituent in intersection.ConstituentTypes)
                     Add(constituent);
             }
+            else if (type is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
+            {
+                throw new ArgumentException("Intersection bounds must be interfaces or non-sealed reference classes.", nameof(types));
+            }
             else if (!constituents.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type)))
             {
                 constituents.Add(type);

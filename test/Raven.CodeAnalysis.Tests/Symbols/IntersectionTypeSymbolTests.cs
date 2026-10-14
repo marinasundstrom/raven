@@ -49,7 +49,7 @@ public sealed class IntersectionTypeSymbolTests
             interface A {}
             interface B: A {}
             open class Base {}
-            class Derived: Base, B {}
+            open class Derived: Base, B {}
             """, bindDiagnosticsFirst);
         var a = compilation.GetTypeByMetadataName("A")!;
         var b = compilation.GetTypeByMetadataName("B")!;
@@ -57,7 +57,7 @@ public sealed class IntersectionTypeSymbolTests
         var baseType = compilation.GetTypeByMetadataName("Base")!;
         Assert.Same(b, compilation.CreateIntersectionTypeSymbol(a, b));
         Assert.Same(derived, compilation.CreateIntersectionTypeSymbol(baseType, a, b, derived));
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(
             compilation.GetSpecialType(SpecialType.System_Int32), compilation.GetSpecialType(SpecialType.System_Int64)));
     }
 
@@ -90,42 +90,25 @@ public sealed class IntersectionTypeSymbolTests
     }
 
     [Fact]
-    public void NullabilityComparer_DoesNotReuseOneConstituentForTwoMatches()
+    public void BoundsMustBeExtendable_BeforeNormalization()
     {
-        var (compilation, a, b) = CreateTypes();
-        var nullableA = new NullableTypeSymbol(a, null, null, null, []);
-        var left = compilation.CreateIntersectionTypeSymbol(a, nullableA);
-        var right = compilation.CreateIntersectionTypeSymbol(a, b);
-        Assert.False(SymbolEqualityComparer.IgnoringNullability.Equals(left, right));
-        var reversed = compilation.CreateIntersectionTypeSymbol(nullableA, a);
-        Assert.True(SymbolEqualityComparer.IgnoringNullability.Equals(left, reversed));
-        Assert.Equal(SymbolEqualityComparer.IgnoringNullability.GetHashCode(left),
-            SymbolEqualityComparer.IgnoringNullability.GetHashCode(reversed));
-    }
-
-    [Fact]
-    public void ConstructedTypeSubstitution_NormalizesReplacedConstituents()
-    {
-        var compilation = CreateCompilation("interface A {}\nclass Generic<T> {}");
-        var a = compilation.GetTypeByMetadataName("A")!;
-        var generic = compilation.GetTypeByMetadataName("Generic`1")!;
-        var parameter = Assert.Single(generic.TypeParameters);
-        var intersection = compilation.CreateIntersectionTypeSymbol(parameter, a);
-        var constructed = Assert.IsType<ConstructedNamedTypeSymbol>(generic.Construct(a));
-        Assert.True(SymbolEqualityComparer.Default.Equals(a, constructed.Substitute(intersection)));
-    }
-
-    [Fact]
-    public void ConstructedMethodSubstitution_NormalizesReturnType()
-    {
-        var (compilation, a, _) = CreateTypes();
-        var definition = new SourceMethodSymbol("Project", a, [], a.ContainingNamespace!, null, null, [], []);
-        var parameter = new SourceTypeParameterSymbol("T", definition, null, null, [], [], 0,
-            TypeParameterConstraintKind.None, [], VarianceKind.None);
-        definition.SetTypeParameters([parameter]);
-        definition.SetReturnType(compilation.CreateIntersectionTypeSymbol(parameter, a));
-        var constructed = new ConstructedMethodSymbol(definition, [a]);
-        Assert.True(SymbolEqualityComparer.Default.Equals(a, constructed.ReturnType));
+        var compilation = CreateCompilation("""
+            abstract class Animal {}
+            interface Quacks {}
+            interface Barks {}
+            class Dog: Barks {}
+            class Generic<T> {}
+            """);
+        var animal = compilation.GetTypeByMetadataName("Animal")!;
+        var quacks = compilation.GetTypeByMetadataName("Quacks")!;
+        var dog = compilation.GetTypeByMetadataName("Dog")!;
+        var barks = compilation.GetTypeByMetadataName("Barks")!;
+        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(animal, quacks));
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(dog, barks));
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(dog, dog));
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(quacks.GetNullableType(), barks));
+        var parameter = Assert.Single(compilation.GetTypeByMetadataName("Generic`1")!.TypeParameters);
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(parameter, quacks));
     }
 
     [Fact]

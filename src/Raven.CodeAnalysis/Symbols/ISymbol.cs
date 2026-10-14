@@ -687,6 +687,13 @@ public interface IIntersectionTypeSymbol : ITypeSymbol
     ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
 }
 
+/// <summary>An experimental any-of reference type, distinct from nominal union carriers.</summary>
+public interface IStructuralUnionTypeSymbol : ITypeSymbol
+{
+    /// <summary>Gets alternatives in presentation order; identity ignores ordering.</summary>
+    ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+}
+
 public enum TypeKind
 {
     Unknown,
@@ -705,7 +712,8 @@ public enum TypeKind
     Nullable,
     Null,
     Unit,
-    Intersection
+    Intersection,
+    StructuralUnion
 }
 
 [Flags]

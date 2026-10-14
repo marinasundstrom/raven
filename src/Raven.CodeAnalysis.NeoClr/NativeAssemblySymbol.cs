@@ -162,6 +162,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             ?? throw new InvalidDataException("native Self signatures require an explicit runtime Self contract"),
         ReferenceCompositionTypeInfo { Kind: ReferenceCompositionKind.Intersection } composition =>
             compilation.CreateIntersectionTypeSymbol(composition.Constituents.Select(MapView).ToArray()),
+        ReferenceCompositionTypeInfo { Kind: ReferenceCompositionKind.Union } composition =>
+            compilation.CreateStructuralUnionTypeSymbol(composition.Constituents.Select(MapView).ToArray()),
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
         FunctionTypeInfo { NoResult: true } function => compilation.CreateNoResultFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray()),

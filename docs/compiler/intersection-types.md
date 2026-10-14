@@ -4,6 +4,25 @@ Status: unpublished compiler API foundation on `codex/neoclr-union-intersection`
 2026-10-14. Selectively reuses `02d669acd` and `c4d57d282` from the parked
 intersection branch. The follow-up source slice adds constraint syntax and queries; general value storage remains pending; explicit native call-only emission is now available as described below.
 
+## Current POC scope and next step
+
+Author clarification (2026-10-14): intersection bounds must be interfaces or
+extendable reference classes. `Animal & Quacks` is valid for abstract/non-sealed
+Animal; `Dog & Barks` is invalid when Dog is sealed. Validation precedes
+normalization, so duplicate sealed bounds also reject. Sealed concrete objects
+can satisfy interface intersections. Value types cannot be intersection bounds.
+
+The public factory now rejects unsupported bounds with `ArgumentException`, including
+open type parameters and nullable/array wrappers in this bounded implementation.
+Existing generic-interface constraint bounds remain supported, and closed generic nominal reference bounds are supported semantically; generic
+arguments may themselves be values. This narrows earlier semantic experiments;
+the prior type-parameter/nullable-constituent substitution examples are historical.
+
+**Next step, explicitly requested by the author:** full open and closed generic
+type support in both unions and intersections, including substitution, constraints,
+identity and native execution. Current nongeneric native admission and open-generic
+factory restrictions are POC implementation gaps, not permanent language rules.
+
 ## Compiler APIs
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)`
@@ -234,3 +253,52 @@ Five generated programs return 42 in the opt-in interpreter. Existing
 `--intersection-symbols` and `--nullable-symbols` controls pass; 24 focused
 intersection symbol/conversion tests pass against the rebuilt net11.0 compiler.
 No general storage, broad platform-matrix or JIT/AOT success is claimed.
+
+## Structural union/intersection executable POC — 2026-10-14
+
+`Compilation.CreateStructuralUnionTypeSymbol(params ITypeSymbol[])` creates a
+semantic `IStructuralUnionTypeSymbol` (`TypeKind.StructuralUnion`). It flattens
+same-kind unions, removes duplicates, collapses singletons, preserves presentation
+order and compares/hashes without order. Nominal subtype reduction is deliberately
+not applied to union alternatives. Empty/unsupported bounds throw `ArgumentException`;
+null inputs/elements throw `ArgumentNullException`. Closed nominal reference types,
+including closed generics, are admitted by the semantic factory; open types, value
+alternatives and mixed nested compositions remain outside this temporary profile.
+The type has no nominal metadata name/container. `VisitStructuralUnionType` exposes
+it to visitors. Member merging is deferred. This is distinct from existing source
+ad-hoc unions implemented with `System.Union` carriers; ordinary source `|` binding
+and .NET emission are unchanged.
+
+`NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap)`
+explicitly imports flat native union/intersection free-function contracts. The old
+intersection-only reader still rejects unions, and default readers remain closed.
+The new reader rejects nested mixed forms with `InvalidDataException` before
+publishing a reference. Runtime nominal bounds remain nongeneric in this POC.
+
+`NeoClrEmitOptions(..., allowExperimentalCompositionCalls: true)` enables native
+JSON call forwarding with original descriptors. It includes the earlier
+intersection-call option; setting only that older option does not authorize a
+union-containing reference. Rebuild host tools against the changed development
+constructor signature. PE/CLI, authored storage, wrappers, generic native bounds,
+member dispatch and JIT/AOT remain gated. No project/CLI or Runtime Contract switch
+is added. The same-reference conversion rules require every union alternative and
+every intersection requirement; boxing and user conversions cannot prove them.
+
+`NeoClrMetadataProbe --composition-calls <core.dll> <output>` emits four programs:
+two exercise separate sealed class alternatives through union and intersection
+contracts, one directly passes a union to a proven intersection parameter, and
+one discards a union result. All return 42 in the feature-enabled interpreter.
+Negative checks cover unsafe narrowing, inferred locals, default emission, the
+older intersection-only option, PE projection and ordinary/intersection-only readers.
+The provider amends native fixture signatures; source compound declarations are
+not yet implemented. This POC validates source consumers and native call contracts,
+not full source union/intersection storage.
+
+Runtime baseline: neoCLR `b4dceb711`. The repeatable runner and validation record
+live in neoCLR's `docs/experiments/structural-compositions/`.
+
+Validation: `scripts/codex-build.sh` succeeds, the rebuilt net11.0 compiler passes
+79 focused intersection/structural-union tests, and composition/intersection call,
+intersection-symbol and nullable-symbol probes pass. The closed-generic semantic
+cases preserve generic arguments and interface variance; sealed generic classes
+remain valid union alternatives but reject as intersection bounds.

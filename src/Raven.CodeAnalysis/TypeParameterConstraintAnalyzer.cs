@@ -114,7 +114,7 @@ internal static class TypeParameterConstraintAnalyzer
             if (type.TypeKind is TypeKind.Error or TypeKind.Interface)
                 continue;
 
-            if (type.TypeKind == TypeKind.Class &&
+            if (type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsClosed: false } &&
                 (parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) == 0 &&
                 (classBound is null || SymbolEqualityComparer.Default.Equals(classBound, type)))
             {

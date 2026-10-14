@@ -24,8 +24,8 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-// Intersection is call-only; TryType deliberately keeps authored storage closed.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, IIntersectionTypeSymbol? Intersection = null);
+// Composition is call-only; TryType deliberately keeps authored storage closed.
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -82,7 +82,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 CallableSignature.TryFunction(callable, out var callableShape, capabilities) ? callableShape.ReturnsValue :
             (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
             TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult ||
-            capabilities?.AllowsImportedIntersectionCalls == true && method.ReturnType is IIntersectionTypeSymbol &&
+            capabilities?.AllowsImportedCompositionCalls == true && method.ReturnType is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol) &&
                 TrySignature(method, out var signature) && signature.ReturnsValue;
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
@@ -1553,6 +1553,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.UnboxAny, Syntax(expression), Type: conversion.Type));
                     return true;
+                case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
+                    !conversion.IsUserDefined && capabilities?.AllowsImportedCompositionCalls == true &&
+                    conversion.Expression.Type is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol) &&
+                    conversion.Type is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol):
+                    // The host call verifier proves the raw contracts; no carrier or cast is emitted.
+                    return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true && conversion.Expression.Type.IsReferenceType &&
                     conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&

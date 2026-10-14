@@ -203,6 +203,32 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
+        if (x is IStructuralUnionTypeSymbol unionX && y is IStructuralUnionTypeSymbol unionY)
+        {
+            if (unionX.ConstituentTypes.Length != unionY.ConstituentTypes.Length)
+                return false;
+
+            var matched = new bool[unionY.ConstituentTypes.Length];
+            foreach (var left in unionX.ConstituentTypes)
+            {
+                var index = -1;
+                for (var i = 0; i < matched.Length; i++)
+                {
+                    if (!matched[i] && EqualsCore(left, unionY.ConstituentTypes[i], new HashSet<SymbolPair>(visited)))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+
+                if (index < 0)
+                    return false;
+                matched[index] = true;
+            }
+
+            return true;
+        }
+
         if (x is IIntersectionTypeSymbol intersectionX && y is IIntersectionTypeSymbol intersectionY)
         {
             if (intersectionX.ConstituentTypes.Length != intersectionY.ConstituentTypes.Length)
@@ -449,6 +475,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is IStructuralUnionTypeSymbol union)
+        {
+            // Each branch gets the same recursion ancestry so sibling ordering
+            // cannot change the hash through shared containing symbols.
+            var constituentHash = 0;
+            foreach (var constituent in union.ConstituentTypes)
+                constituentHash = unchecked(constituentHash + GetHashCodeCore(
+                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(union.ConstituentTypes.Length);
+            hash.Add(constituentHash);
+            return hash.ToHashCode();
         }
 
         if (obj is IIntersectionTypeSymbol intersection)

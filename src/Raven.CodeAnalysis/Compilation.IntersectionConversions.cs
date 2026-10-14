@@ -24,8 +24,14 @@ public partial class Compilation
             if (SymbolEqualityComparer.Default.Equals(from, to))
                 return true;
 
+            if (from is IStructuralUnionTypeSymbol unionSource)
+                return unionSource.ConstituentTypes.All(bound => HasMembership(bound, to));
+
             if (to is IIntersectionTypeSymbol target)
                 return target.ConstituentTypes.All(bound => HasMembership(from, bound));
+
+            if (to is IStructuralUnionTypeSymbol unionTarget)
+                return unionTarget.ConstituentTypes.Any(bound => HasMembership(from, bound));
 
             if (from is IIntersectionTypeSymbol origin)
                 return origin.ConstituentTypes.Any(bound => HasMembership(bound, to));
@@ -37,6 +43,9 @@ public partial class Compilation
 
         static bool IsSupportedReference(ITypeSymbol type)
         {
+            if (type is IStructuralUnionTypeSymbol union)
+                return union.ConstituentTypes.All(IsSupportedReference);
+
             if (type is IIntersectionTypeSymbol intersection)
                 return intersection.ConstituentTypes.All(IsSupportedReference);
 

@@ -949,6 +949,10 @@ public static partial class SymbolExtensions
         if (typeSymbol is LiteralTypeSymbol literal)
             return literal.Name;
 
+        if (typeSymbol is IStructuralUnionTypeSymbol union)
+            return string.Join(" | ", union.ConstituentTypes.Select(type =>
+                type is IIntersectionTypeSymbol ? $"({FormatType(type, format)})" : FormatType(type, format)));
+
         if (typeSymbol is IIntersectionTypeSymbol intersection)
         {
             return string.Join(" & ", intersection.ConstituentTypes.Select(type =>

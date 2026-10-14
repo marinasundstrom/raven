@@ -168,7 +168,7 @@ public partial class Compilation
         if (SymbolEqualityComparer.Default.Equals(source, destination))
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
-        if (source is IIntersectionTypeSymbol || destination is IIntersectionTypeSymbol)
+        if (source is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol || destination is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol)
             return Finalize(ClassifyIntersectionReferenceConversion(source, destination));
 
         if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&

@@ -106,13 +106,19 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         signature = null!;
         bool TryCallType(ITypeSymbol type, bool result, out EmissionType value)
         {
-            if (capabilities?.AllowsImportedIntersectionCalls == true && method.IsStatic &&
+            var bounds = type switch
+            {
+                IIntersectionTypeSymbol intersection => intersection.ConstituentTypes,
+                IStructuralUnionTypeSymbol union => union.ConstituentTypes,
+                _ => default
+            };
+            if (capabilities?.AllowsImportedCompositionCalls == true && method.IsStatic &&
                 method.ContainingType is null && !method.IsGenericMethod && method.DeclaringSyntaxReferences.IsEmpty &&
-                type is IIntersectionTypeSymbol intersection && intersection.ConstituentTypes.All(t =>
+                !bounds.IsDefault && bounds.All(t =>
                     t is INamedTypeSymbol { Arity: 0, IsReferenceType: true } nominal &&
                     IsExternalReference(nominal, capabilities.AllowsNestedExternalTypes, capabilities.AllowsInternalExternalSymbols)))
             {
-                value = new(Intersection: intersection);
+                value = new(Composition: type);
                 return true;
             }
             return TryType(type, result, out value, capabilities);

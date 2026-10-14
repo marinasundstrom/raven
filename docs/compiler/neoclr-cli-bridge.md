@@ -84,6 +84,17 @@ host-generated consumers return 42 and unsafe narrowing rejects; this compiler's
 structural-union importer remains closed. No Runtime Contract, CLI encoding or
 compiler semantic rule changes. The existing intersection call probe still passes.
 
+The explicit `ReadExperimentalCompositionAssembly` reader and
+`allowExperimentalCompositionCalls` emit option now admit flat native union and
+intersection calls in the POC. Four source consumers return 42 with original
+contracts, including both sealed concrete union alternatives and direct conversion
+to interface intersections. The intersection-only reader/option remain narrower.
+Written intersection bounds require interfaces or non-sealed classes before
+normalization; value types reject. Defaults, PE, authored storage and JIT/AOT stay
+closed. Provider signatures are native fixtures; no carrier/CLI encoding changes.
+Full open/closed generic type integration is the author-selected next step, outside
+this POC's nongeneric native limits. See the updated compiler API/POC reference.
+
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,
 generic/byref/array/Function nesting, compound reflection and JIT/AOT layout. Only

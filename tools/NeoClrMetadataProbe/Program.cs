@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--composition-calls", var compositionCore, var compositionOutput]) { CompositionCallChecks.Run(compositionCore, compositionOutput); return; }
+
 if (args is ["--intersection-calls", var intersectionCallCore, var intersectionCallOutput]) { IntersectionCallChecks.Run(intersectionCallCore, intersectionCallOutput); return; }
 
 if (args is ["--intersection-symbols", var intersectionCore]) { IntersectionSymbolChecks.Run(intersectionCore); return; }
