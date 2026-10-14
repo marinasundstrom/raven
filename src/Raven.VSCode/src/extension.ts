@@ -24,7 +24,7 @@ let extensionInstallPath = '';
 let activeServerResolution: ResolvedServerPath | undefined;
 let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
 let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
-const inlayHintRequestVersions = new Map<string, number>();
+const inlayHintRequestVersions = new Map<string, Map<string, symbol>>();
 let inlayHintRefreshEpoch = 0;
 let inlayHintRefreshPromise: Promise<void> | undefined;
 const sdkInstallPromptDismissedKey = 'raven.sdkInstallPromptDismissed';
@@ -449,14 +449,29 @@ function getInlayHintRequestDebounceMilliseconds(): number {
   return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
 
-function bumpInlayHintRequestVersion(key: string): number {
-  const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
-  inlayHintRequestVersions.set(key, requestVersion);
-  return requestVersion;
+function beginInlayHintRequest(key: string, scope: string): symbol {
+  let requests = inlayHintRequestVersions.get(key);
+  if (!requests) {
+    requests = new Map<string, symbol>();
+    inlayHintRequestVersions.set(key, requests);
+  }
+  const request = Symbol();
+  requests.set(scope, request);
+  return request;
 }
 
-function isCurrentInlayHintRequest(key: string, requestVersion: number): boolean {
-  return inlayHintRequestVersions.get(key) === requestVersion;
+function isCurrentInlayHintRequest(key: string, scope: string, request: symbol): boolean {
+  return inlayHintRequestVersions.get(key)?.get(scope) === request;
+}
+
+function completeInlayHintRequest(key: string, scope: string, request: symbol): void {
+  const requests = inlayHintRequestVersions.get(key);
+  if (requests?.get(scope) === request) {
+    requests.delete(scope);
+    if (requests.size === 0) {
+      inlayHintRequestVersions.delete(key);
+    }
+  }
 }
 
 function countVisibleRavenDocuments(): number {
@@ -932,15 +947,18 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
           }
 
           const key = document.uri.toString();
-          const requestVersion = bumpInlayHintRequestVersion(key);
-
-          if (!isCurrentInlayHintRequest(key, requestVersion)) {
-            throw new vscode.CancellationError();
-          }
-
-          const hints = await next(document, viewPort, token);
-          if (!isCurrentInlayHintRequest(key, requestVersion)) {
-            throw new vscode.CancellationError();
+          const documentVersion = document.version;
+          const scope = `${documentVersion}:${viewPort.start.line}:${viewPort.start.character}-${viewPort.end.line}:${viewPort.end.character}`;
+          const request = beginInlayHintRequest(key, scope);
+          let hints: vscode.InlayHint[] | null | undefined;
+          try {
+            hints = await next(document, viewPort, token);
+            if (token.isCancellationRequested || document.isClosed || document.version !== documentVersion ||
+                !isCurrentInlayHintRequest(key, scope, request)) {
+              throw new vscode.CancellationError();
+            }
+          } finally {
+            completeInlayHintRequest(key, scope, request);
           }
 
           if (!hints) {
