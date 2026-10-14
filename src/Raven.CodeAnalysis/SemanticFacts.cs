@@ -200,8 +200,29 @@ public static class SemanticFacts
         return false;
     }
 
+    /// <summary>Checks type membership against nominal or structural generic bounds without value conversions.</summary>
+    /// <remarks>Every alternative of a structural union argument must satisfy the bound. Union bounds are
+    /// disjunctive and intersection bounds are conjunctive. Recursive structural proofs are bounded to 64 steps.</remarks>
     public static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
+        => SatisfiesTypeConstraintCore(typeArgument, constraintType, 0);
+
+    private static bool SatisfiesTypeConstraintCore(ITypeSymbol typeArgument, ITypeSymbol constraintType, int depth)
     {
+        if (depth > 64)
+            return false;
+        bool Satisfies(ITypeSymbol argument, ITypeSymbol bound) => SatisfiesTypeConstraintCore(argument, bound, depth + 1);
+        // A union argument must be entirely covered, not merely overlap the bound.
+        if (typeArgument is IStructuralUnionTypeSymbol sourceUnion)
+            return sourceUnion.ConstituentTypes.All(t => Satisfies(t, constraintType));
+        if (constraintType is IIntersectionTypeSymbol intersection)
+            return intersection.ConstituentTypes.All(t => Satisfies(typeArgument, t));
+        if (typeArgument is ITypeParameterSymbol parameter &&
+            (constraintType is IStructuralUnionTypeSymbol || parameter.ConstraintTypes.Any(t => t is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)))
+            return parameter.ConstraintTypes.Any(t => Satisfies(t, constraintType));
+        if (constraintType is IStructuralUnionTypeSymbol union)
+            return union.ConstituentTypes.Any(t => Satisfies(typeArgument, t));
+        if (typeArgument is IIntersectionTypeSymbol sourceIntersection)
+            return sourceIntersection.ConstituentTypes.Any(t => Satisfies(t, constraintType));
         if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
             return true;
 

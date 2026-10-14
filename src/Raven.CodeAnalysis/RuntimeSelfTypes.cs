@@ -16,7 +16,24 @@ internal static class RuntimeSelfTypes
     }
 
     internal static bool SatisfiesConstraint(Compilation compilation, ITypeSymbol argument, ITypeSymbol constraint)
+        => SatisfiesConstraintCore(compilation, argument, constraint, 0);
+
+    private static bool SatisfiesConstraintCore(Compilation compilation, ITypeSymbol argument, ITypeSymbol constraint, int depth)
     {
+        if (depth > 64)
+            return false;
+        bool Satisfies(ITypeSymbol type, ITypeSymbol bound) => SatisfiesConstraintCore(compilation, type, bound, depth + 1);
+        if (argument is IStructuralUnionTypeSymbol sourceUnion)
+            return sourceUnion.ConstituentTypes.All(t => Satisfies(t, constraint));
+        if (constraint is IIntersectionTypeSymbol intersection)
+            return intersection.ConstituentTypes.All(t => Satisfies(argument, t));
+        if (argument is ITypeParameterSymbol parameterArgument &&
+            (constraint is IStructuralUnionTypeSymbol || parameterArgument.ConstraintTypes.Any(t => t is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)))
+            return parameterArgument.ConstraintTypes.Any(t => Satisfies(t, constraint));
+        if (constraint is IStructuralUnionTypeSymbol union)
+            return union.ConstituentTypes.Any(t => Satisfies(argument, t));
+        if (argument is IIntersectionTypeSymbol sourceIntersection)
+            return sourceIntersection.ConstituentTypes.Any(t => Satisfies(t, constraint));
         if (!SemanticFacts.SatisfiesTypeConstraint(argument, constraint))
             return false;
         if (!compilation.HasNativeSelfContract

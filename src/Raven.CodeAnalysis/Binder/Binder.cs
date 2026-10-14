@@ -2420,6 +2420,10 @@ internal abstract partial class Binder
     {
         switch (type)
         {
+            case IStructuralUnionTypeSymbol union:
+                return TypeSubstitution.SubstituteStructuralUnion(union, t => SubstituteConstraintType(t, substitutions));
+            case IIntersectionTypeSymbol intersection:
+                return TypeSubstitution.SubstituteIntersection(intersection, t => SubstituteConstraintType(t, substitutions));
             case ITypeParameterSymbol typeParameter:
                 return substitutions.TryGetValue(typeParameter, out var substitutedType)
                     ? substitutedType

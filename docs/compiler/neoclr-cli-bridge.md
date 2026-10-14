@@ -11181,3 +11181,25 @@ IntersectionTypeInfo, type membership and Box<Animal & Quacks> identity. The hos
 `--source-compositions` probe checks native union/intersection signature readback,
 opt-in catalog imports, downstream compilation and default-reader rejection. Both
 separately linked consumers execute with result 42; 86 focused semantic tests pass.
+
+### Structural constraint checking (2026-10-14 development)
+
+With native structural source binding enabled, `T: A | B` now checks a disjunctive
+bound. `SemanticFacts.SatisfiesTypeConstraint` checks union/intersection membership
+rather than accepting unhandled structural kinds. Every alternative of a union
+argument must satisfy the bound. Existing intersection constraint syntax remains
+conjunctive; closed concrete classes may satisfy interface bounds. The compiler's
+native Self checker applies its extra checks at nominal leaves. Recursive structural
+parameter proofs fail closed after 64 steps. Neither numeric nor user conversions
+establish constraint membership.
+
+Type/method parameter substitution traverses structural bounds, including
+`Response<U> | B`. Focused tests cover generic types/methods, positive and negative
+arguments, partial-overlap rejection, forwarding and substitution. The companion
+runtime accepts closed structural TypeBound constraints in its interpreter.
+
+The host metadata builder/materializer and Raven emitter still reject structural
+constraint declarations outside their nominal profiles. This slice does not emit a
+CLI approximation or claim end-to-end native constraint support. Explicit grouping
+in imported/reflected constraints, open native bounds and generic-body capability
+use remain follow-up work. Ordinary .NET runtime-contract defaults are unchanged.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Enforce structural union/intersection generic constraint membership, including all-alternative coverage, bounded parameter forwarding and owner/method substitution. Preserve native Self leaf checks. Previously non-nominal constraint kinds could fall through as satisfied. Native structural constraint emission and reflected grouping remain gated follow-up work.
+
 - **2026-10-14:** Enable source intersection parameters, results, locals, generic arguments and type tokens under the explicit native structural contract. Retain extendability checks (Raven sealed hierarchies allowed), default .NET gates and bounded generic support. Correct source composition local lowering so it does not require an imported producer. Add source/cross-library regression probes.
 
 - **2026-10-14:** Add explicit native source structural union binding and NEOX emission, preserving structural parameters, results, closed generic arguments and type tokens. Keep declared unions nominal and ordinary .NET behavior unchanged. Add opt-in composition reference catalogs and document native-only output and bounded generic support.
