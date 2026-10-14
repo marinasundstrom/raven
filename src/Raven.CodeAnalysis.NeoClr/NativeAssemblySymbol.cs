@@ -248,6 +248,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 
     private readonly Compilation compilation;
     private readonly NeoCLR.Metadata.Experimental.Introspection.MethodInfo view;
+    internal uint NativeMetadataToken => view.MetadataToken;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;

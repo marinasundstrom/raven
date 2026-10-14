@@ -104,6 +104,19 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature, EmissionCapabilities? capabilities = null)
     {
         signature = null!;
+        bool TryCallType(ITypeSymbol type, bool result, out EmissionType value)
+        {
+            if (capabilities?.AllowsImportedIntersectionCalls == true && method.IsStatic &&
+                method.ContainingType is null && !method.IsGenericMethod && method.DeclaringSyntaxReferences.IsEmpty &&
+                type is IIntersectionTypeSymbol intersection && intersection.ConstituentTypes.All(t =>
+                    t is INamedTypeSymbol { Arity: 0, IsReferenceType: true } nominal &&
+                    IsExternalReference(nominal, capabilities.AllowsNestedExternalTypes, capabilities.AllowsInternalExternalSymbols)))
+            {
+                value = new(Intersection: intersection);
+                return true;
+            }
+            return TryType(type, result, out value, capabilities);
+        }
         bool UnsupportedConstraint(ITypeParameterSymbol parameter) =>
             (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
             (capabilities?.AllowsMethodInterfaceBounds != true ||
@@ -111,13 +124,13 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
              parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 }));
         if (method.IsGenericMethod && method.TypeParameters.Any(UnsupportedConstraint) ||
             method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
-            method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
+            method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryCallType(method.ReturnType, true, out var result)) return false;
         if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => t is IPointerTypeSymbol || !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {
-            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryType(parameter.Type, false, out var type, capabilities)) return false;
+            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryCallType(parameter.Type, false, out var type)) return false;
             parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ? 0 : method.ContainingType?.Arity ?? 0, method.ContainingType is { } physicalOwner && SourceTypePlan.IsStaticContainer(physicalOwner), method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),

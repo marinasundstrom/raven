@@ -33,8 +33,9 @@ public static class NeoClrCompilationEmitter
         var diagnostics = ImmutableArray<Diagnostic>.Empty;
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
-        if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalIntersections))
-            return Fail(Unsupported, "experimental native intersection references support semantic inspection only; emission is not enabled");
+        if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalIntersections) &&
+            (!options.AllowExperimentalIntersectionCalls || metadataAssembly))
+            return Fail(Unsupported, "experimental native intersection references require the explicit native-only call option; PE/CLI projection is not enabled");
         if (compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))
             return Fail(Configuration, "requires console or library output");
         if (NeoClrBindingContract.GetError(compilation, options) is { } bindingError)

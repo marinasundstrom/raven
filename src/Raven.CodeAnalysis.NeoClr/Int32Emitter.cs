@@ -16,6 +16,7 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies, bool metadataAssembly = false)
     {
+        var bodyCapabilities = options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalIntersectionCalls : NeoClrCapabilities.Shared;
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
@@ -377,7 +378,7 @@ internal static class Int32Emitter
             var loweredPlan = plan;
             if (options.RuntimeAsyncHelperTypeName is { } helper && plan.Symbol.IsAsync)
                 loweredPlan = NativeRuntimeAsyncLowerer.Rewrite(compilation, plan, helper);
-            if (!loweredPlan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
+            if (!loweredPlan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, bodyCapabilities))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((loweredPlan, body!));
         }
@@ -1237,6 +1238,16 @@ internal static class Int32Emitter
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
+            if (options.AllowExperimentalIntersectionCalls && symbol is NativeMethodSymbol nativeMethod &&
+                symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference nativeReference)
+            {
+                if (binding.NativeArtifactSha256 != nativeReference.Artifact.Sha256)
+                    throw Unsupported("experimental callable requires its exact semantic snapshot");
+                var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
+                    ?? throw Unsupported("native callable definition unavailable");
+                if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(t => t.Composition is not null))
+                    return assembly.ImportExperimentalCompositionReference(definition, binding.CoreLibrary);
+            }
             // This bounded profile uses only compiler symbols and host artifact values.
             // Nominal identities use the same symbol-only root-class authoring path.
             if (symbol.IsStatic && symbol.ContainingType is null &&

@@ -16,8 +16,8 @@ selectively carries semantic intersection symbols and reference conversion queri
 from `02d669acd` and `c4d57d282`. See the [compiler API contract](intersection-types.md).
 A follow-up selectively carries source constraint parsing/binding from
 `08b53d8c4`, `41b684e3f` and `c6a303f0d`. Constraints retain ordinary nominal bounds;
-RAV0363 rejects value storage. There is no new Runtime Contract setting or native
-compound emission mapping.
+RAV0363 rejects explicit compound value syntax. There is no new Runtime Contract
+setting; a host-only native call capability is described below.
 Ordinary .NET behavior and existing ad-hoc `System.Union` carriers are unchanged.
 
 Native intent: compose nominal reference contracts by either/all membership while
@@ -25,7 +25,7 @@ preserving one allocation, with no selected-arm tag or carrier wrapper. Temporar
 transport is the Rust runtime's `Union`/`Intersection` signature operand arrays in
 its existing JSON/CBOR execution schema. There is no selected CLI bridge encoding
 and only the explicit intersection inspection profile below admits compiler imports;
-compound emission remains unsupported. Runtime-only success must not remove source diagnostics prematurely.
+general compound storage emission remains unsupported. Runtime-only success must not remove source diagnostics prematurely.
 
 The companion metadata facade at neoCLR `97bbcf76b` projects admitted signatures
 as canonical `ReferenceCompositionTypeInfo` views. Reordered bounds share identity
@@ -35,7 +35,7 @@ semantic-only intersection import. Default readers remain closed to compositions
 It maps canonical views to compiler intersection symbols, retaining original native
 descriptors separately from compiler nominal-supertype reduction. Normalized
 structural unions, including nested unions, are rejected before reference creation.
-There is no new Runtime Contract setting or storage/emission capability. See the
+There is no new Runtime Contract setting or general storage capability. See the
 [API contract](intersection-types.md#experimental-native-semantic-import-2026-10-14).
 
 The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only profile through
@@ -43,7 +43,7 @@ The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only
 and `SignatureType.Composition`. It preserves normalized same-kind compounds and
 snapshot-owned bounds, with no nominal-supertype reduction. Default reads, ordinary
 callable import and compound CLI declaration projection still reject compounds. Raven's ordinary adapter has not opted in; the separate experimental API supports
-semantic inspection only. Native emission reports NEOMETA001 for any reference
+semantic inspection by default. Without the call-only option, native emission reports NEOMETA001 for any reference
 with compound callables, including signatures whose compiler type normalizes to
 one nominal type. Enabling storage still requires a native capability and
 executable validation. Host tests cover schema-2/schema-3 NEOX,
@@ -60,9 +60,21 @@ host callers (union, intersection and redundant `A & Both`) run in the opt-in
 interpreter and return 42. General authored storage and compound CLI declarations
 remain closed. The full metadata harness reports 171/173 with the same two known
 failures; this branch's `--intersection-symbols` probe still passes. Raven's
-NEOMETA001 gate remains: lowering and native call encoding must use the original
-metadata contract before source emission can be enabled. No Runtime Contract
+default NEOMETA001 gate remains. The following source-call slice now uses the
+original metadata contract through lowering and native call encoding. No Runtime Contract
 setting or CLI bridge encoding changes in this slice.
+
+Raven now adds an explicit `NeoClrEmitOptions.AllowExperimentalIntersectionCalls`
+option for native JSON call forwarding. It admits imported intersection signatures
+only at call boundaries, retains the original metadata token/snapshot contract and
+passes exact descriptors to `ImportExperimentalCompositionReference`. Redundant
+bounds survive compiler normalization; different raw contracts are not silently
+erased. Four Raven-generated programs (nested calls/discarded results, distinct/
+redundant bounds) return 42 in the opt-in interpreter. Default/PE emission and
+authored locals remain gated, and incompatible raw stack contracts fail before
+output. This replaces the blanket native JSON gate only when explicitly selected;
+it adds no CLI encoding or Runtime Contract setting. See the
+[call-only API and limits](intersection-types.md#native-call-only-emission-2026-10-14).
 
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,

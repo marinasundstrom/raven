@@ -4143,8 +4143,10 @@ intersection symbols, reference conversion queries and source generic-constraint
 conjunctions. An explicit `ReadExperimentalIntersectionAssembly` host API now
 admits native intersection signatures for semantic inspection. There is no Runtime
 Contract setting or value-storage emission enablement. References containing
-compound callables cause NEOMETA001 before output, even after nominal-supertype
-normalization. An explicit emission capability must precede source storage;
-ordinary .NET union carriers
+compound callables cause NEOMETA001 by default, even after nominal-supertype
+normalization. The host-only `NeoClrEmitOptions.AllowExperimentalIntersectionCalls`
+option admits native JSON call forwarding while preserving original descriptors;
+PE/#Neo and general authored storage stay gated. This is an explicit native backend
+capability, not a Runtime Contract flag or a project/CLI default. Ordinary .NET union carriers
 remain unchanged. See [the API contract and limitations](intersection-types.md)
 and [the neoCLR handoff](neoclr-cli-bridge.md).

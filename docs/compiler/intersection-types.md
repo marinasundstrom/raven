@@ -2,7 +2,7 @@
 
 Status: unpublished compiler API foundation on `codex/neoclr-union-intersection`,
 2026-10-14. Selectively reuses `02d669acd` and `c4d57d282` from the parked
-intersection branch. The follow-up source slice adds constraint syntax and queries; value storage and native emission remain pending.
+intersection branch. The follow-up source slice adds constraint syntax and queries; general value storage remains pending; explicit native call-only emission is now available as described below.
 
 ## Compiler APIs
 
@@ -155,11 +155,11 @@ intersection semantics. Compiler normalization may remove nominal supertypes;
 `reference.Definition` keeps the unreduced native signature. No metadata identity
 is reconstructed from display text or a normalized compiler symbol.
 
-Emission of a compilation referencing any admitted compound callable is rejected
+By default, emission of a compilation referencing any admitted compound callable is rejected
 with NEOMETA001, including when normalization reduces that callable's compiler
 type to a nominal type and even when the reference is unused. Both native and
-PE/#Neo entry points preserve the output stream. This conservative reference-wide
-gate prevents accidental ABI erasure until native emission is implemented.
+PE/#Neo entry points preserve the output stream on rejection. The explicit native
+call-only option below opens a bounded path; PE/#Neo remains closed.
 Explicit intersection value-type syntax still reports RAV0363. Receiver/member
 merging, structural union symbols, source storage emission and JIT/AOT remain open.
 There is no CLI carrier or object-erasure encoding for these imports.
@@ -185,3 +185,50 @@ native callers return 42 in the opt-in interpreter. Raven's semantic-import prob
 still passes against this revision; the compiler's NEOMETA001 emission guard is
 unchanged. The next source-emission slice must carry those raw contracts through
 lowering and call encoding rather than reconstructing them from normalized symbols.
+
+## Native call-only emission (2026-10-14)
+
+The final optional constructor parameter
+`NeoClrEmitOptions(..., bool allowExperimentalIntersectionCalls = false)` and
+read-only `AllowExperimentalIntersectionCalls` property select an unpublished
+native call capability. Rebuild host tools against this development API revision.
+Use it with `NeoClrCompilationEmitter.Emit` (native JSON), an explicit
+`ReadExperimentalIntersectionAssembly` reference and matching dependency bindings.
+The ordinary defaults, project/CLI switches and .NET Runtime Contracts do not opt
+in. `EmitMetadataAssembly` still reports NEOMETA001 for compound references.
+
+Supported source use forwards values directly between nongeneric imported native
+free functions, for example `func Main() -> int => Consume(Echo(Produce()))`.
+The portable lowerer admits intersection call signatures under the target-specific
+capability without admitting them as storage types. Discarded results are popped.
+The native adapter resolves the method token within its exact immutable semantic
+snapshot, checks the bound artifact digest and imports the original descriptor.
+Both native artifact-only and explicit legacy snapshot bindings are supported.
+The descriptor is never reconstructed from the simplified compiler return/parameter
+type, so redundant `A & Both` bounds survive native serialization.
+
+The metadata host verifier requires exact normalized compound stack types. Different
+raw contracts that both simplify to Both can bind semantically but emission rejects
+them with NEOMETA003 before changing the output. This is a temporary verifier gap,
+not a new source conversion rule. Nominal/compound injection or projection, general
+cross-compound conversions, locals/spills, authored compound parameters/results,
+fields, generics, nullable/wrapper compounds and member dispatch remain outside
+this emission slice. Cross-dependency bounds requiring a resolver are not enabled
+by this adapter path. Semantic admission does not prove executable support.
+
+There is no CLI erasure/carrier ABI: output call operands retain native intersection
+arrays and scoped nominal identities. Interpreter execution requires neoCLR's
+`experimental-compositions` feature. Structural union import and JIT/AOT remain
+closed. This narrow native-only path is a deliberate divergence from .NET/CLI,
+which has no first-class intersection signatures; its benefit is preserving all
+bounds and one reference, at the cost of an explicit host option and limited
+storage/conversion support.
+
+`NeoClrMetadataProbe --intersection-calls <core.dll> <output-directory>` checks
+ordinary and redundant intersections, raw call descriptors, nested calls, discarded
+results, both dependency binding forms, default/PE rejection, authored-local
+rejection and distinct raw-contract rejection after identical nominal reduction.
+Four generated programs return 42 in the opt-in interpreter. Existing
+`--intersection-symbols` and `--nullable-symbols` controls pass; 24 focused
+intersection symbol/conversion tests pass against the rebuilt net11.0 compiler.
+No general storage, broad platform-matrix or JIT/AOT success is claimed.
