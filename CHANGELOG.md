@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Emit local closed structural method constraints directly in opt-in native metadata, including grouped conjunctive intersection bounds. Validate source metadata, invalid arguments, default rejection and interpreter result 42. Imported constrained calls and open/external bounds remain pending.
+
 - **2026-10-14:** Document companion native metadata structural-method-constraint inspection and its explicit nominal-interface compatibility guard. Compiler import/emission wiring remains pending; no CLI encoding or compiler behavior changes in this documentation slice. Record the subsequent native method-authoring API, checked local closed bounds and interpreter result 42; Raven wiring remains pending.
 
 - **2026-10-14:** Enforce structural union/intersection generic constraint membership, including all-alternative coverage, bounded parameter forwarding and owner/method substitution. Preserve native Self leaf checks. Previously non-nominal constraint kinds could fall through as satisfied. Native structural constraint emission and reflected grouping remain gated follow-up work.

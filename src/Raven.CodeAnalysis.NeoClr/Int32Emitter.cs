@@ -639,7 +639,7 @@ internal static class Int32Emitter
             if (root.ContainingAssembly.GetTypeByMetadataName("System.Value") is INamedTypeSymbol value && IsRuntimeErasedValue(value))
                 _ = ImportExternalType(value);
         }
-        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType);
+        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType, structuralConstraints: options.AllowExperimentalIntersectionCalls);
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
@@ -654,7 +654,7 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
-                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)));
+                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: options.AllowExperimentalIntersectionCalls));
         }
         foreach (var type in declaredTypes.Values) DefineClass(type);
         var extensionOwners = declaredTypes.Values.Where(t =>

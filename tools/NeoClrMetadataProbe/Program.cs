@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--structural-constraints", var constraintInputs, var constraintOutput]) { StructuralConstraintChecks.Run(constraintInputs, constraintOutput); return; }
+
 if (args is ["--source-compositions", var sourceInputs, var sourceOutput]) { SourceCompositionChecks.Run(sourceInputs, sourceOutput); return; }
 
 if (args is ["--composition-calls", var compositionCore, var compositionOutput]) { CompositionCallChecks.Run(compositionCore, compositionOutput); return; }

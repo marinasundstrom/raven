@@ -153,7 +153,18 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
             (capabilities?.AllowsMethodInterfaceBounds != true ||
              (parameter.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) != 0 ||
-             parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 }));
+             parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } &&
+                !(capabilities?.AllowsImportedCompositionCalls == true && StructuralConstraint(t))));
+        bool StructuralConstraint(ITypeSymbol type)
+        {
+            var bounds = type switch
+            {
+                IStructuralUnionTypeSymbol union => union.ConstituentTypes,
+                IIntersectionTypeSymbol intersection => intersection.ConstituentTypes,
+                _ => default
+            };
+            return !bounds.IsDefault && bounds.All(t => t is INamedTypeSymbol { IsReferenceType: true } named && ClosedCompositionBound(named));
+        }
         if (method.IsGenericMethod && method.TypeParameters.Any(UnsupportedConstraint) ||
             method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
             method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryCallType(method.ReturnType, true, out var result)) return false;

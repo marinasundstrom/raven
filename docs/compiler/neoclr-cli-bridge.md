@@ -11228,3 +11228,19 @@ Runtime Contract change or Raven compiler wiring is included: native constraint
 emission/import, external bounds and open forwarding remain pending. This supersedes
 the host method-authoring gap only; it does not claim a separately compiled Raven
 constraint consumer or a newly qualified runtime bundle.
+
+### Raven native structural method constraint emission (2026-10-14)
+
+The explicit structural native profile now emits closed local union method bounds
+as native TypeBound signatures. Multiple local conjunctive interface bounds (the
+semantic representation of source `A & B`) become one native intersection bound.
+The portable callable gate admits closed structural constraints only under the
+existing structural capability; ordinary .NET and default native profiles retain
+their existing behavior. The metadata library checks argument membership and
+rechecks emitted calls. No CLI carrier encoding is used. The source probe preserves
+union/intersection metadata, rejects an invalid intersection argument and default
+native emission, and executes in the experimental interpreter with result 42.
+Run NeoClrMetadataProbe with `--structural-constraints <native-library-dir> <output>`.
+Native constraint import, external bound authoring, open structural operands and
+open forwarding remain follow-up work. Existing syntax, binding and editor token
+classification are unchanged; no generator regeneration is needed.
