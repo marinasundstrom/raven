@@ -10600,3 +10600,27 @@ checks imported Static flags, lazy property reuse, and separate `Cache<int>` and
 `Cache<string>` counters through a separate assembly. macOS interpreter returned
 42; the matching native backend also returned 42 across three fresh invocations
 and reclaimed every allocation. HTTP/JIT integration validation follows in neoCLR.
+
+
+## Union hover parity — 2026-10-14
+
+General Raven main fixes `0dff7d7ee` (symbol display) and `889e1cdd9` (hover
+selection) are carried separately as `fd45a35b6` and `ced0b8d46`. The native line
+passes 41 symbol-display tests and 127 hover/resolution tests (three existing
+skips). An isolated real VS Code run over the neoCLR JSON sample passes individual
+`StreamError`, `JsonError` and source `MappingError` hovers, compact separator
+hovers and the same checks after an edit. Alternative ranges exclude neighbors.
+
+The semantic contract remains `A | B`; its temporary standard `System.Union`
+carrier stays an implementation detail in display. Runtime Contract settings,
+CLI/native metadata and emitted code are unchanged. Native structural metadata
+replacement remains separate work; no new representation is introduced here.
+
+Build native editor probes with `NeoClrMetadataProject` pointing to neoCLR's
+`tools/metadata/NeoCLR.Metadata.Experimental/NeoCLR.Metadata.Experimental.csproj`.
+A plain language-server build intentionally lacks that host adapter and rejects
+native project metadata; its inferred-workspace fallback is not native validation.
+The passing probe used the native-enabled server in a fresh isolated profile.
+Evidence and the repeatable editor probe are retained in neoCLR's
+`docs/validation/union-hover-20261014/` and
+`scripts/native-vscode-union-hover-acceptance.cjs`.
