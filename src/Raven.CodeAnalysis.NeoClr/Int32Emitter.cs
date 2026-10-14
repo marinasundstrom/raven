@@ -1307,6 +1307,16 @@ internal static class Int32Emitter
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
+            if (options.AllowExperimentalTuples && symbol is NativeMethodSymbol tupleMethod &&
+                symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference { HasExperimentalTuples: true } tupleReference)
+            {
+                if (binding.NativeArtifactSha256 != tupleReference.Artifact.Sha256)
+                    throw Unsupported("tuple callable requires its exact semantic snapshot");
+                var definition = tupleReference.Definition.MainModule.GetMethodDefinition(tupleMethod.NativeMetadataToken)
+                    ?? throw Unsupported("native tuple callable definition unavailable");
+                if (definition.TryGetSignature(out var tupleSignature) && tupleSignature!.ParameterTypes.Append(tupleSignature.ReturnType).Any(NeoClrMetadataReference.ContainsTuple))
+                    return assembly.ImportExperimentalTupleReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
+            }
             if (options.AllowExperimentalIntersectionCalls && symbol is NativeMethodSymbol nativeMethod &&
                 symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference nativeReference)
             {

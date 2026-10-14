@@ -31,6 +31,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     }
 
     internal bool HasExperimentalCompositions { get; }
+    internal bool HasExperimentalTuples { get; private init; }
     internal bool HasExperimentalUnions { get; private init; }
     internal NeoClrPrimitiveBootstrap? Bootstrap { get; }
     internal ResolvedAssemblyArtifact Artifact { get; }
@@ -123,6 +124,25 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
             hasExperimentalCompositions: hasComposition)
         { HasExperimentalUnions = hasUnion };
+    }
+
+    internal static bool ContainsTuple(SignatureType type) => type.Tuple is not null ||
+        type.ReferencedGenericInstance?.TypeArguments.Any(ContainsTuple) == true ||
+        type.ArrayElement is { } element && ContainsTuple(element) ||
+        type.ByReferenceElement is { } byref && ContainsTuple(byref) ||
+        type.FunctionSignature is { } function && function.ParameterTypes.Append(function.ReturnType).Any(ContainsTuple);
+
+    /// <summary>Reads native structural tuple signatures with names for experimental semantic inspection and native calls.</summary>
+    /// <param name="image">Native image copied into an immutable snapshot.</param>
+    /// <param name="bootstrap">Matching primitive bootstrap, also registered with the compilation.</param>
+    /// <param name="resolver">Explicit dependency resolver for imported nominal elements.</param>
+    /// <returns>A tuple-enabled native reference; emission requires AllowExperimentalTuples.</returns>
+    /// <remarks>Composition admission is independent. This bounded compiler profile supports scalar/nested tuple elements and retains the configured nominal tuple family for binding.</remarks>
+    public static NeoClrMetadataReference ReadExperimentalTupleAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null, IAssemblyResolver? resolver = null)
+    {
+        var definition = AssemblyDefinition.ReadExperimentalTupleAssembly(image, resolver);
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap)
+        { HasExperimentalTuples = true };
     }
 
     private static IEnumerable<SignatureType> ExperimentalSignatures(AssemblyDefinition definition)

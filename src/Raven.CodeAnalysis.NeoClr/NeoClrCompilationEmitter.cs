@@ -33,6 +33,8 @@ public static class NeoClrCompilationEmitter
         var diagnostics = ImmutableArray<Diagnostic>.Empty;
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
+        if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalTuples) && !options.AllowExperimentalTuples)
+            return Fail(Unsupported, "experimental tuple references require the explicit native-only tuple option");
         if (compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalCompositions) &&
             (!options.AllowExperimentalIntersectionCalls || metadataAssembly && !compilation.UsesStructuralCompositions ||
              compilation.References.OfType<NeoClrMetadataReference>().Any(reference => reference.HasExperimentalUnions) && !options.AllowExperimentalCompositionCalls))

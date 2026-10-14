@@ -67,6 +67,68 @@ internal static class SourceTupleChecks
             if (result.Success || stream.Length != 0 || !result.Diagnostics.Any(d => d.Id.StartsWith("NEOMETA")))
                 throw new Exception("unsupported tuple storage did not fail atomically: " + string.Join("\n", result.Diagnostics));
         }
+        CheckImports(catalog, options, output);
         Console.WriteLine("PASS source tuple construction, signature, reads and default gate");
     }
+    private static void CheckImports(NeoClrReferenceCatalog catalog, CompilationOptions options, string output)
+    {
+        var producer = Compilation.Create("TupleLibrary", [SyntaxTree.ParseText("""
+            public func RenameImported(value: (left: int, right: int)) -> (x: int, y: int) {
+                return value
+            }
+            public func IdentityImported<T>(value: T) -> T {
+                return value
+            }
+            public func TextImported() -> (message: string, number: int) {
+                return ("hello", 42)
+            }
+            public func NestedImported(value: ((left: int, right: int), int)) -> ((x: int, y: int), int) {
+                return value
+            }
+            """)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var producerOptions = new NeoClrEmitOptions(new("TupleLibrary", new(1, 0, 0, 0)), catalog.CoreIdentity, catalog.Dependencies,
+            bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalTuples: true);
+        using var producerStream = new MemoryStream();
+        var produced = producer.Emit(producerStream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(producerOptions, emitMetadataAssembly: true)));
+        if (!produced.Success) throw new Exception(string.Join("\n", produced.Diagnostics));
+        var bytes = producerStream.ToArray();
+        File.WriteAllBytes(Path.Combine(output, "TupleLibrary.neox"), bytes);
+        try { NeoClrMetadataReference.ReadAssembly(bytes, catalog.Bootstrap); throw new Exception("ordinary reader accepted tuples"); }
+        catch (InvalidDataException) { }
+        var reference = NeoClrMetadataReference.ReadExperimentalTupleAssembly(bytes, catalog.Bootstrap);
+        var consumer = Compilation.Create("TupleImportConsumer", [SyntaxTree.ParseText("""
+            func Main() -> int {
+                let pair = RenameImported((40, 2))
+                let nested = NestedImported((pair, 0))
+                let text = TextImported()
+                return nested.Item1.x + pair.y + nested.Item2 + IdentityImported<int>(text.number) - 42
+            }
+            """)], [.. catalog.References, reference], options);
+        foreach (var enabled in new[] { false, true })
+        {
+            var emitOptions = new NeoClrEmitOptions(new("TupleImportConsumer", new(1, 0, 0, 0)), catalog.CoreIdentity,
+                [.. catalog.Dependencies, new NeoClrMetadataDependency(reference, catalog.CoreIdentity)],
+                bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalTuples: enabled);
+            using var stream = new MemoryStream();
+            var result = consumer.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
+            if (!enabled)
+            {
+                if (result.Success || stream.Length != 0 || !result.Diagnostics.Any(d => d.Id == "NEOMETA001"))
+                    throw new Exception("tuple import gate lost: " + string.Join("\n", result.Diagnostics));
+            }
+            else
+            {
+                if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+                File.WriteAllBytes(Path.Combine(output, "TupleImportConsumer.neox"), stream.ToArray());
+            }
+        }
+        var importedAssembly = (IAssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!;
+        var rename = importedAssembly.GlobalNamespace.GetMembers("RenameImported").OfType<IMethodSymbol>().Single();
+        if (rename.ReturnType is not ITupleTypeSymbol returned || rename.Parameters[0].Type is not ITupleTypeSymbol parameter ||
+            !returned.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "x", "y" }) ||
+            !parameter.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "left", "right" }) ||
+            !SymbolEqualityComparer.Default.Equals(returned, parameter)) throw new Exception("imported tuple symbols lost names or structural equality");
+
+    }
+
 }

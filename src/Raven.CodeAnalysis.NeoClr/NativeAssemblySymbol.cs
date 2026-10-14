@@ -158,6 +158,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     }
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
+        TupleTypeInfo tuple => compilation.CreateTupleTypeSymbol(tuple.ElementTypes.Select((t, i) => (tuple.ElementNames[i], MapView(t)))),
         SelfTypeInfo => compilation.ResolveRuntimeSelfType()
             ?? throw new InvalidDataException("native Self signatures require an explicit runtime Self contract"),
         ReferenceCompositionTypeInfo { Kind: ReferenceCompositionKind.Intersection } composition =>
