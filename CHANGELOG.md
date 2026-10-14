@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Validate native generic-method forwarding under closed union/intersection bounds, including exported wrappers and rejection of weaker caller guarantees. The companion metadata checker supplies entailment; open bound operands and owner-parameter forwarding remain pending.
+
 - **2026-10-14:** Emit local closed structural method constraints directly in opt-in native metadata, including grouped conjunctive intersection bounds. Validate source metadata, invalid arguments, default rejection and interpreter result 42. Import complete structural constraints into native symbols and exact-snapshot generic calls; separately compiled consumers return 42, including closed generic bounds. Reject unsupported constraint-erasing fallback imports. Open/external bound authoring and broader constrained member imports remain pending.
 
 - **2026-10-14:** Document companion native metadata structural-method-constraint inspection and its explicit nominal-interface compatibility guard. Compiler import/emission wiring remains pending; no CLI encoding or compiler behavior changes in this documentation slice. Record the subsequent native method-authoring API, checked local closed bounds and interpreter result 42; Raven wiring remains pending.

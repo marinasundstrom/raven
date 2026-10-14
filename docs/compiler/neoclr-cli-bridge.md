@@ -11265,3 +11265,12 @@ Metadata authoring/import and nominal/composition regression checks pass. This u
 runtime/compiler features remain on their paired experimental branches. Open bounds,
 forwarding, generic-body trait calls, class constraints and constrained instance-method
 imports remain unsupported. There are no syntax, binding model or editor token changes.
+
+Closed-bound forwarding follow-up (2026-10-14): the paired native metadata library
+now accepts method-parameter forwarding when the caller’s recorded constraints imply
+the callee’s bounds. The Raven probe exports union/intersection generic wrappers,
+rejects a union-constrained wrapper calling an intersection-constrained method, and
+executes a separately compiled consumer with result 42. Existing structural opt-in
+and exact-snapshot native import contracts are unchanged; no compiler syntax/model
+or CLI projection changes are needed. Open structural bound operands, owner-parameter
+forwarding, external-bound source authoring and generic-body traits remain pending.

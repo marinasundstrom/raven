@@ -25,7 +25,9 @@ internal static class StructuralConstraintChecks
             public func Reply<T>() -> int where T: Response<A> | B { return 0 }
             public func Either<T>() -> int where T: A | B { return 40 }
             public func All<T>() -> int where T: A & B { return 2 }
-            func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }
+            public func Forward<T>() -> int where T: A | B { return Either<T>() }
+            public func ForwardAll<T>() -> int where T: A & B { return All<T>() }
+            func Main() -> int { return Forward<OnlyA>() + ForwardAll<Both>() + Reply<Response<A>>() }
             """;
         var compilation = Compilation.Create("ConstraintSource", [SyntaxTree.ParseText(source)], catalog.References.ToArray(), options);
         var path = Path.Combine(output, "ConstraintSource.neox");
@@ -40,14 +42,16 @@ internal static class StructuralConstraintChecks
         var snapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path), true);
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "Either").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Union, "union constraint erased");
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "All").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection, "intersection constraint erased");
-        var negative = Compilation.Create("Negative", [SyntaxTree.ParseText(source.Replace("All<Both>()", "All<OnlyA>()"))], catalog.References.ToArray(), options);
+        var negative = Compilation.Create("Negative", [SyntaxTree.ParseText(source.Replace("ForwardAll<Both>()", "ForwardAll<OnlyA>()"))], catalog.References.ToArray(), options);
         Check(negative.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid source constraint accepted");
-        var producerSource = source.Replace("func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }", "");
+        var weakForwarding = Compilation.Create("WeakForwarding", [SyntaxTree.ParseText(source.Replace("return Either<T>()", "return All<T>()"))], catalog.References.ToArray(), options);
+        Check(weakForwarding.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "weak forwarded constraint accepted");
+        var producerSource = source.Replace("func Main() -> int { return Forward<OnlyA>() + ForwardAll<Both>() + Reply<Response<A>>() }", "");
         var producer = Compilation.Create("ConstraintLibrary", [SyntaxTree.ParseText(producerSource)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var producerPath = Path.Combine(output, "ConstraintLibrary.neox");
         Emit(producer, catalog, "ConstraintLibrary", producerPath);
         var importedCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
-        var consumer = Compilation.Create("ConstraintConsumer", [SyntaxTree.ParseText("func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }")], importedCatalog.References.ToArray(), options);
+        var consumer = Compilation.Create("ConstraintConsumer", [SyntaxTree.ParseText("func Main() -> int { return Forward<OnlyA>() + ForwardAll<Both>() + Reply<Response<A>>() }")], importedCatalog.References.ToArray(), options);
         Emit(consumer, importedCatalog, "ConstraintConsumer", Path.Combine(output, "ConstraintConsumer.neox"));
         foreach (var call in new[] { "Either<Neither>()", "All<OnlyA>()", "Reply<Response<B>>()" })
         {
