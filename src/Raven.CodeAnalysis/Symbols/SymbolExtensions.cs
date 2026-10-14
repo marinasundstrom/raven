@@ -314,6 +314,12 @@ public static partial class SymbolExtensions
         // Single entry point for top-level types – we can prepend type keyword here
         if (symbol is ITypeSymbol typeSymbol)
         {
+            // The standard carrier represents structural union syntax, not a
+            // nominal declaration. Its alternatives remain type uses even when
+            // the caller requests declaration keywords or nominal union cases.
+            if (IsStandardUnionType(typeSymbol))
+                return FormatType(typeSymbol, format);
+
             // TryFormatFunctionType must be checked first: System.Func/Action and synthesized
             // delegates always render as arrow-notation (e.g. T -> bool), even when
             // DelegateStyle is NameAndSignature.

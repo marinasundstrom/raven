@@ -121,3 +121,26 @@ SyntaxNode ──► GetSymbolInfo ─┐
 SyntaxNode ──► GetTypeInfo ───┘
 SyntaxNode ──► GetDeclaredSymbol (direct to Binder)
 ```
+
+
+## Nominal and ad-hoc union display
+
+`ToDisplayString` preserves the distinction between named unions and structural
+ad-hoc unions. In a type-use format, a nominal union remains `StreamError` or
+`Option<int>`. Declaration formats can request its `union struct`/`union class`
+keyword and, with `IncludeUnionMemberTypes`, its own cases or member types.
+That option does not recursively expand nominal types used as alternatives or
+as generic arguments.
+
+The standard `System.Union` carrier displays as `A | B`, including when the caller
+requests declaration keywords or union members. It has no source-level nominal
+declaration to decorate. This spelling applies to source-bound and imported
+constructed carriers and remains compact inside generic signatures. This follows
+the existing structural spelling used for Raven tuple/function types; .NET has
+no direct ad-hoc union syntax. Explicit carrier syntax and ad-hoc syntax currently
+share the same semantic carrier, so display cannot distinguish their origin.
+
+This changes presentation only. Runtime Contract configuration, semantic type
+identity, metadata encoding and emitted code are unchanged. Source and imported
+nominal alternatives, generic nesting and declaration formats have focused
+symbol-display coverage.

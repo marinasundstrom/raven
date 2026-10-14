@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-14:** Keep ad-hoc unions structural in `ToDisplayString`, including declaration formats: `A | B` receives no nominal union keyword or case expansion. Named union alternatives and generic arguments remain compact; nominal declarations retain opt-in case display. No Runtime Contract, semantic identity or emission change.
+
 - **2026-10-14:** Watch imported MSBuild `.props` and `.targets` files explicitly in the VS Code client so configuration-only edits and restoration can trigger workspace reload without an unrelated source edit. No compiler or Runtime Contract change.
 
 - **2026-10-14:** Scope VS Code inlay request supersession to the document version and requested range. Concurrent visible ranges no longer cancel one another and clear valid hints. Discard stale/cancelled results and release completed request tracking; no compiler or Runtime Contract change.
