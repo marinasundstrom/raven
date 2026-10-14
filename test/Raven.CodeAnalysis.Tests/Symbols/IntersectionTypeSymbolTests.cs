@@ -112,6 +112,30 @@ public sealed class IntersectionTypeSymbolTests
     }
 
     [Fact]
+    public void SealedHierarchiesRemainValidIntersectionBounds()
+    {
+        var compilation = CreateCompilation("""
+            sealed class Family {}
+            sealed interface Trait {}
+            class Member : Family, Trait {}
+            open class Extensible {}
+            """);
+        var family = compilation.GetTypeByMetadataName("Family")!;
+        var trait = compilation.GetTypeByMetadataName("Trait")!;
+        var member = compilation.GetTypeByMetadataName("Member")!;
+        var open = compilation.GetTypeByMetadataName("Extensible")!;
+        Assert.True(family.IsSealedHierarchy);
+        Assert.True(trait.IsSealedHierarchy);
+        Assert.False(family.IsClosed);
+        Assert.True(member.IsClosed);
+        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(family, trait));
+        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(open, trait));
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(member, trait));
+        Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_String), trait));
+    }
+
+    [Fact]
     public void Substitution_PreservesUnchangedIdentity()
     {
         var (compilation, a, b) = CreateTypes();

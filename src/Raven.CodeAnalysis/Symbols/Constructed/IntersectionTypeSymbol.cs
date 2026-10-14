@@ -40,7 +40,7 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
             else if (type is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
                 type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
             {
-                throw new ArgumentException("Intersection bounds must be interfaces or non-sealed reference classes.", nameof(types));
+                throw new ArgumentException("Intersection bounds must be interfaces or reference classes that permit subclassing.", nameof(types));
             }
             else if (!constituents.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type)))
             {

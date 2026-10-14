@@ -10966,3 +10966,15 @@ This is a correction to the experimental semantic integration, not new variance.
 Final checks: 89 focused composition compiler tests and eight ordinary metadata
 identity controls pass, alongside twelve interpreter consumers, host import controls
 and the API-reference snapshot check.
+
+
+### Intersection finality terminology — 2026-10-14
+
+Intersection bounds exclude classes closed to subclassing (CLR sealed/final), not
+Raven `sealed` hierarchies. Raven `IsClosed` and native `is_sealed` encode finality;
+`IsSealedHierarchy`/`is_closed_hierarchy` encode the separate permitted-subtype
+contract. Open and closed hierarchy roots and interfaces remain admissible; their
+normal inheritance restrictions remain in force. Regression tests cover this
+existing distinction. No Runtime Contract, CLI encoding or emission behavior changes.
+The paired composition branches remain experimental; this does not enable the
+feature on main or in published bundles.
