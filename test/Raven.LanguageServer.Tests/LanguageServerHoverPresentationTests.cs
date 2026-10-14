@@ -21,6 +21,57 @@ namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerHoverPresentationTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedUnionHover_SelectsEachAlternativeAndKeepsCombinedDisplayCompact(bool metadata, bool bindFirst)
+    {
+        var alternatives = metadata ? "Option<int> | Option<string>" : "StreamError | JsonError | MappingError";
+        var code = """
+import System.*
+import System.Threading.Tasks.*
+union StreamError { case Closed; case InvalidPath }
+union JsonError { case Syntax; case InvalidData }
+union MappingError { case Schema; case Reflection }
+""" + "\nfunc Test() -> Task<Result<unit, " + alternatives + ">> { }";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", [tree],
+            [.. LanguageServerTestReferences.Default, MetadataReference.CreateFromFile(GetRavenCoreReferencePath())],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (bindFirst)
+            _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var union = root.DescendantNodes().OfType<UnionTypeSyntax>().Single();
+        var buildSignature = typeof(HoverHandler).GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var hoverSpan = typeof(HoverHandler).GetMethod("GetHoverSpanForResolution", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        foreach (var alternative in union.Types)
+        {
+            var token = alternative.GetFirstToken();
+            var offset = token.SpanStart + 1;
+            var expected = model.GetTypeInfo(alternative).Type!;
+            expected.TypeKind.ShouldNotBe(TypeKind.Error);
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(model, root, offset)!.Value;
+            SymbolEqualityComparer.Default.Equals(expected, resolution.Symbol).ShouldBeTrue();
+            resolution.Node.Span.ShouldBe(alternative.Span);
+            ((TextSpan)hoverSpan.Invoke(null, [resolution])!).Contains(token.Span).ShouldBeTrue();
+            var signature = (string)buildSignature.Invoke(null, [resolution.Symbol, resolution.Node, model, root, offset])!;
+            signature.ShouldStartWith("union struct " + expected.Name);
+            signature.ShouldNotContain("Union<");
+        }
+
+        foreach (var bar in union.DescendantTokens().Where(token => token.Kind == SyntaxKind.BarToken))
+        {
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(model, root, bar.SpanStart)!.Value;
+            resolution.Node.ShouldBeAssignableTo<UnionTypeSyntax>();
+            var signature = (string)buildSignature.Invoke(null, [resolution.Symbol, resolution.Node, model, root, bar.SpanStart])!;
+            signature.ShouldBe(alternatives);
+        }
+    }
+
     [Fact]
     public void ExternConstantHover_UsesConstantSignatureAndKind()
     {
@@ -1413,7 +1464,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union struct Union<Left, Right>: IRavenStructuredDisplay, IUnion");
+        signature.ShouldBe("Left | Right");
     }
 
     [Fact]

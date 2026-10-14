@@ -3023,6 +3023,9 @@ internal sealed class HoverHandler : IHoverHandler
                 typeSymbol = contextType;
             }
 
+            if (contextNode is UnionTypeSyntax)
+                return typeSymbol.ToDisplayString(CreatePlainTypeFormat());
+
             var declarationTypeFormat = CreatePlainTypeFormat()
                 .WithMiscellaneousOptions(
                     CreatePlainTypeFormat().MiscellaneousOptions |
@@ -3055,7 +3058,7 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             var text = typeSymbol is INamedTypeSymbol { Arity: > 0 } genericNamedType
-                ? BuildGenericNamedTypeSignature(genericNamedType, contextNode, semanticModel, typeFormat, declarationTypeFormat)
+                ? BuildGenericNamedTypeSignature(genericNamedType, contextNode, semanticModel, typeFormat, CreatePlainTypeFormat())
                 : FormatType(typeSymbol, typeFormat);
 
             if (typeSymbol is INamedTypeSymbol namedType)

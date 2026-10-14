@@ -543,22 +543,20 @@ internal static partial class SymbolResolver
             .AncestorsAndSelf()
             .OfType<TypeArgumentSyntax>()
             .FirstOrDefault(argument => argument.Type.Span.Contains(token.Span));
-        if (typeArgument is not null)
-            return typeArgument.Type;
-
         var typeSyntaxes = token.Parent?
             .AncestorsAndSelf()
             .OfType<TypeSyntax>()
             .Where(typeSyntax => typeSyntax.Span.Contains(token.Span) &&
+                                 (typeArgument is null || typeArgument.Type.Span.Contains(typeSyntax.Span)) &&
                                  IsExplicitTypeSyntaxContext(typeSyntax))
             .ToArray();
         if (typeSyntaxes is null || typeSyntaxes.Length == 0)
             return null;
 
         var innermost = typeSyntaxes.OrderBy(static typeSyntax => typeSyntax.Span.Length).First();
-        if (typeSyntaxes.Any(IsCompoundTypeSyntax) &&
-            !IsCompoundTypeSyntax(innermost) &&
-            innermost.Span.Contains(token.Span))
+        // A type argument can itself contain a union, tuple or function. Resolve
+        // its innermost type at identifiers and its compound type at separators.
+        if (typeSyntaxes.Any(IsCompoundTypeSyntax))
         {
             return innermost;
         }
