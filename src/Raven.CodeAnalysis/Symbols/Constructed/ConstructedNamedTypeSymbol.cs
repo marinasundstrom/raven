@@ -276,6 +276,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is IStructuralUnionTypeSymbol union)
+            {
+                result = TypeSubstitution.SubstituteStructuralUnion(union,
+                    constituent => SubstituteCore(constituent, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is IIntersectionTypeSymbol intersection)
             {
                 result = TypeSubstitution.SubstituteIntersection(intersection,

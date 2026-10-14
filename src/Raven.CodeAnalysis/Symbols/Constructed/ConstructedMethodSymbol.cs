@@ -287,6 +287,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 }
             }
 
+            if (type is IStructuralUnionTypeSymbol union)
+            {
+                var result = TypeSubstitution.SubstituteStructuralUnion(union,
+                    constituent => Substitute(constituent, visiting, cache).Type);
+                return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
+            }
+
             if (type is IIntersectionTypeSymbol intersection)
             {
                 var result = TypeSubstitution.SubstituteIntersection(intersection,

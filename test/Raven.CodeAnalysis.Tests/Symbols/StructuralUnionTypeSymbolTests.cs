@@ -25,7 +25,7 @@ public sealed class StructuralUnionTypeSymbolTests
         Assert.Empty(u.GetMembers());
         Assert.Equal(2, u.Accept(new Count()));
         Assert.False(CallableSignature.TryType(u, false, out _));
-        Assert.Throws<System.ArgumentException>(() => c.CreateStructuralUnionTypeSymbol(c.GetSpecialType(SpecialType.System_Int32), a));
+        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(c.GetSpecialType(SpecialType.System_Int32), a));
         Assert.Throws<System.ArgumentException>(() => c.CreateStructuralUnionTypeSymbol(c.CreateIntersectionTypeSymbol(a, b), a));
     }
 
@@ -72,6 +72,8 @@ public sealed class StructuralUnionTypeSymbolTests
         Assert.True(c.ClassifyConversion(union, objects).IsReference);
         Assert.True(c.ClassifyConversion(intersection, objects).IsReference);
         Assert.Throws<System.ArgumentException>(() => c.CreateStructuralUnionTypeSymbol(enumerable, a));
+        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(
+            enumerable.Construct(enumerable.TypeParameters.Cast<ITypeSymbol>().ToArray()), a));
         Assert.IsAssignableFrom<IIntersectionTypeSymbol>(c.CreateIntersectionTypeSymbol(enumerable, a));
     }
 

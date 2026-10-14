@@ -33,9 +33,9 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
                 foreach (var constituent in union.ConstituentTypes)
                     Add(constituent);
             }
-            else if (!CompositionTypeBounds.IsClosedNominalReference(type))
+            else if (!CompositionTypeBounds.IsUnionAlternative(type))
             {
-                throw new ArgumentException("Structural union alternatives require closed nominal reference types.", nameof(types));
+                throw new ArgumentException("Structural union alternatives require nominal types or bound type parameters.", nameof(types));
             }
             else if (!constituents.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type)))
             {
@@ -53,7 +53,7 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
     public bool IsNamespace => false;
     public bool IsType => true;
     public bool IsReferenceType => ConstituentTypes.All(type => type.IsReferenceType);
-    public bool IsValueType => ConstituentTypes.Any(type => type.IsValueType);
+    public bool IsValueType => ConstituentTypes.All(type => type.IsValueType);
     public INamedTypeSymbol? BaseType => null;
     public ITypeSymbol OriginalDefinition => this;
 

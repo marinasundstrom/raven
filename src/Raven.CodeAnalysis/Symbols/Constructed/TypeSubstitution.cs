@@ -13,6 +13,15 @@ internal interface IConstructedTypeSubstitutionInfo
 
 internal static class TypeSubstitution
 {
+    internal static ITypeSymbol SubstituteStructuralUnion(
+        IStructuralUnionTypeSymbol union, Func<ITypeSymbol, ITypeSymbol> substitute)
+    {
+        var types = union.ConstituentTypes.Select(substitute).ToImmutableArray();
+        return types.Where((type, index) => !ReferenceEquals(type, union.ConstituentTypes[index])).Any()
+            ? StructuralUnionTypeSymbol.Create(types)
+            : union;
+    }
+
     internal static ITypeSymbol SubstituteIntersection(
         IIntersectionTypeSymbol intersection, Func<ITypeSymbol, ITypeSymbol> substitute)
     {
