@@ -27,6 +27,13 @@ its existing JSON/CBOR execution schema. There is no selected CLI bridge encodin
 and no support claim for Raven's native metadata adapter importing/emitting these
 variants. Runtime-only success must not remove source diagnostics prematurely.
 
+The companion metadata facade at neoCLR `97bbcf76b` projects admitted signatures
+as canonical `ReferenceCompositionTypeInfo` views. Reordered bounds share identity
+within one context; mixed kinds and separate contexts remain distinct. Focused
+host tests, the public documentation build and API snapshot check pass. This
+inspection support does not enable Raven symbol import, Runtime Contract
+capabilities or native emission; the adapter still uses its default reader.
+
 The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only profile through
 `AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true)`
 and `SignatureType.Composition`. It preserves normalized same-kind compounds and
