@@ -192,3 +192,11 @@ project. It covers unchanged declarations across comment edits and concurrent
 visible ranges; run against the actual extension build under review. The
 2026-10-14 regression reproduced a missing first-range response before the fix
 and passed all 12 post-edit samples and eight concurrent range responses after it.
+
+### Imported project configuration changes
+
+The client file watcher includes `.props` and `.targets` alongside project and
+source files. Restoring an invalid imported configuration must trigger a reload
+without requiring another source edit. The native packaged editor acceptance
+checks invalidation and recovery of its imported class-library props file. This
+is editor synchronization only; no Runtime Contract or compiler semantics change.

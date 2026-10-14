@@ -794,7 +794,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
     documentSelector: [{ scheme: 'file', language: 'raven' }, { scheme: 'raven-generated', language: 'raven' }],
     synchronize: {
       configurationSection: 'raven',
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj,props,targets}')
     },
     outputChannel: output,
     traceOutputChannel: output,
