@@ -11203,3 +11203,18 @@ constraint declarations outside their nominal profiles. This slice does not emit
 CLI approximation or claim end-to-end native constraint support. Explicit grouping
 in imported/reflected constraints, open native bounds and generic-body capability
 use remain follow-up work. Ordinary .NET runtime-contract defaults are unchanged.
+
+### Native structural constraint inspection follow-up (2026-10-14)
+
+The paired neoCLR metadata library (commit `c3485748f`) now preserves closed structural method TypeBound
+signatures in opted-in native snapshots, with complete `MethodDefinition.TypeConstraints`
+and `MethodGenericParameterTypeInfo.GetTypeConstraints()` views. It remains a C#
+tooling library reading native metadata; no .NET carrier or CLI projection is used.
+Nominal-interface-only queries explicitly reject structural bounds rather than
+silently dropping them. This prepares native compiler import/emission; Raven has
+not yet switched its constraint importer to the new API. Native constraint emission
+and separately compiled structural-constraint consumers remain pending.
+`RavenNeoClrStructuralCompositions=true` and the paired experimental branches remain
+the scope; default .NET compilation is unchanged. Focused host metadata tests pass
+for JSON/binary roundtrips, nested grouping, normalization, invalid operands and
+nominal constraints. This slice changes no runtime bundle or compiler behavior.
