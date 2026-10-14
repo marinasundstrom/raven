@@ -11244,3 +11244,24 @@ Run NeoClrMetadataProbe with `--structural-constraints <native-library-dir> <out
 Native constraint import, external bound authoring, open structural operands and
 open forwarding remain follow-up work. Existing syntax, binding and editor token
 classification are unchanged; no generator regeneration is needed.
+
+### Native constrained free-function imports (2026-10-14)
+
+Native method type parameters now use complete `GetTypeConstraints()` views rather
+than nominal-interface-only views. Constraint signatures participate in experimental
+composition detection, including union-only and intersection-only reader gates.
+Opt-in static generic free-function calls use `ImportExperimentalConstrainedReference`
+with the exact dependency snapshot. Bounds survive into consumer-side argument
+validation, including whole-union coverage and invariant closed constructions.
+Symbol-only fallback imports now reject constrained methods they cannot preserve;
+previously that path could omit their bounds. No nominal carrier or CLI approximation
+is introduced. Ordinary unconstrained imports remain supported.
+
+The extended structural-constraints probe emits a library and separate native
+consumer, checks invalid union/intersection and `Response<A> | B` arguments, and
+executes with result 42. Existing source-composition emission/import checks pass.
+Metadata authoring/import and nominal/composition regression checks pass. This uses
+`RavenNeoClrStructuralCompositions=true` and the same native library bundle; the
+runtime/compiler features remain on their paired experimental branches. Open bounds,
+forwarding, generic-body trait calls, class constraints and constrained instance-method
+imports remain unsupported. There are no syntax, binding model or editor token changes.

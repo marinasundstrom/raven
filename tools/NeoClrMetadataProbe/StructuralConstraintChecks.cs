@@ -21,9 +21,11 @@ internal static class StructuralConstraintChecks
             public class OnlyA : A {}
             public class Both : A, B {}
             public class Neither {}
+            public class Response<T> {}
+            public func Reply<T>() -> int where T: Response<A> | B { return 0 }
             public func Either<T>() -> int where T: A | B { return 40 }
             public func All<T>() -> int where T: A & B { return 2 }
-            func Main() -> int { return Either<OnlyA>() + All<Both>() }
+            func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }
             """;
         var compilation = Compilation.Create("ConstraintSource", [SyntaxTree.ParseText(source)], catalog.References.ToArray(), options);
         var path = Path.Combine(output, "ConstraintSource.neox");
@@ -40,6 +42,25 @@ internal static class StructuralConstraintChecks
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "All").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection, "intersection constraint erased");
         var negative = Compilation.Create("Negative", [SyntaxTree.ParseText(source.Replace("All<Both>()", "All<OnlyA>()"))], catalog.References.ToArray(), options);
         Check(negative.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid source constraint accepted");
+        var producerSource = source.Replace("func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }", "");
+        var producer = Compilation.Create("ConstraintLibrary", [SyntaxTree.ParseText(producerSource)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var producerPath = Path.Combine(output, "ConstraintLibrary.neox");
+        Emit(producer, catalog, "ConstraintLibrary", producerPath);
+        var importedCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var consumer = Compilation.Create("ConstraintConsumer", [SyntaxTree.ParseText("func Main() -> int { return Either<OnlyA>() + All<Both>() + Reply<Response<A>>() }")], importedCatalog.References.ToArray(), options);
+        Emit(consumer, importedCatalog, "ConstraintConsumer", Path.Combine(output, "ConstraintConsumer.neox"));
+        foreach (var call in new[] { "Either<Neither>()", "All<OnlyA>()", "Reply<Response<B>>()" })
+        {
+            var invalid = Compilation.Create("InvalidConsumer", [SyntaxTree.ParseText($"func Main() -> int {{ return {call} }}")], importedCatalog.References.ToArray(), options);
+            Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "imported constraint was ignored: " + call);
+        }
+        try
+        {
+            _ = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"));
+            throw new Exception("default catalog admitted constrained library");
+        }
+        catch (InvalidDataException) { }
+        Console.WriteLine("PASS native constrained library import and consumer emission");
         Console.WriteLine("PASS native source structural constraint emission and negative semantics");
     }
 

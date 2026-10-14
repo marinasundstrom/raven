@@ -1303,6 +1303,8 @@ internal static class Int32Emitter
                     throw Unsupported("experimental callable requires its exact semantic snapshot");
                 var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
                     ?? throw Unsupported("native callable definition unavailable");
+                if (definition.TypeConstraints.Any(c => NeoClrMetadataReference.ContainsComposition(c.Bound)))
+                    return assembly.ImportExperimentalConstrainedReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
                 if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(NeoClrMetadataReference.ContainsComposition))
                     return assembly.ImportExperimentalCompositionReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
             }
@@ -1311,6 +1313,7 @@ internal static class Int32Emitter
             if (symbol.IsStatic && symbol.ContainingType is null &&
                 symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
                 CallableSignature.TryCreate(symbol, out var callable, bodyCapabilities) &&
+                symbol.TypeParameters.All(p => p.ConstraintTypes.IsEmpty && p.ConstraintKind == TypeParameterConstraintKind.None) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
             {
                 if (artifact.Sha256 != binding.NativeArtifactSha256)
@@ -1325,6 +1328,7 @@ internal static class Int32Emitter
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner))) &&
                 (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
+                symbol.TypeParameters.All(p => p.ConstraintTypes.IsEmpty && p.ConstraintKind == TypeParameterConstraintKind.None) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
                 _ = ImportExternalType(owner);

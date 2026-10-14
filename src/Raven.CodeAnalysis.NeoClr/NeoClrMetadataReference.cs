@@ -50,11 +50,11 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         return new(AssemblyDefinition.ReadNativeAssembly(image),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
     }
-    /// <summary>Reads native reference intersections for experimental semantic inspection and opt-in native calls.</summary>
+    /// <summary>Reads native reference intersections in signatures and method bounds for experimental semantic inspection and opt-in native calls.</summary>
     /// <param name="image">A native declaration image; the reader copies its contents.</param>
     /// <param name="bootstrap">Optional matching CLI primitive bootstrap, whose reference must also be supplied to the compilation.</param>
     /// <returns>An immutable reference admitting intersection free-function signatures.</returns>
-    /// <exception cref="InvalidDataException">The image is invalid, exceeds reader limits, or contains a structural union in an exposed callable signature.</exception>
+    /// <exception cref="InvalidDataException">The image is invalid, exceeds reader limits, or contains a structural union in an exposed signature or method bound.</exception>
     /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax; native calls require the separate emitter opt-in.
     /// Compiler symbols normalize nominal supertypes; the definition retains the original native descriptor.</remarks>
     public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
@@ -83,7 +83,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     internal static bool ContainsComposition(SignatureType type) => type.Composition is not null ||
         type.ReferencedGenericInstance?.TypeArguments.Any(ContainsComposition) == true;
 
-    /// <summary>Reads experimental native union and intersection free-function signatures.</summary>
+    /// <summary>Reads experimental native union and intersection signatures and method bounds.</summary>
     /// <remarks>Requires the separate composition-call emit option for native execution. Default readers and PE projection remain closed.</remarks>
     public static NeoClrMetadataReference ReadExperimentalCompositionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
     {
@@ -113,6 +113,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             if (!method.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported composition signature");
             yield return signature!.ReturnType;
             foreach (var parameter in signature.ParameterTypes) yield return parameter;
+            foreach (var constraint in method.TypeConstraints) yield return constraint.Bound;
         }
         foreach (var field in definition.MainModule.Types.SelectMany(t => t.Fields))
         {
