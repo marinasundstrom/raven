@@ -11218,3 +11218,13 @@ and separately compiled structural-constraint consumers remain pending.
 the scope; default .NET compilation is unchanged. Focused host metadata tests pass
 for JSON/binary roundtrips, nested grouping, normalization, invalid operands and
 nominal constraints. This slice changes no runtime bundle or compiler behavior.
+
+Native method authoring follow-up: the companion host metadata library adds
+`MethodBuilder.AddExperimentalStructuralConstraint` for closed local reference
+bounds, preserving TypeBound grouping and checking generic arguments and emitted
+calls. An authored NEOX fixture returns 42 in the experimental interpreter. Focused
+metadata authoring/inspection and nominal regression checks pass. No CLI encoding,
+Runtime Contract change or Raven compiler wiring is included: native constraint
+emission/import, external bounds and open forwarding remain pending. This supersedes
+the host method-authoring gap only; it does not claim a separately compiled Raven
+constraint consumer or a newly qualified runtime bundle.
