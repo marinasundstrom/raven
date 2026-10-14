@@ -29,7 +29,7 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
-        var first = ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
+        var first = ParseIntersectionType();
 
         if (!PeekToken().IsKind(SyntaxKind.BarToken))
             return first;
@@ -40,10 +40,33 @@ internal class NameSyntaxParser : SyntaxParser
         while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
         {
             types = types.Add(barToken);
-            types = types.Add(ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true));
+            types = types.Add(ParseIntersectionType());
         }
 
         return UnionType(types);
+    }
+
+    private TypeSyntax ParseIntersectionType()
+    {
+        var first = ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
+        if (!PeekToken().IsKind(SyntaxKind.AmpersandToken))
+            return first;
+
+        var types = SyntaxList.Empty.Add(first);
+        while (ConsumeToken(SyntaxKind.AmpersandToken, out var ampersandToken))
+        {
+            types = types.Add(ampersandToken);
+            var type = ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
+            if (type.IsMissing)
+            {
+                AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected, GetSpanOfPeekedToken()));
+            }
+
+            types = types.Add(type);
+        }
+
+        return IntersectionType(types);
     }
 
     public TypeSyntax ParseTypeNameWithoutFunctionRecovery()

@@ -1738,6 +1738,9 @@ internal abstract partial class Binder
         var location = issueSyntax?.GetLocation() ?? fallbackLocation;
         switch (primaryIssue.Kind)
         {
+            case TypeResolutionFailureKind.IntersectionTypeNotSupported:
+                yield return Diagnostic.Create(CompilerDiagnostics.IntersectionTypeNotSupported, location);
+                break;
             case TypeResolutionFailureKind.ArityMismatch:
                 {
                     var typeName = issueSyntax?.ToString() ?? fallbackName;
@@ -2235,8 +2238,24 @@ internal abstract partial class Binder
 
     private void EnsureTypeParameterConstraintTypesResolved(ITypeParameterSymbol typeParameter)
     {
-        if (typeParameter is not SourceTypeParameterSymbol source || source.HasResolvedConstraintTypes)
+        if (typeParameter is not SourceTypeParameterSymbol source)
             return;
+
+        if (source.HasResolvedConstraintTypes)
+        {
+            if (!ReferenceEquals(source.ContainingSymbol, ContainingSymbol))
+                return;
+
+            // Resolution may have happened in a non-reporting query or an earlier
+            // declaration binder. The active binder must own failures as well.
+            for (var i = 0; i < source.ConstraintTypes.Length; i++)
+            {
+                if (source.ConstraintTypes[i].TypeKind == TypeKind.Error &&
+                    source.ConstraintTypeReferences[i].GetSyntax() is TypeSyntax failedConstraint)
+                    _ = BindTypeSyntaxAndReport(failedConstraint);
+            }
+            return;
+        }
 
         if (source.ConstraintTypeReferences.IsDefaultOrEmpty)
         {
@@ -2262,9 +2281,9 @@ internal abstract partial class Binder
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
         foreach (var reference in source.ConstraintTypeReferences)
         {
-            if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
+            if (reference.GetSyntax() is TypeSyntax constraintType)
             {
-                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type, options);
+                var resolved = BindTypeSyntaxAndReport(constraintType, options);
                 builder.Add(resolved);
             }
         }

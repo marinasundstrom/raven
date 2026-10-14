@@ -332,6 +332,24 @@ consistent choice, the type arguments must be written.
 
 ### Constraints
 
+On the experimental `codex/neoclr-union-intersection` branch, `A & B` binds
+more tightly than `A | B` and is accepted as a conjunction in generic constraints.
+Parentheses can group nested conjunctions. Each constituent becomes an ordinary
+nominal bound, equivalent to comma-separated constraints, with every bound required.
+`GetTypeInfo`/`GetSymbolInfo` on a constraint conjunction expose its normalized
+semantic intersection; the type parameter retains individual `ConstraintTypes`.
+
+The current subset accepts interfaces and at most one distinct class bound.
+Class bounds cannot accompany `struct`. Union/value/type-parameter constituents
+and multiple distinct class bounds report RAV0364. Related class bounds are not
+yet reduced in the constraint validator. Duplicate identical bounds are permitted.
+
+Value-storage positions, including parameters, results, locals, fields and nested
+generic/array/nullable forms, report RAV0363. A conjunction of generic constraints
+does not create a runtime intersection signature. Native emission remains subject
+to the target's existing generic-constraint capabilities. See the
+[compiler experiment](../../compiler/intersection-types.md) for tested scope.
+
 Constraints restrict acceptable type arguments. They can follow a type
 parameter after `:` or appear in a `where` clause:
 

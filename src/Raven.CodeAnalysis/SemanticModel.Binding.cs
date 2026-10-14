@@ -790,12 +790,12 @@ public partial class SemanticModel
             var constraints = ImmutableArray.CreateBuilder<ITypeSymbol>();
             foreach (var reference in typeParameter.ConstraintTypeReferences)
             {
-                if (reference.GetSyntax() is not TypeConstraintSyntax typeConstraint)
+                if (reference.GetSyntax() is not TypeSyntax constraintType)
                     continue;
 
                 constraints.Add(MemberSignatureDeclarationPass.ResolveSkeletonType(
                     this,
-                    typeConstraint.Type,
+                    constraintType,
                     Compilation.ErrorTypeSymbol,
                     symbol.DefinitionType,
                     symbol.TypeParameters));

@@ -4139,8 +4139,8 @@ alternatives. The fix belongs on main and is carried separately to the neoCLR li
 ## Experimental semantic intersections (2026-10-14)
 
 The isolated `codex/neoclr-union-intersection` branch adds compiler-created
-intersection symbols and reference conversion queries. There is no Runtime
-Contract setting or source enablement. Native metadata mapping and an explicit
+intersection symbols, reference conversion queries and source generic-constraint
+conjunctions. There is no Runtime Contract setting or value-storage enablement. Native metadata mapping and an explicit
 emission capability must precede source storage; ordinary .NET union carriers
 remain unchanged. See [the API contract and limitations](intersection-types.md)
 and [the neoCLR handoff](neoclr-cli-bridge.md).

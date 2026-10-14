@@ -3,8 +3,8 @@
 Status: Draft design; not implemented by this proposal. Examples below describe
 proposed syntax and semantics, not verified runnable programs.
 
-Branch experiment (2026-10-14): `codex/neoclr-union-intersection` implements only
-[compiler-created intersection symbols and reference conversion queries](../../../compiler/intersection-types.md).
+Branch experiment (2026-10-14): `codex/neoclr-union-intersection` implements
+[intersection symbols, reference conversion queries and generic-constraint conjunctions](../../../compiler/intersection-types.md).
 It does not enable the source examples below or change the union specification.
 
 ## Motivation and current behavior

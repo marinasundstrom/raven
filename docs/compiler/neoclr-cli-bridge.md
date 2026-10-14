@@ -14,7 +14,10 @@ interpreter support for `union<A,B>` and `intersection<A,B>` in neoIL. This Rave
 branch, `codex/neoclr-union-intersection`, starts at native compiler `caa787a96` and
 selectively carries semantic intersection symbols and reference conversion queries
 from `02d669acd` and `c4d57d282`. See the [compiler API contract](intersection-types.md).
-There is no new source binding, storage gate, Runtime Contract setting or emission mapping.
+A follow-up selectively carries source constraint parsing/binding from
+`08b53d8c4`, `41b684e3f` and `c6a303f0d`. Constraints retain ordinary nominal bounds;
+RAV0363 rejects value storage. There is no new Runtime Contract setting or native
+compound emission mapping.
 Ordinary .NET behavior and existing ad-hoc `System.Union` carriers are unchanged.
 
 Native intent: compose nominal reference contracts by either/all membership while

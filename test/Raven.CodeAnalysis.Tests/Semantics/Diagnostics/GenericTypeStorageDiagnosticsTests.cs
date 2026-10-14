@@ -57,6 +57,17 @@ public sealed class GenericTypeStorageDiagnosticsTests : CompilationTestBase
     }
 
     [Fact]
+    public void StorageAnnotation_AcceptsSatisfiedRecursiveConstraint()
+    {
+        var (compilation, _) = CreateCompilation("""
+            interface Bound<T> {}
+            class Box<T: Bound<T>> {}
+            func Use<T: Bound<T>>(value: Box<T>) {}
+            """);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void FunctionParameter_WithBareGenericInterface_ReportsTypeRequiresTypeArguments()
     {
         const string source = """

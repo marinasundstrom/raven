@@ -811,7 +811,10 @@ Literal                  ::= NumericLiteral
 
 Type                     ::= UnionType ;
 
-UnionType                ::= FunctionType {'|' FunctionType} ;
+UnionType                ::= IntersectionType {'|' IntersectionType} ;
+
+IntersectionType         ::= FunctionType {'&' FunctionType} ;
+(* Intersections currently bind only as conjunctions in generic constraints. *)
 
 ByRefType                ::= '&' Type ;
 PointerType              ::= '*' Type ;

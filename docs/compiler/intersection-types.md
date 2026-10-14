@@ -2,7 +2,7 @@
 
 Status: unpublished compiler API foundation on `codex/neoclr-union-intersection`,
 2026-10-14. Selectively reuses `02d669acd` and `c4d57d282` from the parked
-intersection branch. Source syntax, storage and native emission remain pending.
+intersection branch. The follow-up source slice adds constraint syntax and queries; value storage and native emission remain pending.
 
 ## Compiler APIs
 
@@ -41,12 +41,12 @@ The benefit is preserving all bounds for future target validation; the cost is
 that creating a symbol does not imply any emitter can represent it. See the
 [existing design comparison](../lang/proposals/drafts/union-and-intersection-types.md).
 
-There is no new Runtime Contract setting, syntax binding, operation shape or
-editor grammar in this slice. Ordinary ad-hoc unions retain their carrier behavior.
+There is no new Runtime Contract setting, value-storage binding or expression
+operation shape. TextMate already recognizes the `&` operator. Ordinary ad-hoc unions retain their carrier behavior.
 The native portable signature boundary rejects these symbols, including nested
 array forms, until an explicit target capability and metadata mapping exist.
-The older intersection parser, constraint binder, receiver lowering and .NET
-storage-erasure experiment are not imported.
+The parser and constraint binder are selectively carried in the follow-up slice;
+receiver lowering and .NET storage erasure are not imported.
 
 neoCLR's branch-only interpreter transport is described in the
 [bridge handoff](neoclr-cli-bridge.md#structural-reference-compositions-runtime-experiment-2026-10-14).
@@ -80,3 +80,51 @@ preserved as annotated tags: `archive/2026-10-14/intersection-constraints`
 Uncarried parser, member lookup and lowering experiments remain recoverable from
 these tags. Remote branches were not changed. The active feature branch and the
 main/native compiler lines remain separate.
+
+## Source constraint slice — 2026-10-14
+
+Selectively carries `08b53d8c4`, `41b684e3f` and `c6a303f0d`. The generated
+`IntersectionTypeSyntax` node exposes a separated `Types` list; `&` binds more
+tightly than `|`, with existing prefix-byref and function-return grouping preserved.
+Missing right operands report a parser diagnostic and preserve later declarations.
+
+Conjunctions in inline and `where` generic constraints flatten into ordinary
+nominal bounds. `GetTypeInfo` and `GetSymbolInfo` on the conjunction expose a
+normalized semantic intersection (or its sole remaining constituent), including
+cold queries in generic method scope. `ITypeParameterSymbol.ConstraintTypes`
+continues to expose individual bounds. Constituent errors remain diagnosed after
+non-reporting semantic queries. Member access through the constrained type
+parameter uses existing generic member lookup; no intersection-receiver binding
+or signature merging is introduced.
+
+RAV0364 rejects unsupported constituent kinds, distinct class bounds and class
+bounds combined with `struct`. This provisional subset is not the final type
+algebra. Value-storage positions report RAV0363 even for singleton-normalizing
+expressions; generic/array/nullable wrappers do not bypass the gate. For ordinary
+.NET emission, constraints use ordinary CLI bounds, without a new carrier or ABI.
+This does not enable native compound storage or broaden the native target's
+existing generic-constraint capabilities. No new Runtime Contract option is added.
+
+The grammar and type-system reference describe this branch-only subset. TextMate
+already tokenizes `&`; semantic queries provide compiler facts for future editor
+integration. No real-editor validation is claimed. General missing-constraint
+query diagnostic handling is a candidate for independent main-line validation,
+not a reason to merge this feature branch wholesale.
+
+### Source-slice validation
+
+`scripts/codex-build.sh` passed and refreshed syntax nodes, factories, visitors and
+diagnostics. On net11.0, all 1,199 selected syntax/intersection, generic-method,
+generic-storage, byref-parameter and constraint cases passed. This includes an
+incremental missing-bound edit/recovery, semantic queries before diagnostics,
+unsupported storage wrappers, and two .NET execution cases returning 42 with
+ordinary reflected constraints and a separate compilation consumer.
+
+The required broad pre-change baseline stopped after 1,346 passes and two existing
+`DocumentationCommentIdBuilderTests.AssemblyLevelMembersUseNamespaceQualifiedDocumentationIds`
+failures (empty ID for assembly-level `Score`). The post-change rerun of that
+93-case batch reproduces exactly 91 passes and the same two failures. No green
+full baseline is claimed.
+This slice does not claim native compound execution, native generic-constraint
+coverage beyond existing capabilities, or real-editor validation. Whitespace
+formatting and diff checks passed.
