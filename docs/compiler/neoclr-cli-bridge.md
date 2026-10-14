@@ -11013,3 +11013,28 @@ is reused, so syntax and TextMate grammar need no changes.
 Validation: the paired runner passes fourteen interpreter consumers, including flat
 and generic local/copy cases and both wrapper kinds. Wrapper fixture output identity
 now matches its compilation, so its local check reaches the intended emission path.
+
+
+### Cross-assembly Task composition transport — 2026-10-14
+
+The experimental native reader now retains closed composition arguments on external
+reference wrappers. Callable import resolves the wrapper against an explicit exact
+snapshot catalog and validates its declaration; no ambient dependency loading occurs.
+Raven supplies that catalog from registered metadata dependencies. Ordinary readers
+and CLI projection remain closed. This extends the existing native signature model,
+without a bridge carrier or Runtime Contract change.
+
+The new Task probe compiles a nominal provider using the real System.Runtime
+Task/Promise implementation, then constructs an experimental native signature fixture
+for Task<Response | HttpError | JsonError>. A Raven source-local/copy consumer executes
+and returns 42. The nominal control selects the library's Object and async identities
+explicitly. An async Main binds its await and reaches the separate generated-field
+storage boundary; this checkpoint does not claim await execution. Runtime calls and
+state-machine field storage are the next slice. Existing host composition controls
+and API snapshot checks pass. Website proposal status remains accurate.
+
+Run `verify-task-await.py --raven <companion> --inputs <matching-native-bundle>` from
+the structural-compositions experiment directory (or use its full path). Build the
+runtime with experimental-compositions first. Validation records input hashes and
+both source revisions; the development bundle is an explicit input, not a published
+capability claim.

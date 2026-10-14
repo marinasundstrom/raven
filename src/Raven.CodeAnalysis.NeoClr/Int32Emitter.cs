@@ -1247,7 +1247,7 @@ internal static class Int32Emitter
                 var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
                     ?? throw Unsupported("native callable definition unavailable");
                 if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(NeoClrMetadataReference.ContainsComposition))
-                    return assembly.ImportExperimentalCompositionReference(definition, binding.CoreLibrary);
+                    return assembly.ImportExperimentalCompositionReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
             }
             // This bounded profile uses only compiler symbols and host artifact values.
             // Nominal identities use the same symbol-only root-class authoring path.

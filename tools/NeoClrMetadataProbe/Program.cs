@@ -36,6 +36,11 @@ if (args is ["--native-attributes", var attributeCore]) { NativeAttributeChecks.
 
 if (args is ["--native-array-shape", var arrayCore]) { NativeArrayShapeChecks.Run(arrayCore); return; }
 
+if (args.Length == 3 && args[0] == "--task-composition-await")
+{
+    TaskCompositionAwaitChecks.Run(args[1], args[2]); return;
+}
+
 if (args.Length == 3 && args[0] == "--native-doc-fixture")
 {
     NativeDocFixture.Write(args[1], args[2]); return;
