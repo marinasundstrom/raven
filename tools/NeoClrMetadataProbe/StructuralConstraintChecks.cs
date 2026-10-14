@@ -105,6 +105,27 @@ internal static class StructuralConstraintChecks
             """)], traitCatalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var intersectionPath = Path.Combine(output, "ExternalIntersectionLibrary.neox");
         Emit(intersectionLibrary, traitCatalog, "ExternalIntersectionLibrary", intersectionPath);
+        var intersectionImage = File.ReadAllBytes(intersectionPath);
+        var traitSnapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(traitLibraryPath));
+        var resolver = new SnapshotResolver(traitSnapshot);
+        var directIntersection = NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(
+            intersectionImage, catalog.Bootstrap, resolver);
+        Check(directIntersection.Definition.MainModule.Functions.Single(m => m.Name == "ReadExternal")
+            .TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection,
+            "intersection-only reader erased the external bound");
+        foreach (var read in new Action[] {
+            () => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(intersectionImage, catalog.Bootstrap),
+            () => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(
+                File.ReadAllBytes(externalBoundPath), catalog.Bootstrap, resolver) })
+        {
+            try
+            {
+                read();
+                throw new Exception("intersection-only reader admitted an unresolved intersection or a union");
+            }
+            catch (InvalidDataException) { }
+        }
+        Console.WriteLine("PASS resolved intersection-only reader and profile rejection");
         // Deliberately put the dependent first: selected snapshots resolve independent of input order.
         var intersectionCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
             [intersectionPath, Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath],
@@ -212,5 +233,10 @@ internal static class StructuralConstraintChecks
         Check(result.Success, string.Join("\n", result.Diagnostics));
         File.WriteAllBytes(path, stream.ToArray());
     }
+    private sealed class SnapshotResolver(AssemblyDefinition snapshot) : IAssemblyResolver
+    {
+        public AssemblyDefinition? Resolve(AssemblyIdentity identity) => snapshot.Identity.Equals(identity) ? snapshot : null;
+    }
+
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
 }

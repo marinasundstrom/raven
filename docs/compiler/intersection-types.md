@@ -159,6 +159,14 @@ reference; otherwise use the existing native semantic core configuration. Existi
 `ReadAssembly` APIs, project loading and CLI switches retain their default closed
 composition profile. There is no new Runtime Contract option.
 
+The overload `ReadExperimentalIntersectionAssembly(image, bootstrap, resolver)`
+also admits external intersection operands through an explicit `IAssemblyResolver`
+returning exact-identity native definition snapshots. It preserves closed method
+intersection bounds, including closed generic interface operands. Missing or
+mismatched dependencies, final classes and value types throw `InvalidDataException`;
+the original overload cannot resolve external intersection operands. Both overloads
+reject exposed union bounds. Nominal interface implementation remains explicit.
+
 Invalid images, exceeded native reader limits and normalized structural unions in
 exposed parameter/result signatures (including unions nested in intersections)
 throw `InvalidDataException` before reference publication. Bodies/locals remain

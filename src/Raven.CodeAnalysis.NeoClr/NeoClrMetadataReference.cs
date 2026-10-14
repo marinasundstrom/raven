@@ -58,8 +58,18 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax; native calls require the separate emitter opt-in.
     /// Compiler symbols normalize nominal supertypes; the definition retains the original native descriptor.</remarks>
     public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
+        => ReadExperimentalIntersectionAssembly(image, bootstrap, null);
+
+    /// <summary>Reads native intersections using explicit snapshots to validate external operands.</summary>
+    /// <param name="image">A native declaration image; the reader copies its contents.</param>
+    /// <param name="bootstrap">Optional matching CLI primitive bootstrap.</param>
+    /// <param name="resolver">Explicit dependency lookup; required for external intersection operands.</param>
+    /// <returns>An immutable native reference preserving intersection signatures and method bounds.</returns>
+    /// <exception cref="InvalidDataException">Invalid metadata, an exposed structural union, or an absent, mismatched or ineligible intersection dependency.</exception>
+    /// <remarks>Nominal interface conformance remains explicit. Native execution requires the separate emitter opt-in.</remarks>
+    public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, IAssemblyResolver? resolver)
     {
-        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
+        var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true, resolver);
         var hasIntersections = false;
         foreach (var signature in ExperimentalSignatures(definition)) hasIntersections |= Check(signature);
         return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalCompositions: hasIntersections);
