@@ -1245,7 +1245,7 @@ internal static class Int32Emitter
                     throw Unsupported("experimental callable requires its exact semantic snapshot");
                 var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
                     ?? throw Unsupported("native callable definition unavailable");
-                if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(t => t.Composition is not null))
+                if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(NeoClrMetadataReference.ContainsComposition))
                     return assembly.ImportExperimentalCompositionReference(definition, binding.CoreLibrary);
             }
             // This bounded profile uses only compiler symbols and host artifact values.

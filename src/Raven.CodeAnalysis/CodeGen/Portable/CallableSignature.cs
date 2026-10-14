@@ -109,7 +109,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             : type is INamedTypeSymbol { IsUnboundGenericType: false } named &&
                 named.TypeArguments.All(ClosedCompositionBound) &&
                 (named.ContainingType is null || ClosedCompositionBound(named.ContainingType));
-        bool TryCallType(ITypeSymbol type, bool result, out EmissionType value)
+        bool AdmittedComposition(ITypeSymbol type)
         {
             var bounds = type switch
             {
@@ -117,11 +117,27 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
                 IStructuralUnionTypeSymbol union => union.ConstituentTypes,
                 _ => default
             };
+            bool External(INamedTypeSymbol nominal) => IsExternalReference(nominal,
+                capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true);
+            if (!bounds.IsDefault)
+                return bounds.All(t => t is INamedTypeSymbol { IsReferenceType: true } nominal &&
+                    ClosedCompositionBound(nominal) && External(nominal));
+            if (type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsUnboundGenericType: false } wrapper || !External(wrapper))
+                return false;
+            var hasComposition = false;
+            foreach (var argument in wrapper.TypeArguments)
+            {
+                if (ClosedCompositionBound(argument)) continue;
+                if (!AdmittedComposition(argument)) return false;
+                hasComposition = true;
+            }
+            return hasComposition;
+        }
+        bool TryCallType(ITypeSymbol type, bool result, out EmissionType value)
+        {
             if (capabilities?.AllowsImportedCompositionCalls == true && method.IsStatic &&
                 method.ContainingType is null && !method.IsGenericMethod && method.DeclaringSyntaxReferences.IsEmpty &&
-                !bounds.IsDefault && bounds.All(t =>
-                    t is INamedTypeSymbol { IsReferenceType: true } nominal && ClosedCompositionBound(nominal) &&
-                    IsExternalReference(nominal, capabilities.AllowsNestedExternalTypes, capabilities.AllowsInternalExternalSymbols)))
+                AdmittedComposition(type))
             {
                 value = new(Composition: type);
                 return true;

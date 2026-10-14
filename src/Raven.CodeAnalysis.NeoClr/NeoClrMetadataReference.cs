@@ -65,6 +65,12 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
 
         static bool Check(SignatureType type)
         {
+            if (type.ReferencedGenericInstance is { } wrapper)
+            {
+                var found = false;
+                foreach (var argument in wrapper.TypeArguments) found |= Check(argument);
+                return found;
+            }
             if (type.Composition is not { } composition) return false;
             if (composition.Kind != ReferenceCompositionKind.Intersection)
                 throw new InvalidDataException("structural union import is not supported by the experimental intersection profile");
@@ -72,6 +78,9 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             return true;
         }
     }
+
+    internal static bool ContainsComposition(SignatureType type) => type.Composition is not null ||
+        type.ReferencedGenericInstance?.TypeArguments.Any(ContainsComposition) == true;
 
     /// <summary>Reads experimental native union and intersection free-function signatures.</summary>
     /// <remarks>Requires the separate composition-call emit option for native execution. Default readers and PE projection remain closed.</remarks>
@@ -81,6 +90,8 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         bool hasComposition = false, hasUnion = false;
         void Inspect(SignatureType type)
         {
+            if (type.ReferencedGenericInstance is { } wrapper)
+                foreach (var argument in wrapper.TypeArguments) Inspect(argument);
             if (type.Composition is not { } composition) return;
             if (composition.Constituents.Any(bound => bound.Composition is not null))
                 throw new InvalidDataException("the composition-call profile requires flat nominal bounds");

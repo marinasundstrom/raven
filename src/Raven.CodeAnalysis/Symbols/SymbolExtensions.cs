@@ -51,6 +51,11 @@ public static partial class SymbolExtensions
         if (left is null || right is null)
             return false;
 
+        // Structural signatures have no nominal metadata name. Falling back to
+        // names would erase their kinds/bounds inside constructed type arguments.
+        if (ContainsStructuralComposition(left) || ContainsStructuralComposition(right))
+            return false;
+
         if (HaveEquivalentMetadataIdentity(left, right))
             return true;
 
@@ -58,6 +63,20 @@ public static partial class SymbolExtensions
         var rightIdentity = GetStableMetadataIdentity(right);
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
     }
+
+    private static bool ContainsStructuralComposition(ITypeSymbol type) => type switch
+    {
+        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol => true,
+        ITupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
+            named.ContainingType is { } owner && ContainsStructuralComposition(owner),
+        IArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType),
+        IPointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType),
+        IAddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType),
+        NullableTypeSymbol nullable => ContainsStructuralComposition(nullable.UnderlyingType),
+        LiteralTypeSymbol literal => ContainsStructuralComposition(literal.UnderlyingType),
+        _ => false
+    };
 
     private static bool HaveEquivalentMetadataIdentity(ITypeSymbol left, ITypeSymbol right)
     {

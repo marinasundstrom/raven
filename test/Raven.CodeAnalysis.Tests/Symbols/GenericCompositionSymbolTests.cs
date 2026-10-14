@@ -102,6 +102,29 @@ public sealed class GenericCompositionSymbolTests
         }
     }
 
+    [Fact]
+    public void WrappedCompositionIdentity_DoesNotFallBackToEmptyMetadataNames()
+    {
+        var c = Create();
+        var owner = c.GetTypeByMetadataName("Owner`1")!;
+        var face = c.GetTypeByMetadataName("Face`1")!;
+        var anchor = c.GetTypeByMetadataName("Anchor")!;
+        var integers = face.Construct(c.GetSpecialType(SpecialType.System_Int32));
+        var strings = face.Construct(c.GetSpecialType(SpecialType.System_String));
+        var union = owner.Construct(c.CreateStructuralUnionTypeSymbol(integers, anchor));
+        var reordered = owner.Construct(c.CreateStructuralUnionTypeSymbol(anchor, integers));
+        Assert.True(union.MetadataIdentityEquals(reordered));
+        Assert.True(c.ClassifyConversion(union, reordered).IsIdentity);
+        foreach (var different in new[] {
+            owner.Construct(c.CreateIntersectionTypeSymbol(integers, anchor)),
+            owner.Construct(c.CreateStructuralUnionTypeSymbol(strings, anchor)) })
+        {
+            Assert.False(union.MetadataIdentityEquals(different));
+            Assert.False(c.ClassifyConversion(union, different).IsImplicit);
+            Assert.False(c.ClassifyConversion(different, union).IsImplicit);
+        }
+    }
+
     private static ITypeSymbol Compose(Compilation c, bool intersection, params ITypeSymbol[] bounds) =>
         intersection ? c.CreateIntersectionTypeSymbol(bounds) : c.CreateStructuralUnionTypeSymbol(bounds);
 

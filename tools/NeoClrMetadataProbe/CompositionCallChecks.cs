@@ -14,6 +14,7 @@ internal static class CompositionCallChecks
     {
         RunCase(corePath, output, false);
         RunCase(corePath, Path.Combine(output, "generic"), true);
+        WrapperCompositionCallChecks.Run(corePath, Path.Combine(output, "wrappers"));
     }
     private static void RunCase(string corePath, string output, bool generic)
     {

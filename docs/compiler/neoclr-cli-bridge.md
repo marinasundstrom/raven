@@ -10913,3 +10913,56 @@ alternatives may include sealed types, and eventual value-union support must not
 confused with today's reference-only executable profile. Full open/closed generic
 substitution remains the target. Native constraint metadata, argument checking and
 negative any-of/all-of tests are explicit follow-up requirements.
+
+
+## Wrapped composition metadata and Raven calls — 2026-10-14
+
+The opt-in metadata reader now retains compositions inside closed, unconstrained
+local reference-class constructions in nongeneric free-function signatures. Snapshot
+materialization preserves generic argument identity and the original image. An internal
+read/import path constructs these read-only signatures without opening ordinary
+builder construction or authored storage. Wrapper definitions must be resolved locally;
+interface/value wrappers, wrong arity, excessive nesting, open arguments and array/byref
+composition wrappers remain rejected. Compositions inside a bound's own generic
+arguments remain outside the flat-bound call profile.
+
+Experimental callable import recursively preserves wrappers and their composition
+arguments into output-owned references. CLI rejection and Raven composition detection
+now recurse through generic arguments, preventing a wrapper from hiding a union from
+default/legacy profiles. Raven's call-only lowering carries the complete wrapper type
+and imports the exact native descriptor. Wrapper generic arguments remain invariant;
+union/intersection entailment is not lifted into a conversion between wrappers.
+
+The runner now executes twelve consumers: eight preceding flat/closed-generic cases
+and four wrapper cases (union/intersection, each from host and Raven emission). All
+return Int32(42). A native provider allocates Wrapper<A | B> or Wrapper<A & B> through
+a generic constructor, passes it through Echo and invokes its getter inside Consume.
+Raven emits `Consume(Echo(Make()))`; it does not author the provider's compound source
+signatures. Probe checks cover reordered bounds, immutable image retention, wrong
+arity, interface/value/array wrappers, invariant wrapper mismatch, default/old-option
+and PE/CLI rejection, ordinary import after experimental import, and authored local
+storage rejection. Existing host composition-import controls also pass.
+
+This closes wrapper signature transport for the bounded imported-call POC. Real Task
+and async execution, source structural storage, open executable parameters, native
+union/intersection constraints, value union representation and JIT/AOT remain pending.
+The .NET baseline is invariant generic signature identity; the deliberate native
+extension preserves composition nodes where CLI has no encoding. The benefit is
+lossless contract transport without a carrier; the cost is recursive opt-in checks
+and a separate compiler/runtime profile. Runtime Contract settings and temporary CLI
+carriers remain unchanged. Owners are the paired experimental branches; website
+proposal status remains accurate and no published/main capability is implied.
+
+The author clarified again that input/constraint prevalence is guidance only:
+intersections describe combined traits and are valid return/signature contracts.
+The intersection-wrapper return consumer explicitly preserves that capability.
+
+Negative compiler coverage exposed a nominal-name identity fallback that erased
+composition kind/bounds in generic arguments. Structural-bearing types now use
+structural symbol equality instead of that fallback. Reordered bounds retain
+identity; differing kinds/bounds cannot become implicit identity conversions.
+This is a correction to the experimental semantic integration, not new variance.
+
+Final checks: 89 focused composition compiler tests and eight ordinary metadata
+identity controls pass, alongside twelve interpreter consumers, host import controls
+and the API-reference snapshot check.
