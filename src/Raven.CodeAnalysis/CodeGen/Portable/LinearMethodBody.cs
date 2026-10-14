@@ -641,6 +641,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
+                        else if (variable.Local.Type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) &&
+                            TryType(variable.Local.Type, false, out var structuralLocal) && capabilities?.Allows(structuralLocal) == true)
+                            localType = structuralLocal;
                         else if (variable.Local.Type is UnitTypeSymbol { RuntimeRepresentation: not null } &&
                             TryType(variable.Local.Type, false, out var unitType) && capabilities?.Allows(unitType) == true)
                             localType = unitType;

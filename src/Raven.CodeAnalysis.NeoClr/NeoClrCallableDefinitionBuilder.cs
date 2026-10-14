@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
+internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     : ICallableDefinitionBuilder<MethodBuilder>
 {
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)

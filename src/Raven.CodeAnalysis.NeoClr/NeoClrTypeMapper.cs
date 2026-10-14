@@ -24,8 +24,10 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     internal static ITypeParameterSymbol[] OwnerParameters(INamedTypeSymbol type)
         => OwnerArguments((INamedTypeSymbol)type.OriginalDefinition).Cast<ITypeParameterSymbol>().ToArray();
 
-    internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
+    internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     {
+        if (type.Composition is { } composition)
+            return resolveExternal?.Invoke(composition) ?? throw new InvalidOperationException("Composition resolver required");
         if (type.IsByReference) return SignatureType.ByReference(Map(type with { IsByReference = false }, resolveClass, resolveExternal, mapParameter));
         if (type.Pointer is { } pointer) return MapPointer(pointer);
         if (type.OwnerParameter is { } ownerParameter) return mapParameter?.Invoke(ownerParameter) ?? SignatureType.TypeParameter(ownerParameter.Ordinal);
@@ -47,9 +49,9 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         return resolveClass((INamedTypeSymbol)named.OriginalDefinition);
     }
 
-    internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
+    internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     {
-        if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.Shared)) throw new InvalidOperationException("unsupported native value type");
+        if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.ExperimentalIntersectionCalls)) throw new InvalidOperationException("unsupported native value type");
         return Map(value, resolveClass, resolveExternal, mapParameter);
     }
 

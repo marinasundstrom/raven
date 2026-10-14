@@ -14,6 +14,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         value = default;
         if (depth >= 16) return false;
+        if (capabilities?.AllowsImportedCompositionCalls == true && type is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
+        {
+            value = new(Composition: type);
+            return true;
+        }
         if (type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
             type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))

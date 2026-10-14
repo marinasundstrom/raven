@@ -11038,3 +11038,61 @@ the structural-compositions experiment directory (or use its full path). Build t
 runtime with experimental-compositions first. Validation records input hashes and
 both source revisions; the development bundle is an explicit input, not a published
 capability claim.
+
+
+### Raven composition await delivery — 2026-10-14
+
+The experimental compiler now retains an imported composition contract through source
+locals, constructed Task calls and heap async-state-machine fields. Storage is enabled
+only from exact output-owned imported result signatures; a semantic symbol cannot
+invent a new native composition or silently replace a different raw descriptor after
+nominal normalization. The option also applies to synthesized declaration/body plans.
+Default compilation and CLI projection remain rejected without publishing output.
+Reader gating now inspects fields and owned methods as well as free functions.
+
+The host's explicit EnableExperimentalCompositionStorage(producer) registers the closed
+reference compositions in that imported result. Registered descriptors can be used for
+instance fields of reference classes, locals, native signatures and generic substitution.
+Value-type/static composition fields, compound managed-reference parameters and arbitrary
+unregistered composition authoring remain rejected. The experimental native reader
+round-trips reference-class fields and nongeneric owned signatures; unresolved external
+intersection bounds still reject because finality cannot be established by that reader.
+
+The runtime admits direct composition fields on reference classes and nongeneric managed
+reference-class methods/constructors. It reuses existing typed stores, object tracing and
+heap async lowering, as ordinary nominal Task<T> does. Compound field addresses reject
+both in verification and unchecked execution. No scheduler, Task implementation, boxing
+carrier, metadata schema or CLI bridge encoding is introduced. This extends the earlier
+research-backed native signature design; unlike CLR metadata, the field/argument type
+can retain a structural union directly. The cost is an experimental compiler/metadata/
+runtime contract that portable CLI tools cannot consume.
+
+The real Task provider is built from nominal Raven code and transformed into a native
+composition-signature fixture. Consumers are compiled directly from Raven using inferred
+locals and await; no post-emission consumer rewriting occurs. Tests cover completed and
+queued pending delivery of Response, HttpError and JsonError. Each keeps its result alive
+across a second pending await, then verifies the concrete alternative. Error alternatives
+are successful Task payloads, not Task faults. Source-authored structural Task return
+syntax, full open generic composition support, guest reflection and JIT/AOT remain outside
+this checkpoint. Runtime Contract selection explicitly names System.Runtime for Object
+and async ownership; no defaults or published bundles change.
+
+Normalized nominal symbols that no longer uniquely retain the raw composition are
+rejected for synthesized storage; their existing exact-descriptor call transport
+remains available. This avoids treating normalization as permission to erase bounds.
+
+
+Validation for the await slice: all seven Task transport/delivery programs return 42;
+all six await programs reject null payloads and verify the expected concrete alternative.
+All fourteen earlier POC consumers remain byte-identical after final recompilation, so
+their executable evidence is reused. Thirty-six composition runtime tests, ten Task
+controls, three default-off checks, the host composition-import checks, twenty-seven
+async-lowering tests and the API documentation snapshot check pass. The runner records
+exact Core/System/runtime and generated-artifact hashes in validation.json.
+
+A separate .NET control, PortableDefaultReceiverTests.ReadOnlyFieldReceiverUsesDefensiveCopy,
+returns 3 instead of 2. It also fails after restoring the two shared portable compiler
+files to the pre-slice revision (4d34e3505); this is not reported as a passing control.
+Its general readonly-receiver behavior is deferred for independent reproduction/fix on
+Raven main and deliberate carry-forward, outside this structural-type experiment.
+No website build was needed; published capability status remains unchanged.

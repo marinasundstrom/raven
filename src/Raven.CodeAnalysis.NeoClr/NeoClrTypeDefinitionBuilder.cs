@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner, Func<INamedTypeSymbol, SignatureType> resolveExternal) : ITypeDefinitionBuilder<TypeBuilder>
+internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner, Func<ITypeSymbol, SignatureType> resolveExternal) : ITypeDefinitionBuilder<TypeBuilder>
 {
     public TypeBuilder DefineType(SourceTypePlan plan)
     {

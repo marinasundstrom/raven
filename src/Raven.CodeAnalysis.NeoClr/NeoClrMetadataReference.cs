@@ -54,13 +54,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     {
         var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
         var hasIntersections = false;
-        foreach (var method in definition.MainModule.Functions)
-        {
-            if (!method.TryGetSignature(out var signature))
-                throw new InvalidDataException("unsupported experimental native callable signature");
-            hasIntersections |= Check(signature!.ReturnType);
-            foreach (var parameter in signature.ParameterTypes) hasIntersections |= Check(parameter);
-        }
+        foreach (var signature in ExperimentalSignatures(definition)) hasIntersections |= Check(signature);
         return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalCompositions: hasIntersections);
 
         static bool Check(SignatureType type)
@@ -99,14 +93,25 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             hasUnion |= composition.Kind == ReferenceCompositionKind.Union;
             foreach (var bound in composition.Constituents) Inspect(bound);
         }
-        foreach (var method in definition.MainModule.Functions)
+        foreach (var signature in ExperimentalSignatures(definition)) Inspect(signature);
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
+            hasExperimentalCompositions: hasComposition)
+        { HasExperimentalUnions = hasUnion };
+    }
+
+    private static IEnumerable<SignatureType> ExperimentalSignatures(AssemblyDefinition definition)
+    {
+        foreach (var method in definition.MainModule.Functions.Concat(definition.MainModule.Types.SelectMany(t => t.Methods)))
         {
             if (!method.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported composition signature");
-            Inspect(signature!.ReturnType);
-            foreach (var parameter in signature.ParameterTypes) Inspect(parameter);
+            yield return signature!.ReturnType;
+            foreach (var parameter in signature.ParameterTypes) yield return parameter;
         }
-        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
-            hasExperimentalCompositions: hasComposition) { HasExperimentalUnions = hasUnion };
+        foreach (var field in definition.MainModule.Types.SelectMany(t => t.Fields))
+        {
+            if (!field.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported composition field signature");
+            yield return signature!;
+        }
     }
 
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);

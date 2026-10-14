@@ -80,7 +80,7 @@ internal static class Int32Emitter
                 {
                     if (extension.AttributeLists.Count != 0 || extension.ConstraintClauses.Count != 0 ||
                         model.GetDeclaredSymbol(extension) is not INamedTypeSymbol extensionSymbol ||
-                        !SourceTypePlan.TryCreate(extensionSymbol, out var extensionPlan, NeoClrCapabilities.Shared))
+                        !SourceTypePlan.TryCreate(extensionSymbol, out var extensionPlan, bodyCapabilities))
                         throw Unsupported("supported extension container contract");
                     declaredTypes.TryAdd(extensionSymbol, extensionPlan!);
                     foreach (var extensionMember in extension.Members)
@@ -118,7 +118,7 @@ internal static class Int32Emitter
                 else if (member is EnumDeclarationSyntax enumeration)
                 {
                     if (model.GetDeclaredSymbol(enumeration) is not INamedTypeSymbol enumSymbol ||
-                        !SourceTypePlan.TryCreate(enumSymbol, out var enumPlan, NeoClrCapabilities.Shared))
+                        !SourceTypePlan.TryCreate(enumSymbol, out var enumPlan, bodyCapabilities))
                         throw Unsupported("top-level public/internal Int32 enum");
                     if (enumSymbol.GetAttributes().Any(IsFlagsAttribute)) flagsEnums.Add(enumSymbol);
                     declaredTypes.TryAdd(enumSymbol, enumPlan!);
@@ -131,13 +131,13 @@ internal static class Int32Emitter
                     unions.Add(declarations);
                     foreach (var unionType in declarations.Types)
                     {
-                        if (!SourceTypePlan.TryCreate(unionType.Symbol, out var unionTypePlan, NeoClrCapabilities.Shared))
+                        if (!SourceTypePlan.TryCreate(unionType.Symbol, out var unionTypePlan, bodyCapabilities))
                             throw Unsupported("union type contract: " + unionType.Symbol.ToDisplayString());
                         declaredTypes.TryAdd(unionType.Symbol, unionTypePlan!);
                         foreach (var field in unionType.Fields)
                         {
                             if (field.IsStatic || field.IsConst || field.RefKind != RefKind.None ||
-                                !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                                !CallableSignature.TryType(field.Type, false, out _, bodyCapabilities))
                                 throw Unsupported("union field contract: " + field.ToDisplayString());
                             storageFields.Add(field);
                         }
@@ -149,10 +149,10 @@ internal static class Int32Emitter
                         }
                         foreach (var method in unionType.Methods)
                         {
-                            if (!SourceCallablePlan.TryCreate(method, out var unionCallable, NeoClrCapabilities.Shared, unionSyntax))
+                            if (!SourceCallablePlan.TryCreate(method, out var unionCallable, bodyCapabilities, unionSyntax))
                                 throw Unsupported("union callable contract: " + method.ToDisplayString());
                             plans.Add(unionCallable!);
-                            if (!unionCallable!.TryLowerBody(compilation, IsConsoleCall, out _, out var unionFailure, NeoClrCapabilities.Shared))
+                            if (!unionCallable!.TryLowerBody(compilation, IsConsoleCall, out _, out var unionFailure, bodyCapabilities))
                                 throw new UnsupportedInputException("union body " + method.Name + ": " + unionFailure!.Detail, unionFailure.Syntax.GetLocation());
                         }
                     }
@@ -163,12 +163,12 @@ internal static class Int32Emitter
                 {
                     if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol { IsValueType: true } recordSymbol ||
                         recordSyntax.Members.Count != 0 ||
-                        !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, NeoClrCapabilities.Shared))
+                        !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, bodyCapabilities))
                         throw Unsupported("positional record structs without additional members");
                     declaredTypes.TryAdd(recordSymbol, recordPlan!);
                     foreach (var field in recordSymbol.GetMembers().OfType<IFieldSymbol>())
                     {
-                        if (field.IsStatic || !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                        if (field.IsStatic || !CallableSignature.TryType(field.Type, false, out _, bodyCapabilities))
                             throw Unsupported("record field contract: " + field.ToDisplayString());
                         storageFields.Add(field);
                     }
@@ -183,7 +183,7 @@ internal static class Int32Emitter
                         // The positional-storage capability does not export record equality,
                         // hashing or formatting. Calls to those source helpers are rejected.
                         if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
-                        if (!SourceCallablePlan.TryCreate(method, out var recordCallable, NeoClrCapabilities.Shared, recordSyntax))
+                        if (!SourceCallablePlan.TryCreate(method, out var recordCallable, bodyCapabilities, recordSyntax))
                             throw Unsupported("record callable contract: " + method.ToDisplayString());
                         plans.Add(recordCallable!);
                     }
@@ -191,7 +191,7 @@ internal static class Int32Emitter
                 else if (member is InterfaceDeclarationSyntax interfaceSyntax)
                 {
                     if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||
-                        !SourceInterfacePlan.TryCreate(interfaceSymbol, NeoClrCapabilities.Shared, out var interfacePlan))
+                        !SourceInterfacePlan.TryCreate(interfaceSymbol, bodyCapabilities, out var interfacePlan))
                         throw Unsupported("only invariant owned interfaces with public abstract method contracts");
                     interfaces.Add(interfacePlan!);
                 }
@@ -201,7 +201,7 @@ internal static class Int32Emitter
                     if (type.ParameterList is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword)))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
-                    if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
+                    if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, bodyCapabilities))
                         throw Unsupported("supported public/internal static classes, root classes or unconstrained value types: " + typeSymbol.ToDisplayString());
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
@@ -219,7 +219,7 @@ internal static class Int32Emitter
                                 diagnosticSyntax = variable;
                                 if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: false, RefKind: RefKind.None } field ||
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
-                                    !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                                    !CallableSignature.TryType(field.Type, false, out _, bodyCapabilities))
                                     throw Unsupported("only public/internal/private fields with target-supported storage types");
                                 if (field.IsStatic && variable.Initializer is not null)
                                     throw Unsupported("static field initializers require runtime type initialization");
@@ -232,7 +232,7 @@ internal static class Int32Emitter
                             if (indexerSyntax.ExplicitInterfaceSpecifier is not null || indexerSyntax.Initializer is not null ||
                                 indexerSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(indexerSyntax) is not SourcePropertySymbol { IsStatic: false, IsIndexer: true } indexer ||
-                                !CallableSignature.TryType(indexer.Type, false, out _, NeoClrCapabilities.Shared))
+                                !CallableSignature.TryType(indexer.Type, false, out _, bodyCapabilities))
                                 throw Unsupported("only implemented root-class indexers with supported value types");
                             if (indexerSyntax.AccessorList is { } indexerAccessors && indexerAccessors.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
@@ -249,7 +249,7 @@ internal static class Int32Emitter
                             if (propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
                                 property.IsStatic && propertySyntax.Initializer is not null ||
-                                !CallableSignature.TryType(property.Type, false, out _, NeoClrCapabilities.Shared))
+                                !CallableSignature.TryType(property.Type, false, out _, bodyCapabilities))
                                 throw Unsupported("only supported properties/storage without static initializers");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration) ||
@@ -384,7 +384,7 @@ internal static class Int32Emitter
         }
         foreach (var machine in compilation.GetSynthesizedAsyncStateMachineTypes().ToArray())
         {
-            if (!SourceTypePlan.TryCreate(machine, out var typePlan, NeoClrCapabilities.Shared))
+            if (!SourceTypePlan.TryCreate(machine, out var typePlan, bodyCapabilities))
                 throw Unsupported("supported native heap state-machine declaration");
             declaredTypes.Add(machine, typePlan!);
             storageFields.AddRange(machine.GetMembers().OfType<IFieldSymbol>());
@@ -397,10 +397,10 @@ internal static class Int32Emitter
                 (machine.Constructor, constructorBody), (machine.MoveNextMethod, machine.MoveNextBody),
                 (machine.SetStateMachineMethod, machine.SetStateMachineBody) })
             {
-                if (methodBody is null || !CallableSignature.TryCreate(method, out var signature, NeoClrCapabilities.Shared))
+                if (methodBody is null || !CallableSignature.TryCreate(method, out var signature, bodyCapabilities))
                     throw Unsupported("synthesized async method signature/body");
                 var plan = new SourceCallablePlan(method, anchor, anchor, machine, method.MetadataName, signature, PreparedBody: methodBody);
-                if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
+                if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, bodyCapabilities))
                     throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
                 prepared.Add((plan, body));
             }
@@ -413,7 +413,7 @@ internal static class Int32Emitter
             {
                 var symbol = (IMethodSymbol)function.Symbol!;
                 if (!lambdaSymbols.Add(symbol)) continue;
-                if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared)) throw Unsupported("unsupported Function body signature");
+                if (!CallableSignature.TryCreate(symbol, out var signature, bodyCapabilities)) throw Unsupported("unsupported Function body signature");
                 var captures = function.CapturedVariables.Select(capture => capture switch
                 {
                     INamedTypeSymbol selfType => selfType,
@@ -427,7 +427,7 @@ internal static class Int32Emitter
                 if (captures.Length != 0 || parameters.Length != 0) closureCaptures.Add(symbol, captures);
                 signature = signature with { IsInstance = captures.Length != 0 || parameters.Length != 0 };
                 if (!LinearMethodBody.TryLower(symbol, compilation.GetSemanticModel(syntax.SyntaxTree), syntax, IsConsoleCall,
-                    out var body, out var failure, NeoClrCapabilities.Shared, function, forceFunctionInstance: parameters.Length != 0))
+                    out var body, out var failure, bodyCapabilities, function, forceFunctionInstance: parameters.Length != 0))
                     throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
                 var plan = new SourceCallablePlan(symbol, syntax, syntax, null, "$function$" + lambdaSymbols.Count, signature, IsSynthesizedStatic: true);
                 prepared.Add((plan, body!));
@@ -448,7 +448,42 @@ internal static class Int32Emitter
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
-        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type], ImportClassBase);
+        var compositionTypes = new Dictionary<ITypeSymbol, SignatureType>(SymbolEqualityComparer.Default);
+        if (options.AllowExperimentalIntersectionCalls)
+        {
+            foreach (var dependency in dependencies)
+            {
+                if (dependency.Symbol is not NativeAssemblySymbol nativeAssembly || !nativeAssembly.Reference.HasExperimentalCompositions) continue;
+                foreach (var definition in nativeAssembly.Reference.Definition.MainModule.Functions)
+                {
+                    if (!definition.TryGetSignature(out var raw) || !NeoClrMetadataReference.ContainsComposition(raw!.ReturnType)) continue;
+                    var imported = assembly.ImportExperimentalCompositionReference(definition, dependency.Dependency.CoreLibrary,
+                        new NativeCompositionResolver(options.Dependencies));
+                    assembly.EnableExperimentalCompositionStorage(imported);
+                    var symbol = ImportedFunctions(nativeAssembly.GlobalNamespace).OfType<NativeMethodSymbol>().Single(m => m.NativeMetadataToken == definition.MetadataToken);
+                    RegisterComposition(symbol.ReturnType, imported.Signature.ReturnType);
+                }
+            }
+        }
+        static IEnumerable<IMethodSymbol> ImportedFunctions(INamespaceSymbol scope)
+        {
+            foreach (var method in scope.GetMembers().OfType<IMethodSymbol>()) yield return method;
+            foreach (var child in scope.GetMembers().OfType<INamespaceSymbol>())
+                foreach (var method in ImportedFunctions(child)) yield return method;
+        }
+        void RegisterComposition(ITypeSymbol symbol, SignatureType signature)
+        {
+            if (signature.Composition is not null)
+            {
+                if (compositionTypes.TryGetValue(symbol, out var previous) && previous != signature)
+                    throw Unsupported("ambiguous normalized composition storage identity");
+                compositionTypes[symbol] = signature;
+            }
+            else if (symbol is INamedTypeSymbol wrapper && signature.ImportedType is { } imported)
+                for (var index = 0; index < wrapper.TypeArguments.Length; index++)
+                    RegisterComposition(wrapper.TypeArguments[index], imported.TypeArguments[index]);
+        }
+        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type], type => ImportClassBase((INamedTypeSymbol)type));
         SignatureType ImportClassBase(INamedTypeSymbol type)
         {
             var reference = ImportExternalType(type);
@@ -469,8 +504,17 @@ internal static class Int32Emitter
             return reference;
         }
 
-        SignatureType ImportExternalType(INamedTypeSymbol type)
+        SignatureType ImportExternalType(ITypeSymbol symbol)
         {
+            // A normalized nominal symbol cannot identify which original compound
+            // contract belongs in synthesized storage. Preserve call-only transport,
+            // but reject storage instead of silently erasing that descriptor.
+            if (compositionTypes.ContainsKey(symbol) && symbol is not (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol))
+                throw Unsupported("normalized composition storage requires an unambiguous structural descriptor");
+            if (symbol is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
+                return compositionTypes.TryGetValue(symbol, out var signature) ? signature
+                    : throw Unsupported("composition storage requires an exact imported contract");
+            var type = (INamedTypeSymbol)symbol;
             // The configured semantic marker is transport only; native metadata keeps Self.
             if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
             // Imported callable substitutions can retain the bootstrap's inhabited
@@ -692,7 +736,7 @@ internal static class Int32Emitter
         foreach (var field in storageFields)
         {
             if (primitiveFields.ContainsKey(field) || SymbolEqualityComparer.Default.Equals(field, graphemeField)) continue;
-            CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
+            CallableSignature.TryType(field.Type, false, out var fieldType, bodyCapabilities);
             var fieldScope = field.ContainingType is { OriginalDefinition: SynthesizedAsyncStateMachineTypeSymbol } fieldOwner ? NeoClrTypeMapper.OwnerParameters(fieldOwner) : [];
             var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], named => ScopedExternal(named, fieldScope), p => ScopedParameter(p, fieldScope));
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
@@ -722,8 +766,10 @@ internal static class Int32Emitter
                 : parameter.DeclaringMethodParameterOwner is not null ? SignatureType.MethodParameter(parameter.Ordinal)
                 : SignatureType.TypeParameter(parameter.Ordinal);
         }
-        SignatureType ScopedExternal(INamedTypeSymbol type, ITypeParameterSymbol[] scope)
+        SignatureType ScopedExternal(ITypeSymbol symbol, ITypeParameterSymbol[] scope)
         {
+            if (symbol is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) return ImportExternalType(symbol);
+            var type = (INamedTypeSymbol)symbol;
             var normal = ImportExternalType(type);
             if (scope.Length == 0 || type.Arity == 0 || normal.ImportedType is null) return normal;
             return importedTypes[(INamedTypeSymbol)type.OriginalDefinition].MakeGenericInstance(type.TypeArguments
@@ -812,7 +858,7 @@ internal static class Int32Emitter
             }
         foreach (var property in properties)
         {
-            CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);
+            CallableSignature.TryType(property.Type, false, out var propertyType, bodyCapabilities);
             var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
             var emitted = nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod], isInitOnly: property.SetMethod?.MethodKind == MethodKind.InitOnly);
@@ -1057,7 +1103,7 @@ internal static class Int32Emitter
                 throw Unsupported("undeclared instance field");
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope),
-                producer => current.Method.DeclareExperimentalCompositionResultLocal(Import(producer))));
+                producer => current.Method.DeclareLocal(Import(producer).Signature.ReturnType)));
         }
         // Bind first, then publish user annotations against complete output declarations.
         // Synthesized markers (flags, unions, nullable and params) retain their own encoders.
@@ -1138,7 +1184,7 @@ internal static class Int32Emitter
             SignatureType signature;
             if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } enumType)
             {
-                if (!CallableSignature.TryType(enumType, false, out var enumStorage, NeoClrCapabilities.Shared))
+                if (!CallableSignature.TryType(enumType, false, out var enumStorage, bodyCapabilities))
                     throw Unsupported("unsupported attribute enum signature");
                 signature = NeoClrTypeMapper.Map(enumStorage, t => nativeTypes[t], ImportExternalType);
             }
@@ -1253,7 +1299,7 @@ internal static class Int32Emitter
             // Nominal identities use the same symbol-only root-class authoring path.
             if (symbol.IsStatic && symbol.ContainingType is null &&
                 symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
-                CallableSignature.TryCreate(symbol, out var callable, NeoClrCapabilities.Shared) &&
+                CallableSignature.TryCreate(symbol, out var callable, bodyCapabilities) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
             {
                 if (artifact.Sha256 != binding.NativeArtifactSha256)
@@ -1267,7 +1313,7 @@ internal static class Int32Emitter
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner))) &&
                 (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
-                CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
+                CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
                 _ = ImportExternalType(owner);
@@ -1290,7 +1336,7 @@ internal static class Int32Emitter
             var dependencyMetadata = binding.Definition;
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
-            if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))
+            if (!CallableSignature.TryCreate(symbol, out var signature, bodyCapabilities))
                 throw Unsupported("unsupported dependency method signature");
             var expected = new MethodSignature(
                 NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
@@ -1355,8 +1401,9 @@ internal static class Int32Emitter
             type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType ? IsSymbolOnlyType(type.GetNonNullableType(), result) :
             type is IPointerTypeSymbol pointer && CallableSignature.IsSupportedPointer(pointer) ||
             RuntimeSelfTypes.IsSelf(compilation, type) ||
-            type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, NeoClrCapabilities.Shared) ||
+            type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, bodyCapabilities) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
+            options.AllowExperimentalIntersectionCalls && type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Object or SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
@@ -1366,10 +1413,11 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            IStructuralUnionTypeSymbol or IIntersectionTypeSymbol => ImportExternalType(type),
             _ when type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType => MapSymbolOnlyType(type.GetNonNullableType(), result),
             IPointerTypeSymbol pointer => NeoClrTypeMapper.Map(pointer, owned => nativeTypes[owned], ImportExternalType),
             _ when RuntimeSelfTypes.IsSelf(compilation, type) => SignatureType.Self,
-            INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, NeoClrCapabilities.Shared) =>
+            INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, bodyCapabilities) =>
                 SignatureType.Function(new MethodSignature(
                     NeoClrTypeMapper.Map(shape.ReturnType, owned => nativeTypes[owned], ImportExternalType),
                     shape.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)))),
@@ -1408,7 +1456,7 @@ internal static class Int32Emitter
 
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
-            if (!SourceCallablePlan.TryCreate(method, out var plan, NeoClrCapabilities.Shared))
+            if (!SourceCallablePlan.TryCreate(method, out var plan, bodyCapabilities))
                 throw Unsupported("callable declaration: " + method.ToDisplayString());
             return plan!;
         }
