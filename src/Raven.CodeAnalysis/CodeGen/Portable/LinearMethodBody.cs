@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -774,7 +774,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
                     if (fieldAssignment.Receiver?.Type is ITupleTypeSymbol && capabilities?.Allows(LinearInstructionKind.NewTuple) == true)
-                        return Reject("structural tuple element assignment", Syntax(statement));
+                    {
+                        if (!LowerTupleAssignment(fieldAssignment, atStatementBoundary)) return false;
+                        continue;
+                    }
                     var owner = fieldAssignment.Field.ContainingType!;
                     if (!SupportedField(fieldAssignment.Field))
                         return Reject("unsupported instance field assignment", Syntax(statement));
@@ -1286,6 +1289,52 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             Add(LinearInstructionKind.StoreLocal, Syntax(expression), slot);
             spills.Add(slot);
             return true;
+        }
+
+        bool LowerTupleAssignment(BoundFieldAssignmentExpression assignment, bool atStatementBoundary)
+        {
+            // Only a local-rooted positional path is admitted. There is no effectful
+            // receiver to evaluate; save the RHS once, then rebuild from the current
+            // root so RHS changes to sibling elements are not overwritten.
+            var path = new List<(ITypeSymbol Owner, int Index)>();
+            BoundExpression? receiver = assignment.Receiver;
+            IFieldSymbol field = assignment.Field;
+            while (receiver?.Type is ITupleTypeSymbol tuple)
+            {
+                var index = tuple.TupleElements.Select(f => f.MetadataName).ToList().IndexOf(field.MetadataName);
+                if (index < 0) return Reject("unknown structural tuple element", Syntax(assignment));
+                path.Add((receiver.Type, index));
+                if (receiver is BoundLocalAccess local)
+                {
+                    if (!locals.TryGetValue(local.Local, out var root) ||
+                        capabilities?.Allows(LinearInstructionKind.StoreTupleElement) != true ||
+                        !TryType(assignment.Field.Type, false, out var valueType))
+                        return Reject("unsupported structural tuple storage", Syntax(assignment));
+                    if (!LowerValue(assignment.Right, assignment.Field.Type, atStatementBoundary)) return false;
+                    var value = localTypes.Count;
+                    localTypes.Add(valueType);
+                    Add(LinearInstructionKind.StoreLocal, Syntax(assignment), value);
+                    path.Reverse();
+                    Add(LinearInstructionKind.LoadLocal, Syntax(assignment), root);
+                    for (var i = 0; i < path.Count - 1; i++)
+                    {
+                        Add(LinearInstructionKind.Duplicate, Syntax(assignment));
+                        instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(assignment), Integer: path[i].Index, Type: path[i].Owner));
+                    }
+                    Add(LinearInstructionKind.LoadLocal, Syntax(assignment), value);
+                    for (var i = path.Count - 1; i >= 0; i--)
+                        instructions.Add(new(LinearInstructionKind.StoreTupleElement, Syntax(assignment), Integer: path[i].Index, Type: path[i].Owner));
+                    Add(LinearInstructionKind.StoreLocal, Syntax(assignment), root);
+                    return true;
+                }
+                (receiver, field) = receiver switch
+                {
+                    BoundFieldAccess access => (access.Receiver, access.Field),
+                    BoundMemberAccessExpression { Member: IFieldSymbol member } access => (access.Receiver, member),
+                    _ => (null, field)
+                };
+            }
+            return Reject("structural tuple assignment requires a local-rooted element path", Syntax(assignment));
         }
 
         bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false)

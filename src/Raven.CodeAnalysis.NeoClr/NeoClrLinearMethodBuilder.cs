@@ -27,6 +27,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
         switch (instruction.Kind)
         {
             case LinearInstructionKind.NewTuple: method.NewTuple(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
+            case LinearInstructionKind.StoreTupleElement: method.StoreTupleElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter), instruction.Integer); break;
             case LinearInstructionKind.LoadTupleElement: method.LoadTupleElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter), instruction.Integer); break;
             case LinearInstructionKind.LoadTypeToken: method.LoadTypeToken(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.EnumFromInt32: method.ConvertToEnum(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;

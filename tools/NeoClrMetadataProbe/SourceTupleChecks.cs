@@ -55,7 +55,7 @@ internal static class SourceTupleChecks
         }
         foreach (var unsupported in new[]
         {
-            "func Main() -> int { var pair = (40, 2); pair.Item1 = 41; return pair.Item1 }",
+            "func Change(value: (int, int)) { value.Item1 = 41 }\nfunc Main() -> int { return 42 }",
             "func Echo<T>(value: (T, int)) -> (T, int) { return value }\nfunc Main() -> int { return 42 }"
         })
         {
@@ -66,6 +66,33 @@ internal static class SourceTupleChecks
             var result = rejected.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
             if (result.Success || stream.Length != 0 || !result.Diagnostics.Any(d => d.Id.StartsWith("NEOMETA")))
                 throw new Exception("unsupported tuple storage did not fail atomically: " + string.Join("\n", result.Diagnostics));
+        }
+        var mutation = Compilation.Create("TupleMutation", [SyntaxTree.ParseText("""
+            func Updated() -> (left: int, right: int) {
+                var pair: (left: int, right: int) = (1, 2)
+                let copy = pair
+                pair.left = 40
+                if copy.left != 1 { return (0, 0) }
+                var nested = (pair, 9)
+                let before = nested
+                nested.Item1.right = pair.right + 1
+                nested.Item2 = 0
+                if before.Item1.right != 2 { return (0, 0) }
+                if before.Item2 != 9 { return (0, 0) }
+                return (nested.Item1.left, nested.Item1.right - 1)
+            }
+            func Main() -> int {
+                let result = Updated()
+                return result.left + result.right
+            }
+            """)], catalog.References.ToArray(), options);
+        using (var stream = new MemoryStream())
+        {
+            var emitOptions = new NeoClrEmitOptions(new("TupleMutation", new(1, 0, 0, 0)), catalog.CoreIdentity, catalog.Dependencies,
+                bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalTuples: true);
+            var result = mutation.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
+            if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+            File.WriteAllBytes(Path.Combine(output, "TupleMutation.neox"), stream.ToArray());
         }
         CheckImports(catalog, options, output);
         Console.WriteLine("PASS source tuple construction, signature, reads and default gate");

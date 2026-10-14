@@ -11607,3 +11607,23 @@ and the structural runtime branch. See
 [guest name evidence](../../../neoclr/docs/experiments/structural-tuples/name-info-results.json).
 Tuple mutation, carrier-independent Raven symbols and project/catalog opt-in remain
 separate follow-ups.
+
+### Native local tuple mutation — 2026-10-14
+
+With `AllowExperimentalTuples`, assignments to named or positional elements of a
+local tuple now lower to native updated-copy stores. Nested paths rebuild each
+containing tuple and write back the root local; earlier copies remain unchanged.
+The RHS is evaluated once before reading the root for reconstruction, preserving
+any RHS changes to sibling elements. Ordinary .NET emission is unchanged. This
+uses native Tuple signatures and StoreTupleElement, with no CLI carrier encoding.
+
+The bounded profile accepts local-rooted paths. Parameter/field/property/array-rooted
+mutation, managed element addresses and open elements remain unsupported and fail
+before publishing output. Binder mutability rules still apply. Runtime Contract
+settings are unchanged; the existing explicit experimental emitter gate is required.
+
+Validation: `NeoClrMetadataProbe --source-tuples` covers direct and nested writes,
+named/positional reads, preserved copies and unsupported parameter mutation. The
+TupleMutation consumer returns 42 in the interpreter with `tuple-names-libraries-v2`
+(compiler `793219d855b17f01fb805e215968b78871eb3804`). The pre-change source tuple probe
+passes; focused .NET tuple semantic/emission checks guard the ordinary target.
