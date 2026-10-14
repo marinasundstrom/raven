@@ -69,10 +69,12 @@ option for native JSON call forwarding. It admits imported intersection signatur
 only at call boundaries, retains the original metadata token/snapshot contract and
 passes exact descriptors to `ImportExperimentalCompositionReference`. Redundant
 bounds survive compiler normalization; different raw contracts are not silently
-erased. Four Raven-generated programs (nested calls/discarded results, distinct/
-redundant bounds) return 42 in the opt-in interpreter. Default/PE emission and
+erased. Five Raven-generated programs (nested calls/discarded results, distinct/
+redundant bounds and equivalent contracts) return 42 in the opt-in interpreter. Default/PE emission and
 authored locals remain gated, and incompatible raw stack contracts fail before
-output. This replaces the blanket native JSON gate only when explicitly selected;
+output. Flat intersection call arguments now admit scoped identity and transitive
+interface entailment without altering either raw descriptor. Class-base traversal,
+mixed compositions and general storage remain gaps. This replaces the blanket native JSON gate only when explicitly selected;
 it adds no CLI encoding or Runtime Contract setting. See the
 [call-only API and limits](intersection-types.md#native-call-only-emission-2026-10-14).
 

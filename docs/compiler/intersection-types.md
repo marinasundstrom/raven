@@ -207,10 +207,12 @@ Both native artifact-only and explicit legacy snapshot bindings are supported.
 The descriptor is never reconstructed from the simplified compiler return/parameter
 type, so redundant `A & Both` bounds survive native serialization.
 
-The metadata host verifier requires exact normalized compound stack types. Different
-raw contracts that both simplify to Both can bind semantically but emission rejects
-them with NEOMETA003 before changing the output. This is a temporary verifier gap,
-not a new source conversion rule. Nominal/compound injection or projection, general
+The metadata host verifier at neoCLR `f9d659a37` now proves flat intersection call arguments by requiring
+each target bound to follow from an identical source bound or its declared interface
+graph. `A & Both` and `B & Both` can therefore interoperate when Both implements
+both interfaces, retaining their distinct native descriptors. Unsupported bounds
+still reject before output; class-base traversal and mixed compositions remain gaps.
+This extends native verification without changing compiler semantic conversions. Nominal/compound injection or projection, general
 cross-compound conversions, locals/spills, authored compound parameters/results,
 fields, generics, nullable/wrapper compounds and member dispatch remain outside
 this emission slice. Cross-dependency bounds requiring a resolver are not enabled
@@ -227,8 +229,8 @@ storage/conversion support.
 `NeoClrMetadataProbe --intersection-calls <core.dll> <output-directory>` checks
 ordinary and redundant intersections, raw call descriptors, nested calls, discarded
 results, both dependency binding forms, default/PE rejection, authored-local
-rejection and distinct raw-contract rejection after identical nominal reduction.
-Four generated programs return 42 in the opt-in interpreter. Existing
+rejection and equivalent raw contracts after identical nominal reduction.
+Five generated programs return 42 in the opt-in interpreter. Existing
 `--intersection-symbols` and `--nullable-symbols` controls pass; 24 focused
 intersection symbol/conversion tests pass against the rebuilt net11.0 compiler.
 No general storage, broad platform-matrix or JIT/AOT success is claimed.

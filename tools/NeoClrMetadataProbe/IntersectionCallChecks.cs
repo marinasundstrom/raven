@@ -75,7 +75,8 @@ internal static class IntersectionCallChecks
                 Check(!mismatched.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "both native contracts normalize to the same nominal compiler type");
                 using var mismatchOutput = new MemoryStream();
                 var mismatch = NeoClrCompilationEmitter.Emit(mismatched, mismatchOutput, EmitOptions(true));
-                Check(!mismatch.Success && mismatch.Diagnostics.Any(d => d.Id == "NEOMETA003") && mismatchOutput.Length == 0, "different raw contracts cannot be silently erased");
+                Check(mismatch.Success, string.Join("; ", mismatch.Diagnostics));
+                File.WriteAllBytes(Path.Combine(output, name + "Equivalent.neox"), NativeModuleContainer.WriteLibraryBinary(mismatchOutput.ToArray()));
             }
             using var projected = new MemoryStream();
             var projection = NeoClrCompilationEmitter.EmitMetadataAssembly(consumer, projected, EmitOptions(true));
