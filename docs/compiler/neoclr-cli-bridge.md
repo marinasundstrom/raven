@@ -10854,3 +10854,62 @@ website proposal status remains accurate; no website build is needed.
 
 Validation: 19 feature-enabled composition tests, 13 ordinary generic-class
 controls and both default-off serialized-signature tests pass.
+
+
+## Runtime wrapper constructor/method calls — 2026-10-14
+
+Closed reference wrappers with composition arguments now support managed instance
+constructors and nongeneric, nonvirtual instance methods through direct call and
+null-checking callvirt. Generic substitution preserves payload signatures for
+constructor, getter, setter and forwarding calls. Admission traverses instantiated
+bodies, including transitive calls, and rejects compound addresses/type tokens and
+unsupported storage after substitution. A visited set handles recursive calls;
+the experimental closure is bounded to 256 distinct call references. Virtual/override,
+abstract, native and method-generic calls remain gated.
+
+Twenty-four composition tests and thirteen ordinary generic-class controls pass.
+Coverage includes union and intersection payloads, reordered signatures, recursive
+admission, nested payload retention across GC, incorrect constructor payloads and
+receivers, null receivers, and hidden unsupported operations inside generic bodies.
+The generic declaration controls for those operations still admit ordinary reference
+arguments. Default-off evidence from the preceding storage slice is unchanged.
+
+This reuses .NET-like invariant generic ownership, field safety and callvirt null
+checking; the native extension is the composition argument itself. Inspecting closed
+bodies costs extra admission work and intentionally excludes virtual dispatch until
+all possible implementations can be checked. Runtime Contract and CLI encoding are
+unchanged. Host metadata/compiler wrapper transport and real Task execution remain
+pending; the consumer is assembled neoIL. The website proposal status is unchanged.
+
+
+## Author direction: value positions and constraints — 2026-10-14
+
+The author clarified that structural unions have broader everyday uses than
+intersections: unions are useful for values/results and also parameters and generic
+constraints; intersections are usually useful for inputs requiring several
+capabilities and for constraints. This is usage guidance, not a blanket prohibition
+on intersection results, storage or generic arguments. Existing intersection result
+and wrapper experiments remain valid.
+
+The assistant proposed the explicit constraint interpretation `T : A | B` as an
+any-of requirement and `T : A & B` as an all-of requirement (schematic spelling,
+not a claim of implemented source syntax). Union constraints must preserve their
+grouping; lowering them to two ordinary constraints would incorrectly require both.
+Inside generic code, an any-of bound guarantees only capabilities shared by every
+alternative until narrowed; an all-of bound guarantees every required capability,
+subject to the eventual member-conflict rules.
+
+The existing .NET/CLI conjunctive-constraint machinery is reusable for all-of bounds;
+a disjunction needs an explicit native contract and compiler checking. No implicit
+CLI weakening or conjunctive fallback is acceptable. Union constraints are required
+follow-up work, not implemented by the wrapper slices. Existing Raven intersection
+constraint syntax/CLI emission remains separate from native composition constraints,
+which the runtime currently rejects. Constraint satisfaction, runtime value layout
+and compiler source admission must be tracked independently.
+
+The earlier written-bound rule stands: intersections exclude sealed classes/value
+types; concrete sealed types may still satisfy interface conjunctions. Union
+alternatives may include sealed types, and eventual value-union support must not be
+confused with today's reference-only executable profile. Full open/closed generic
+substitution remains the target. Native constraint metadata, argument checking and
+negative any-of/all-of tests are explicit follow-up requirements.
