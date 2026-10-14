@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -10,6 +11,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class SymbolDisplayTests : CompilationTestBase
 {
+    [Fact]
+    public void AdHocUnionDisplay_ImportedNominalArgumentsStayCompact()
+    {
+        var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
+        var option = compilation.GetTypeByMetadataName("System.Option`1")!;
+        var left = option.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+        var right = option.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var union = compilation.GetTypeByMetadataName("System.Union`2")!.Construct(left, right);
+        var format = SymbolDisplayFormat.RavenTooltipFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.RavenTooltipFormat.MiscellaneousOptions |
+            SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
+
+        union.ToDisplayString(format).ShouldBe("Option<int> | Option<string>");
+        left.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Option<int>");
+    }
+
+    [Fact]
+    public void AdHocUnionDisplay_StaysStructuralWhileNominalAlternativesStayNamed()
+    {
+        const string source = """
+union StreamError { case Closed; case InvalidPath }
+union JsonError { case Syntax; case InvalidData }
+class Box<T> { }
+class C {
+    func Test(value: Box<StreamError | JsonError>) -> unit { }
+}
+""";
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<UnionTypeSyntax>().Single();
+        var type = model.GetTypeInfo(syntax).Type!;
+        var nominal = model.GetTypeInfo(syntax.Types[0]).Type!;
+        var expanded = SymbolDisplayFormat.RavenSignatureFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions |
+            SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
+
+        type.ToDisplayString().ShouldBe("StreamError | JsonError");
+        type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("StreamError | JsonError");
+        type.ToDisplayString(expanded).ShouldBe("StreamError | JsonError");
+        nominal.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("StreamError");
+        nominal.ToDisplayString(expanded).ShouldBe("union struct StreamError(Closed | InvalidPath)");
+        var box = model.GetTypeInfo(syntax.Ancestors().OfType<GenericNameSyntax>().First()).Type!;
+        box.ToDisplayString(expanded).ShouldBe("class Box<StreamError | JsonError>");
+    }
+
     [Fact]
     public void TupleDisplay_CanExplicitlyRequestNominalNames()
     {
