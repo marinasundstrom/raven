@@ -10978,3 +10978,19 @@ normal inheritance restrictions remain in force. Regression tests cover this
 existing distinction. No Runtime Contract, CLI encoding or emission behavior changes.
 The paired composition branches remain experimental; this does not enable the
 feature on main or in published bundles.
+
+
+### Host composition result locals — 2026-10-14
+
+`MethodBuilder.DeclareExperimentalCompositionResultLocal(producer)` retains an
+output-owned imported callable's exact result type in a native local, including
+composition wrappers. Host wrapper consumers store/reload before forwarding; all
+twelve paired consumers pass. Ordinary builder locals, CLI projection and Raven
+source-local emission remain gated. Runtime Contract and bridge encoding do not
+change; this is preparation for compiler storage support on the experimental branches.
+
+The author clarified that structural types are fully introspectable runtime types
+in the intended model, represented through signatures rather than separate nominal
+declarations: tuples (later), unions, intersections and functions. Arrays retain
+Array<T> backing. Present opt-in/storage/reflection restrictions are implementation
+gaps rather than limits on the meaning of a structural type.

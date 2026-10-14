@@ -84,7 +84,8 @@ internal static class WrapperCompositionCallChecks
                 .MakeGenericInstance(imported.Signature.ReturnType.ImportedType!.TypeArguments.ToArray()));
             var main = host.AddFunction("Main"); host.EntryPoint = main;
             Reject(() => main.DeclareLocal(imported.Signature.ReturnType));
-            main.Call(imported);
+            var resultLocal = main.DeclareExperimentalCompositionResultLocal(imported);
+            main.Call(imported); main.StoreLocal(resultLocal); main.LoadLocal(resultLocal);
             main.Call(host.ImportExperimentalCompositionReference(snapshot.MainModule.Functions.Single(f => f.Name == "Echo"), core));
             main.Call(host.ImportExperimentalCompositionReference(snapshot.MainModule.Functions.Single(f => f.Name == "Consume"), core));
             main.Return();
