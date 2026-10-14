@@ -177,3 +177,18 @@ exists elsewhere in the workspace.
 When no SDK is discovered, the bundled server still provides editor features
 and the extension offers a link to the SDK installation instructions. The
 prompt can be permanently dismissed for syntax-only installations.
+
+### Inlay request concurrency
+
+Inlay requests are tracked by document version and range. Separate visible ranges
+may complete independently; a newer request for the same range supersedes the older
+request. Results for edited or closed documents and cancelled requests are discarded.
+Completed request tracking is released, so scrolling does not retain range entries.
+
+Run `scripts/vscode-inlay-acceptance.cjs` through VS Code's `--extensionTestsPath`
+against an isolated Raven project containing `Main.rvn`. It temporarily changes
+that buffer, restores it, and writes `vscode-inlay-acceptance.json` beside the
+project. It covers unchanged declarations across comment edits and concurrent
+visible ranges; run against the actual extension build under review. The
+2026-10-14 regression reproduced a missing first-range response before the fix
+and passed all 12 post-edit samples and eight concurrent range responses after it.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-14:** Carry the general VS Code inlay-range supersession fix from Raven main 6a2c55db4. Concurrent visible ranges complete independently; stale/cancelled results are discarded and completed request tracking is released. No native compiler, metadata or Runtime Contract change.
+
 - **2026-10-14:** Add explicit native static-field emission and shared lowering behind an opt-in capability. Preserve separate closed generic storage and static field ordinals across assembly references; exercise lazy static properties and generic counters through a separate-library consumer. Static initializers remain diagnosed until runtime type initialization is available. Runtime Contract configuration and ordinary .NET defaults are unchanged.
 
 - **2026-10-14:** Admit explicit readonly instance fields in the native neoCLR emitter. Preserve InitOnly metadata and imported symbols, constructor/initializer writes and ordinary-write diagnostics. Add separate-library execution and metadata checks. Static storage remains a separate backend gap; ordinary .NET semantics and Runtime Contract configuration are unchanged.
