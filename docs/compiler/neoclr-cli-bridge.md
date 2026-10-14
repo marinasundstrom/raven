@@ -11507,3 +11507,18 @@ The source composition regression also passes. The runtime library fixture is
 `target/tuple-info-libraries-v2` from compiler
 `793219d855b17f01fb805e215968b78871eb3804`; the emitting compiler is the dedicated
 `codex/neoclr-union-intersection` branch, runtime `codex/structural-union-intersection`.
+
+
+### Native tuple names: runtime boundary — 2026-10-14
+
+The companion Rust runtime now stores optional names directly in native tuple
+signatures and exposes them through per-signature host descriptors. Native metadata
+roundtrips and generic/Self substitution preserve names; structural equality, hash
+and resolved type identity remain positional. Renamed parameter signatures execute
+with result 42. Unnamed tuples retain the original array encoding; named shapes use
+an object payload with `elements` and `names`, requiring matching readers.
+
+Raven's current source-local tuple slice still emits unnamed shapes. C# builder/reader
+name support, Raven emission/import and guest name queries remain pending. Runtime
+Contract settings, CLI projection and ordinary .NET behavior are unchanged. Avoid
+losing descriptive names by interning signatures solely on structural identity.
