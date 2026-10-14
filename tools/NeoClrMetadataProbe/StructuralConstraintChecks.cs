@@ -32,6 +32,31 @@ internal static class StructuralConstraintChecks
             func Main() -> int { return Read<BothTraits>(BothTraits()) }
             """)], catalog.References.ToArray(), options);
         Emit(traits, catalog, "TraitSource", Path.Combine(output, "TraitSource.neox"));
+        var traitLibraryPath = Path.Combine(output, "TraitLibrary.neox");
+        var traitLibrary = Compilation.Create("TraitLibrary", [SyntaxTree.ParseText("""
+            public interface ImportedReadsA {
+                func ReadA() -> int
+            }
+            public interface ImportedReadsB {
+                func ReadB() -> int
+            }
+            """)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        Emit(traitLibrary, catalog, "TraitLibrary", traitLibraryPath);
+        var traitCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
+            [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var externalTraits = Compilation.Create("ExternalTraits", [SyntaxTree.ParseText("""
+            interface LocalA : ImportedReadsA {}
+            interface LocalB : ImportedReadsB {}
+            class BothTraits : LocalA, LocalB {
+                func ReadA() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            func Read<T>(value: T) -> int where T: LocalA & LocalB {
+                return value.ReadA() + value.ReadB()
+            }
+            func Main() -> int { return Read<BothTraits>(BothTraits()) }
+            """)], traitCatalog.References.ToArray(), options);
+        Emit(externalTraits, traitCatalog, "ExternalTraits", Path.Combine(output, "ExternalTraits.neox"));
         var source = """
             public interface A {}
             public interface B {}
