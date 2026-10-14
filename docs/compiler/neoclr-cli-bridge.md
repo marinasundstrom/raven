@@ -11466,3 +11466,15 @@ composition-only readers/importers remain unchanged and reject tuple contracts.
 CLI projection remains rejected; Runtime Contract settings are unchanged. The separate
 native consumer returns 42 and verifies tuple-forwarding signatures. This does not
 claim Raven tuple lowering or C# tuple value-construction/element APIs are implemented.
+
+
+### Native tuple value authoring — 2026-10-14
+
+The companion metadata `IILGenerator` adds `NewTuple`, `LoadTupleElement` and
+`StoreTupleElement`. They emit structural aggregate creation and indexed elements,
+with exact stack typing and owned signature/index checks. Store returns an updated
+copy: Raven lowering must assign that value explicitly when replacing a local.
+The separate consumer executes nested construction, imported echo, reads and copy
+update with result 42. No nominal carrier, constructor or FieldDef is introduced.
+Runtime Contract configuration and ordinary .NET lowering are unchanged; CLI output
+still rejects tuple admission. Managed-address authoring and Raven lowering remain.
