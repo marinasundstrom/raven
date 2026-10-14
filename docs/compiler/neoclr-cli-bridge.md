@@ -11096,3 +11096,17 @@ files to the pre-slice revision (4d34e3505); this is not reported as a passing c
 Its general readonly-receiver behavior is deferred for independent reproduction/fix on
 Raven main and deliberate carry-forward, outside this structural-type experiment.
 No website build was needed; published capability status remains unchanged.
+
+### neoCLR union classification correction (2026-10-14)
+
+The companion structural-composition runtime reserves TypeInfo.IsUnion for structural
+unions; nominal metadata checks use NominalTypeInfo.IsUnionDeclaration. This changes
+the development library API meaning and requires migrated nominal callers. Runtime
+TypeShape slot 14 supplies the structural predicate; slot 10 remains the nominal
+marker helper. Pair the updated library with the matching runtime/backend.
+
+No Raven compiler mapping, CLI signature encoding or Runtime Contract option changes.
+Guest structural TypeInfo construction remains gated. neoCLR's classification and
+route-mapper consumers validate the split against rebuilt native libraries; its
+obsolete CLI runtime-slice generator remains separately blocked. Other nominal
+helper grouping is follow-up work.
