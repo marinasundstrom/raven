@@ -41,8 +41,8 @@ There is no new Runtime Contract setting or storage/emission capability. See the
 The companion metadata library at neoCLR `2c860c612` exposes an opt-in read-only profile through
 `AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true)`
 and `SignatureType.Composition`. It preserves normalized same-kind compounds and
-snapshot-owned bounds, with no nominal-supertype reduction. Default reads, native
-callable import and CLI projection still reject compounds. Raven's ordinary adapter has not opted in; the separate experimental API supports
+snapshot-owned bounds, with no nominal-supertype reduction. Default reads, ordinary
+callable import and compound CLI declaration projection still reject compounds. Raven's ordinary adapter has not opted in; the separate experimental API supports
 semantic inspection only. Native emission reports NEOMETA001 for any reference
 with compound callables, including signatures whose compiler type normalizes to
 one nominal type. Enabling storage still requires a native capability and
@@ -51,6 +51,18 @@ identity, limits and rejection. Raven's `--intersection-symbols` probe adds cold
 semantic queries, retained native descriptors, union/default-reader rejection and
 no-output checks for both emitter entry points; the nullable-symbol baseline remains
 green. These checks do not establish Raven compound source execution.
+
+The host metadata library at neoCLR `930ddf60` now adds
+`AssemblyBuilder.ImportExperimentalCompositionReference` for native free-function
+calls. It preserves original bounds with output-owned identities, serializes native
+compound call operands and validates exact compound stack identity. Three emitted
+host callers (union, intersection and redundant `A & Both`) run in the opt-in
+interpreter and return 42. General authored storage and compound CLI declarations
+remain closed. The full metadata harness reports 171/173 with the same two known
+failures; this branch's `--intersection-symbols` probe still passes. Raven's
+NEOMETA001 gate remains: lowering and native call encoding must use the original
+metadata contract before source emission can be enabled. No Runtime Contract
+setting or CLI bridge encoding changes in this slice.
 
 The neoCLR experiment supports nongeneric free-function locals, parameters/results,
 checked reference casts and guaranteed interface dispatch. It rejects fields,

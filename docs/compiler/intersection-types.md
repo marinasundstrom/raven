@@ -176,3 +176,12 @@ A probe setup also exposed an unrelated cold `GetAssemblyOrModuleSymbol` null
 loader failure before compilation setup. It is deferred as a general compiler
 candidate for Raven main with independent validation; this slice uses the intended
 source semantic query paths and does not change that API.
+
+### Native callable-emission prerequisite
+
+neoCLR `930ddf60` adds explicit host callable import/serialization preserving raw
+composition descriptors, including nominally redundant bounds. Three host-emitted
+native callers return 42 in the opt-in interpreter. Raven's semantic-import probe
+still passes against this revision; the compiler's NEOMETA001 emission guard is
+unchanged. The next source-emission slice must carry those raw contracts through
+lowering and call encoding rather than reconstructing them from normalized symbols.
