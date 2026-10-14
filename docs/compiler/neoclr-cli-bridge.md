@@ -10816,3 +10816,41 @@ for compositions inside generic arguments is the next missing layer for Task of 
 union. Owners remain the paired experimental branches; published/main support is
 unchanged. No website build is needed: the proposals page still labels this work
 as exploratory, and the experimental API reference documents the widened profile.
+
+
+## Runtime composition argument storage — 2026-10-14
+
+The experimental interpreter now accepts a closed reference class instantiated with
+reference-only union/intersection arguments. A generic field declared as T can store
+such a payload; ordinary generic identity, field write checking, free-function
+parameter/result passing and object tracing are reused. For example, an assembled
+`Envelope<union<Response<Int32>,Left>>` retains its Response payload across repeated
+garbage collections and returns 42 after narrowing and field extraction. This is a
+plain test envelope, not System.Task or evidence of async support.
+
+Admission validates instantiated fields as well as generic declarations: T[] and T&
+fields cannot bypass current compound array/byref restrictions. Wrappers remain
+invariant: Wrapper<A | B> cannot be passed as Wrapper<A & B>. Wrong payload writes
+reject in verification and execution. Reference unions/intersections as arguments
+round-trip native serialization, including reordered bounds. Raw serialized wrapper
+signatures retain the feature gate.
+
+This slice allows the existing field-wise neoIL newobj allocation, field access and
+nongeneric free-function calls. Constructor calls, owned generic methods, open
+composition parameters, value alternatives, explicit compound field declarations,
+static fields, arrays/byrefs and JIT/AOT remain outside the admitted surface. Generic
+value/interface wrappers are also still gated. The metadata host adapter and Raven
+emitter continue to reject compositions inside generic arguments; the next integration
+step is native wrapper signature transport and supported owned-call execution before
+attempting real Task consumers.
+
+Compared with .NET generic storage, the experiment preserves invariant construction
+and field safety, extending only the admitted argument language. Reusing ordinary
+reference payload tracing avoids a new carrier allocation; validating substituted
+storage adds admission work and deliberately rejects unsupported wrappers. Runtime
+Contract settings and temporary CLI carriers are unchanged. Ownership remains on the
+paired experimental branches, with no main/published capability change. Existing
+website proposal status remains accurate; no website build is needed.
+
+Validation: 19 feature-enabled composition tests, 13 ordinary generic-class
+controls and both default-off serialized-signature tests pass.
