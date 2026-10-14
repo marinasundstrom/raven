@@ -11274,3 +11274,13 @@ executes a separately compiled consumer with result 42. Existing structural opt-
 and exact-snapshot native import contracts are unchanged; no compiler syntax/model
 or CLI projection changes are needed. Open structural bound operands, owner-parameter
 forwarding, external-bound source authoring and generic-body traits remain pending.
+
+Generic-body trait follow-up (2026-10-14): the paired metadata builder/runtime now
+admit owned nongeneric instance interface calls when a structural method bound
+proves the required trait. The new Raven fixture calls both members through
+`T: ReadsA & ReadsB` and returns 42 under the existing native structural opt-in.
+Lowering already supplies a managed parameter reference; native borrowed callself
+preserves the concrete receiver and performs normal implementation dispatch.
+No compiler syntax, token, Runtime Contract or CLI representation changes are needed.
+Native tests reject union bounds that do not guarantee every requested trait.
+External/constructed constrained targets and more general open bounds remain pending.

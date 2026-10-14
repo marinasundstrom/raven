@@ -15,6 +15,23 @@ internal static class StructuralConstraintChecks
         var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication)
             .WithRuntimeTypeOfContract(null)
             .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime").WithStructuralCompositions());
+        var traits = Compilation.Create("TraitSource", [SyntaxTree.ParseText("""
+            interface ReadsA {
+                func ReadA() -> int
+            }
+            interface ReadsB {
+                func ReadB() -> int
+            }
+            class BothTraits : ReadsA, ReadsB {
+                func ReadA() -> int { return 40 }
+                func ReadB() -> int { return 2 }
+            }
+            func Read<T>(value: T) -> int where T: ReadsA & ReadsB {
+                return value.ReadA() + value.ReadB()
+            }
+            func Main() -> int { return Read<BothTraits>(BothTraits()) }
+            """)], catalog.References.ToArray(), options);
+        Emit(traits, catalog, "TraitSource", Path.Combine(output, "TraitSource.neox"));
         var source = """
             public interface A {}
             public interface B {}
