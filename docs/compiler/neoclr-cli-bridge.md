@@ -11673,3 +11673,37 @@ Open-element emission, nonlocal mutation, managed element addresses and broader
 backend support remain separate work.
 
 Companion evidence: neoCLR `docs/experiments/structural-tuples/symbol-results.json`.
+
+## Native project integration — 2026-10-15 development
+
+On the structural feature branches, ordinary `rvnc neoclr --project` builds now
+enable unions, intersections and structural tuples together. Catalog loading,
+project-reference identity checks, semantic imports and native emission preserve
+all three in the same library. `RavenNeoClrStructuralCompositions` and
+`RavenNeoClrStructuralTuples` default to true; explicit false retains reduced
+profiles, and malformed values fail. Ordinary .NET compilation is unchanged.
+Low-level host APIs retain explicit admission switches; direct source CLI tuple
+compilation uses `--structural-tuples`.
+
+The default neoCLR Cargo build includes both structural feature flags. Their
+legacy experimental names remain available for reduced-profile validation with
+`--no-default-features`. Native project `--run` selects the interpreter when the
+tuple profile is enabled. JIT/AOT support is still absent; this is development
+integration, not a claim of complete backend or open-generic support.
+
+Names remain native tuple metadata and do not affect positional compatibility.
+Intersections still require explicit nominal conformance. Unlike CLR ValueTuple
+and attribute-based names, this profile uses native signature nodes without a
+nominal tuple carrier. This requires coordinated compiler/runtime versions and
+has no CLI projection. Legacy runtime tuple declarations remain for older consumers.
+
+Validation: the separate library/app sample in neoCLR
+`docs/experiments/structural-tuples/project` imports and calls union/intersection
+functions and mutates a named tuple while preserving its earlier copy (exit 42).
+Default-feature Rust tuple, composition and constraint tests pass (16 + 38 + 5).
+The sample currently uses the matching `target/tuple-names-libraries-v2` bundle,
+whose source-library compiler revision is
+`793219d855b17f01fb805e215968b78871eb3804`. Rebuilding that bundle with the current
+compiler remains blocked by the recorded bitwise/intersection parser regression.
+Full source-library migration, nonlocal tuple mutation and broader element forms
+remain follow-ups; this slice does not remove those limits.

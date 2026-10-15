@@ -20,14 +20,18 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         Artifact = new(identity.Name, identity.Version, identity.Culture, identity.PublicKeyToken, identity.Flags, sha256);
     }
     internal Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? Documentation { get; }
-    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath, bool allowExperimentalCompositions = false, IAssemblyResolver? resolver = null)
+    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath, bool allowExperimentalCompositions = false, IAssemblyResolver? resolver = null, bool allowExperimentalTuples = false)
     {
-        var reference = allowExperimentalCompositions
+        var reference = allowExperimentalTuples
+            ? new NeoClrMetadataReference(AssemblyDefinition.ReadExperimentalTupleAssembly(image, resolver, allowExperimentalCompositions),
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, hasExperimentalCompositions: allowExperimentalCompositions)
+            { HasExperimentalTuples = true, HasExperimentalUnions = allowExperimentalCompositions }
+            : allowExperimentalCompositions
             ? ReadExperimentalCompositionAssembly(image, bootstrap, resolver)
             : new NeoClrMetadataReference(AssemblyDefinition.ReadNativeAssembly(image), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
         return new(reference.Definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap,
             Raven.CodeAnalysis.Symbols.ExternalDocumentationSet.TryLoad(assemblyPath), reference.HasExperimentalCompositions)
-        { HasExperimentalUnions = reference.HasExperimentalUnions };
+        { HasExperimentalUnions = reference.HasExperimentalUnions, HasExperimentalTuples = reference.HasExperimentalTuples };
     }
 
     internal bool HasExperimentalCompositions { get; }
