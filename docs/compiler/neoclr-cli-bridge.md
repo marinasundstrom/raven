@@ -12696,3 +12696,19 @@ No Runtime Contract option or Raven lowering rule changes. Use matching runtime
 and library artifacts because descriptor classification adds TypeShape selectors.
 Open-definition native reflection remains unavailable in the current closed-world
 profile; this does not restrict native interface variance calls.
+
+### Annotated native library interfaces (2026-10-16)
+
+The matching neoCLR library declares producer/read-only interfaces covariant and
+comparison interfaces contravariant. This includes synchronous and asynchronous
+iterators/sources, Collection, Sequence, ConvertibleInto, Comparer, EqualityComparer,
+ComparableTo and EquatableTo. Native imports carry the annotations into ordinary
+reference conversion checks and emission; no Runtime Contract setting changes.
+Mutable containers, arrays, Result and Sliceable remain invariant. Generic classes
+remain invariant even when they implement a variant interface.
+
+Main's reference-only variance fix `aefd5d4ed` is deliberately carried to this line
+as `1e6771d5f`. Thirteen focused semantic tests pass on each line. The library
+consumer additionally checks native imported conversions and rejects reverse,
+mutable, boxing and Sliceable result widening; interpreter/AOT/JIT qualification
+is retained in neoCLR's `docs/validation/interface-variance/library`.
