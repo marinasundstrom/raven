@@ -12685,3 +12685,14 @@ native library/consumer emission, symbol flags and negative conversions. The con
 returns 42 in neoCLR's interpreter. The broader pre-change native-symbol probe has
 an unrelated property/accessor identity failure in ExternalNativeChecks. AOT/JIT
 qualification and library annotations remain pending; structural work stays parked.
+
+### Generic parameter introspection (2026-10-16)
+
+The matching neoCLR library exposes `GenericParameterTypeInfo.Variance` on unbound
+type parameters discovered from open definitions. The values are Invariant,
+Covariant (`out`) and Contravariant (`in`); constructed arguments retain their
+actual type descriptors. Method `ParameterInfo.IsOut` remains unrelated.
+No Runtime Contract option or Raven lowering rule changes. Use matching runtime
+and library artifacts because descriptor classification adds TypeShape selectors.
+Open-definition native reflection remains unavailable in the current closed-world
+profile; this does not restrict native interface variance calls.
