@@ -41,7 +41,8 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         var named = type.Nominal!;
         if (named is ITupleTypeSymbol && resolveExternal is not null) return resolveExternal(named);
         if (named.SpecialType == SpecialType.System_RuntimeTypeHandle) return PrimitiveType.RuntimeTypeHandle;
-        if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
+        // Planning applies the selected capability gate; mapping must preserve admitted structural elements.
+        if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.ExperimentalTuplesAndIntersections))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal, mapParameter), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal, mapParameter))));
         if (resolveExternal is not null && (named.TypeKind == TypeKind.Enum && named.DeclaringSyntaxReferences.IsEmpty || CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols))) return resolveExternal(named);
         if (OwnerArguments(named) is { Length: > 0 } arguments) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(arguments.Select(t => Map(t, resolveClass, resolveExternal, mapParameter)).ToArray());

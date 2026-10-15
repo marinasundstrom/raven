@@ -11840,3 +11840,37 @@ writeback and returns 42. System.Web passes its former TryGetResidual(out union)
 emission boundary but now fails resolving `delegate T0 -> TResult` in Int32Emitter;
 a full fresh library build remains incomplete. The earlier full metadata harness
 result (169/175) is unchanged evidence, not a rerun for this slice.
+
+## Structural callback mapping — 2026-10-15 development
+
+Native callback mapping now preserves structural elements already admitted by the
+selected compilation capability profile. Previously, body planning admitted these
+shapes but the mapper retried the narrower shared profile, treating the callback
+as a nominal delegate and failing dictionary lookup. The native mapper now uses
+its structural mapping surface; admission remains owned by planning and explicit
+target options. Ordinary CLI emission is unchanged. Compared with CLR delegate
+transport, neoCLR retains its structural Function signature without introducing a
+nominal delegate declaration.
+
+Native host reads/materialization preserve union/intersection elements inside
+Function signatures when composition reading is enabled. The interpreter admits
+exact nongeneric callback bindings without composition-bearing owners and validates
+function parameter/result storage. A direct callback returning `int | Other`
+executes with result 42. The union itself remains a value; a reference alternative
+carries a reference. The current boxing representation does not change that contract.
+
+Validation: 46 structural runtime tests pass, including exact-target rejection;
+the host callback signature roundtrip and native compiler build pass. The editable
+callback sample returns 42. A fresh source build now produces Runtime, Data,
+Networking and Web in `target/structural-integrated-libraries-v3`; its build evidence
+records the compiler working revision and bootstrap inputs. Building the four
+libraries does not establish execution of generic value wrappers or a release-ready
+bundle. Callback variance/adapters, generic composition callback targets and native
+JIT/AOT remain unvalidated or restricted. See the value-union experiment evidence
+for the separate bundle qualification result.
+
+Fresh bundle qualification: the HTTP-header consumer rejects the selected native
+metadata graph before emission with “Selected native metadata cannot be resolved;
+an image is invalid or a structural signature dependency is missing or cyclic.”
+The underlying invalid image/dependency is not yet isolated. This is the next
+integration blocker; successful library generation is not execution evidence.
