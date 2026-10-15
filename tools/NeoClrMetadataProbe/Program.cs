@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--interface-variance", var varianceCore, var varianceOutput]) { NativeVarianceChecks.Run(varianceCore, varianceOutput); return; }
+
 if (args is ["--source-tuples", var tupleInputs, var tupleOutput]) { SourceTupleChecks.Run(tupleInputs, tupleOutput); return; }
 
 if (args is ["--structural-constraints", var constraintInputs, var constraintOutput]) { StructuralConstraintChecks.Run(constraintInputs, constraintOutput); return; }

@@ -68,7 +68,12 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
                 _ => SpecialType.None
             };
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
-            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
+            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this, variance: parameter.Variance switch
+            {
+                NeoCLR.Metadata.Experimental.Model.GenericVariance.Covariant => VarianceKind.Out,
+                NeoCLR.Metadata.Experimental.Model.GenericVariance.Contravariant => VarianceKind.In,
+                _ => VarianceKind.None
+            }))];
         TypeArguments = [.. TypeParameters];
         interfaces = new(() =>
         {

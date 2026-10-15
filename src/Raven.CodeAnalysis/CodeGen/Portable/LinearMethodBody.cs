@@ -962,7 +962,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => TryType(t, false, out var type) && capabilities.Allows(type));
         bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
             method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
-            ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner) ||
+            ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner, capabilities) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
         LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.IsValueType == true
@@ -1762,7 +1762,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
-                    SourceInterfacePlan.HasSupportedIdentity(target) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
+                    SourceInterfacePlan.HasSupportedIdentity(target, capabilities) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
                     conversion.Expression.Type.SpecialType == SpecialType.System_Int32 && conversion.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:

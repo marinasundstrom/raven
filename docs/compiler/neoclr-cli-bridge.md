@@ -12659,3 +12659,29 @@ is maintained in neoCLR docs/validation/range-iteration. Async pending-await tes
 are ordinary .NET qualification, not a new native async scheduling claim. Other
 numeric domains and existing zero-step behavior are unchanged; generic Interval
 and explicit progression APIs are separate library design work.
+
+
+## Explicit interface variance (2026-10-16)
+
+The neoCLR adapter enables `AllowsInterfaceVariance`; no additional user Runtime
+Contract setting is required beyond selecting the native neoCLR target. Existing
+`interface Producer<out T>` and `interface Consumer<in T>` syntax is preserved in
+native type-parameter symbols and emitted as `generic_variance`. Parameters remain
+invariant unless annotated. The portable capability defaults to false for other
+adapters; ordinary .NET emission and main are unchanged. These portable files exist
+on codex/neoclr, so this slice introduces no shared-main change to carry.
+
+The paired neoCLR metadata SDK supports authoring, nested polarity checks, imported
+semantic-provider annotations and reference-only call/return conversions. Native
+metadata is authoritative; temporary CLI reference projections preserve the same
+variance flags and do not provide native execution. Matching reference/runtime
+bindings are required. No implicit boxing, primitive materialization, mutable-array
+covariance or Result value conversion is introduced. Unsafe declaration emission
+returns diagnostics without writing an output image.
+
+Validation: existing main variance semantics (nine tests) pass. Run the focused
+probe with `--interface-variance <NeoCLR.CoreProbe.dll> <output>` for independent
+native library/consumer emission, symbol flags and negative conversions. The consumer
+returns 42 in neoCLR's interpreter. The broader pre-change native-symbol probe has
+an unrelated property/accessor identity failure in ExternalNativeChecks. AOT/JIT
+qualification and library annotations remain pending; structural work stays parked.

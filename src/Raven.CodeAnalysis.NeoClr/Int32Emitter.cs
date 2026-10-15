@@ -569,6 +569,13 @@ internal static class Int32Emitter
                                 original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
                             : assembly.CreateTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
                                 original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity);
+                    if (original.TypeKind == TypeKind.Interface)
+                        assembly.SetInterfaceVariance(imported, original.TypeParameters.Select(p => p.Variance switch
+                        {
+                            VarianceKind.Out => GenericVariance.Covariant,
+                            VarianceKind.In => GenericVariance.Contravariant,
+                            _ => GenericVariance.Invariant
+                        }));
                 }
                 else
                 {
@@ -686,6 +693,13 @@ internal static class Int32Emitter
             nativeInterfaces.Add(symbol, symbol.IsSealedHierarchy ? assembly.AddClosedInterface(contract.Namespace, contract.Name, visibility)
                 : symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
                 : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility));
+            for (int i = 0; i < symbol.TypeParameters.Length; i++)
+                nativeInterfaces[symbol].SetVariance(i, symbol.TypeParameters[i].Variance switch
+                {
+                    VarianceKind.Out => GenericVariance.Covariant,
+                    VarianceKind.In => GenericVariance.Contravariant,
+                    _ => GenericVariance.Invariant
+                });
         }
         foreach (var pair in nativeInterfaces) nativeTypes.Add(pair.Key, pair.Value);
         var interfaceMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
@@ -1404,7 +1418,7 @@ internal static class Int32Emitter
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
             original.TypeKind == TypeKind.Class && original.IsStatic && original.ContainingType is null &&
             CanImportVisibility(original) && original.Interfaces.IsEmpty &&
-            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
+            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 
         bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&
@@ -1416,7 +1430,7 @@ internal static class Int32Emitter
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
                 original.TypeKind == TypeKind.Class && original.Arity == 0 && original.BaseType is { Arity: 0, ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition(parentClass, depth + 1)) &&
-            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
+            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&
             SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Unit));

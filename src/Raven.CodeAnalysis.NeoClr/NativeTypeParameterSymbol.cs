@@ -8,10 +8,11 @@ internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
     private readonly Lazy<ImmutableArray<ITypeSymbol>> constraintTypes;
 
-    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null)
+    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None)
         : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], [])
     {
         Ordinal = ordinal;
+        Variance = variance;
         constraintTypes = new(getConstraints ?? (() => []));
     }
 
@@ -21,7 +22,7 @@ internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public IMethodSymbol? DeclaringMethodParameterOwner => ContainingSymbol as IMethodSymbol;
     public TypeParameterConstraintKind ConstraintKind => ConstraintTypes.IsEmpty ? TypeParameterConstraintKind.None : TypeParameterConstraintKind.TypeConstraint;
     public ImmutableArray<ITypeSymbol> ConstraintTypes => constraintTypes.Value;
-    public VarianceKind Variance => VarianceKind.None;
+    public VarianceKind Variance { get; }
     public SpecialType SpecialType => SpecialType.None;
     public TypeKind TypeKind => TypeKind.TypeParameter;
     public bool IsNamespace => false;

@@ -14,19 +14,19 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
 {
     // Identity admission must not recursively inspect members: interface signatures
     // can refer back to their own definition or to another interface.
-    internal static bool HasSupportedIdentity(INamedTypeSymbol type) =>
+    internal static bool HasSupportedIdentity(INamedTypeSymbol type, EmissionCapabilities? capabilities = null) =>
         type.TypeKind == TypeKind.Interface && type.ContainingType is null &&
         type.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal &&
         type.DeclaringSyntaxReferences.Length == 1 && type.DeclaringSyntaxReferences[0].GetSyntax() is InterfaceDeclarationSyntax &&
-        ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => p.Variance == VarianceKind.None &&
+        ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
             p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
 
     internal static bool HasSupportedRelationship(INamedTypeSymbol target, IAssemblySymbol owner, EmissionCapabilities? capabilities)
     {
-        if (SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, owner)) return HasSupportedIdentity(target);
+        if (SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, owner)) return HasSupportedIdentity(target, capabilities);
         return capabilities?.AllowsExternalInterfaceDeclarations == true && target.TypeKind == TypeKind.Interface &&
             target.ContainingType is null && target.DeclaredAccessibility == Accessibility.Public &&
-            ((INamedTypeSymbol)target.OriginalDefinition).TypeParameters.All(p => p.Variance == VarianceKind.None &&
+            ((INamedTypeSymbol)target.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
                 p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
     }
 
@@ -37,7 +37,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             !capabilities.Allows(EmissionDeclarationKind.Interface) || !capabilities.Allows(EmissionDeclarationKind.InterfaceMethod) ||
             !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility) || !capabilities.AllowsMethodVisibility(Accessibility.Public) ||
             type.Arity > 0 && !capabilities.AllowsGenericInterfaceDeclarations ||
-            type.TypeParameters.Any(p => p.Variance != VarianceKind.None || p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty) ||
+            type.TypeParameters.Any(p => p.Variance != VarianceKind.None && !capabilities.AllowsInterfaceVariance || p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty) ||
             type.DeclaringSyntaxReferences.Length != 1 || type.DeclaringSyntaxReferences[0].GetSyntax() is not InterfaceDeclarationSyntax syntax ||
             (!capabilities.AllowsCustomAttributes && syntax.AttributeLists.Count != 0) || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword) &&
                 !(m.Kind == SyntaxKind.SealedKeyword && capabilities.AllowsClosedInterfaceFamilies && type.Arity == 0)))

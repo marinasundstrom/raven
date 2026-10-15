@@ -723,3 +723,10 @@ neoclr run <output>/Consumer.neo.json --module <output>/Provider.neo.json --show
 Expected result: `Int32(42)` (process exit 42). This qualifies interpreted execution
 under the current unsigned, simple-ASCII runtime identity profile; it does not qualify
 AOT or signed assemblies. The bootstrap Core must retain AttributeUsage metadata.
+
+
+`--interface-variance <NeoCLR.CoreProbe.dll> <output>` emits VarianceLibrary.dll and
+VarianceConsumer.dll, preserving explicit native `in`/`out` annotations across the
+assembly boundary. It checks symbol flags, reverse/invariant/value-argument rejection
+and unsafe declaration emission. The consumer's success result is 42. Runtime/native
+backend qualification is separate from this emission probe.
