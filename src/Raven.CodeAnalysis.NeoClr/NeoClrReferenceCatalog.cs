@@ -175,7 +175,8 @@ public sealed class NeoClrReferenceCatalog
                 }
             }
             if (!progress)
-                throw new InvalidDataException("Selected native metadata cannot be resolved; an image is invalid or a structural signature dependency is missing or cyclic.",
+                throw new InvalidDataException("Selected native metadata cannot be resolved; an image is invalid or a structural signature dependency is missing or cyclic. " +
+                    string.Join("; ", paths.Select((path, index) => references[index] is null ? path + ": " + errors[index]?.Message : null).Where(detail => detail is not null)),
                     errors.First(e => e is not null));
         }
         return references.Select(reference => reference!).ToArray();

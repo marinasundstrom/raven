@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Preserve structural arguments in native generic value-wrapper and managed generic-method declaration reads. Report per-image catalog resolution failures. A focused metadata roundtrip passes and the fresh bundle consumer emits; runtime generic-composition admission remains the next boundary.
+
 - Preserve admitted structural callback signatures in native mapping instead of falling through to nominal delegate lookup. Support host callback signature reads and bounded interpreter union callbacks (sample 42; 46 runtime tests). Fresh Runtime/Data/Networking/Web source generation now passes; consumer qualification currently fails native metadata resolution before emission.
 
 - Support direct native structural union/intersection managed parameters across compiler mapping, metadata authoring/reads and interpreter slot operations. Validate replacement/copy behavior, incompatible-write rejection and nominal intersection dispatch (44 runtime checks). The source out/ref consumer returns 42; System.Web now reaches a later delegate-resolution emitter failure. Nested wrapper/field addresses and the native ABI remain limited.

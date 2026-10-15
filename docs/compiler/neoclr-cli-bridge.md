@@ -11874,3 +11874,21 @@ metadata graph before emission with “Selected native metadata cannot be resolv
 an image is invalid or a structural signature dependency is missing or cyclic.”
 The underlying invalid image/dependency is not yet isolated. This is the next
 integration blocker; successful library generation is not execution evidence.
+
+## Generic structural declaration reads — 2026-10-15 development
+
+Native declaration reads now preserve bounded structural arguments inside nominal
+value wrappers and managed generic method signatures. The former reader gate
+confused declaration introspection with the narrower execution profile and rejected
+System.Web's Result<T, HttpError | JsonError> signatures. Open union constituents
+remain rejected; a scoped parameter in a nominal wrapper is preserved as before.
+Execution and callable import still apply their own validation. Default reads and
+CLI projection remain restricted. This extends native signature metadata beyond CLR
+signatures while retaining nominal generic definition identity.
+
+The catalog now reports the path and reader error for each unresolved selected
+image without searching for dependencies. Focused authored metadata tests preserve
+a generic method's scoped parameter and structural argument in a value wrapper.
+The fresh v3 bundle HTTP-header consumer now emits; execution next rejects generic
+composition methods at the runtime surface gate. No runtime support is claimed by
+this reader slice.
