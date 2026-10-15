@@ -11944,3 +11944,47 @@ JIT/AOT layout and native boxing remain follow-ups owned by the runtime/backend
 work. Nominal interface conformance remains explicit. No compiler mapping or
 ordinary .NET behavior changes in this slice. Evidence is recorded in neoCLR's
 `docs/experiments/value-unions/task-results.json`.
+
+## Direct task union reference extraction — 2026-10-15 development
+
+The native structural conversion classifier now allows an explicit cast from a
+union to an exact reference alternative. Previously it allowed exact value
+extraction but rejected `Response | HttpError | JsonError` to `Response`.
+Conversions guaranteed by every alternative remain implicit; an unrelated
+reference destination remains rejected. Source diagnostics and the public
+conversion model share this decision. No syntax or editor grammar changes are
+needed. Native lowering uses the existing checked reference conversion, preserving
+the payload reference; the union itself remains a value.
+
+This applies to structural symbols selected by the neoCLR Runtime Contract and
+`WithStructuralCompositions` capability. Ordinary .NET union carriers are not
+changed. The .NET comparison is a checked explicit reference cast, but its source
+here is a native structural signature rather than a nominal base reference.
+The compiler owns classification/emission; the runtime owns membership checks and
+its temporary boxed payload storage. Whole-union boxing, exact boxed-union identity
+and final native JIT/AOT layout remain separate work.
+
+The interpreter also follows structural method arguments on nominal calls with no
+structural owner or value parameter, such as the generated await bridge's
+`Cancel<T>()`. It validates the substituted nonvirtual managed body using the
+existing bounded call graph. This does not bypass unsupported operations introduced
+by substitution.
+
+Open `Response<T> | HttpError | JsonError` inside a generic declaration remains
+rejected by native metadata encoding: `composition requires bounded closed
+constituents`. The editable negative probe is `open-generic-project` under neoCLR's
+`docs/experiments/value-unions`. Closed instantiation at a call site does not make
+that open declaration supported. Open composition operands require a coordinated
+metadata, compiler and runtime substitution slice. Direct closure capture of a
+union local also remains unsupported by native emission; capturing a nominal
+reference and constructing the union in the callback is a separately tested path.
+
+Validation: 21 focused compiler conversion/source tests and 55 structural runtime
+tests pass. The fresh v3 direct `Task<Response | HttpError | JsonError>` and closed
+`Task<Response<int> | HttpError | JsonError>` consumers both exit 42. Each checks
+completed, queued and async-forwarded success/HTTP/JSON alternatives, plus reference
+identity after queued delivery. The open-generic probe fails with the documented
+metadata diagnostic. Commands, revisions and hashes are saved in neoCLR's
+`docs/experiments/value-unions/direct-task-results.json`; all three editable projects
+use the v3 bundle props. These results do not qualify all library endpoints or
+open composition forms.

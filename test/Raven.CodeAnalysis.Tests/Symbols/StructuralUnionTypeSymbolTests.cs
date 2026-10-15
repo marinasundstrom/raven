@@ -29,6 +29,24 @@ public sealed class StructuralUnionTypeSymbolTests
     }
 
     [Fact]
+    public void ReferenceAlternative_ExtractsExplicitlyWithoutWeakeningMembership()
+    {
+        var c = Create();
+        var first = c.GetTypeByMetadataName("First")!;
+        var second = c.GetTypeByMetadataName("Second")!;
+        var a = c.GetTypeByMetadataName("A")!;
+        foreach (var other in new[] { c.GetSpecialType(SpecialType.System_Int32), second })
+        {
+            var union = c.CreateStructuralUnionTypeSymbol(first, other);
+            var extraction = c.ClassifyConversion(union, first);
+            Assert.True(extraction.Exists && extraction.IsExplicit && extraction.IsReference);
+            Assert.False(extraction.IsBoxing || extraction.IsUnboxing);
+            Assert.False(c.ClassifyConversion(union, c.GetSpecialType(SpecialType.System_String)).Exists);
+        }
+        Assert.True(c.ClassifyConversion(c.CreateStructuralUnionTypeSymbol(first, a), a).IsImplicit);
+    }
+
+    [Fact]
     public void Identity_FlatteningDisplayAndVisitor_DoNotCreateNominalCarrier()
     {
         var c = Create();

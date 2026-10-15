@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Allow explicit extraction of exact reference alternatives from native structural unions while retaining implicit all-alternative membership and unrelated-type rejection. Track structural generic arguments on nominal runtime calls with no value parameters. Validate direct and closed-generic task consumers (42 each, ten checks per consumer), 21 compiler tests and 55 runtime tests. Save an open-generic metadata rejection probe; open `Response<T>` operands and union-local closure capture remain incomplete.
+
 - Document companion runtime admission of native structural-union extraction from nominal Result payloads. The fresh-bundle awaited `Task<Result<Response, HttpError | JsonError>>` consumer validates completed/queued success and both imported error alternatives (42); whole-union boxing and native ABI remain incomplete.
 
 - Validate nominal value wrappers and generic call/callback substitutions containing structural arguments, preserving caller scope and copied wrapper storage. Admit nested function and inhabited-unit arguments with existing composition operand restrictions. The fresh Runtime/Data/Networking/Web bundle consumer executes successfully, and failed-build output preservation passes.

@@ -26,9 +26,16 @@ public partial class Compilation
         if (!IsSupportedAlternative(source) || !IsSupportedAlternative(destination))
             return Conversion.None;
 
-        return HasMembership(source, destination)
-            ? new Conversion(isImplicit: true, isReference: true)
-            : Conversion.None;
+        if (HasMembership(source, destination))
+            return new Conversion(isImplicit: true, isReference: true);
+
+        // Extracting one exact reference alternative needs a runtime membership
+        // check, just as extracting an exact value alternative needs unboxing.
+        if (source is IStructuralUnionTypeSymbol referenceUnion && destination.IsReferenceType &&
+            referenceUnion.ConstituentTypes.Any(alternative => SymbolEqualityComparer.Default.Equals(destination, alternative)))
+            return new Conversion(isImplicit: false, isReference: true);
+
+        return Conversion.None;
 
         bool HasMembership(ITypeSymbol from, ITypeSymbol to)
         {

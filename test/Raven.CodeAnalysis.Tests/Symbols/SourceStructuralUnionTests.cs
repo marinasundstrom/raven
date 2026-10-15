@@ -7,6 +7,26 @@ namespace Raven.CodeAnalysis.Tests.Symbols;
 public sealed class SourceStructuralUnionTests
 {
     [Theory]
+    [InlineData("(Response)value", false)]
+    [InlineData("value", true)]
+    public void ReferenceExtraction_RequiresExplicitCast(string expression, bool hasError)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            class Response {}
+            func Extract(value: Response | int) -> Response { return {{expression}} }
+            """);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithTargetPlatform(TargetPlatform.NeoCLR)
+            .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+        var compilation = Compilation.Create("union-extraction", [tree], TestMetadataReferences.DefaultWithRavenCore, options);
+        var errors = compilation.GetSemanticModel(tree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+        if (hasError)
+            Assert.NotEmpty(errors);
+        else
+            Assert.Empty(errors);
+    }
+
+    [Theory]
     [InlineData(TargetPlatform.NeoCLR, true, true)]
     [InlineData(TargetPlatform.NeoCLR, false, false)]
     [InlineData(TargetPlatform.DotNet, true, false)]
