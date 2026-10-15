@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Record paired runtime AOT callable-union storage and collector qualification, with exact allocation checks and explicit native conversion limits. Raven source qualification remains open; Runtime Contract and compiler emission are unchanged.
+
 - Document paired runtime admission of callable union alternatives and exact narrowing, with interpreter receiver-collection checks. Raven source emission and native JIT/AOT callable-union layout remain unqualified; Runtime Contract and compiler mappings are unchanged.
 
 - Document bounded neoCLR AOT collector stress for structural union roots across allocating calls and normal/fault unwind, including eager/paced nonmoving collection and full post-entry reclamation. Raven emission, Runtime Contract and metadata are unchanged; the fresh imported Response<Cell> consumer additionally passes 32 invocations in each eager/paced collector mode with all 64 explicit allocations reclaimed per mode. JIT and async retention remain open.

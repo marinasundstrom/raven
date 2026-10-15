@@ -232,6 +232,12 @@ The paired neoCLR interpreter now accepts function alternatives in structural
 union metadata. Exact checked narrowing preserves the callable target and bound
 receiver, including interpreter collection across a union local. Runtime IL tests
 cover this boundary; this does not yet qualify Raven source emission of callable
-unions or native JIT/AOT storage. Runtime Contract configuration, compiler mapping
+unions or native JIT lifetime. Runtime Contract configuration, compiler mapping
 and CLI carriers are unchanged. Callable intersection bounds remain rejected;
 ordinary nominal interface conformance stays explicit.
+
+The paired runtime now also has bounded AOT callable-union storage: a tag and
+separate traced callable slots, with exact injection/narrowing and no union carrier
+allocation. Runtime IL tests exercise receiver retention, fault unwind and exact
+allocations under eager/paced native collection. This does not yet qualify Raven
+source emission, native Object widening, cross-layout conversions or JIT lifetime.

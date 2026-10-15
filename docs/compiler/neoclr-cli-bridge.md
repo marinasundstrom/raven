@@ -12295,3 +12295,16 @@ rejected. This extends native metadata interpretation, not the CLI carrier bridg
 Runtime Contract configuration and Raven emission are unchanged. The runtime owns
 admission/storage; Raven source qualification and native JIT/AOT layout/tracing are
 still required before advertising this combination as integrated compiler support.
+
+## 2026-10-15 — Native callable union storage
+
+The runtime's native backend now stores bounded function alternatives in tagged
+value-union regions with callable-specific tracing. AOT tests compare interpreter
+results for calls/copies, receiver retention under eager/paced collection, null,
+scalar replacement and wrong signatures. Exact allocation counts exclude a union
+carrier allocation. Function binding still allocates its standard descriptor.
+Runtime Contract configuration, Raven mapping and CLI carrier encoding are
+unchanged. The runtime owns native layout/tracing; Raven source qualification,
+native Object widening and JIT lifetime remain open. See neoCLR's
+`docs/experiments/native-structural-types/README.md` for the executable fixture,
+limits and reproduction. These are feature-branch results, not main support.
