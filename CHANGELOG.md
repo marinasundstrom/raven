@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-15:** Propose consistent range endpoints across .NET and neoCLR, nominal generic bounds and overflow-safe integer progressions. Record the author-directed coordinated migration without a compatibility mode; compiler behavior and Runtime Contract configuration are unchanged. Structural-type work remains parked.
+
 ### 2026-10-15
 
 - Integrate the validated structural-type work into the Raven neoCLR line separately from Raven main. Pair with carrier-free neoCLR main and record fresh direct/closed-generic Task union interpreter/AOT/JIT/GC qualification and explicit unsupported forms.

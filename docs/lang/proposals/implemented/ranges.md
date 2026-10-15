@@ -1,5 +1,9 @@
 # Proposal: Ranges
 
+A [new endpoint and generic-bounds review](../consistent-ranges.md) proposes changing
+these rules across targets. It remains a proposal; the behavior described here has
+not been changed by that design work.
+
 > ✅ Implemented. From-end indices and ranges now produce `System.Index` and
 > `System.Range` values, with support for start-bound ranges in `for`
 > expressions.
