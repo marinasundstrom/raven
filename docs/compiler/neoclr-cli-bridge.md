@@ -12176,3 +12176,17 @@ configuration are unchanged. neoCLR's mixed-import-project and
 raven-mixed-import-results.json retain reproduction and both artifact hashes.
 The v3 bundle remains retained. General payload layouts, managed JIT/collector,
 boxing, throughput and full Task qualification remain open.
+
+## Imported closed-generic mixed union (2026-10-15)
+
+A separately emitted Response<T> class with a stored Number: T property now
+qualifies as Response<int> inside an imported `int | long | bool | Response<int>`
+union. Produce/Echo calls preserve all seven inputs and reordered alternatives.
+The consumer's reference arm reads 42 from the generic field and adds one, making
+its expected 43 distinct from scalar 42. Interpreter and macOS ARM64 AOT finish
+with 42 and exactly 16 arena bytes for the explicit object. No emission, import
+or Runtime Contract change was necessary. neoCLR's generic-mixed-import-project
+and raven-generic-mixed-import-results.json record sources, commands and artifact
+hashes against the retained v3 bundle. This qualifies a closed generic reference
+alternative, not bare T alternatives, all open generic methods/constraints,
+nominal-value payloads, boxed views, managed JIT/GC or full Task/throughput work.

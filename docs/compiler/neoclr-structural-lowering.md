@@ -132,7 +132,10 @@ traced reference slots. A fresh Raven `int | long | bool | Response` consumer al
 passes seven scalar/reference pattern inputs in interpreter and AOT, using 16
 arena bytes only for the explicit Response allocation. An artifact-only imported mixed consumer also passes returns, reordered union
 parameters and imported Response property access with the same allocation.
-Broader application coverage remains open.
+An imported Response<int> variant also preserves its stored generic field value
+through those calls, with a distinct reference-arm result and the same 16-byte
+object allocation. Bare generic alternatives and broader application coverage
+remain open.
 Object views requiring scalar boxing, intrinsic String and nominal-value
 alternatives remain gated.
 Do not infer complete Raven match support from these bounded runtime tests.
