@@ -12036,3 +12036,18 @@ collector stress, tuple boxing/reflection and Windows still need qualification.
 Native union and intersection backend support remains incomplete. These runtime
 results do not qualify every matching Raven bundle or authorize merging the
 experimental branches into their main tracks.
+
+## Native intersection reference views (2026-10-15)
+
+The companion runtime backend admits bounded intersection signatures as one
+reference slot. All bounds retain explicit nominal conformance; checked casts and
+interface dispatch preserve the original object. AOT/interpreter comparisons cover
+identity, nulls, managed output slots, missing bounds and extendable class/interface
+bounds, with final-class rejection before native emission. Failed intersections
+report InvalidCast consistently. See neoCLR's native-structural-types experiment
+for the exact source and qualification scope.
+
+Runtime Contract settings and Raven native signature emission/import are unchanged;
+no CLI carrier or duck-typed member matching is introduced. Dedicated intersection
+JIT/collector stress, native reflection and full compiler-produced applications
+still need validation. Native union storage remains a backend blocker.

@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Record companion native intersection reference-view qualification, preserving explicit nominal bounds and unchanged Runtime Contract/emission behavior. AOT checks cover casts, identity, dispatch, nulls and managed outputs; native unions and full application/GC qualification remain open.
+
 - Document companion structural tuple native storage and direct JIT/AOT cost qualification. Runtime Contract configuration and compiler emission/import are unchanged; managed application/GC qualification and native union/intersection backends remain incomplete.
 
 - Support scoped parameters inside nominal structural constituents in the companion metadata host and runtime, including recursive method/owner substitution and actual-use scope checks. The generic `Response<T> | HttpError | JsonError` consumer returns 42; host checks and 58 runtime tests pass. Bare parameter alternatives and backend support remain incomplete.
