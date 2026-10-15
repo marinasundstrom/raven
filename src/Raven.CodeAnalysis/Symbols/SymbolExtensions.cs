@@ -1148,6 +1148,19 @@ public static partial class SymbolExtensions
                     .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
             }
 
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeVariance) &&
+                SymbolEqualityComparer.Default.Equals(typeSymbol, typeSymbol.OriginalDefinition))
+            {
+                var parameters = typeSymbol.TypeParameters
+                    .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, typeSymbol.OriginalDefinition));
+                arguments = arguments.Zip(parameters, (name, parameter) => parameter.Variance switch
+                {
+                    VarianceKind.Out => "out " + name,
+                    VarianceKind.In => "in " + name,
+                    _ => name
+                });
+            }
+
             sb.Append('<');
             sb.Append(string.Join(", ", arguments));
             sb.Append('>');
