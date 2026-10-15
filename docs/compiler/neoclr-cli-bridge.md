@@ -12208,3 +12208,17 @@ native-structural-types record-union and record-reference-union fixtures documen
 the tests and boundaries. Fresh Raven record-union consumers, direct reference
 alternatives alongside records, enums, boxing, managed JIT/GC and full Task
 qualification remain open.
+
+## Imported Raven value-record union consumer (2026-10-15)
+
+A separately compiled Response struct with stored Int32/Int64 fields now qualifies
+inside `int | long | bool | Response`. The artifact-only consumer makes seven
+calls each to Produce and Echo, preserving reordered alternatives, wide payload
+bits and a distinct guarded record-pattern result. Interpreter and macOS ARM64
+AOT return 42; the native object has no undefined imports, and arena use/faults
+are zero. No compiler emission or Runtime Contract change was required. neoCLR's
+record-import-project and raven-record-import-results.json retain reproduction,
+both artifact hashes and the retained v3 bundle labels. The private disjoint
+layout still trades copy/storage costs for simple tracing; throughput, direct
+reference alternatives alongside records, enums, boxing, managed JIT/GC and full
+Task qualification remain open.

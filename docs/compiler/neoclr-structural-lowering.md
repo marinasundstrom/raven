@@ -164,8 +164,10 @@ inline payload regions and an exact nominal discriminator. The adjacent box/cast
 pair copies fields and clears inactive regions; unbox.any checks identity before
 extracting a snapshot. Embedded references keep their identity and tracing.
 This sums alternative sizes (up to 256 lanes), trading space/copy cost for
-unambiguous reference tracing. Fresh Raven record-union consumers, records mixed
-with direct reference alternatives and whole-union boxing remain open.
+unambiguous reference tracing. A fresh artifact-only Raven struct consumer now passes seven union-call/pattern
+cases, including preserved Int32/Int64 fields and reordered alternatives, with
+no native imports or arena allocation. Records mixed with direct reference
+alternatives and whole-union boxing remain open.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference

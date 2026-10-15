@@ -6,7 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
-- Add bounded native nominal value-record union alternatives using disjoint inline payload regions, exact identity tests and allocation-free injection/extraction. Validate snapshots, out copies, floating/wide fields, null/wrong extraction, embedded references and the 256-lane boundary; preserve Object verification for unbox-only paths. Fresh Raven consumers, broader layouts and managed JIT/GC remain open.
+- Add bounded native nominal value-record union alternatives using disjoint inline payload regions, exact identity tests and allocation-free injection/extraction. Validate snapshots, out copies, floating/wide fields, null/wrong extraction, embedded references and the 256-lane boundary; preserve Object verification for unbox-only paths. A fresh artifact-only Raven struct consumer also passes seven union-call/pattern cases with preserved Int32/Int64 fields, no native imports and zero arena use. Broader layouts, throughput and managed JIT/GC remain open.
 
 - Add companion native mixed scalar/reference union storage with separate numeric and traced reference slots. Validate casts, extraction, copies, returns, replacement, null and exact arena allocation against the interpreter; gate Object views requiring boxing. Also qualify a fresh Raven mixed-pattern consumer: seven inputs return 42 in interpreter/AOT with only the explicit Response allocation (16 bytes). Artifact-only imported mixed returns and reordered parameters also pass all seven inputs with the same allocation, including an imported Response<int> with a stored generic field; managed JIT/collector and broader payload qualification remain open.
 
