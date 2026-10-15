@@ -12247,3 +12247,10 @@ unreachable after Response<int>. The fix was developed on the main-based branch
 The shared symbol comparer now preserves complete pattern identity. Runtime
 Contract configuration, native metadata and emission are unchanged; this corrects
 source diagnostics rather than introducing target-specific matching rules.
+
+The carried fix passes 195 match/identity tests on this branch. A fresh nine-input
+artifact-only native consumer now distinguishes Response<int> and Response<long>
+struct alternatives alongside scalar and HttpError class alternatives, including
+substituted fields and reordered imported signatures. Interpreter/AOT return 42
+with only the explicit 16-byte HttpError allocation. The compiler was rebuilt;
+the v3 bundle remains retained. This is not open-generic or managed JIT/GC qualification.

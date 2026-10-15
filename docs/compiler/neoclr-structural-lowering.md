@@ -174,6 +174,13 @@ inputs through imported reordered signatures and typed patterns. It preserves
 Response struct fields and HttpError class properties with only the explicit
 HttpError allocation (16 bytes). It uses the retained v3 bundle; whole-union
 boxing, managed JIT/GC and throughput qualification remain open.
+A fresh nine-input imported consumer additionally combines Response<int> and
+Response<long> value records with scalars and HttpError. Their two-field layouts
+remain distinct constructed types; guards read correctly substituted fields.
+Interpreter/AOT agree (42), with only the explicit HttpError allocation (16 bytes).
+This required fixing general pattern reachability to retain complete type identity,
+selectively carried from main-based commit f7a4bc5a4. It does not qualify all open
+generic execution or reference-valued T substitutions.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference
