@@ -317,6 +317,49 @@ let result = Runner.Choose(handler)
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("A", "A", "A | B", "first")]
+    [InlineData("A | B", "A | B", "A | B | C", "first")]
+    [InlineData("A | B", "A", "object", "second")]
+    [InlineData("A", "A | B", "A | C", null)]
+    public void UnionParameterOverloads_RespectApplicabilitySpecificityAndAmbiguity(
+        string argumentType, string firstType, string secondType, string? expectedParameter)
+    {
+        foreach (var reverseDeclarations in new[] { false, true })
+        {
+            var first = $"func Pick(first: {firstType}) -> int {{ 1 }}";
+            var second = $"func Pick(second: {secondType}) -> int {{ 2 }}";
+            var declarations = reverseDeclarations ? $"{second}\n{first}" : $"{first}\n{second}";
+            var source = $$"""
+                class A {}
+                class B {}
+                class C {}
+                class D {}
+                {{declarations}}
+                func Test(value: {{argumentType}}) -> int {
+                    Pick(value)
+                }
+                """;
+            var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+            var model = compilation.GetSemanticModel(tree);
+            var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+            var symbol = model.GetSymbolInfo(invocation);
+            if (expectedParameter is null)
+            {
+                Assert.Null(symbol.Symbol);
+                Assert.Equal(CandidateReason.Ambiguous, symbol.CandidateReason);
+                Assert.Equal(2, symbol.CandidateSymbols.Length);
+                Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+            }
+            else
+            {
+                var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol.Symbol);
+                Assert.Equal(expectedParameter, method.Parameters[0].Name);
+                Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+            }
+        }
+    }
+
     [Fact]
     public void IntArgument_PrefersLongOverDoubleOverload()
     {
