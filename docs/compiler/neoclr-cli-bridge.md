@@ -12190,3 +12190,21 @@ and raven-generic-mixed-import-results.json record sources, commands and artifac
 hashes against the retained v3 bundle. This qualifies a closed generic reference
 alternative, not bare T alternatives, all open generic methods/constraints,
 nominal-value payloads, boxed views, managed JIT/GC or full Task/throughput work.
+
+## Native nominal value-record unions (2026-10-15)
+
+The runtime now lowers closed nominal value-record unions, optionally including
+Int32/Int64/Boolean, to a tag plus disjoint inline payload regions. Exact adjacent
+box/cast injection copies the active payload and clears inactive regions without
+allocating a box. Extraction and type tests use exact nominal identity; record
+copies preserve embedded reference identity and recursive tracing offsets. The
+sum-of-alternatives layout includes the tag in its 256-lane limit. This increases
+copy/storage costs compared with overlapping regions; no throughput claim is made.
+Interpreter/macOS AOT fixtures cover copies, returns, out parameters, floating and
+wide fields, null/wrong extraction and embedded object identity with only explicit
+object allocation. Object restoration now also covers unbox-only verification.
+Compiler emission and Runtime Contract configuration are unchanged. neoCLR's
+native-structural-types record-union and record-reference-union fixtures document
+the tests and boundaries. Fresh Raven record-union consumers, direct reference
+alternatives alongside records, enums, boxing, managed JIT/GC and full Task
+qualification remain open.

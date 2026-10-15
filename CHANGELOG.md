@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Add bounded native nominal value-record union alternatives using disjoint inline payload regions, exact identity tests and allocation-free injection/extraction. Validate snapshots, out copies, floating/wide fields, null/wrong extraction, embedded references and the 256-lane boundary; preserve Object verification for unbox-only paths. Fresh Raven consumers, broader layouts and managed JIT/GC remain open.
+
 - Add companion native mixed scalar/reference union storage with separate numeric and traced reference slots. Validate casts, extraction, copies, returns, replacement, null and exact arena allocation against the interpreter; gate Object views requiring boxing. Also qualify a fresh Raven mixed-pattern consumer: seven inputs return 42 in interpreter/AOT with only the explicit Response allocation (16 bytes). Artifact-only imported mixed returns and reordered parameters also pass all seven inputs with the same allocation, including an imported Response<int> with a stored generic field; managed JIT/collector and broader payload qualification remain open.
 
 - Qualify a fresh Raven scalar-union match consumer with typed bindings, guards, fallbacks and result joins against interpreter and macOS ARM64 AOT. Retain reproduction and artifact hashes; native execution returns 42 with no allocator imports or arena use. Also qualify artifact-only library union returns/parameters with reordered alternatives and six imported scalar inputs; interpreter and AOT agree with zero arena use. Broader mixed/JIT coverage remains open.

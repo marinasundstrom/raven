@@ -159,7 +159,13 @@ Object boxing is unchanged. These representations do not define a public ABI.
 Bounded mixed scalar/nominal-reference unions now add a separate reference slot
 alongside the tag and numeric payload; scalar injection clears it. Only that slot
 is traced. This spends an extra slot to keep numeric bits out of reference tracing.
-General value layouts and whole-union boxing still require further native work.
+Closed nominal value-record unions now have bounded native tests using disjoint
+inline payload regions and an exact nominal discriminator. The adjacent box/cast
+pair copies fields and clears inactive regions; unbox.any checks identity before
+extracting a snapshot. Embedded references keep their identity and tracing.
+This sums alternative sizes (up to 256 lanes), trading space/copy cost for
+unambiguous reference tracing. Fresh Raven record-union consumers, records mixed
+with direct reference alternatives and whole-union boxing remain open.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference
