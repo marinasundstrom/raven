@@ -11707,3 +11707,18 @@ whose source-library compiler revision is
 compiler remains blocked by the recorded bitwise/intersection parser regression.
 Full source-library migration, nonlocal tuple mutation and broader element forms
 remain follow-ups; this slice does not remove those limits.
+
+### Intersection parser correction — 2026-10-15
+
+The feature-branch parser now distinguishes `(flags & flag) != 0` (and
+arithmetic/member-access continuations) from `(Named & Located)value`.
+The correction applies only to intersection cast candidates, preserving nominal
+cast behavior. Seventeen intersection syntax tests pass, including seven new
+regressions. No Runtime Contract setting changes in this slice.
+
+A fresh source-library rebuild passes the previous syntax failure and reaches
+native emission, then fails with `output image exceeds limit`. The structural
+emitter currently calls the 4 MiB application JSON writer before library binary
+encoding. It needs the bounded 32 MiB library writer path; the existing validated
+bundle remains the sample dependency. This supersedes the parser-blocked status
+in the preceding integration entry, without claiming a successful fresh bundle.

@@ -91,6 +91,30 @@ public class IntersectionTypeSyntaxTests
         Assert.Equal(new[] { "A", "B" }, intersection.Types.Select(type => type.ToString()));
     }
 
+    [Theory]
+    [InlineData("(flags & flag) != 0")]
+    [InlineData("(flags & flag) == 0")]
+    [InlineData("(flags & flag) + 1")]
+    [InlineData("(flags & flag) - 1")]
+    [InlineData("(flags & flag) * 2")]
+    [InlineData("(flags & flag).ToString()")]
+    public void BitwiseGrouping_IsNotAnIntersectionCast(string expression)
+    {
+        var tree = SyntaxTree.ParseText($"let result = {expression}");
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>());
+        Assert.Single(tree.GetRoot().DescendantNodes().OfType<ParenthesizedExpressionSyntax>());
+    }
+
+    [Fact]
+    public void IntersectionCast_WithIdentifierOperand_IsPreserved()
+    {
+        var tree = SyntaxTree.ParseText("let result = (Named & Located)value");
+        Assert.Empty(tree.GetDiagnostics());
+        var cast = Assert.Single(tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>());
+        Assert.Single(cast.DescendantNodes().OfType<IntersectionTypeSyntax>());
+    }
+
     private static TypeSyntax ParseParameterType(string text)
     {
         var code = $"func accept(value: {text}) {{ }}";
