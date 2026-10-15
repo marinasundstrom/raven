@@ -256,3 +256,14 @@ are unchanged. The artifact-only callable/int consumer passes interpreter/AOT an
 bundle now also passes this consumer in AOT and managed JIT, with 32 invocations
 per eager/paced collector policy, exact reclamation and cleanup before JIT code
 release. Escaped callbacks and async retention remain unqualified. See neoCLR's `docs/experiments/native-structural-types/callable-import-project/README.md`.
+
+### Native generic specialization boundary (2026-10-15)
+
+The paired backend now recursively admits closed structural arguments through
+nominal type and method specialization. Raven encoding and Runtime Contract
+configuration are unchanged. Native scalar-union, tuple and intersection method
+transport and nominal tuple-field storage have focused qualification; this is not
+full generic Task support. A fresh v4 build of the direct Task union sample emits
+successfully, then native compilation rejects a specialized array of unions in the
+library graph. Arrays and direct union/intersection fields in value records remain
+storage gates; interpreter success does not qualify those native operations.

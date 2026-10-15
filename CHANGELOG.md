@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document paired native structural generic-argument admission and tuple-field storage; record the fresh Task union consumer’s remaining structural-array blocker. Runtime Contract and emission are unchanged.
+
 - Record fresh neoCLR library bundle qualification of imported callable unions in interpreter, AOT and managed JIT, including eager/paced collection and cleanup before code release. Async retention remains unqualified.
 
 - Lower typed callable patterns through type tests and checked narrowing when the target explicitly supports function values. Qualify a separately compiled native callable/scalar union consumer with interpreter/AOT agreement and eager/paced collector checks; preserve ordinary .NET defaults. The paired metadata importer/type-test emitter is required. All 78 focused compiler checks pass; fresh-bundle and JIT qualification remain separate.
