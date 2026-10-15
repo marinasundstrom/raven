@@ -267,3 +267,10 @@ full generic Task support. A fresh v4 build of the direct Task union sample emit
 successfully, then native compilation rejects a specialized array of unions in the
 library graph. Arrays and direct union/intersection fields in value records remain
 storage gates; interpreter success does not qualify those native operations.
+
+The paired backend subsequently adds checked reserved arrays of admitted structural
+elements. Existing `CheckedStorage.Reserve<T>` emission can use inline snapshots
+without element boxing; no Runtime Contract or metadata encoding change is required.
+Default allocation, element borrows and nominal Array<T> projections remain separate
+native gates. Collection reuses the existing conservative record-array scan. This
+bounded storage addition alone is not qualification of the full Task consumer.

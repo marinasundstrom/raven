@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document paired native checked reserved-array storage for structural elements and its remaining default-allocation, borrow and nominal-view gates. Emission and Runtime Contract configuration are unchanged.
+
 - Document paired native structural generic-argument admission and tuple-field storage; record the fresh Task union consumer’s remaining structural-array blocker. Runtime Contract and emission are unchanged.
 
 - Record fresh neoCLR library bundle qualification of imported callable unions in interpreter, AOT and managed JIT, including eager/paced collection and cleanup before code release. Async retention remains unqualified.
