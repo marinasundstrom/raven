@@ -12103,3 +12103,20 @@ wide Int64, mismatches and null, with no allocator imports or arena use.
 This qualifies the runtime instruction sequence, not a fresh full Raven pattern
 application. Mixed payloads, compound test targets and broader producers remain
 open. See the structural lowering/runtime operations guides for the current map.
+
+## Raven-produced scalar-union pattern consumer (2026-10-15)
+
+A fresh consumer of the retained structural-integrated-libraries-v3 bundle now
+emits real `int | long | bool` signatures and typed match arms with guards,
+same-type fallbacks and a result join. The interpreter and macOS ARM64 AOT both
+return 42 after six checks, including wide Int64 and false Boolean. Disassembly
+confirms the expected scalar type tests/extractions; the native object has no
+undefined imports and the host reports no fault or arena use. Compiler/runtime
+hashes, checkout revisions, bundle labels and reproducible commands are retained
+in neoCLR's `docs/experiments/native-structural-types/` consumer/evidence.
+No Runtime Contract or compiler emission change was needed for this slice. This
+qualifies one source-local consumer, not mixed payloads, imported union-returning
+calls, JIT/GC stress or full integration. A direct less-than comparison guard
+followed by a later greater-than guard exposed a separate parser candidate; the
+consumer uses named guard functions. Independent Raven
+main reproduction remains deferred; this is not a new structural-type restriction.
