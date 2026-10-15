@@ -12163,3 +12163,16 @@ needed. neoCLR's `docs/experiments/native-structural-types/mixed-pattern-project
 and `raven-mixed-pattern-results.json` retain reproduction and artifact evidence.
 The bundle is retained, not rebuilt. Imported mixed calls, nominal value payloads,
 managed JIT/collector stress and full Task/throughput qualification remain open.
+
+## Imported mixed-union qualification (2026-10-15)
+
+The fresh mixed Raven consumer now also crosses an artifact-only library boundary:
+seven calls each to Produce and Echo preserve scalar/reference alternatives,
+including reordered parameter/result signatures. Response and its Code property
+are imported from the library artifact. Interpreter and macOS ARM64 AOT return
+42 with exactly 16 arena bytes for the explicit Response allocation; the only
+native import is the object allocator. Compiler emission and Runtime Contract
+configuration are unchanged. neoCLR's mixed-import-project and
+raven-mixed-import-results.json retain reproduction and both artifact hashes.
+The v3 bundle remains retained. General payload layouts, managed JIT/collector,
+boxing, throughput and full Task qualification remain open.

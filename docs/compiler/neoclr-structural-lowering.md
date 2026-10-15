@@ -130,8 +130,9 @@ an immediate union local/argument load or union cast. Escaping or duplicating th
 reference unions now have bounded runtime AOT tests using separate numeric and
 traced reference slots. A fresh Raven `int | long | bool | Response` consumer also
 passes seven scalar/reference pattern inputs in interpreter and AOT, using 16
-arena bytes only for the explicit Response allocation. Imported mixed consumers
-and broader application coverage remain open.
+arena bytes only for the explicit Response allocation. An artifact-only imported mixed consumer also passes returns, reordered union
+parameters and imported Response property access with the same allocation.
+Broader application coverage remains open.
 Object views requiring scalar boxing, intrinsic String and nominal-value
 alternatives remain gated.
 Do not infer complete Raven match support from these bounded runtime tests.
