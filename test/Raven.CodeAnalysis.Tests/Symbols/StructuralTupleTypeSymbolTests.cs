@@ -12,7 +12,7 @@ public sealed class StructuralTupleTypeSymbolTests
         var integer = types.GetSpecialType(SpecialType.System_Int32);
         var text = types.GetSpecialType(SpecialType.System_String);
         var native = Compilation.Create("Native", [], [], CompilationOptions.NeoCLR.WithMetadataImportOptions(
-            new MetadataImportOptions("NeoCLR.CoreProbe").WithStructuralTuples()));
+            new MetadataImportOptions("NeoCLR.CoreProbe")));
         var tuple = Assert.IsType<StructuralTupleTypeSymbol>(native.CreateTupleTypeSymbol([("count", integer), ("text", text)]));
         Assert.Null(tuple.UnderlyingTupleType);
         Assert.Null(tuple.ContainingAssembly);
@@ -57,11 +57,14 @@ public sealed class StructuralTupleTypeSymbolTests
     }
 
     [Fact]
-    public void StructuralTupleOptionRejectsOrdinaryDotNetTarget()
+    public void OrdinaryDotNetTargetRetainsNominalTupleRepresentation()
     {
         var compilation = Compilation.Create("Types", [], TestMetadataReferences.Default,
-            CompilationOptions.DotNet.WithMetadataImportOptions(new MetadataImportOptions().WithStructuralTuples()));
-        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVT003");
+            CompilationOptions.DotNet.WithMetadataImportOptions(new MetadataImportOptions()));
+        var integer = compilation.GetSpecialType(SpecialType.System_Int32);
+        var tuple = compilation.CreateTupleTypeSymbol([("x", integer), ("y", integer)]);
+        Assert.NotNull(Assert.IsAssignableFrom<ITupleTypeSymbol>(tuple).UnderlyingTupleType);
+        Assert.IsNotType<StructuralTupleTypeSymbol>(tuple);
     }
 
     [Fact]

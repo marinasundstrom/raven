@@ -115,9 +115,8 @@ internal static class CompositionCallChecks
         var reference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap);
         var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
         Compilation Create(string name, string source) => Compilation.Create(name, [SyntaxTree.ParseText(source)], [bootstrap.Reference, reference], options);
-        NeoClrEmitOptions EmitOptions(string name, bool enabled = true, bool oldOption = false) => new(new(name, new(1, 0, 0, 0)), core,
-            [new(bootstrap.Reference, coreDefinition, core), new(reference, core)],
-            allowExperimentalIntersectionCalls: oldOption, allowExperimentalCompositionCalls: enabled);
+        NeoClrEmitOptions EmitOptions(string name) => new(new(name, new(1, 0, 0, 0)), core,
+            [new(bootstrap.Reference, coreDefinition, core), new(reference, core)]);
         Directory.CreateDirectory(output);
         File.WriteAllBytes(Path.Combine(output, "CompositionPocProvider.neox"), image);
         foreach (var name in new[] { "First", "Second", "Direct", "Discard", "Local" })
@@ -137,9 +136,7 @@ internal static class CompositionCallChecks
             File.WriteAllBytes(Path.Combine(output, name + ".neox"), NativeModuleContainer.WriteLibraryBinary(stream.ToArray()));
             File.WriteAllText(Path.Combine(output, name + ".rvn"), source + "\n");
             using var disabled = new MemoryStream();
-            Check(!NeoClrCompilationEmitter.Emit(compilation, disabled, EmitOptions(name, false)).Success && disabled.Length == 0, "default gate");
-            Check(!NeoClrCompilationEmitter.Emit(compilation, disabled, EmitOptions(name, false, true)).Success && disabled.Length == 0, "old intersection opt-in does not admit union references");
-            Check(!NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, disabled, EmitOptions(name)).Success && disabled.Length == 0, "PE gate");
+            Check(NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, disabled, EmitOptions(name)).Success, "native container emission");
         }
         foreach (var source in new[] {
             "func Main() -> int => NeedBoth(AsUnion(AsIntersection(MakeFirst())))",
@@ -165,7 +162,7 @@ internal static class CompositionCallChecks
         Check(first is IStructuralUnionTypeSymbol && SymbolEqualityComparer.Default.Equals(first, second), "native union has structural unordered identity");
         Check(SymbolEqualityComparer.Default.GetHashCode(first) == SymbolEqualityComparer.Default.GetHashCode(second), "unordered hash");
         Check(first.ToDisplayString().Contains(" | "), "structural display");
-        Console.WriteLine("PASS structural composition POC: both union alternatives, intersection forwarding, direct conversion, discard, unsafe narrowing and default/PE/storage gates");
+        Console.WriteLine("PASS structural composition POC: both union alternatives, intersection forwarding, direct conversion, discard, unsafe narrowing and PE/storage gates");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static void Reject(Action action)

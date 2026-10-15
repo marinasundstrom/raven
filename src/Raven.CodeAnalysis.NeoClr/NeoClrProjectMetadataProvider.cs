@@ -44,14 +44,6 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         var directory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!;
         string? PathProperty(string name) => properties.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value)
             ? Path.GetFullPath(value, directory) : null;
-        var structuralText = properties.GetValueOrDefault("RavenNeoClrStructuralCompositions");
-        var structuralUnions = true;
-        if (!string.IsNullOrWhiteSpace(structuralText) && !bool.TryParse(structuralText, out structuralUnions))
-            throw new InvalidDataException("RavenNeoClrStructuralCompositions must be true or false.");
-        var tupleText = properties.GetValueOrDefault("RavenNeoClrStructuralTuples");
-        var structuralTuples = true;
-        if (!string.IsNullOrWhiteSpace(tupleText) && !bool.TryParse(tupleText, out structuralTuples))
-            throw new InvalidDataException("RavenNeoClrStructuralTuples must be true or false.");
         var core = PathProperty("RavenNeoClrCoreReference");
         var nativeCore = PathProperty("RavenNeoClrNativeCoreReference");
         if ((core is null) == (nativeCore is null))
@@ -62,8 +54,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
                     throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
         var catalog = nativeCore is not null
-            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths, structuralUnions, structuralTuples)
-            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"), structuralUnions, structuralTuples);
+            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths, true, true)
+            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"), true, true);
         if (options.MetadataImportOptions is { } imports && imports.CoreAssemblyName != catalog.CoreIdentity.Name)
             throw new InvalidDataException("Native project core identity does not match RavenMetadataCoreAssemblyName.");
         if (properties.TryGetValue("RavenTargetCoreAssemblyName", out var targetCore) &&
@@ -79,8 +71,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 .WithRuntimeTypeOfContract(null)
                 .WithRuntimeUnitContract(new(catalog.CoreIdentity.Name, "System.Void"))
                 .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name)
-                    .WithObjectAssemblyName(catalog.CoreIdentity.Name).WithNativeMetadata().WithStructuralCompositions(structuralUnions).WithStructuralTuples(structuralTuples));
-            configurations[Path.GetFullPath(projectFilePath)] = new(catalog, executionPaths, seed, null, false, nativeCore, structuralUnions: structuralUnions, structuralTuples: structuralTuples);
+                    .WithObjectAssemblyName(catalog.CoreIdentity.Name).WithNativeMetadata());
+            configurations[Path.GetFullPath(projectFilePath)] = new(catalog, executionPaths, seed, null, false, nativeCore);
             return new(options, catalog.References);
         }
         var ownershipPath = PathProperty("RavenNeoClrBootstrapOwnership");
@@ -134,21 +126,19 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         var intrinsic = false;
         if (!string.IsNullOrWhiteSpace(intrinsicText) && !bool.TryParse(intrinsicText, out intrinsic))
             throw new InvalidDataException("RavenNeoClrBootstrapIntrinsics must be true or false.");
-        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath, runtimeAsyncHelper, structuralUnions, structuralTuples);
+        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath, runtimeAsyncHelper);
         return new(options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
-            .WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithStructuralCompositions(structuralUnions).WithStructuralTuples(structuralTuples)), catalog.References);
+            .WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name))), catalog.References);
     }
 }
 
 /// <summary>Explicit host artifact snapshot shared by project import and native emission.</summary>
 public sealed class NeoClrProjectConfiguration
 {
-    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath, string? runtimeAsyncHelper = null, bool structuralUnions = false, bool structuralTuples = false)
-    { this.structuralTuples = structuralTuples; this.structuralUnions = structuralUnions; this.runtimeAsyncHelper = runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
+    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath, string? runtimeAsyncHelper = null)
+    { this.runtimeAsyncHelper = runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
     private readonly BootstrapOwnershipManifest? ownership;
     private readonly bool bootstrapIntrinsics;
-    private readonly bool structuralUnions;
-    private readonly bool structuralTuples;
     private readonly string? runtimeAsyncHelper;
     /// <summary>Semantic and emission artifact identities from one read.</summary>
     public NeoClrReferenceCatalog Catalog { get; }
@@ -164,7 +154,7 @@ public sealed class NeoClrProjectConfiguration
         Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
             .Where(p => p.Value == assemblyName && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
         implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == assemblyName,
-        runtimeAsyncHelperTypeName: runtimeAsyncHelper, allowExperimentalCompositionCalls: structuralUnions, allowExperimentalTuples: structuralTuples));
+        runtimeAsyncHelperTypeName: runtimeAsyncHelper));
 
     /// <summary>Checks source/imported declaration ownership before publishing an assembly.</summary>
     public void Validate(Compilation compilation) => ownership?.Validate(compilation);

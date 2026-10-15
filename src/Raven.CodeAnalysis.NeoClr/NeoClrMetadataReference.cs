@@ -55,12 +55,12 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         return new(AssemblyDefinition.ReadNativeAssembly(image),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
     }
-    /// <summary>Reads native reference intersections in signatures and method bounds for experimental semantic inspection and opt-in native calls.</summary>
+    /// <summary>Reads native reference intersections in signatures and method bounds for experimental semantic inspection and native calls.</summary>
     /// <param name="image">A native declaration image; the reader copies its contents.</param>
     /// <param name="bootstrap">Optional matching CLI primitive bootstrap, whose reference must also be supplied to the compilation.</param>
     /// <returns>An immutable reference admitting intersection free-function signatures.</returns>
     /// <exception cref="InvalidDataException">The image is invalid, exceeds reader limits, or contains a structural union in an exposed signature or method bound.</exception>
-    /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax; native calls require the separate emitter opt-in.
+    /// <remarks>Default readers remain closed to compositions. This does not enable explicit intersection storage syntax; native calls use the neoCLR backend.
     /// Compiler symbols normalize nominal supertypes; the definition retains the original native descriptor.</remarks>
     public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
         => ReadExperimentalIntersectionAssembly(image, bootstrap, null);
@@ -71,7 +71,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     /// <param name="resolver">Explicit dependency lookup; required for external intersection operands.</param>
     /// <returns>An immutable native reference preserving intersection signatures and method bounds.</returns>
     /// <exception cref="InvalidDataException">Invalid metadata, an exposed structural union, or an absent, mismatched or ineligible intersection dependency.</exception>
-    /// <remarks>Nominal interface conformance remains explicit. Native execution requires the separate emitter opt-in.</remarks>
+    /// <remarks>Nominal interface conformance remains explicit. Native execution uses the neoCLR backend.</remarks>
     public static NeoClrMetadataReference ReadExperimentalIntersectionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, IAssemblyResolver? resolver)
     {
         var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true, resolver);
@@ -99,7 +99,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         type.ReferencedGenericInstance?.TypeArguments.Any(ContainsComposition) == true;
 
     /// <summary>Reads experimental native union and intersection signatures and method bounds.</summary>
-    /// <remarks>Requires the separate composition-call emit option for native execution. Default readers and PE projection remain closed.</remarks>
+    /// <remarks>Native calls use the neoCLR backend; CLI projection remains unsupported.</remarks>
     public static NeoClrMetadataReference ReadExperimentalCompositionAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null)
         => ReadExperimentalCompositionAssembly(image, bootstrap, null);
 
@@ -140,8 +140,8 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     /// <param name="image">Native image copied into an immutable snapshot.</param>
     /// <param name="bootstrap">Matching primitive bootstrap, also registered with the compilation.</param>
     /// <param name="resolver">Explicit dependency resolver for imported nominal elements.</param>
-    /// <returns>A tuple-enabled native reference; emission requires AllowExperimentalTuples and MetadataImportOptions.WithStructuralTuples.</returns>
-    /// <remarks>Composition admission is independent. This bounded compiler profile supports scalar/nested tuple elements. Select WithStructuralTuples for native binding without a nominal tuple carrier.</remarks>
+    /// <returns>A tuple-enabled native reference for the neoCLR target.</returns>
+    /// <remarks>Composition admission is independent. This bounded compiler profile supports scalar/nested tuple elements. The neoCLR target binds tuples without a nominal carrier.</remarks>
     public static NeoClrMetadataReference ReadExperimentalTupleAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap = null, IAssemblyResolver? resolver = null)
     {
         var definition = AssemblyDefinition.ReadExperimentalTupleAssembly(image, resolver);

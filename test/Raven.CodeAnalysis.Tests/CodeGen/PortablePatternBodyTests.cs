@@ -28,7 +28,7 @@ public class PortablePatternBodyTests
             """);
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             .WithTargetPlatform(TargetPlatform.NeoCLR)
-            .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+            .WithMetadataImportOptions(new MetadataImportOptions());
         var compilation = Compilation.Create("NativePropertyPattern", [tree], TestMetadataReferences.Default, options);
         var model = compilation.GetSemanticModel(tree);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);

@@ -30,7 +30,7 @@ public sealed class SourceStructuralUnionTests
                 """);
             var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithTargetPlatform(TargetPlatform.NeoCLR)
-                .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+                .WithMetadataImportOptions(new MetadataImportOptions());
             var compilation = Compilation.Create("native-overloads", [tree], TestMetadataReferences.DefaultWithRavenCore, options);
             var model = compilation.GetSemanticModel(tree);
             var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
@@ -62,7 +62,7 @@ public sealed class SourceStructuralUnionTests
             """);
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             .WithTargetPlatform(TargetPlatform.NeoCLR)
-            .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+            .WithMetadataImportOptions(new MetadataImportOptions());
         var compilation = Compilation.Create("union-extraction", [tree], TestMetadataReferences.DefaultWithRavenCore, options);
         var errors = compilation.GetSemanticModel(tree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
         if (hasError)
@@ -72,10 +72,9 @@ public sealed class SourceStructuralUnionTests
     }
 
     [Theory]
-    [InlineData(TargetPlatform.NeoCLR, true, true)]
-    [InlineData(TargetPlatform.NeoCLR, false, false)]
-    [InlineData(TargetPlatform.DotNet, true, false)]
-    public void UnionSyntax_UsesExplicitNativeContract(TargetPlatform target, bool enabled, bool structural)
+    [InlineData(TargetPlatform.NeoCLR, true)]
+    [InlineData(TargetPlatform.DotNet, false)]
+    public void UnionSyntax_UsesTargetContractWithoutOptIn(TargetPlatform target, bool structural)
     {
         var tree = SyntaxTree.ParseText("""
             interface A {}
@@ -86,7 +85,7 @@ public sealed class SourceStructuralUnionTests
             """);
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             .WithTargetPlatform(target)
-            .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(enabled));
+            .WithMetadataImportOptions(new MetadataImportOptions());
         var compilation = Compilation.Create("source-unions", [tree], TestMetadataReferences.DefaultWithRavenCore, options);
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<UnionTypeSyntax>())

@@ -62,14 +62,11 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null, bool allowExperimentalIntersectionCalls = false, bool allowExperimentalCompositionCalls = false, bool allowExperimentalTuples = false)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
         ArgumentNullException.ThrowIfNull(dependencies);
-        AllowExperimentalIntersectionCalls = allowExperimentalIntersectionCalls || allowExperimentalCompositionCalls;
-        AllowExperimentalCompositionCalls = allowExperimentalCompositionCalls;
-        AllowExperimentalTuples = allowExperimentalTuples;
         Identity = identity;
         CoreLibrary = coreLibrary;
         ConsoleReference = consoleReference;
@@ -81,14 +78,6 @@ public sealed class NeoClrEmitOptions
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
-    /// <summary>Enables native-only calls preserving imported intersection descriptors. Defaults to false.</summary>
-    /// <remarks>Allows direct stack forwarding between equivalent imported contracts, not authored compound storage or PE/CLI projection.</remarks>
-    public bool AllowExperimentalIntersectionCalls { get; }
-    /// <summary>Enables native-only imported union and intersection calls; does not enable authored storage or CLI projection.</summary>
-    public bool AllowExperimentalCompositionCalls { get; }
-    /// <summary>Enables native-only scalar/nested tuple literals, signatures, locals and reads. Defaults to false.</summary>
-    /// <remarks>Requires MetadataImportOptions.WithStructuralTuples for carrier-free binding. Native names are preserved in emitted signatures. Local-rooted element assignment and tuple imports are supported. Nonlocal mutation and open elements remain unsupported. Does not change ordinary .NET output.</remarks>
-    public bool AllowExperimentalTuples { get; }
     /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
     /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>
     public MetadataReference? BootstrapReference { get; }

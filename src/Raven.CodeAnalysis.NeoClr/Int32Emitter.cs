@@ -16,7 +16,7 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies, bool metadataAssembly = false)
     {
-        var bodyCapabilities = options.AllowExperimentalTuples ? (options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalTuplesAndIntersections : NeoClrCapabilities.ExperimentalTuples) : options.AllowExperimentalIntersectionCalls ? NeoClrCapabilities.ExperimentalIntersectionCalls : NeoClrCapabilities.Shared;
+        var bodyCapabilities = NeoClrCapabilities.Shared;
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
@@ -449,7 +449,6 @@ internal static class Int32Emitter
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
         var compositionTypes = new Dictionary<ITypeSymbol, SignatureType>(SymbolEqualityComparer.Default);
-        if (options.AllowExperimentalIntersectionCalls)
         {
             foreach (var dependency in dependencies)
             {
@@ -506,7 +505,7 @@ internal static class Int32Emitter
 
         SignatureType ImportExternalType(ITypeSymbol symbol)
         {
-            if (options.AllowExperimentalTuples && symbol is ITupleTypeSymbol tuple)
+            if (symbol is ITupleTypeSymbol tuple)
                 return assembly.CreateExperimentalTuple(tuple.TupleElements.Select(e => NeoClrTypeMapper.Map(e.Type, owner => nativeTypes[owner], ImportExternalType)).ToArray(), tuple.TupleElements.Select(e => (string?)e.Name).ToArray());
             // A normalized nominal symbol cannot identify which original compound
             // contract belongs in synthesized storage. Preserve call-only transport,
@@ -516,7 +515,7 @@ internal static class Int32Emitter
             if (symbol is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)
             {
                 if (compositionTypes.TryGetValue(symbol, out var signature)) return signature;
-                if (!compilation.UsesStructuralCompositions || !options.AllowExperimentalCompositionCalls)
+                if (!compilation.UsesStructuralCompositions)
                     throw Unsupported("composition storage requires an exact imported contract or native structural authoring");
                 var bounds = symbol is IStructuralUnionTypeSymbol union ? union.ConstituentTypes : ((IIntersectionTypeSymbol)symbol).ConstituentTypes;
                 signature = assembly.CreateExperimentalReferenceComposition(
@@ -650,7 +649,7 @@ internal static class Int32Emitter
             var definition = snapshot.MainModule.Types.Single(t => MatchesType(t, original));
             _ = assembly.ImportReference(definition, binding.CoreLibrary);
         }
-        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType, structuralConstraints: options.AllowExperimentalIntersectionCalls, admitExternalConstraint: AdmitExternalConstraint);
+        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType, structuralConstraints: true, admitExternalConstraint: AdmitExternalConstraint);
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
@@ -665,7 +664,7 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
-                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: options.AllowExperimentalIntersectionCalls, admitExternalConstraint: AdmitExternalConstraint));
+                named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: true, admitExternalConstraint: AdmitExternalConstraint));
         }
         foreach (var type in declaredTypes.Values) DefineClass(type);
         var extensionOwners = declaredTypes.Values.Where(t =>
@@ -1150,13 +1149,9 @@ internal static class Int32Emitter
             foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
-        if (metadataAssembly && (options.AllowExperimentalTuples || compilation.UsesStructuralCompositions && options.AllowExperimentalCompositionCalls))
+        if (metadataAssembly)
             return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly);
-        return metadataAssembly
-            ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
-                ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)
-                : NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly)
-            : assembly.WriteNativeAssembly();
+        return assembly.WriteNativeAssembly();
 
         bool IsFlagsAttribute(AttributeData attribute) => attribute is
         { AttributeClass: { } owner, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } &&
@@ -1307,7 +1302,7 @@ internal static class Int32Emitter
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
-            if (options.AllowExperimentalTuples && symbol is NativeMethodSymbol tupleMethod &&
+            if (symbol is NativeMethodSymbol tupleMethod &&
                 symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference { HasExperimentalTuples: true } tupleReference)
             {
                 if (binding.NativeArtifactSha256 != tupleReference.Artifact.Sha256)
@@ -1317,7 +1312,7 @@ internal static class Int32Emitter
                 if (definition.TryGetSignature(out var tupleSignature) && tupleSignature!.ParameterTypes.Append(tupleSignature.ReturnType).Any(NeoClrMetadataReference.ContainsTuple))
                     return assembly.ImportExperimentalTupleReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
             }
-            if (options.AllowExperimentalIntersectionCalls && symbol is NativeMethodSymbol nativeMethod &&
+            if (symbol is NativeMethodSymbol nativeMethod &&
                 symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference nativeReference)
             {
                 if (binding.NativeArtifactSha256 != nativeReference.Artifact.Sha256)
@@ -1439,8 +1434,8 @@ internal static class Int32Emitter
             RuntimeSelfTypes.IsSelf(compilation, type) ||
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, bodyCapabilities) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
-            options.AllowExperimentalIntersectionCalls && type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) ||
-            options.AllowExperimentalTuples && type is ITupleTypeSymbol tuple && tuple.TupleElements.All(e => IsSymbolOnlyType(e.Type, false)) ||
+            type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) ||
+            type is ITupleTypeSymbol tuple && tuple.TupleElements.All(e => IsSymbolOnlyType(e.Type, false)) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Object or SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||

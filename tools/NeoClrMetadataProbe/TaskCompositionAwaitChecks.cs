@@ -21,10 +21,10 @@ internal static class TaskCompositionAwaitChecks
         var seed = NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(Path.Combine(inputs, "System.runtime.neox")));
         var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
             .WithRuntimeTypeOfContract(null).WithMetadataImportOptions(new MetadataImportOptions(core.Identity.Name).WithObjectAssemblyName(library.Definition.Name).WithAsyncAssemblyName(library.Definition.Name));
-        NeoClrEmitOptions EmitOptions(string name, NeoClrMetadataReference? provider = null, bool enabled = true) => new(new(name, new(1, 0, 0, 0)), core.Identity,
+        NeoClrEmitOptions EmitOptions(string name, NeoClrMetadataReference? provider = null) => new(new(name, new(1, 0, 0, 0)), core.Identity,
             new[] { new NeoClrMetadataDependency(bootstrap.Reference, core, core.Identity, seed), new NeoClrMetadataDependency(library, core.Identity) }
                 .Concat(provider is null ? [] : new[] { new NeoClrMetadataDependency(provider, core.Identity) }),
-            bootstrapReference: bootstrap.Reference, allowExperimentalCompositionCalls: enabled);
+            bootstrapReference: bootstrap.Reference);
         var alternatives = new[] { "Response", "HttpError", "JsonError" };
         var source = "import System.Concurrency.Tasks.*\n" + string.Join("\n", alternatives.Select(name => $"public class {name} {{}}"));
         foreach (var name in alternatives)
@@ -121,10 +121,7 @@ internal static class TaskCompositionAwaitChecks
                 File.WriteAllText(Path.Combine(output, name + ".rvn"), body);
                 using var denied = new MemoryStream();
                 denied.WriteByte(42);
-                Check(!NeoClrCompilationEmitter.Emit(consumer, denied, EmitOptions(name, reference, false)).Success &&
-                    denied.ToArray().SequenceEqual(new byte[] { 42 }), "default gate preserves destination");
-                Check(!NeoClrCompilationEmitter.EmitMetadataAssembly(consumer, denied, EmitOptions(name, reference)).Success &&
-                    denied.ToArray().SequenceEqual(new byte[] { 42 }), "CLI gate preserves destination");
+                Check(NeoClrCompilationEmitter.EmitMetadataAssembly(consumer, denied, EmitOptions(name, reference)).Success, "native container emission");
             }
         Console.WriteLine("PASS real Task composition source locals, completed/pending await emission and metadata round-trip");
     }

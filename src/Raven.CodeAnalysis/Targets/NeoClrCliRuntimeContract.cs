@@ -7,8 +7,8 @@ internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : Cli
     internal override string UnionInterfaceTypeName => "System.Runtime.CompilerServices.UnionValue";
     internal override string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.AsyncStateMachine";
     internal override string TupleTypeName => "System.Tuple";
-    internal override bool UsesStructuralTuples => Options.MetadataImportOptions?.UseStructuralTuples == true;
-    internal override bool UsesStructuralCompositions => Options.MetadataImportOptions?.UseStructuralCompositions == true;
+    internal override bool UsesStructuralTuples => true;
+    internal override bool UsesStructuralCompositions => true;
     internal override bool UsesInhabitedDelegateResults => true;
     internal override bool HasNativeSelfContract => Options.RuntimeSelfTypeContract is not null;
 

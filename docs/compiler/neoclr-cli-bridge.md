@@ -1,5 +1,24 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Structural target defaults (2026-10-15)
+
+`CompilationOptions.NeoCLR` now selects structural union, intersection and tuple
+binding and native emission without feature switches. The `WithStructuralCompositions`
+and `WithStructuralTuples` metadata options, experimental call/tuple emission options,
+`--structural-tuples` driver switch and `RavenNeoClrStructuralCompositions` /
+`RavenNeoClrStructuralTuples` project switches have been removed. Delete these
+settings from callers; native metadata output uses NEOX. Ordinary .NET target
+contracts and declared nominal unions are unchanged. Native reader profile cleanup
+and nominal neoCLR `System.Union` / `System.Tuple` carrier retirement remain separate
+integration work; this entry does not claim that the branches have merged.
+
+Validation: 50 focused structural symbol, constraint and portable-pattern tests pass.
+A fresh mixed union consumer against the v4 bundle returns 42 in interpreter,
+macOS ARM64 AOT and managed JIT with zero arena allocation. Existing native storage
+and generic-support limitations still apply. Dated opt-in descriptions below record
+historical stages, not the current compiler configuration.
+
+
 See [native structural type and pattern lowering](neoclr-structural-lowering.md) for the source-to-metadata and runtime operation map.
 
 Status: temporary bridge, 2026-09-30. The intended destination is a native neoCLR

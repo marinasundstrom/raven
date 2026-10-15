@@ -122,25 +122,22 @@ internal static class WrapperCompositionCallChecks
             Check(!from.MetadataIdentityEquals(to) && !wrongCompilation.ClassifyConversion(from, to).IsImplicit &&
                 wrongDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "compiler wrapper invariance");
             var compilation = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, reference], options);
-            NeoClrEmitOptions EmitOptions(bool enabled, bool old = false) => new(new("Wrapper" + kind, new(1, 0, 0, 0)), core,
-                [new(bootstrap.Reference, coreDefinition, core), new(reference, core)], allowExperimentalCompositionCalls: enabled, allowExperimentalIntersectionCalls: old);
+            NeoClrEmitOptions EmitOptions() => new(new("Wrapper" + kind, new(1, 0, 0, 0)), core,
+                [new(bootstrap.Reference, coreDefinition, core), new(reference, core)]);
             using var stream = new MemoryStream();
-            var result = NeoClrCompilationEmitter.Emit(compilation, stream, EmitOptions(true));
+            var result = NeoClrCompilationEmitter.Emit(compilation, stream, EmitOptions());
             Check(result.Success, string.Join("; ", result.Diagnostics));
             using var denied = new MemoryStream();
-            Check(!NeoClrCompilationEmitter.Emit(compilation, denied, EmitOptions(false)).Success && denied.Length == 0, "nested default gate");
-            if (kind == "Union")
-                Check(!NeoClrCompilationEmitter.Emit(compilation, denied, EmitOptions(false, true)).Success && denied.Length == 0, "nested union rejects intersection-only option");
-            Check(!NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, denied, EmitOptions(true)).Success && denied.Length == 0, "nested PE gate");
+            Check(NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, denied, EmitOptions()).Success, "native container emission");
             var stored = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); return Consume(value) }")], [bootstrap.Reference, reference], options);
-            var storedResult = NeoClrCompilationEmitter.Emit(stored, denied, EmitOptions(true));
+            var storedResult = NeoClrCompilationEmitter.Emit(stored, denied, EmitOptions());
             Check(storedResult.Success, string.Join("; ", storedResult.Diagnostics));
             Directory.CreateDirectory(output);
             File.WriteAllBytes(Path.Combine(output, kind + "Provider.neox"), image);
             File.WriteAllBytes(Path.Combine(output, kind + "Host.neox"), hostImage);
             File.WriteAllBytes(Path.Combine(output, kind + "Raven.neox"), NativeModuleContainer.WriteLibraryBinary(stream.ToArray()));
         }
-        Console.WriteLine("PASS wrapper composition metadata, host/Raven calls and default/CLI/storage gates");
+        Console.WriteLine("PASS wrapper composition metadata, host/Raven calls and CLI/storage gates");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static void Reject(Action action)

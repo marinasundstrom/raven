@@ -22,7 +22,7 @@ internal static class SourceCompositionChecks
             var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
                 .WithRuntimeTypeOfContract(null)
                 .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name)
-                    .WithObjectAssemblyName("System.Runtime").WithStructuralCompositions());
+                    .WithObjectAssemblyName("System.Runtime"));
             var source = $$"""
                 public interface A {}
                 public interface B {}
@@ -57,7 +57,7 @@ internal static class SourceCompositionChecks
     {
         using var stream = new MemoryStream();
         var options = new NeoClrEmitOptions(new(name, new(1, 0, 0, 0)), catalog.CoreIdentity,
-            catalog.Dependencies, bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalCompositionCalls: true);
+            catalog.Dependencies, bootstrapReference: catalog.Bootstrap.Reference);
         var result = compilation.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(options, emitMetadataAssembly: true)));
         Check(result.Success, string.Join("\n", result.Diagnostics));
         File.WriteAllBytes(path, stream.ToArray());

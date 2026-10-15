@@ -14,7 +14,7 @@ internal static class StructuralConstraintChecks
         var catalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll")], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
         var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication)
             .WithRuntimeTypeOfContract(null)
-            .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime").WithStructuralCompositions());
+            .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime"));
         var traits = Compilation.Create("TraitSource", [SyntaxTree.ParseText("""
             interface ReadsA {
                 func ReadA() -> int
@@ -188,13 +188,6 @@ internal static class StructuralConstraintChecks
         var compilation = Compilation.Create("ConstraintSource", [SyntaxTree.ParseText(source)], catalog.References.ToArray(), options);
         var path = Path.Combine(output, "ConstraintSource.neox");
         Emit(compilation, catalog, "ConstraintSource", path);
-        using (var disabled = new MemoryStream())
-        {
-            var defaultOptions = new NeoClrEmitOptions(new("Disabled", new(1, 0, 0, 0)), catalog.CoreIdentity,
-                catalog.Dependencies, bootstrapReference: catalog.Bootstrap.Reference);
-            var rejected = compilation.Emit(disabled, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(defaultOptions, emitMetadataAssembly: true)));
-            Check(!rejected.Success, "default backend admitted structural constraints");
-        }
         var snapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path), true);
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "Either").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Union, "union constraint erased");
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "All").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection, "intersection constraint erased");
@@ -228,7 +221,7 @@ internal static class StructuralConstraintChecks
     {
         using var stream = new MemoryStream();
         var options = new NeoClrEmitOptions(new(name, new(1, 0, 0, 0)), catalog.CoreIdentity, catalog.Dependencies,
-            bootstrapReference: catalog.Bootstrap.Reference, allowExperimentalCompositionCalls: true);
+            bootstrapReference: catalog.Bootstrap.Reference);
         var result = compilation.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(options, emitMetadataAssembly: true)));
         Check(result.Success, string.Join("\n", result.Diagnostics));
         File.WriteAllBytes(path, stream.ToArray());

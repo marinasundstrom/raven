@@ -52,15 +52,12 @@ internal static class IntersectionCallChecks
             var name = reduced ? "ReducedCalls" : "IntersectionCallsConsumer";
             var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
             Compilation Create(string source) => Compilation.Create(name, [SyntaxTree.ParseText(source)], [bootstrap.Reference, reference], options);
-            NeoClrEmitOptions EmitOptions(bool enabled) => new(new(name, new(1, 0, 0, 0)), core,
-                [new(bootstrap.Reference, coreDefinition, core), reduced ? new(reference, core) : new(reference, reference.Definition, core)], allowExperimentalIntersectionCalls: enabled);
+            NeoClrEmitOptions EmitOptions() => new(new(name, new(1, 0, 0, 0)), core,
+                [new(bootstrap.Reference, coreDefinition, core), reduced ? new(reference, core) : new(reference, reference.Definition, core)]);
             var consumer = Create("func Main() -> int => Consume(Echo(Produce()))");
             Check(!consumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", consumer.GetDiagnostics()));
-            using var disabled = new MemoryStream();
-            var disabledResult = NeoClrCompilationEmitter.Emit(consumer, disabled, EmitOptions(false));
-            Check(!disabledResult.Success && disabledResult.Diagnostics.Any(d => d.Id == "NEOMETA001") && disabled.Length == 0, "default gate");
             using var stream = new MemoryStream();
-            var emitted = NeoClrCompilationEmitter.Emit(consumer, stream, EmitOptions(true));
+            var emitted = NeoClrCompilationEmitter.Emit(consumer, stream, EmitOptions());
             Check(emitted.Success, string.Join("; ", emitted.Diagnostics));
             var json = JsonNode.Parse(stream.ToArray())!;
             var descriptors = json["functions"]!.AsArray().SelectMany(f => f!["body"]!.AsArray())
@@ -74,22 +71,22 @@ internal static class IntersectionCallChecks
                 var mismatched = Create("func Main() -> int => Consume(Alternate())");
                 Check(!mismatched.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "both native contracts normalize to the same nominal compiler type");
                 using var mismatchOutput = new MemoryStream();
-                var mismatch = NeoClrCompilationEmitter.Emit(mismatched, mismatchOutput, EmitOptions(true));
+                var mismatch = NeoClrCompilationEmitter.Emit(mismatched, mismatchOutput, EmitOptions());
                 Check(mismatch.Success, string.Join("; ", mismatch.Diagnostics));
                 File.WriteAllBytes(Path.Combine(output, name + "Equivalent.neox"), NativeModuleContainer.WriteLibraryBinary(mismatchOutput.ToArray()));
             }
             using var projected = new MemoryStream();
-            var projection = NeoClrCompilationEmitter.EmitMetadataAssembly(consumer, projected, EmitOptions(true));
+            var projection = NeoClrCompilationEmitter.EmitMetadataAssembly(consumer, projected, EmitOptions());
             Check(!projection.Success && projection.Diagnostics.Any(d => d.Id == "NEOMETA001") && projected.Length == 0, "PE projection stays gated");
             using var discarded = new MemoryStream();
-            var discard = NeoClrCompilationEmitter.Emit(Create("func Main() -> int { Echo(Produce()); return 42 }"), discarded, EmitOptions(true));
+            var discard = NeoClrCompilationEmitter.Emit(Create("func Main() -> int { Echo(Produce()); return 42 }"), discarded, EmitOptions());
             Check(discard.Success, string.Join("; ", discard.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, name + "Discard.neox"), NativeModuleContainer.WriteLibraryBinary(discarded.ToArray()));
             using var storage = new MemoryStream();
-            var stored = NeoClrCompilationEmitter.Emit(Create("func Main() -> int { let value = Produce(); return Consume(value) }"), storage, EmitOptions(true));
+            var stored = NeoClrCompilationEmitter.Emit(Create("func Main() -> int { let value = Produce(); return Consume(value) }"), storage, EmitOptions());
             Check(!stored.Success && stored.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error) && storage.Length == 0, "authored storage stays gated even after reduction");
         }
-        Console.WriteLine("PASS experimental native intersection calls: default gate, exact descriptors, reduced bounds, discarded results and storage/PE rejection");
+        Console.WriteLine("PASS native intersection calls: exact descriptors, reduced bounds, discarded results and storage/PE rejection");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
 }

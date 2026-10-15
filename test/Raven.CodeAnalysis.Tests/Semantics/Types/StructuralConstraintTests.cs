@@ -22,7 +22,7 @@ public sealed class StructuralConstraintTests
         var tree = SyntaxTree.ParseText(Types + "\n" + source);
         var compilation = Compilation.Create("constraints", [tree], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR)
-                .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions()));
+                .WithMetadataImportOptions(new MetadataImportOptions()));
         return (compilation, compilation.GetSemanticModel(tree), tree);
     }
 

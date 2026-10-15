@@ -106,7 +106,7 @@ internal static class NeoClrCommand
             if (args.Length == 2) return 0;
             var start = new System.Diagnostics.ProcessStartInfo(Path.GetFullPath(args[3])) { UseShellExecute = false };
             start.ArgumentList.Add("run"); start.ArgumentList.Add(output);
-            if (compilation.Options.MetadataImportOptions?.UseStructuralTuples == true)
+            if (compilation.Options.TargetPlatform == TargetPlatform.NeoCLR)
             { start.ArgumentList.Add("--execution"); start.ArgumentList.Add("interpreter"); }
             if (config.RuntimeSeedPath is { } seed) { start.ArgumentList.Add("--system"); start.ArgumentList.Add(seed); }
             foreach (var path in config.ReferencePaths) { start.ArgumentList.Add("--module"); start.ArgumentList.Add(path); }
@@ -154,7 +154,6 @@ internal static class NeoClrCommand
             var nativeCore = false;
             var bootstrapIntrinsics = false;
             var sourceObjectRoot = false;
-            var structuralTuples = false;
             string? runtimeAsyncHelper = null;
             string? systemPath = null;
             string? runtimeSeedPath = null;
@@ -174,10 +173,6 @@ internal static class NeoClrCommand
                     case "--bootstrap-ownership":
                         if (ownership is not null || ++i == args.Length) throw new ArgumentException("Specify --bootstrap-ownership once with a manifest path.");
                         ownership = BootstrapOwnershipManifest.Read(args[i]);
-                        break;
-                    case "--structural-tuples":
-                        if (structuralTuples) throw new ArgumentException("Specify --structural-tuples once.");
-                        structuralTuples = true;
                         break;
                     case "--source-object-root":
                         if (sourceObjectRoot) throw new ArgumentException("Specify --source-object-root once.");
@@ -267,8 +262,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Output must differ from the primitive core input.");
             var name = Path.GetFileNameWithoutExtension(output);
             var catalog = corePath is null ? null : nativeCore
-                ? NeoClrReferenceCatalog.ReadNative(corePath, referencePaths, allowExperimentalTuples: structuralTuples)
-                : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath, allowExperimentalTuples: structuralTuples);
+                ? NeoClrReferenceCatalog.ReadNative(corePath, referencePaths, allowExperimentalTuples: true)
+                : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath, allowExperimentalTuples: true);
             catalog?.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
             var host = typeof(object).Assembly.GetName();
             var core = catalog?.CoreIdentity ?? new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
@@ -342,9 +337,6 @@ internal static class NeoClrCommand
             if (asyncAssembly is not null)
                 compilationOptions = compilationOptions.WithMetadataImportOptions(
                     (compilationOptions.MetadataImportOptions ?? new MetadataImportOptions(core.Name)).WithAsyncAssemblyName(asyncAssembly));
-            if (structuralTuples)
-                compilationOptions = compilationOptions.WithMetadataImportOptions(
-                    (compilationOptions.MetadataImportOptions ?? new MetadataImportOptions(core.Name)).WithStructuralTuples());
             var compilation = Compilation.Create(name, trees, references.ToArray(), compilationOptions);
             ownership?.Validate(compilation);
             using var image = new MemoryStream();
@@ -352,7 +344,7 @@ internal static class NeoClrCommand
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, !nativeCore && systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
                     ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
                     implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name,
-                    runtimeAsyncHelperTypeName: runtimeAsyncHelper, allowExperimentalTuples: structuralTuples));
+                    runtimeAsyncHelperTypeName: runtimeAsyncHelper));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics)
             {

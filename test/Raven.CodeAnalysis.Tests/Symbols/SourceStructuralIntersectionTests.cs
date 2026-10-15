@@ -24,7 +24,7 @@ public sealed class SourceStructuralIntersectionTests
         var compilation = Compilation.Create("source-intersections", [tree], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithTargetPlatform(TargetPlatform.NeoCLR)
-                .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions()));
+                .WithMetadataImportOptions(new MetadataImportOptions()));
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<IntersectionTypeSyntax>())
         {
@@ -43,14 +43,18 @@ public sealed class SourceStructuralIntersectionTests
     }
 
     [Theory]
-    [InlineData(TargetPlatform.DotNet, true)]
-    [InlineData(TargetPlatform.NeoCLR, false)]
-    public void IntersectionStorage_RemainsOptIn(TargetPlatform target, bool enabled)
+    [InlineData(TargetPlatform.DotNet, false)]
+    [InlineData(TargetPlatform.NeoCLR, true)]
+    public void IntersectionStorage_UsesTargetContractWithoutOptIn(TargetPlatform target, bool supported)
     {
         var tree = SyntaxTree.ParseText("interface A {} interface B {} func Echo(value: A & B) -> A & B { return value }");
         var compilation = Compilation.Create("gated-intersections", [tree], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target)
-                .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(enabled)));
-        Assert.Contains(compilation.GetSemanticModel(tree).GetDiagnostics(), d => d.Id == "RAV0363");
+                .WithMetadataImportOptions(new MetadataImportOptions()));
+        var diagnostics = compilation.GetSemanticModel(tree).GetDiagnostics();
+        if (supported)
+            Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        else
+            Assert.Contains(diagnostics, d => d.Id == "RAV0363");
     }
 }
