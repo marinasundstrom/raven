@@ -11919,3 +11919,28 @@ runtime checks cover value-wrapper copies, generic factories, callbacks, nested
 function arguments, inhabited unit arguments and rejection after substitution.
 Evidence and artifact hashes are saved in
 `docs/experiments/value-unions/fresh-bundle-qualification.json`.
+
+## Awaited structural error results — 2026-10-15 development
+
+The fresh v3 bundle consumer in `docs/experiments/value-unions/task-project`
+awaits `Task<Result<Response, HttpError | JsonError>>`. It covers success, imported
+HTTP errors and imported JSON errors through both `Task.FromResult` and queued
+`Task.Run`, then extracts and checks each payload. All six paths return the
+expected value; the application exits 42. Runtime Contract configuration comes
+from the v3 bundle's `NeoCLR.ClassLibrary.props`.
+
+Native emission already produces `unbox.any` with a union signature when a
+nominal generic carrier exposes its Object-stored payload. The interpreter now
+admits this instruction for validated closed unions, reusing its concrete payload
+membership check. Focused tests cover boxed scalar and reference alternatives and
+reject an unrelated object. The structural runtime suite passes 54 tests.
+
+Unlike CLR `unbox.any` on a nominal value, this experimental union extraction
+restores a structural view after checking membership. Its benefit is working
+nominal generic carriers with native structural signatures; its cost is reliance
+on the interpreter's temporary boxed payload representation. It does not establish
+an exact boxed-union identity or final ABI. Explicit `box union<...>` remains gated;
+JIT/AOT layout and native boxing remain follow-ups owned by the runtime/backend
+work. Nominal interface conformance remains explicit. No compiler mapping or
+ordinary .NET behavior changes in this slice. Evidence is recorded in neoCLR's
+`docs/experiments/value-unions/task-results.json`.
