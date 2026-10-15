@@ -12222,3 +12222,13 @@ both artifact hashes and the retained v3 bundle labels. The private disjoint
 layout still trades copy/storage costs for simple tracing; throughput, direct
 reference alternatives alongside records, enums, boxing, managed JIT/GC and full
 Task qualification remain open.
+
+### Native record/reference union backend (2026-10-15)
+
+The neoCLR structural feature branch now admits bounded mixtures of inline nominal
+records and direct reference alternatives. Native fixture tests cover calls,
+copies, actual nominal interface conformance and allocation accounting. Raven
+emission, native metadata signatures and Runtime Contract configuration are
+unchanged; this does not qualify a new fresh Raven mixed-record consumer or
+managed JIT/GC. Whole-union boxing remains gated. See the structural lowering
+section for the private disjoint-region storage tradeoff.

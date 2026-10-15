@@ -166,8 +166,11 @@ extracting a snapshot. Embedded references keep their identity and tracing.
 This sums alternative sizes (up to 256 lanes), trading space/copy cost for
 unambiguous reference tracing. A fresh artifact-only Raven struct consumer now passes seven union-call/pattern
 cases, including preserved Int32/Int64 fields and reordered alternatives, with
-no native imports or arena allocation. Records mixed with direct reference
-alternatives and whole-union boxing remain open.
+no native imports or arena allocation. Native backend tests also admit records mixed with direct nominal reference
+alternatives. One reference region stores the admitted object; reference tests
+and casts inspect actual nominal conformance, including overlapping interfaces.
+Inactive regions stay zero. This has native fixture coverage; a fresh Raven
+record/reference consumer and whole-union boxing remain open.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference
