@@ -12134,3 +12134,19 @@ Reproduction and artifact hashes are recorded in neoCLR's
 `docs/experiments/native-structural-types/scalar-import-project/README.md` and
 `raven-scalar-import-results.json`. The v3 library bundle is retained, not freshly
 rebuilt; mixed payloads, JIT/collector stress and full Task applications remain open.
+
+## Mixed scalar/reference native unions (2026-10-15)
+
+The runtime now admits bounded Int32/Int64/Boolean unions with selected nominal
+reference alternatives, using separate tag, numeric and reference slots. Scalar
+injection clears the traced reference slot; exact scalar patterns avoid boxing.
+Nominal reference admission/extraction, calls, out copies, replacement and null
+are checked against the interpreter. The native fixture's arena contains only
+explicit objects, without union carriers or scalar boxes. Object views requiring
+scalar boxing, and injection from Object requiring payload classification, remain
+rejected, as do intrinsic String and nominal-value payloads.
+Runtime Contract settings and Raven emission/import are unchanged. The companion
+`docs/experiments/native-structural-types/mixed-union.neoil` and focused
+`mixed_union` tests document the private layout and its tradeoff: an extra slot
+for unambiguous reference tracing. Fresh mixed Raven application, JIT/collector
+stress and throughput qualification remain open; this is not an external C ABI.

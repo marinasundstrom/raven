@@ -126,7 +126,11 @@ the recorded v3 library bundle. An artifact-only library consumer also passes
 union returns and parameters with reordered source alternatives, with the same
 zero-arena result. Broader application/JIT/collector coverage still needs qualification. A test subject must currently be
 an immediate union local/argument load or union cast. Escaping or duplicating the
-`isinst` result, compound-union test targets and mixed payloads remain gated.
+`isinst` result and compound-union test targets remain gated. Mixed scalar/nominal
+reference unions now have bounded runtime AOT tests using separate numeric and
+traced reference slots; fresh Raven-produced mixed consumers remain unqualified.
+Object views requiring scalar boxing, intrinsic String and nominal-value
+alternatives remain gated.
 Do not infer complete Raven match support from these bounded runtime tests.
 
 ## Conversions and physical storage
@@ -145,8 +149,10 @@ sequence. Native reference-only unions copy one payload-reference slot without a
 carrier. The scalar-only backend work uses a tag plus numeric payload and removes
 an exact adjacent box/cast allocation for Int32, Int64 and Boolean. Ordinary
 Object boxing is unchanged. These representations do not define a public ABI.
-Mixed value/reference alternatives, general value layouts and whole-union boxing
-still require further native work.
+Bounded mixed scalar/nominal-reference unions now add a separate reference slot
+alongside the tag and numeric payload; scalar injection clears it. Only that slot
+is traced. This spends an extra slot to keep numeric bits out of reference tracing.
+General value layouts and whole-union boxing still require further native work.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference
