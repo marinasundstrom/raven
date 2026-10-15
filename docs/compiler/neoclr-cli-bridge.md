@@ -12472,6 +12472,19 @@ imports and passes undefined/bounds sanitizers. Evidence is in neoCLR's
 
 The paired runtime also admits Single/Double union alternatives in distinct inline
 numeric regions with exact tests, extraction and widening. Thirteen native
-structural backend tests pass against the interpreter; this numeric slice does not
-claim fresh Raven floating-source or broader platform qualification. No metadata
+structural backend tests pass against the interpreter; the follow-up fresh Raven floating-source qualification below extends that evidence. No metadata
 host or compiler encoding change is required for that runtime admission.
+
+
+### Fresh floating union source qualification (2026-10-15)
+
+The paired neoCLR `floating-project` fixture passes interpreter, macOS ARM64 AOT
+and managed JIT against fresh v4 libraries. `float number`, `double number` and
+`int number` arms preserve exact alternative identity through reordered/widened
+calls. Negative fractional Single and a Double larger than Int32 return the
+expected result; native execution has zero arena use and AOT has no native imports.
+AOT runs with undefined/bounds sanitizers, while the JIT host checks cleanup.
+See neoCLR `docs/experiments/native-structural-types/floating-v4-results.json` and
+`verify-raven-union-widening.py --floating-union` for exact hashes/reproduction.
+No compiler encoding or Runtime Contract changes were needed; NaN payloads,
+broader workloads and other platforms remain unqualified.
