@@ -356,6 +356,39 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
+            if (pattern is BoundAndPattern conjunction &&
+                input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                !conjunction.GetDesignators().Any() && TryType(input, false, out var conjunctionType) &&
+                capabilities?.Allows(conjunctionType) == true)
+            {
+                // Each predicate consumes its input. Spill once so the right
+                // predicate sees the same value, only after the left succeeds.
+                var subject = localTypes.Count;
+                localTypes.Add(conjunctionType);
+                Add(LinearInstructionKind.StoreLocal, syntax, subject);
+                Add(LinearInstructionKind.LoadLocal, syntax, subject);
+                if (!PatternValue(input, conjunction.Left, fail, syntax)) return false;
+                Add(LinearInstructionKind.LoadLocal, syntax, subject);
+                return PatternValue(input, conjunction.Right, fail, syntax);
+            }
+            if (pattern is BoundComparisonPattern comparison &&
+                input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                CallableSignature.SameStorageType(input, comparison.InputType) &&
+                CallableSignature.SameStorageType(input, comparison.Value.Type))
+            {
+                if (!LowerValue(comparison.Value)) return false;
+                Add(comparison.Operator switch
+                {
+                    BoundComparisonPatternOperator.Equals or BoundComparisonPatternOperator.NotEquals => LinearInstructionKind.Equal,
+                    BoundComparisonPatternOperator.LessThan or BoundComparisonPatternOperator.GreaterThanOrEqual => LinearInstructionKind.Less,
+                    _ => LinearInstructionKind.Greater
+                }, syntax);
+                if (comparison.Operator is BoundComparisonPatternOperator.NotEquals or
+                    BoundComparisonPatternOperator.GreaterThanOrEqual or BoundComparisonPatternOperator.LessThanOrEqual)
+                    Add(LinearInstructionKind.Not, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             if (pattern is BoundNotPattern negated && !negated.GetDesignators().Any())
             {
                 var accepted = nextLabel++;

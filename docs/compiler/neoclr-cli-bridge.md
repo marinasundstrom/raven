@@ -12589,3 +12589,32 @@ conversion reason. A fresh five-library build succeeds. Native loop/stored-bound
 execution evidence is maintained in neoCLR's range-endpoints validation record.
 The broader attempted selection also exposed the independent readonly-field case
 above; it is explicitly not counted as passing.
+
+## Native signed integer range patterns (2026-10-15)
+
+The portable backend now consumes the shared range-pattern lowering for Int32 and
+Int64 subjects in conditions, Boolean values and match arms. Bounded ranges become
+short-circuit comparison conjunctions over one saved subject; open bounds use one comparison.
+Inclusive ends compare directly, so even Int64.MaxValue requires no successor
+arithmetic. This matches Raven's ordinary .NET pattern semantics.
+
+This is native-backend work on codex/neoclr: the portable backend is not present
+on main. No Runtime Contract switch, CLI bridge encoding, library ABI, metadata
+format or runtime opcode changes. Existing target storage and instruction
+capabilities still gate emission. Raven owns the lowering; neoCLR executes its
+existing signed comparisons in interpreter, AOT and JIT.
+
+Scope is signed Int32/Int64 predicates without pattern bindings. Other numeric
+types and user-defined ordering remain outside this slice. The shared binder
+currently requires matching endpoint types;
+write `1L..=3L` for a long subject. Inclusive stored/sliced Range conversion and
+overflow-safe loop advancement remain separate gaps. Structural work stays parked.
+
+Validation and the executable consumer are recorded in neoCLR's
+docs/validation/range-patterns. Compiler regression coverage checks both endpoint
+forms, open/reversed bounds and values beyond 32 bits; the native consumer also
+checks match arms, once-only subject evaluation and the maximum signed 64-bit end.
+
+Focused validation: 32 range/index/portable-pattern compiler tests pass on .NET 11;
+the native-enabled compiler build passes. Native execution uses the unchanged
+five-library range bundle and existing runtime, qualified on macOS ARM64.

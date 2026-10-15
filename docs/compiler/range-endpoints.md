@@ -90,3 +90,10 @@ hover selection passes 7 tests, with 2 pre-existing skipped tests. Focused filte
 PatternSyntaxParser, LanguageParser, ForStatementSemantic, PatternLocalCodeGen,
 AsyncForLifetime, PdbSequencePoint and LoopStatementCodeGen tests.
 No native neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+### Native predicate follow-up (2026-10-15)
+
+On codex/neoclr, signed int/long range predicates now use direct comparisons in
+conditions, Boolean values and match arms, with one subject evaluation and short-circuit bounded
+checks. This does not change main's semantics or System.Range representation.
+See [native qualification and limits](neoclr-cli-bridge.md#native-signed-integer-range-patterns-2026-10-15).
