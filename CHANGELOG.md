@@ -6,7 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
-- Qualify a fresh Raven scalar-union match consumer with typed bindings, guards, fallbacks and result joins against interpreter and macOS ARM64 AOT. Retain reproduction and artifact hashes; native execution returns 42 with no allocator imports or arena use. Broader mixed/imported/JIT coverage remains open.
+- Qualify a fresh Raven scalar-union match consumer with typed bindings, guards, fallbacks and result joins against interpreter and macOS ARM64 AOT. Retain reproduction and artifact hashes; native execution returns 42 with no allocator imports or arena use. Also qualify artifact-only library union returns/parameters with reordered alternatives and six imported scalar inputs; interpreter and AOT agree with zero arena use. Broader mixed/JIT coverage remains open.
 
 - Document companion native scalar-union pattern test lowering and its AOT/interpreter qualification. Existing Raven TypeTest emission is unchanged; broader test-result uses and full application qualification remain open.
 

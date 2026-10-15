@@ -122,8 +122,9 @@ for each active alternative and default null, including false Boolean payloads,
 exact extraction and mismatches. A [fresh Raven-produced consumer](https://github.com/marinasundstrom/neoCLR/tree/codex/structural-union-intersection/docs/experiments/native-structural-types/scalar-pattern-project)
 also passes six guarded/fallback-arm checks and a match-result join in the
 interpreter and macOS ARM64 AOT, with no allocator imports or arena use. It uses
-the recorded v3 library bundle. Imported union-returning calls and broader
-application/JIT/collector coverage still need qualification. A test subject must currently be
+the recorded v3 library bundle. An artifact-only library consumer also passes
+union returns and parameters with reordered source alternatives, with the same
+zero-arena result. Broader application/JIT/collector coverage still needs qualification. A test subject must currently be
 an immediate union local/argument load or union cast. Escaping or duplicating the
 `isinst` result, compound-union test targets and mixed payloads remain gated.
 Do not infer complete Raven match support from these bounded runtime tests.

@@ -12120,3 +12120,17 @@ calls, JIT/GC stress or full integration. A direct less-than comparison guard
 followed by a later greater-than guard exposed a separate parser candidate; the
 consumer uses named guard functions. Independent Raven
 main reproduction remains deferred; this is not a new structural-type restriction.
+
+## Imported scalar-union consumer (2026-10-15)
+
+A separately emitted native Raven library now qualifies `int | long | bool`
+returns and echo parameters against an artifact-only consumer. Reordered source
+alternatives retain compatible structural identity. Six inputs cover both Boolean
+values, wide/small Int64 and negative/positive Int32 before guarded matching.
+Interpreter and macOS ARM64 closed-world AOT return 42, with no undefined native
+imports, faults or arena use. No compiler emission or Runtime Contract change
+was necessary. The native layout remains private, not an external C ABI.
+Reproduction and artifact hashes are recorded in neoCLR's
+`docs/experiments/native-structural-types/scalar-import-project/README.md` and
+`raven-scalar-import-results.json`. The v3 library bundle is retained, not freshly
+rebuilt; mixed payloads, JIT/collector stress and full Task applications remain open.
