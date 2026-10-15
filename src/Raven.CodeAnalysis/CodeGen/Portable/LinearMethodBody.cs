@@ -1663,9 +1663,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     !conversion.IsUserDefined && capabilities?.AllowsImportedCompositionCalls == true &&
-                    conversion.Expression.Type is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol) &&
-                    conversion.Type is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol):
-                    // The host call verifier proves the raw contracts; no carrier or cast is emitted.
+                    conversion.Expression.Type is IIntersectionTypeSymbol &&
+                    conversion.Type is IIntersectionTypeSymbol:
+                    // Reference-only intersection views preserve storage. Union values
+                    // require an explicit conversion because payload layouts can differ.
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&

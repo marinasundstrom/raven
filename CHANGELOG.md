@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Emit explicit native union widening conversions so differing inline payload layouts are repacked by neoCLR. Keep no-op composition conversion limited to intersection reference views. A fresh overload/scalar/record consumer passes interpreter, AOT and managed JIT with zero arena use against the paired runtime change; Runtime Contract and metadata encoding are unchanged.
+
 - Preserve structural union/intersection constituent identity and ordered tuple element identity in overload lookup keys, including nested generic arguments. Distinct structural overloads now reach ranking instead of being discarded; ambiguity is declaration-order independent. Align inherited mixed-union assertions with value semantics. Runtime Contract and metadata encoding are unchanged.
 
 - Carry main-based `41abd72ea` exact-alternative widening/reordering for ordinary .NET ad-hoc union carriers, preserving single evaluation, reference identity and inactive defaults. Native encoding and Runtime Contract options are unchanged. Payload-transforming CLI widening remains unsupported.
