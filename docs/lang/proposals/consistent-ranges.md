@@ -1,6 +1,7 @@
 # Consistent ranges and generic bounds
 
-Status: proposal, 2026-10-15. This is a design slice, not implemented behavior.
+Status: generic capability/library proposal, 2026-10-15. The endpoint migration is
+implemented separately; see [compiler lowering](../../compiler/range-endpoints.md).
 The author requested a reconsideration of ranges across .NET and neoCLR, starting
 with generic bounds and endpoint consistency and then integer iteration. Structural
 type work remains parked. All known Raven consumers are project-owned; the author
@@ -10,12 +11,12 @@ explicitly removed compatibility as a concern. No legacy behavior switch is plan
 
 Use `a..b` for an inclusive start/exclusive end and `a..=b` for both endpoints included,
 consistently in loops, collection expansion, patterns, stored bounds and slices.
-Remove `..<` in a coordinated migration. This spelling is a recommendation pending
-implementation, not a claim that the author has chosen the precise punctuation.
+Remove `..<` in a coordinated migration. The author directed syntax/semantic work and integration on Raven main first,
+including migration of owned code; neoCLR-specific semantics follow afterwards.
 
 It aligns half-open syntax with .NET slicing and Rust while retaining an explicit
-inclusive form. Current Raven numeric `..` loops include the end; emitted System.Range
-values exclude it. The different contexts must no longer reinterpret endpoint
+inclusive form. Before this migration, Raven numeric `..` loops included the end while emitted
+System.Range values excluded it. The different contexts must no longer reinterpret endpoint
 inclusion. Changing the target must not change the endpoint rule either.
 
 `a..`, `..b`, `..=b` and `..` describe unbounded endpoints. An abstract omitted lower
@@ -38,13 +39,16 @@ bounds, but cannot change inclusion. The natural type of numeric standalone rang
 fully unbounded inference and overload ranking need focused binder qualification.
 Do not add structural metadata kinds or runtime opcodes for these library values.
 
-.NET retains its actual System.Range ABI. neoCLR retains its corresponding library
-contract. An inclusive slice needs a length-aware adapter: resolve endpoints once in
-source order, validate the included end as an element, and only then derive the
-exclusive limit. Inclusive ^0 is invalid; inclusive ^1 includes the last element.
-Unchecked `end + 1` is invalid lowering. A conversion to System.Range must not erase
-inclusion; without sufficient context it needs a diagnostic or an explicit adapter.
-Custom indexers cannot be assumed to expose a length or support generic bounds.
+.NET retains its actual System.Range ABI. The compiler now translates inclusive
+indices to equivalent exclusive boundaries with checked arithmetic: `n` becomes
+`n + 1`, and `^n` becomes `^(n - 1)`, after validating the original Index. This needs
+no collection length. Inclusive `^0` and an unrepresentable successor reject;
+consuming APIs perform collection bounds checks. System.Range preserves selection,
+but cannot retain the source endpoint spelling. This supersedes the initial proposal
+that inclusive conversion always needs a length-aware adapter. Proposed generic
+bounds retain inclusion explicitly. Custom indexers follow their declared contract;
+they cannot be assumed to expose a length or support generic bounds. Native neoCLR
+lowering still needs separate implementation and qualification.
 
 Ordered intervals do not imply arithmetic, enumeration or Count. Use a consistent
 total-order comparer for containment; do not mix comparison operators and comparer
@@ -57,6 +61,23 @@ graphemes and .NET string positions count UTF-16 code units; error transport and
 copy/view behavior follow the consuming platform API. No new Runtime Contract
 configuration is added in this design slice. Future backend capability checks must
 reject unsupported forms rather than substitute different range semantics.
+
+## Explicit capabilities
+
+Author clarification (2026-10-15): types declare their supported qualities through
+interfaces and generic contracts; capabilities are not added to every type. Ordering
+and stepping are separate opt-ins. Bound<T> storage needs neither. Default containment
+requires an ordering contract; an explicit comparer supports externally owned types.
+.NET IComparable<T>/IComparer<T> and neoCLR ComparableTo<T>/Comparer<T> are existing
+platform building blocks, not identical metadata identities.
+
+Iteration additionally needs a declared stepping contract or an explicit generic
+stepper provider that detects exhaustion and guarantees directional progress without
+wrapping. Addition alone is insufficient. Keep the step's type separate from the
+value's type. Exact interface shape and static-member support remain design work.
+Marker declarations must be backed by callable behavior where an operation needs it;
+no duck-typed capability discovery or universal iteration/Count contract is proposed.
+Integer specialization must preserve this contract while avoiding per-element dispatch.
 
 ## Integer iteration contract
 

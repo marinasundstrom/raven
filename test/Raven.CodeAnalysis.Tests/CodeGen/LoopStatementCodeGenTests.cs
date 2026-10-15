@@ -109,7 +109,7 @@ class Runner {
     public static func Run() -> int {
         var value = 0
 
-outer:  for i in 0..<5 {
+outer:  for i in 0..5 {
             value = value + 1
 
             loop {
@@ -139,7 +139,7 @@ class Runner {
     public static func Run() -> int {
         var value = 0
 
-outer:  for i in 0..<3 {
+outer:  for i in 0..3 {
             value = value + 1
 
             loop {

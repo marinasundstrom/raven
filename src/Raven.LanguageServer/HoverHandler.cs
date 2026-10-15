@@ -4073,8 +4073,8 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var element = pattern.Elements[i];
             var prefix = element.Prefix;
-            var dotDotKind = prefix.DotDotToken.Kind;
-            if (dotDotKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
+            var prefixKind = prefix.OperatorToken.Kind;
+            if (prefixKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
             {
                 widths.Add(1);
                 kinds.Add(BoundPositionalPattern.SequenceElementKind.Single);

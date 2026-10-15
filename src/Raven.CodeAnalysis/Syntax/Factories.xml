@@ -364,15 +364,15 @@
 
   <Factory Node="SequencePatternPrefix">
     <Overload>
-      <Default Slot="DotDotToken" Token="None" />
+      <Default Slot="OperatorToken" Token="None" />
       <Default Slot="SegmentLengthToken" Token="None" />
     </Overload>
     <Overload>
-      <Parameter Slot="DotDotToken" />
+      <Parameter Slot="OperatorToken" />
       <Default Slot="SegmentLengthToken" Token="None" />
     </Overload>
     <Overload>
-      <Parameter Slot="DotDotToken" />
+      <Parameter Slot="OperatorToken" />
       <Parameter Slot="SegmentLengthToken" />
     </Overload>
   </Factory>

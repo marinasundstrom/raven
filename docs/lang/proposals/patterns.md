@@ -124,7 +124,7 @@ for let (id, amount when > 100) in orders {
     WriteLine(amount)
 }
 
-for let (id, amount when 100..300) in orders {
+for let (id, amount when 100..=300) in orders {
     WriteLine(amount)
 }
 

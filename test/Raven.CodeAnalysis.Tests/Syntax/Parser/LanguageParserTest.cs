@@ -194,7 +194,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForRangeWithByClause()
     {
         var code = """
-                   for x in 0..10 by 2 {
+                   for x in 0..=10 by 2 {
                        x
                    }
                    """;
@@ -212,7 +212,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForExclusiveRangeWithByClause()
     {
         var code = """
-                   for x in 0..<10 by 2 {
+                   for x in 0..10 by 2 {
                        x
                    }
                    """;
@@ -226,7 +226,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt.StepExpression.ShouldNotBeNull();
 
         var range = Assert.IsType<RangeExpressionSyntax>(forStmt.Expression);
-        range.LessThanToken.Kind.ShouldBe(SyntaxKind.LessThanToken);
+        range.EqualsToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]

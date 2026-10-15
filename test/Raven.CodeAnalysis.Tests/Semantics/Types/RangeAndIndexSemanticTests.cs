@@ -63,7 +63,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void RangeExpression_WithExclusiveUpperBound_MarksExclusiveFlag()
     {
-        const string source = "let range = 2..<10";
+        const string source = "let range = 2..10";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -76,7 +76,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
         var boundRange = model.GetBoundNode(rangeSyntax).ShouldBeOfType<BoundRangeExpression>();
 
         boundRange.IsUpperExclusive.ShouldBeTrue();
-        rangeSyntax.LessThanToken.Kind.ShouldBe(SyntaxKind.LessThanToken);
+        rangeSyntax.EqualsToken.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]

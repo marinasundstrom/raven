@@ -138,7 +138,7 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal("string", headType.TypeAnnotation.Type.ToString());
 
         var restElement = pattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.OperatorToken.Kind);
         var tail = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var tailType = Assert.IsType<TypedVariableDesignationSyntax>(tail.Designation);
         Assert.Equal("int", tailType.TypeAnnotation.Type.ToString());
@@ -156,7 +156,7 @@ public class AssignmentStatementSyntaxTest
         Assert.True(pattern.Elements[0].Pattern is VariablePatternSyntax or DeclarationPatternSyntax);
 
         var restElement = pattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.OperatorToken.Kind);
         var middle = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         Assert.Equal(SyntaxKind.None, middle.BindingKeyword.Kind);
 
@@ -174,7 +174,7 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal(2, pattern.Elements.Count);
 
         var segmentElement = pattern.Elements[0];
-        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.OperatorToken.Kind);
         Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
 
         var start = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);

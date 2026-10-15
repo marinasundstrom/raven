@@ -9,7 +9,7 @@ let persons = [
     Person("Marina", "S", 1990)
 ]
 
-let campaignGroup = persons.Where(p => p.YearOfBirth is 1980..1990)
+let campaignGroup = persons.Where(p => p.YearOfBirth is 1980..=1990)
 
 for p in campaignGroup {
     WriteLine(p)
@@ -17,7 +17,7 @@ for p in campaignGroup {
 
 func IsEligible(person: Person, lower: int, upper: int) -> bool
     match person.YearOfBirth {
-        lower..upper => true
+        lower..=upper => true
         _ => false
     }
 }

@@ -69,7 +69,7 @@ import System.Collections.Generic.*
 import System.Threading.Tasks.*
 
 async func Values() -> IAsyncEnumerable<int> {
-    for i in 1..5.0 by 0.1 {
+    for i in 1..=5.0 by 0.1 {
         yield i
         await Task.Delay(0)
     }

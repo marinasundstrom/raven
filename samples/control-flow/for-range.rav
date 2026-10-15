@@ -5,6 +5,6 @@ let region = "NorthHub"
 let startBatchId = 1001
 let endBatchId = 1005
 
-for batchId in startBatchId..endBatchId {
+for batchId in startBatchId..=endBatchId {
     WriteLine("[${region}] Create shipment batch ${batchId}")
 }

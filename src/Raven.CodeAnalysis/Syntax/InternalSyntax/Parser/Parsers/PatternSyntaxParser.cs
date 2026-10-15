@@ -503,34 +503,34 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private SequencePatternElementSyntax ParseSequencePatternElement()
     {
-        if (!TryConsumeSequenceRestToken(out var dotDotToken))
+        if (!TryConsumeSequencePrefixToken(out var operatorToken))
         {
             return SequencePatternElement(SequencePatternPrefix(Token(SyntaxKind.None), Token(SyntaxKind.None)), ParseDeconstructionElementPattern());
         }
 
         var segmentLengthToken = Token(SyntaxKind.None);
-        if (dotDotToken.Kind == SyntaxKind.DotDotToken &&
+        if (operatorToken.Kind == SyntaxKind.DotDotToken &&
             PeekToken().Kind == SyntaxKind.NumericLiteralToken)
         {
             segmentLengthToken = ReadToken();
         }
 
-        if (((dotDotToken.Kind == SyntaxKind.DotDotDotToken &&
+        if (((operatorToken.Kind == SyntaxKind.DotDotDotToken &&
               segmentLengthToken.Kind == SyntaxKind.None) ||
-             (dotDotToken.Kind == SyntaxKind.DotDotToken &&
+             (operatorToken.Kind == SyntaxKind.DotDotToken &&
               segmentLengthToken.Kind == SyntaxKind.NumericLiteralToken)) &&
             PeekToken().Kind is SyntaxKind.CommaToken or SyntaxKind.CloseBracketToken)
         {
             return SequencePatternElement(
-                SequencePatternPrefix(dotDotToken, segmentLengthToken),
+                SequencePatternPrefix(operatorToken, segmentLengthToken),
                 DiscardPattern(MissingToken(SyntaxKind.UnderscoreToken)));
         }
 
         var pattern = ParseDeconstructionElementPattern();
-        return SequencePatternElement(SequencePatternPrefix(dotDotToken, segmentLengthToken), pattern);
+        return SequencePatternElement(SequencePatternPrefix(operatorToken, segmentLengthToken), pattern);
     }
 
-    private bool TryConsumeSequenceRestToken(out SyntaxToken token)
+    private bool TryConsumeSequencePrefixToken(out SyntaxToken token)
     {
         if (ConsumeToken(SyntaxKind.DotDotDotToken, out token))
             return true;
@@ -958,11 +958,11 @@ internal class PatternSyntaxParser : SyntaxParser
     private PatternSyntax ParseRangePattern(ExpressionSyntax? lowerBound)
     {
         var dotDotToken = ReadToken(); // consume `..`
-        var lessThanToken = ParseExclusiveRangeToken();
+        var equalsToken = ParseInclusiveRangeToken();
 
         // Parse upper bound if present (any primary expression that isn't another pattern start)
         ExpressionSyntax? upperBound = null;
-        if (CanStartRangeBoundExpression(PeekToken()))
+        if (equalsToken.Kind == SyntaxKind.EqualsToken || CanStartRangeBoundExpression(PeekToken()))
         {
             upperBound = new ExpressionSyntaxParser(
                 this,
@@ -970,13 +970,25 @@ internal class PatternSyntaxParser : SyntaxParser
                 allowLambdaExpressions: false).ParseExpression();
         }
 
-        return RangePattern(lowerBound, dotDotToken, lessThanToken, upperBound);
+        if (equalsToken.Kind == SyntaxKind.EqualsToken && upperBound is null or ExpressionSyntax.Missing)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()));
+        }
+
+        return RangePattern(lowerBound, dotDotToken, equalsToken, upperBound);
     }
 
-    private SyntaxToken ParseExclusiveRangeToken()
+    private SyntaxToken ParseInclusiveRangeToken()
     {
-        if (ConsumeToken(SyntaxKind.LessThanToken, out var lessThanToken))
-            return lessThanToken;
+        if (PeekToken().Kind == SyntaxKind.LessThanToken)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()));
+        }
+
+        if (ConsumeToken(SyntaxKind.EqualsToken, out var equalsToken))
+            return equalsToken;
 
         return Token(SyntaxKind.None);
     }
@@ -1037,7 +1049,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 return false;
             }
 
-            constantPattern = RangePattern(rangeExpr.LeftExpression, rangeExpr.DotDotToken, rangeExpr.LessThanToken, rangeExpr.RightExpression);
+            constantPattern = RangePattern(rangeExpr.LeftExpression, rangeExpr.DotDotToken, rangeExpr.EqualsToken, rangeExpr.RightExpression);
             return true;
         }
 

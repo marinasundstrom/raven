@@ -737,6 +737,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     private bool IsOperator(SyntaxToken token)
     {
+        if (token.Kind == SyntaxKind.EqualsToken && token.Parent is RangeExpressionSyntax or RangePatternSyntax)
+            return false;
+
         if (token.Kind is SyntaxKind.LessThanToken or SyntaxKind.GreaterThanToken)
         {
             return !IsTypeArgumentDelimiter(token);

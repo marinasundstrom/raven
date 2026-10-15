@@ -170,16 +170,16 @@ Do not combine that outer mode with inline binding keywords in the same target.
 ### Range loops
 
 A `for` target can iterate over an explicit or from-start range of integral,
-floating-point, `char`, or `decimal` values. `..` includes the end; `..<`
+floating-point, `char`, or `decimal` values. `..=` includes the end; `..`
 excludes it. An omitted start means `0`. The end may not be omitted or use a
 from-end bound.
 
 ```raven
-for x in 0..10 { }
-for x in ..<10 { }
-for x in 0..<10 by 2 { }
-for x in 10..0 by -3 { }
-for x in 0..10.0 by 0.1 { }
+for x in 0..=10 { }
+for x in ..10 { }
+for x in 0..10 by 2 { }
+for x in 10..=0 by -3 { }
+for x in 0..=10.0 by 0.1 { }
 ```
 
 The optional `by` step must be non-zero and is only valid for a range loop. A

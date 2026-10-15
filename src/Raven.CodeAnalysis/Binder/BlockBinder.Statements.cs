@@ -1084,7 +1084,7 @@ partial class BlockBinder
             new BoundIndexExpression(convertedStart, isFromEnd: false, GetIndexType()),
             new BoundIndexExpression(convertedEnd, isFromEnd: false, GetIndexType()),
             GetRangeType(),
-            rangeSyntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
+            rangeSyntax.EqualsToken.Kind != SyntaxKind.EqualsToken);
 
         return (
             range,

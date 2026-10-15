@@ -778,7 +778,7 @@ internal partial class BlockBinder
             inputType,
             lowerBound,
             upperBound,
-            isUpperExclusive: syntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
+            isUpperExclusive: syntax.EqualsToken.Kind != SyntaxKind.EqualsToken);
     }
 
     private static bool IsOrderableType(ITypeSymbol type)
@@ -3366,7 +3366,7 @@ internal sealed class BoundRangePattern : BoundPattern
         ITypeSymbol inputType,
         BoundExpression? lowerBound,
         BoundExpression? upperBound,
-        bool isUpperExclusive = false,
+        bool isUpperExclusive = true,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
     {

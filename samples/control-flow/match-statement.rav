@@ -5,7 +5,7 @@ let ticket = SupportTicket(4217, 2)
 
 match ticket.Priority {
     1 => WriteLine("Ticket ${ticket.Id}: route to critical-response queue")
-    2 .. 3 => WriteLine("Ticket ${ticket.Id}: route to standard-response queue")
+    2 ..= 3 => WriteLine("Ticket ${ticket.Id}: route to standard-response queue")
     _ => {
         WriteLine("Ticket ${ticket.Id}: route to triage")
         WriteLine("Ticket ${ticket.Id}: create audit entry for triage routing")

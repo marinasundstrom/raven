@@ -236,7 +236,7 @@ class Mfrc522Reader : IDisposable {
             count = MaxReceiveBytes
         }
 
-        for _ in 0 ..< count {
+        for _ in 0 .. count {
             received.Add(ReadRegister(Register.FifoData))
         }
 

@@ -3836,7 +3836,7 @@ func Describe(value: int) -> string {
         const string code = """
 func Describe(value: int) -> string {
     return match value {
-        ..-1 => "Negative"
+        ..=-1 => "Negative"
         >= 0 => "Non-negative"
     }
 }
@@ -4364,7 +4364,7 @@ let result = match pair {
 let value: int = 2
 
 let result = match value {
-    0..0.5 => 1
+    0..=0.5 => 1
     _ => 0
 }
 """;
@@ -4386,7 +4386,7 @@ let result = match value {
         const string code = """
 func IsEligible(year: int, lower: int, upper: int) -> bool {
     return match year {
-        lower..upper => true
+        lower..=upper => true
         _ => false
     }
 }
@@ -4605,7 +4605,7 @@ func Evaluate(expr: Expr) -> int {
 let value: int = 9
 
 let result = match value {
-    2..<10 => 1
+    2..10 => 1
     _ => 0
 }
 """;

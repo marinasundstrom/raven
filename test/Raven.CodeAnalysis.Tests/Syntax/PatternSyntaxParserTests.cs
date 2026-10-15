@@ -267,7 +267,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.OperatorToken.Kind);
 
         var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
@@ -287,7 +287,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.OperatorToken.Kind);
 
         var restPattern = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
         var restDesignation = Assert.IsType<SingleVariableDesignationSyntax>(restPattern.Designation);
@@ -307,7 +307,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.OperatorToken.Kind);
 
         var restPattern = Assert.IsType<DiscardPatternSyntax>(restElement.Pattern);
         Assert.True(restPattern.UnderscoreToken.IsMissing);
@@ -326,7 +326,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
-        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, restElement.Prefix.OperatorToken.Kind);
 
         var restPattern = Assert.IsType<DiscardPatternSyntax>(restElement.Pattern);
         Assert.True(restPattern.UnderscoreToken.IsMissing);
@@ -345,7 +345,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var segmentElement = collectionPattern.Elements[0];
-        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.OperatorToken.Kind);
         Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
 
         var segmentPattern = Assert.IsType<VariablePatternSyntax>(segmentElement.Pattern);
@@ -390,7 +390,7 @@ public class PatternSyntaxParserTests
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var segmentElement = collectionPattern.Elements[0];
-        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, segmentElement.Prefix.OperatorToken.Kind);
         Assert.Equal(SyntaxKind.NumericLiteralToken, segmentElement.Prefix.SegmentLengthToken.Kind);
 
         var discardPattern = Assert.IsType<DiscardPatternSyntax>(segmentElement.Pattern);
@@ -509,12 +509,12 @@ public class PatternSyntaxParserTests
     [Fact]
     public void RangePattern_WithExclusiveUpperBound_Parses()
     {
-        var (pattern, tree) = ParsePattern("2..<10");
+        var (pattern, tree) = ParsePattern("2..10");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var rangePattern = Assert.IsType<RangePatternSyntax>(pattern);
-        Assert.Equal("2..<10", sourceText.ToString(rangePattern.Span));
-        Assert.Equal(SyntaxKind.LessThanToken, rangePattern.LessThanToken.Kind);
+        Assert.Equal("2..10", sourceText.ToString(rangePattern.Span));
+        Assert.Equal(SyntaxKind.None, rangePattern.EqualsToken.Kind);
         Assert.NotNull(rangePattern.LowerBound);
         Assert.NotNull(rangePattern.UpperBound);
 

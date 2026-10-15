@@ -11,7 +11,7 @@ public class TodoList {
     var showCompleted: bool = false
 
     func toggleTodo(id: int) {
-        for index in 0..<todos.Length {
+        for index in 0..todos.Length {
             let todo = todos[index]
             if todo.Id == id {
                 todos[index] = todo with {

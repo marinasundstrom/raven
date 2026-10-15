@@ -7,6 +7,16 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class CollectionComprehensionSyntaxTests
 {
     [Fact]
+    public void SpreadFactories_UseSpreadPunctuation()
+    {
+        var items = SyntaxFactory.IdentifierName("items");
+        var spread = SyntaxFactory.SpreadElement(items);
+        var dictionarySpread = SyntaxFactory.DictionarySpreadElement(items, items);
+        Assert.Equal(SyntaxKind.DotDotDotToken, spread.DotDotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, dictionarySpread.DotDotDotToken.Kind);
+    }
+
+    [Fact]
     public void CollectionComprehension_ParsesWithoutFilter()
     {
         var tree = SyntaxTree.ParseText("let xs = [for n in numbers => n * n]");
@@ -40,7 +50,7 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.DotDotDotToken, spread.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, spread.DotDotDotToken.Kind);
     }
 
     [Fact]
@@ -69,7 +79,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_RangeElement_ParsesAsRangeExpression()
     {
-        var tree = SyntaxTree.ParseText("let xs = [1..10, 42]");
+        var tree = SyntaxTree.ParseText("let xs = [1..=10, 42]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var element = Assert.IsType<ExpressionElementSyntax>(collection.Elements[0]);
@@ -102,11 +112,11 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var first = Assert.IsType<DictionarySpreadElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.DotDotDotToken, first.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, first.DotDotDotToken.Kind);
         Assert.Equal(SyntaxKind.ColonToken, first.ColonToken.Kind);
 
         var second = Assert.IsType<SpreadElementSyntax>(collection.Elements[1]);
-        Assert.Equal(SyntaxKind.DotDotDotToken, second.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, second.DotDotDotToken.Kind);
     }
 
     [Fact]
@@ -205,7 +215,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_WithGuardedBindingTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("let xs = [for let (id, amount when 100..300) in orders => amount]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (id, amount when 100..=300) in orders => amount]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);

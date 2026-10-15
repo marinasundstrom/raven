@@ -12463,7 +12463,7 @@ public partial class SemanticModel
             var elementType = TryGetSequenceElementType(expectedType);
             foreach (var element in sequence.Elements)
             {
-                var targetType = element.Prefix.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken
+                var targetType = element.Prefix.OperatorToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken
                     ? expectedType
                     : elementType;
                 if (targetType is not null &&

@@ -416,9 +416,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     return expr ?? new ExpressionSyntax.Missing();
 
                 ReadToken();
-                var lessThanToken = ParseExclusiveRangeToken();
-                var right = ParseRangeBoundaryExpression();
-                expr = RangeExpression(expr, operatorCandidate, lessThanToken, right);
+                var equalsToken = ParseInclusiveRangeToken();
+                var right = equalsToken.Kind == SyntaxKind.EqualsToken
+                    ? ParseExpressionCore(RangeOperatorPrecedence + 1)
+                    : ParseRangeBoundaryExpression();
+                if (equalsToken.Kind == SyntaxKind.EqualsToken && right is ExpressionSyntax.Missing)
+                {
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()));
+                }
+                expr = RangeExpression(expr, operatorCandidate, equalsToken, right);
                 continue;
             }
 
@@ -471,10 +478,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return ParseExpressionCore(RangeOperatorPrecedence + 1);
     }
 
-    private SyntaxToken ParseExclusiveRangeToken()
+    private SyntaxToken ParseInclusiveRangeToken()
     {
-        if (ConsumeToken(SyntaxKind.LessThanToken, out var lessThanToken))
-            return lessThanToken;
+        if (PeekToken().Kind == SyntaxKind.LessThanToken)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()));
+        }
+
+        if (ConsumeToken(SyntaxKind.EqualsToken, out var equalsToken))
+            return equalsToken;
 
         return Token(SyntaxKind.None);
     }

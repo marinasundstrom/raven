@@ -65,12 +65,12 @@ enumerable reports `RAV2022`.
 A bare range element expands in the same way:
 
 ```raven
-let inclusive = [1..3]       // 1, 2, 3
-let halfOpen = [1..<4]       // 1, 2, 3
-let surrounded = [0, 1..3, 4]
+let inclusive = [1..=3]       // 1, 2, 3
+let halfOpen = [1..4]       // 1, 2, 3
+let surrounded = [0, 1..=3, 4]
 ```
 
-Here `..` includes the upper bound and `..<` excludes it. The range contributes
+Here `..=` includes the upper bound and `..` excludes it. The range contributes
 its values rather than a single `System.Range` object.
 
 ## Collection comprehensions
@@ -80,7 +80,7 @@ A comprehension produces one collection element for each value from a source:
 ```raven
 let squares = [for n in numbers => n * n]
 let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
-let rangeSquares = [for n in 1..10 => n * n]
+let rangeSquares = [for n in 1..=10 => n * n]
 ```
 
 The optional `if` filters values before the selector runs. The source may be a

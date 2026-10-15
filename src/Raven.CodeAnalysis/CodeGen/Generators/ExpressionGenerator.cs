@@ -2315,6 +2315,28 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
+    private void EmitRangeEnd(BoundIndexExpression end, bool exclusive)
+    {
+        if (exclusive)
+        {
+            EmitIndexExpression(end);
+            return;
+        }
+
+        // Construct the original index first so negative distances are not
+        // accidentally admitted by the inclusive-end adjustment.
+        EmitIndexExpression(end);
+        var indexType = ResolveClrType(end.Type);
+        var index = ILGenerator.DeclareLocal(indexType);
+        ILGenerator.Emit(OpCodes.Stloc, index);
+        ILGenerator.Emit(OpCodes.Ldloca, index);
+        ILGenerator.Emit(OpCodes.Call, indexType.GetProperty(nameof(Index.Value))!.GetMethod!);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(end.IsFromEnd ? OpCodes.Sub_Ovf : OpCodes.Add_Ovf);
+        ILGenerator.Emit(end.IsFromEnd ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Newobj, indexType.GetConstructor([typeof(int), typeof(bool)])!);
+    }
+
     private void EmitRangeExpression(BoundRangeExpression rangeExpression)
     {
         if (rangeExpression.Type.TypeKind == TypeKind.Error)
@@ -2336,7 +2358,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (rangeExpression.Left is null && rangeExpression.Right is { } end)
         {
-            EmitIndexExpression(end);
+            EmitRangeEnd(end, rangeExpression.IsUpperExclusive);
 
             var endAt = rangeClrType.GetMethod(
                 nameof(Range.EndAt),
@@ -2373,7 +2395,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         EmitIndexExpression(rangeExpression.Left);
-        EmitIndexExpression(rangeExpression.Right);
+        EmitRangeEnd(rangeExpression.Right, rangeExpression.IsUpperExclusive);
 
         var ctor = rangeClrType.GetConstructor(new[]
         {

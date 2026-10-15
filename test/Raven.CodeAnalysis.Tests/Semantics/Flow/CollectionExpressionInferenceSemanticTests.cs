@@ -533,7 +533,7 @@ let inferred = [...values, 3]
     public void NoTargetType_CollectionLiteralWithConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-let inferred = [1..3]
+let inferred = [1..=3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -556,7 +556,7 @@ let inferred = [1..3]
     public void NoTargetType_CollectionLiteralWithExclusiveConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-let inferred = [1..<4]
+let inferred = [1..4]
 """;
 
         var verifier = CreateVerifier(source);
@@ -579,7 +579,7 @@ let inferred = [1..<4]
     public void NoTargetType_CollectionLiteralWithMixedConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-let inferred = [1, 3..4, 9]
+let inferred = [1, 3..=4, 9]
 """;
 
         var verifier = CreateVerifier(source);
@@ -603,7 +603,7 @@ let inferred = [1, 3..4, 9]
     {
         const string source = """
 const MAX_VALUE = 10
-let inferred = [3..MAX_VALUE]
+let inferred = [3..=MAX_VALUE]
 """;
 
         var verifier = CreateVerifier(source);
@@ -627,7 +627,7 @@ let inferred = [3..MAX_VALUE]
     {
         const string source = """
 const MAX_VALUE = 10
-let inferred = [|3..MAX_VALUE|]
+let inferred = [|3..=MAX_VALUE|]
 """;
 
         var verifier = CreateVerifier(source);

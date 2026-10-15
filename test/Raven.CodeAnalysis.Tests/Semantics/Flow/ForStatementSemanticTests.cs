@@ -376,7 +376,7 @@ for var number in numbers {
         const string source = """
 import System.Console.*
 
-for i in 2..5 {
+for i in 2..=5 {
     WriteLine(i * 2)
 }
 """;
@@ -408,7 +408,7 @@ for i in 2..5 {
     public void ForRange_WithExclusiveUpperBound_UsesExclusiveIteration()
     {
         const string source = """
-for i in 2..<5 {
+for i in 2..5 {
 }
 """;
 
@@ -432,7 +432,7 @@ for i in 2..<5 {
     public void ForRange_FromEndBoundaryNotSupported()
     {
         const string source = """
-for i in ^1..^0 {
+for i in ^1..=^0 {
 }
 """;
 
@@ -462,7 +462,7 @@ for i in 1.. {
     public void ForRange_WithCharBounds_UsesCharIterationType()
     {
         const string source = """
-for c in 'a'..'z' {
+for c in 'a'..='z' {
 }
 """;
 
@@ -487,7 +487,7 @@ for c in 'a'..'z' {
 let start: decimal = 1
 let end: decimal = 3
 
-for value in start..end {
+for value in start..=end {
 }
 """;
 
@@ -509,7 +509,7 @@ for value in start..end {
     public void ForRange_WithUnsupportedBoundaryType_ReportsDiagnostic()
     {
         const string source = """
-for value in true..false {
+for value in true..=false {
 }
 """;
 
@@ -524,7 +524,7 @@ for value in true..false {
     public void ForRange_WithByClause_BindsStepExpression()
     {
         const string source = """
-for x in 0..10 by 2 {
+for x in 0..=10 by 2 {
 }
 """;
 
@@ -546,7 +546,7 @@ for x in 0..10 by 2 {
     public void ForRange_ByClauseZeroStep_ReportsDiagnostic()
     {
         const string source = """
-for x in 0..10 by 0 {
+for x in 0..=10 by 0 {
 }
 """;
 

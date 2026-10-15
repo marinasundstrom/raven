@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -67,9 +68,9 @@ class Program {
 
     [Theory]
     [InlineData("[1, 2]", "IEnumerable<int>")]
-    [InlineData("1..2", "IEnumerable<int>")]
-    [InlineData("2..1 by -1", "IEnumerable<int>")]
-    [InlineData("1..<3", "IEnumerable<int>")]
+    [InlineData("1..=2", "IEnumerable<int>")]
+    [InlineData("2..=1 by -1", "IEnumerable<int>")]
+    [InlineData("1..3", "IEnumerable<int>")]
     [InlineData("values", "List<int>")]
     [InlineData("values", "int[]")]
     public async Task LoopStateSurvivesTwoPendingAwaits(string collection, string parameterType)
@@ -133,7 +134,7 @@ class Program {
     {
         var loop = whileLoop
             ? "var index = 0\n        outer: while index < 2 {\n            index = index + 1"
-            : "outer: for index in 1..2 {";
+            : "outer: for index in 1..=2 {";
         var source = $$"""
 import System.Collections.Generic.*
 import System.Threading.Tasks.*

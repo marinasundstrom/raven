@@ -1276,11 +1276,11 @@ internal partial class ExpressionGenerator
 
     private void EmitRangePattern(BoundRangePattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
-        // Desugar `lo..hi`  → `(scrutinee >= lo) && (scrutinee <= hi)`
-        // Desugar `lo..<hi` → `(scrutinee >= lo) && (scrutinee <  hi)`
+        // Desugar `lo..=hi` → `(scrutinee >= lo) && (scrutinee <= hi)`
+        // Desugar `lo..hi`  → `(scrutinee >= lo) && (scrutinee <  hi)`
         // Desugar `lo..`   → `scrutinee >= lo`
-        // Desugar `..hi`   → `scrutinee <= hi`
-        // Desugar `..<hi`  → `scrutinee < hi`
+        // Desugar `..=hi`  → `scrutinee <= hi`
+        // Desugar `..hi`   → `scrutinee < hi`
 
         if (inputType.TypeKind == TypeKind.Error)
         {

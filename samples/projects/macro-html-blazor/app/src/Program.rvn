@@ -69,7 +69,7 @@ func Main() {
     let todoKeys = List<string>()
     var todoCallbackCount = 0
 
-    for index in 0..<todoFrames.Count {
+    for index in 0..todoFrames.Count {
         let frame = todoFrames.Array[index]
         if frame.AttributeName == "Toggled" {
             Require(
@@ -137,7 +137,7 @@ func Main() {
     var foundStatusBadgeLabel = false
     var foundStatusBadgeDetail = false
 
-    for index in 0..<interopFrames.Count {
+    for index in 0..interopFrames.Count {
         let frame = interopFrames.Array[index]
         if frame.ComponentType == typeof(StatusBadge) {
             foundStatusBadge = true
@@ -164,7 +164,7 @@ func Main() {
 
 func CountTodoItems(frames: RenderTreeFrame[], frameCount: int) -> int {
     var count = 0
-    for index in 0..<frameCount {
+    for index in 0..frameCount {
         let frame = frames[index]
         if frame.ComponentType == typeof(TodoItem) {
             count = count + 1
@@ -175,7 +175,7 @@ func CountTodoItems(frames: RenderTreeFrame[], frameCount: int) -> int {
 
 func CountText(frames: RenderTreeFrame[], frameCount: int, text: string) -> int {
     var count = 0
-    for index in 0..<frameCount {
+    for index in 0..frameCount {
         if frames[index].TextContent == text {
             count = count + 1
         }

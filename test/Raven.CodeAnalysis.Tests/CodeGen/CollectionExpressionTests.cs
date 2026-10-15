@@ -1303,7 +1303,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        let values: int[] = [1..3]
+        let values: int[] = [1..=3]
         return values.Length + values[0] + values[2]
     }
 }
@@ -1334,7 +1334,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        let values: int[] = [1, 3..4, 9]
+        let values: int[] = [1, 3..=4, 9]
         return values.Length + values[1] + values[2]
     }
 }
@@ -1365,7 +1365,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        let values: int[] = [1..<4]
+        let values: int[] = [1..4]
         return values.Length + values[0] + values[2]
     }
 }
