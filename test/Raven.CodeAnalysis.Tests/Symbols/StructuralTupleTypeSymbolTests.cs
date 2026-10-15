@@ -43,8 +43,12 @@ public sealed class StructuralTupleTypeSymbolTests
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(left), SymbolEqualityComparer.Default.GetHashCode(renamed));
         Assert.False(SymbolEqualityComparer.Default.Equals(left, reversed));
         Assert.False(left.MetadataIdentityEquals(repeated));
+        Assert.Equal(left.GetLookupIdentityKey(), renamed.GetLookupIdentityKey());
+        Assert.NotEqual(left.GetLookupIdentityKey(), reversed.GetLookupIdentityKey());
+        Assert.NotEqual(left.GetLookupIdentityKey(), repeated.GetLookupIdentityKey());
         var list = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
         Assert.False(list.Construct(left).MetadataIdentityEquals(list.Construct(reversed)));
+        Assert.NotEqual(list.Construct(left).GetLookupIdentityKey(), list.Construct(reversed).GetLookupIdentityKey());
         var nested = new StructuralTupleTypeSymbol([("pair", left), ("again", left)]);
         var nestedRenamed = new StructuralTupleTypeSymbol([("first", renamed), ("second", new StructuralTupleTypeSymbol([("a", integer), ("b", text)]))]);
         Assert.True(SymbolEqualityComparer.Default.Equals(nested, nestedRenamed));

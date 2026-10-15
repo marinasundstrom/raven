@@ -7,6 +7,51 @@ namespace Raven.CodeAnalysis.Tests.Symbols;
 public sealed class SourceStructuralUnionTests
 {
     [Theory]
+    [InlineData("A", "A", "A | B", "first")]
+    [InlineData("A | B", "A | B", "A | B | C", "first")]
+    [InlineData("A | B", "A | B | C", "A | B | C | D", "first")]
+    [InlineData("A", "A | B", "A | C", null)]
+    [InlineData("A | B", "A | B | C", "A | B | D", null)]
+    public void NativeUnionOverloads_UseSharedRanking(
+        string argumentType, string firstType, string secondType, string? expectedParameter)
+    {
+        foreach (var reverse in new[] { false, true })
+        {
+            var first = $"func Pick(first: {firstType}) -> int {{ 1 }}";
+            var second = $"func Pick(second: {secondType}) -> int {{ 2 }}";
+            var tree = SyntaxTree.ParseText($$"""
+                class A {}
+                class B {}
+                class C {}
+                class D {}
+                {{(reverse ? second : first)}}
+                {{(reverse ? first : second)}}
+                func Test(value: {{argumentType}}) -> int { Pick(value) }
+                """);
+            var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithTargetPlatform(TargetPlatform.NeoCLR)
+                .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+            var compilation = Compilation.Create("native-overloads", [tree], TestMetadataReferences.DefaultWithRavenCore, options);
+            var model = compilation.GetSemanticModel(tree);
+            var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+            var info = model.GetSymbolInfo(invocation);
+            if (expectedParameter is null)
+            {
+                Assert.Null(info.Symbol);
+                Assert.Equal(CandidateReason.Ambiguous, info.CandidateReason);
+                Assert.Equal(2, info.CandidateSymbols.Length);
+                Assert.Contains(model.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+            }
+            else
+            {
+                var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+                Assert.Equal(expectedParameter, method.Parameters[0].Name);
+                Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+            }
+        }
+    }
+
+    [Theory]
     [InlineData("(Response)value", false)]
     [InlineData("value", true)]
     public void ReferenceExtraction_RequiresExplicitCast(string expression, bool hasError)

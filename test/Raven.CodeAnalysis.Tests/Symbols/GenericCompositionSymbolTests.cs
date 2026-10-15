@@ -10,6 +10,25 @@ public sealed class GenericCompositionSymbolTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void LookupIdentity_PreservesCompositionsInsideGenericArguments(bool intersection)
+    {
+        var c = Create();
+        var face = c.GetTypeByMetadataName("Face`1")!;
+        var box = c.GetTypeByMetadataName("Box`1")!;
+        var anchor = c.GetTypeByMetadataName("Anchor")!;
+        var integer = face.Construct(c.GetSpecialType(SpecialType.System_Int32));
+        var text = face.Construct(c.GetSpecialType(SpecialType.System_String));
+        var left = Compose(c, intersection, integer, anchor);
+        var reordered = Compose(c, intersection, anchor, integer);
+        var different = Compose(c, intersection, text, anchor);
+        Assert.Equal(left.GetLookupIdentityKey(), reordered.GetLookupIdentityKey());
+        Assert.NotEqual(left.GetLookupIdentityKey(), different.GetLookupIdentityKey());
+        Assert.NotEqual(box.Construct(left).GetLookupIdentityKey(), box.Construct(different).GetLookupIdentityKey());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ClosingOwner_SubstitutesNestedArgumentsAndCollapsesDuplicateBounds(bool intersection)
     {
         var c = Create();
@@ -90,8 +109,7 @@ public sealed class GenericCompositionSymbolTests
         Assert.Equal(new[] { http, json }, result.ConstituentTypes.Skip(1));
         Assert.Contains("HttpError | JsonError", expression.ToDisplayString());
         Assert.False(union.IsReferenceType);
-        if (request) Assert.False(result.IsValueType); // Mixed reference/value alternatives have no chosen storage category.
-        else Assert.True(result.IsValueType);
+        Assert.True(result.IsValueType); // The union is a value even when an alternative is a reference.
         // Closing T over an existing alternative deduplicates at any nesting level.
         if (!request)
         {

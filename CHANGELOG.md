@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Preserve structural union/intersection constituent identity and ordered tuple element identity in overload lookup keys, including nested generic arguments. Distinct structural overloads now reach ranking instead of being discarded; ambiguity is declaration-order independent. Align inherited mixed-union assertions with value semantics. Runtime Contract and metadata encoding are unchanged.
+
 - Carry main-based `41abd72ea` exact-alternative widening/reordering for ordinary .NET ad-hoc union carriers, preserving single evaluation, reference identity and inactive defaults. Native encoding and Runtime Contract options are unchanged. Payload-transforming CLI widening remains unsupported.
 
 - Carry general union-parameter overload regressions from main-based `7e2e8f07c`: exact selection and overlapping ambiguity are declaration-order independent. Document the ordinary .NET carrier widening gap; no Runtime Contract or emission change. Make the existing metadata-priority fixture library explicitly public so cross-assembly visibility does not mask priority selection.
