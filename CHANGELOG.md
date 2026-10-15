@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Lower native structural-union property patterns over value records by testing the alternative, extracting one snapshot and borrowing that local for getters. Validate binding/constant patterns with 12 focused compiler tests and a fresh interpreter/AOT/JIT consumer; ordinary .NET lowering is unchanged. Document paired Single/Double union admission.
+
 - Record paired native String union support and matching metadata-host rebuild requirements. Fresh `string | int` source uses existing injection and type-pattern lowering; ordinary .NET carriers and Runtime Contract configuration are unchanged.
 
 - Emit explicit native union widening conversions so differing inline payload layouts are repacked by neoCLR. Keep no-op composition conversion limited to intersection reference views. A fresh overload/scalar/record consumer passes interpreter, AOT and managed JIT with zero arena use against the paired runtime change; Runtime Contract and metadata encoding are unchanged.

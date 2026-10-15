@@ -7,6 +7,41 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class PortablePatternBodyTests
 {
+    [Theory]
+    [InlineData("Response { Value: let value } => value")]
+    [InlineData("Response { Value: 42 } => 42")]
+    public void NativeUnionPropertyPatternExtractsValueReceiver(string arm)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            public struct Response {
+                val Value: int
+                init(value: int) { Value = value }
+            }
+            public static class Consumer {
+                public static func Read(input: Response | int) -> int {
+                    return match input {
+                        {{arm}}
+                        _ => -1
+                    }
+                }
+            }
+            """);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithTargetPlatform(TargetPlatform.NeoCLR)
+            .WithMetadataImportOptions(new MetadataImportOptions().WithStructuralCompositions(true));
+        var compilation = Compilation.Create("NativePropertyPattern", [tree], TestMetadataReferences.Default, options);
+        var model = compilation.GetSemanticModel(tree);
+        Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Read");
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsManagedReferences: true,
+            allowsImportedCompositionCalls: true, allowsCasePatterns: true);
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
+    }
+
     [Fact]
     public void PortableReferenceFieldReturnUsesEmptyStackBoundary()
     {

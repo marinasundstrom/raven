@@ -12446,3 +12446,32 @@ macOS ARM64 AOT and managed JIT, with post-entry root/heap cleanup. Native colle
 stress additionally covers embedded-NUL UTF-8 payloads, integer alternatives and
 InvalidCast under eager/paced policies. Other platforms and escaped async String
 retention remain unqualified. See neoCLR's native structural experiment record.
+
+
+### Value-record property patterns in structural unions (2026-10-15)
+
+`Response { Value: let value } => value` now lowers when Response is a value-record
+alternative of a native structural union. The source value is evaluated once into
+a local. A type test precedes checked extraction into a separate Response local;
+getters borrow that snapshot through LocalAddress/ValueInstanceCall. Nested member
+patterns use the existing pattern lowering, including constant tests. Nonmatching
+alternatives branch before extraction/getter evaluation. Whole-value captures
+(`Response response`) and match-only type patterns remain useful when appropriate;
+this is not a syntax restriction or automatic rewrite.
+
+This extension is gated to native structural-union inputs and existing managed
+value-call capabilities. Ordinary .NET property-pattern lowering, Runtime Contract
+configuration and native metadata encoding are unchanged. It does not establish
+support for every positional/deconstruction pattern or arbitrary receiver kind.
+Twelve portable pattern tests pass, including the ten pre-existing regressions.
+The paired neoCLR widening fixture now checks payload binding, member constants,
+nonmatching scalar alternatives and differing member values. It returns 42 in
+interpreter, macOS ARM64 AOT and managed JIT with zero arena use; AOT has no native
+imports and passes undefined/bounds sanitizers. Evidence is in neoCLR's
+`docs/experiments/native-structural-types/property-pattern-v4-results.json`.
+
+The paired runtime also admits Single/Double union alternatives in distinct inline
+numeric regions with exact tests, extraction and widening. Thirteen native
+structural backend tests pass against the interpreter; this numeric slice does not
+claim fresh Raven floating-source or broader platform qualification. No metadata
+host or compiler encoding change is required for that runtime admission.

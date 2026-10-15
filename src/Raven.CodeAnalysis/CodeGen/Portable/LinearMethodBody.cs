@@ -432,10 +432,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
-            if (pattern is BoundPropertyPattern propertyPattern && UsesReferenceStorage(input) && propertyPattern.ReceiverType.IsReferenceType &&
+            if (pattern is BoundPropertyPattern propertyPattern && UsesReferenceStorage(input) &&
+                (propertyPattern.ReceiverType.IsReferenceType || input is IStructuralUnionTypeSymbol && propertyPattern.ReceiverType.IsValueType) &&
                 TryType(input, false, out var propertyInputType) && capabilities?.Allows(propertyInputType) == true &&
                 TryType(propertyPattern.ReceiverType, false, out var propertyReceiverType) && capabilities.Allows(propertyReceiverType) &&
-                capabilities.Allows(LinearInstructionKind.TypeTest) && capabilities.Allows(LinearInstructionKind.ReferenceConvert))
+                capabilities.Allows(LinearInstructionKind.TypeTest) &&
+                capabilities.Allows(propertyPattern.ReceiverType.IsValueType ? LinearInstructionKind.UnboxAny : LinearInstructionKind.ReferenceConvert))
             {
                 var original = localTypes.Count; localTypes.Add(propertyInputType);
                 Add(LinearInstructionKind.StoreLocal, syntax, original);
@@ -444,13 +446,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);
                 var receiverSlot = localTypes.Count; localTypes.Add(propertyReceiverType);
                 Add(LinearInstructionKind.LoadLocal, syntax, original);
-                instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: propertyPattern.ReceiverType));
+                instructions.Add(new(propertyPattern.ReceiverType.IsValueType ? LinearInstructionKind.UnboxAny : LinearInstructionKind.ReferenceConvert, syntax, Type: propertyPattern.ReceiverType));
                 Add(LinearInstructionKind.StoreLocal, syntax, receiverSlot);
                 foreach (var propertyMember in propertyPattern.Properties)
                 {
                     if (propertyMember.Member is not IPropertySymbol { GetMethod: { IsStatic: false } accessor } || !SupportedInstanceCall(accessor))
                         return Reject("unsupported property pattern member", syntax);
-                    Add(LinearInstructionKind.LoadLocal, syntax, receiverSlot);
+                    instructions.Add(new(propertyPattern.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiverSlot, Type: propertyPattern.ReceiverType));
                     Add(InstanceCallKind(accessor), syntax, method: accessor);
                     if (!PatternValue(propertyMember.Type, propertyMember.Pattern, fail, syntax)) return false;
                 }
