@@ -4,10 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Record matching neoCLR class-library generic argument sequence qualification across interpreter/AOT/JIT and native API variance rendering. No compiler lowering or Runtime Contract change; native open-definition discovery and intrinsic String variance remain runtime gaps.
+
 - **2026-10-16:** Carry main fcefb7836: render declared interface variance in RavenDoc signatures and honor IncludeVariance in named-type symbol display. Constructed type arguments remain unannotated; no Runtime Contract or emitted metadata change.
 
 - **2026-10-16:** Carry main aefd5d4ed: require identity or reference conversions for interface variance compatibility. Reject boxing and unconstrained type arguments while retaining exact value-type arguments; align semantic interface checks with .NET variance rules.
-
 
 - **2026-10-16:** Document the matching neoCLR generic-parameter variance introspection contract and the existing native open-definition reflection gap; no language lowering or Runtime Contract option changes. Document the annotated producer/comparison class-library interfaces and their reference-only conversion contract.
 

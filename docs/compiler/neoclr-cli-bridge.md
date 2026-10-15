@@ -12712,3 +12712,18 @@ as `1e6771d5f`. Thirteen focused semantic tests pass on each line. The library
 consumer additionally checks native imported conversions and rejects reverse,
 mutable, boxing and Sliceable result widening; interpreter/AOT/JIT qualification
 is retained in neoCLR's `docs/validation/interface-variance/library`.
+
+### Generic argument sequence qualification (2026-10-16)
+
+The matching neoCLR class library now implements `TypeInfo.GetGenericArguments()`
+using TypeArgumentCount/TypeArgument and RuntimeTypeInfo.FromHandle. Raven emits
+an ordinary array-fill loop; there is no compiler mapping, Runtime Contract switch
+or metadata-encoding change. The `variance-argument-sequence-20261016` bundle built
+with this branch preserves indexed/sequence argument identity for two closed
+constructions and an empty sequence for nongeneric types in interpreter, AOT and
+managed JIT. Open parameter variance remains qualified in the interpreter; native
+open-definition discovery and intrinsic String variance are still runtime gaps.
+
+RavenDoc's general variance-signature fix (`fcefb7836` on main, carried as
+`eef1ed456`) is also qualified against the native bundle: all eleven annotated
+interface declarations retain their `in`/`out` qualifiers in the API snapshot.
