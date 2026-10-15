@@ -12090,3 +12090,16 @@ producers remain gated. Whole-union boxing, native reflection, JIT/GC stress and
 full Task consumer qualification are still required before main-track integration.
 See neoCLR's native structural experiment for scope and reproduction tests. The
 private two-slot representation is not a published ABI or a general timing claim.
+
+## Native scalar-union pattern test sequence (2026-10-15)
+
+The structural runtime backend now lowers an immediate union load/cast followed
+by `isinst Int32`, `Int64` or `Boolean` and `ref.isnull` to an inline tag comparison.
+Raven's existing TypeTest emission already has this shape; compiler metadata and
+Runtime Contract settings are unchanged. The temporary test token cannot escape,
+be duplicated or become a GC root. Nominal Object queries still use their boxed
+path. Focused AOT/interpreter tests cover all three alternatives, false Boolean,
+wide Int64, mismatches and null, with no allocator imports or arena use.
+This qualifies the runtime instruction sequence, not a fresh full Raven pattern
+application. Mixed payloads, compound test targets and broader producers remain
+open. See the structural lowering/runtime operations guides for the current map.

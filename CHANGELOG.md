@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document companion native scalar-union pattern test lowering and its AOT/interpreter qualification. Existing Raven TypeTest emission is unchanged; broader test-result uses and full application qualification remain open.
+
 - Document native structural type lowering, especially union pattern tests, guarded extraction, match-arm control flow and the separate nominal case-helper path. Link compiler implementation and state the remaining scalar-pattern backend gap explicitly.
 
 - Document companion native scalar-union allocation elision and focused AOT qualification. Raven metadata and Runtime Contract configuration are unchanged; mixed payloads and full integration remain gated.

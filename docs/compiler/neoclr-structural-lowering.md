@@ -112,15 +112,19 @@ case contract; qualification of one does not establish every nested combination.
 ### Pattern qualification boundary
 
 Reference-only native unions have focused AOT/interpreter tests for membership,
-checked extraction and interface conformance. The current scalar-only native
-storage work admits exact adjacent boxing/cast elimination and `unbox.any`, but
-**does not yet qualify Raven's scalar type-pattern sequence**: its `isinst T` must
-be lowered to a tag test on the inline union. The existing nominal boxed-query
-projection must not mistake that inline value for an Object reference.
+checked extraction and interface conformance. Scalar-only native unions now lower
+`isinst Int32`, `isinst Int64` and `isinst Boolean` followed immediately by
+`ref.isnull` using their inline discriminator. The result is an internal test token,
+not an allocated Object view. Nominal Object queries retain their boxed-query path.
 
-This is an integration gap to close, not a language restriction. Do not replace
-pattern matching with unchecked payload extraction, and do not infer full Raven
-match support from a runtime test that exercises only `unbox.any`.
+The runtime instruction sequence emitted above is checked against the interpreter
+for each active alternative and default null, including false Boolean payloads,
+exact extraction and mismatches. This is backend instruction qualification; a
+fresh Raven-produced application with guards, arm joins and imported scalar-union
+signatures still needs end-to-end qualification. A test subject must currently be
+an immediate union local/argument load or union cast. Escaping or duplicating the
+`isinst` result, compound-union test targets and mixed payloads remain gated.
+Do not infer complete Raven match support from these bounded runtime tests.
 
 ## Conversions and physical storage
 
