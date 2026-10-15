@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -161,6 +162,17 @@ internal static class AsyncForLowerer
                         Binary(SyntaxKind.AmpersandAmpersandToken, positive, withinPositive),
                         Binary(SyntaxKind.AmpersandAmpersandToken, negative, withinNegative));
                     current = Read(value);
+                    if (value.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64)
+                    {
+                        BoundExpression Limit(bool maximum) => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral,
+                            value.Type.SpecialType == SpecialType.System_Int64
+                                ? (object)(maximum ? long.MaxValue : long.MinValue)
+                                : maximum ? int.MaxValue : int.MinValue, value.Type);
+                        var overflow = new BoundIfExpression(positive,
+                            Binary(SyntaxKind.GreaterThanToken, Read(value), Binary(SyntaxKind.MinusToken, Limit(true), Read(increment))),
+                            Binary(SyntaxKind.LessThanToken, Read(value), Binary(SyntaxKind.MinusToken, Limit(false), Read(increment))));
+                        step.Add(new BoundConditionalGotoStatement(end, overflow, jumpIfTrue: true));
+                    }
                     step.Add(Assign(value, Binary(SyntaxKind.PlusToken, Read(value), Read(increment))));
                     break;
                 default:

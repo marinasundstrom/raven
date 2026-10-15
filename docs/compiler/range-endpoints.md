@@ -90,3 +90,21 @@ hover selection passes 7 tests, with 2 pre-existing skipped tests. Focused filte
 PatternSyntaxParser, LanguageParser, ForStatementSemantic, PatternLocalCodeGen,
 AsyncForLifetime, PdbSequencePoint and LoopStatementCodeGen tests.
 No native neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+
+### Signed integer iteration domain (2026-10-15)
+
+Int32 and Int64 direct loops and collection/dictionary comprehensions now stop
+before an advancement would leave their signed domain. The scalar guard checks
+current > MaxValue-step for a nonnegative step, or current < MinValue-step for a
+negative step, before adding. Each subtraction is representable in its sign branch,
+including a minimum-valued step. The endpoint test then governs whether the next
+representable value is visited. Async loop lowering uses the same guard before
+advancement, preserving state across suspension and the continue target.
+
+Start, end and step retain their existing evaluation order. Break skips advancement;
+continue advances once. This change does not add stored Interval enumeration or
+alter zero-step, unsigned, smaller-integer, floating, decimal or character behavior.
+Validation includes 46 focused loop/range/async tests on .NET 11, including pending
+awaits at signed limits and an integer comprehension. Native carry is validated
+separately; ordinary .NET evidence does not imply native support.

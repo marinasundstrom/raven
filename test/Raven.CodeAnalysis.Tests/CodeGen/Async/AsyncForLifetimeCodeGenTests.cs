@@ -12,6 +12,42 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class AsyncForLifetimeCodeGenTests
 {
     [Theory]
+    [InlineData("2147483646..=2147483647")]
+    [InlineData("-2147483647..=-2147483648 by -1")]
+    [InlineData("9223372036854775806L..=9223372036854775807L")]
+    [InlineData("0L..=-9223372036854775808L by -9223372036854775808L")]
+    public async Task IntegerLimitTerminatesAfterPendingAwait(string range)
+    {
+        var source = $$"""
+import System.Threading.Tasks.*
+class Program {
+    static async func Run(gate: Task<int>) -> Task<int> {
+        var count = 0
+        for value in {{range}} {
+            let ignored = await gate
+            count += 1
+            if count > 3 { return -1 }
+            continue
+        }
+        return count
+    }
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("async-range-limit", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(references);
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var task = Assert.IsAssignableFrom<Task<int>>(loaded.Assembly.GetType("Program")!.GetMethod("Run")!.Invoke(null, [gate.Task]));
+        Assert.False(task.IsCompleted, task.Exception?.ToString());
+        gate.SetResult(0);
+        Assert.Equal(2, await task.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    [Theory]
     [InlineData("finish")]
     [InlineData("continue")]
     [InlineData("break")]

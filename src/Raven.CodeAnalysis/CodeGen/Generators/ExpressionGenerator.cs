@@ -3637,7 +3637,7 @@ internal partial class ExpressionGenerator : Generator
         emitBody(scope);
 
         ILGenerator.MarkLabel(loopNext);
-        EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
+        EmitRangeLoopIncrement(elementType, startLocal, stepLocal, loopEnd);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
     }
@@ -4180,7 +4180,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
 
         ILGenerator.MarkLabel(loopNext);
-        EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
+        EmitRangeLoopIncrement(elementType, startLocal, stepLocal, loopEnd);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
     }
@@ -4283,64 +4283,6 @@ internal partial class ExpressionGenerator : Generator
             ?? throw new InvalidOperationException("Failed to resolve decimal.Compare(decimal, decimal).");
 
         ILGenerator.Emit(OpCodes.Call, compareMethod);
-    }
-
-    private void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal, IILocal stepLocal)
-    {
-        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
-
-        if (specialType == SpecialType.System_Decimal)
-        {
-            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
-
-            var addMethod = typeof(decimal).GetMethod(
-                nameof(decimal.Add),
-                BindingFlags.Public | BindingFlags.Static,
-                binder: null,
-                [typeof(decimal), typeof(decimal)],
-                modifiers: null)
-                ?? throw new InvalidOperationException("Failed to resolve decimal.Add(decimal, decimal).");
-
-            ILGenerator.Emit(OpCodes.Call, addMethod);
-            ILGenerator.Emit(OpCodes.Stloc, currentLocal);
-            return;
-        }
-
-        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
-        ILGenerator.Emit(OpCodes.Add);
-
-        switch (specialType)
-        {
-            case SpecialType.System_Byte:
-                ILGenerator.Emit(OpCodes.Conv_U1);
-                break;
-            case SpecialType.System_SByte:
-                ILGenerator.Emit(OpCodes.Conv_I1);
-                break;
-            case SpecialType.System_Int16:
-                ILGenerator.Emit(OpCodes.Conv_I2);
-                break;
-            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
-                ILGenerator.Emit(OpCodes.Conv_U4);
-                break;
-            case SpecialType.System_UInt16:
-            case SpecialType.System_Char:
-                ILGenerator.Emit(OpCodes.Conv_U2);
-                break;
-            case SpecialType.System_UInt32:
-                ILGenerator.Emit(OpCodes.Conv_U4);
-                break;
-            case SpecialType.System_Int64:
-                ILGenerator.Emit(OpCodes.Conv_I8);
-                break;
-            case SpecialType.System_UInt64:
-                ILGenerator.Emit(OpCodes.Conv_U8);
-                break;
-        }
-
-        ILGenerator.Emit(OpCodes.Stloc, currentLocal);
     }
 
     private void EmitNumericZero(ITypeSymbol elementType)

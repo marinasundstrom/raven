@@ -71,6 +71,46 @@ class Probe {
         Assert.Equal(42, Run(source));
     }
 
+    [Theory]
+    [InlineData("2147483646..=2147483647", 2)]
+    [InlineData("2147483646..=2147483647 by 2", 1)]
+    [InlineData("-2147483647..=-2147483648 by -1", 2)]
+    [InlineData("0..=-2147483648 by -2147483648", 2)]
+    [InlineData("9223372036854775806L..=9223372036854775807L", 2)]
+    [InlineData("9223372036854775806L..=9223372036854775807L by 2L", 1)]
+    [InlineData("-9223372036854775807L..=-9223372036854775808L by -1L", 2)]
+    [InlineData("0L..=-9223372036854775808L by -9223372036854775808L", 2)]
+    public void SignedIntegerIteration_StopsBeforeOverflow(string range, int expected)
+    {
+        var source = $$"""
+class Probe {
+    public static func Run() -> int {
+        var count = 0
+        for value in {{range}} {
+            count += 1
+            if count > 3 { return -1 }
+            continue
+        }
+        return count
+    }
+}
+""";
+        Assert.Equal(expected, Run(source));
+    }
+
+    [Fact]
+    public void IntegerComprehension_StopsBeforeOverflow()
+    {
+        Assert.Equal(2, Run("""
+class Probe {
+    public static func Run() -> int {
+        let values: int[] = [for value in 2147483646..=2147483647 => value]
+        return values.Length
+    }
+}
+"""));
+    }
+
     private static int Run(string source)
     {
         var references = TestMetadataReferences.Default;
