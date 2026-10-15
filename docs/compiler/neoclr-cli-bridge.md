@@ -11783,3 +11783,35 @@ passes 41 composition and five constraint tests with the default feature profile
 The three new runtime tests cover mixed alternatives, copy-preserving extraction,
 wrong boxed membership, explicit boxing requirements and invalid value intersections.
 Existing constraint tests now cover scalar alternatives and reject incomplete unions.
+
+## Value union source integration — 2026-10-15 development
+
+Structural unions are value types regardless of their alternatives, with no nominal
+base type. Guest reflection and Raven symbols now report that classification.
+The native metadata host admits closed scalar and nominal value alternatives,
+including imported values, alongside reference alternatives. Intersections retain
+nominal reference/interface operands and explicit interface conformance.
+
+Raven native conversion lowering boxes exact value alternatives and explicitly
+unboxes on extraction. Reference alternatives preserve their references. Pattern
+lowering distinguishes semantic value classification from the current interpreter
+payload storage. Native projects use their existing structural composition
+capability; ordinary CLI encoding is unchanged and has no structural carrier.
+The runtime owns payload storage, the metadata host owns signature validation,
+and the compiler owns conversion and pattern lowering.
+
+This boxed interpreter representation is provisional. It incurs allocation for
+value payloads and does not define the future native ABI. Inline tagged storage,
+GC scanning, copy costs and specialization require measurement and design. A
+method does not require a body per active alternative; generic specialization can
+depend on the complete instantiated type, not merely its size.
+
+Validation: four structural union symbol/conversion tests, focused host authored
+composition/read/constraint checks, runtime value-category reflection, and the
+combined union/intersection/tuple consumer pass. The full metadata harness reports
+169/175: Object-root authoring, Int32 local ownership and four custom-attribute
+checks remain failing and have not been attributed to a baseline. System.Web now
+passes the earlier conversions but stops at native emission of
+`TryGetResidual(out HttpError | JsonError)`. Generic value-wrapper/byref integration,
+open alternatives and native JIT/AOT remain incomplete; no fresh full library bundle
+is delivered by this slice.

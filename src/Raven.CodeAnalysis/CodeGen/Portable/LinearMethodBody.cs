@@ -348,6 +348,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
+        // A structural union is semantically a value type. Its current native
+        // payload representation supports checked reference tests and extraction.
+        bool UsesReferenceStorage(ITypeSymbol type) => type.IsReferenceType ||
+            type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true;
+
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
@@ -360,7 +365,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return true;
             }
             if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator } referencePattern &&
-                input.IsReferenceType && referencePattern.DeclaredType.IsReferenceType && referencePattern.DeclaredType.TypeKind != TypeKind.Delegate &&
+                UsesReferenceStorage(input) && referencePattern.DeclaredType.IsReferenceType && referencePattern.DeclaredType.TypeKind != TypeKind.Delegate &&
                 capabilities?.Allows(LinearInstructionKind.TypeTest) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                 TryType(input, false, out var inputReferenceType) && capabilities.Allows(inputReferenceType) &&
                 TryType(referencePattern.DeclaredType, false, out var referenceType) && capabilities.Allows(referenceType))
@@ -375,7 +380,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return PatternDesignator(referencePattern.Designator, referencePattern.DeclaredType, syntax);
             }
             if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator } valuePattern &&
-                input.IsReferenceType && valuePattern.DeclaredType.IsValueType &&
+                UsesReferenceStorage(input) && valuePattern.DeclaredType.IsValueType &&
                 capabilities?.Allows(LinearInstructionKind.TypeTest) == true && capabilities.Allows(LinearInstructionKind.UnboxAny) &&
                 TryType(input, false, out var boxedInputType) && capabilities.Allows(boxedInputType) &&
                 TryType(valuePattern.DeclaredType, false, out var unboxedPatternType) && capabilities.Allows(unboxedPatternType))
@@ -389,7 +394,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 instructions.Add(new(LinearInstructionKind.UnboxAny, syntax, Type: valuePattern.DeclaredType));
                 return PatternDesignator(valuePattern.Designator, valuePattern.DeclaredType, syntax);
             }
-            if (pattern is BoundConstantPattern constant && input.IsReferenceType &&
+            if (pattern is BoundConstantPattern constant && UsesReferenceStorage(input) &&
                 (constant.LiteralType is { ConstantValue: null } || constant.Expression is { } value && IsNullLiteral(value)) &&
                 constant.Designator is null or BoundDiscardDesignator && capabilities?.Allows(LinearInstructionKind.ReferenceIsNull) == true)
             {
@@ -417,7 +422,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return true;
             }
             if (pattern is BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested &&
-                capabilities?.Allows(LinearInstructionKind.TypeTest) == true && input.IsReferenceType &&
+                capabilities?.Allows(LinearInstructionKind.TypeTest) == true && UsesReferenceStorage(input) &&
                 TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType))
             {
                 instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: tested.DeclaredType));
@@ -426,7 +431,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
-            if (pattern is BoundPropertyPattern propertyPattern && input.IsReferenceType && propertyPattern.ReceiverType.IsReferenceType &&
+            if (pattern is BoundPropertyPattern propertyPattern && UsesReferenceStorage(input) && propertyPattern.ReceiverType.IsReferenceType &&
                 TryType(input, false, out var propertyInputType) && capabilities?.Allows(propertyInputType) == true &&
                 TryType(propertyPattern.ReceiverType, false, out var propertyReceiverType) && capabilities.Allows(propertyReceiverType) &&
                 capabilities.Allows(LinearInstructionKind.TypeTest) && capabilities.Allows(LinearInstructionKind.ReferenceConvert))
@@ -1516,7 +1521,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
                     Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
                 case BoundIsPatternExpression { Pattern: BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested } typeTest when
-                    capabilities?.Allows(LinearInstructionKind.TypeTest) == true && typeTest.Expression.Type.IsReferenceType &&
+                    capabilities?.Allows(LinearInstructionKind.TypeTest) == true && UsesReferenceStorage(typeTest.Expression.Type) &&
                     TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType):
                     if (!LowerValue(typeTest.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.TypeTest, Syntax(expression), Type: tested.DeclaredType));
@@ -1629,7 +1634,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && conversion.IsBoxing &&
-                    conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface &&
+                    (conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface ||
+                     conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                     TryType(conversion.Expression.Type, false, out var interfaceValue) && capabilities.Allows(interfaceValue) &&
                     TryType(conversion.Type, false, out var interfaceTarget) && capabilities.Allows(interfaceTarget):
@@ -1646,7 +1652,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
-                    conversion.Expression.Type.IsReferenceType &&
+                    (conversion.Expression.Type.IsReferenceType ||
+                     conversion.Expression.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
                     (conversion.Type is ITypeParameterSymbol || conversion.Conversion.IsUnboxing) &&
                     capabilities?.Allows(LinearInstructionKind.UnboxAny) == true &&
                     TryType(conversion.Type, false, out var unboxedType) && capabilities.Allows(unboxedType):
@@ -1660,8 +1667,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     // The host call verifier proves the raw contracts; no carrier or cast is emitted.
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
-                    capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true && conversion.Expression.Type.IsReferenceType &&
-                    conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&
+                    capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&
+                    (conversion.Expression.Type.IsReferenceType || conversion.Expression.Type is IStructuralUnionTypeSymbol && capabilities.AllowsImportedCompositionCalls) &&
+                    (conversion.Type.IsReferenceType || conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) && conversion.Type.TypeKind != TypeKind.Delegate &&
                     TryType(conversion.Type, false, out var targetType) && capabilities.Allows(targetType) &&
                     TryType(conversion.Expression.Type, false, out var sourceType) && capabilities.Allows(sourceType):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;

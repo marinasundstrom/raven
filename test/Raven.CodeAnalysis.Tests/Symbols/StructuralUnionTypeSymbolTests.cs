@@ -8,6 +8,27 @@ namespace Raven.CodeAnalysis.Tests.Symbols;
 public sealed class StructuralUnionTypeSymbolTests
 {
     [Fact]
+    public void ValueAlternative_BoxesExactlyAndExtractsExplicitly()
+    {
+        var c = Create();
+        var value = c.GetSpecialType(SpecialType.System_Int32);
+        var reference = c.GetTypeByMetadataName("First")!;
+        var union = c.CreateStructuralUnionTypeSymbol(value, reference);
+        Assert.True(union.IsValueType);
+        Assert.False(union.IsReferenceType);
+        var conversion = c.ClassifyConversion(value, union);
+        Assert.True(conversion.IsImplicit && conversion.IsBoxing);
+        Assert.False(conversion.IsReference);
+        Assert.True(c.ClassifyConversion(reference, union).IsReference);
+        var extraction = c.ClassifyConversion(union, value);
+        Assert.True(extraction.IsExplicit && extraction.IsUnboxing);
+        Assert.False(c.ClassifyConversion(c.GetSpecialType(SpecialType.System_Int64), union).Exists);
+        var wider = c.CreateStructuralUnionTypeSymbol(value, reference, c.GetTypeByMetadataName("Second")!);
+        Assert.True(c.ClassifyConversion(union, wider).IsImplicit);
+        Assert.False(c.ClassifyConversion(wider, union).Exists);
+    }
+
+    [Fact]
     public void Identity_FlatteningDisplayAndVisitor_DoNotCreateNominalCarrier()
     {
         var c = Create();
@@ -22,6 +43,9 @@ public sealed class StructuralUnionTypeSymbolTests
         Assert.Equal("A | B", u.ToDisplayString());
         Assert.Empty(u.MetadataName);
         Assert.Null(u.ContainingSymbol);
+        Assert.True(u.IsValueType);
+        Assert.False(u.IsReferenceType);
+        Assert.Null(u.BaseType);
         Assert.Empty(u.GetMembers());
         Assert.Equal(2, u.Accept(new Count()));
         Assert.False(CallableSignature.TryType(u, false, out _));

@@ -52,8 +52,8 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
     public SpecialType SpecialType => SpecialType.None;
     public bool IsNamespace => false;
     public bool IsType => true;
-    public bool IsReferenceType => ConstituentTypes.All(type => type.IsReferenceType);
-    public bool IsValueType => ConstituentTypes.All(type => type.IsValueType);
+    public bool IsReferenceType => false;
+    public bool IsValueType => true;
     public INamedTypeSymbol? BaseType => null;
     public ITypeSymbol OriginalDefinition => this;
 

@@ -169,7 +169,7 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
         if (source is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol || destination is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol)
-            return Finalize(ClassifyIntersectionReferenceConversion(source, destination));
+            return Finalize(ClassifyStructuralCompositionConversion(source, destination));
 
         if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&
             source is INamedTypeSymbol sourceDelegate &&

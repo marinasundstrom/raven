@@ -6,13 +6,24 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    private Conversion ClassifyIntersectionReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    private Conversion ClassifyStructuralCompositionConversion(ITypeSymbol source, ITypeSymbol destination)
     {
         // Adding reference nullability is safe; dropping it cannot prove membership.
         if (destination is NullableTypeSymbol nullableDestination)
             destination = nullableDestination.UnderlyingType;
 
-        if (!IsSupportedReference(source) || !IsSupportedReference(destination))
+        if (source is LiteralTypeSymbol literal)
+            source = literal.UnderlyingType;
+
+        if (source is IStructuralUnionTypeSymbol sourceUnion && destination.IsValueType &&
+            sourceUnion.ConstituentTypes.Any(alternative => SymbolEqualityComparer.Default.Equals(destination, alternative)))
+            return new Conversion(isImplicit: false, isUnboxing: true);
+
+        if (source.IsValueType && source is not IStructuralUnionTypeSymbol && destination is IStructuralUnionTypeSymbol valueUnion &&
+            valueUnion.ConstituentTypes.Any(alternative => SymbolEqualityComparer.Default.Equals(source, alternative)))
+            return new Conversion(isImplicit: true, isBoxing: true);
+
+        if (!IsSupportedAlternative(source) || !IsSupportedAlternative(destination))
             return Conversion.None;
 
         return HasMembership(source, destination)
@@ -38,21 +49,21 @@ public partial class Compilation
 
             // Do not use general conversion classification here: boxing and
             // user-defined conversions need not preserve the same reference.
-            return to.SpecialType == SpecialType.System_Object || IsReferenceConversion(from, to);
+            return from.IsReferenceType && (to.SpecialType == SpecialType.System_Object || IsReferenceConversion(from, to));
         }
 
-        static bool IsSupportedReference(ITypeSymbol type)
+        static bool IsSupportedAlternative(ITypeSymbol type)
         {
             if (type is IStructuralUnionTypeSymbol union)
-                return union.ConstituentTypes.All(IsSupportedReference);
+                return union.ConstituentTypes.All(IsSupportedAlternative);
 
             if (type is IIntersectionTypeSymbol intersection)
-                return intersection.ConstituentTypes.All(IsSupportedReference);
+                return intersection.ConstituentTypes.All(IsSupportedAlternative);
 
             // Type-parameter entailment and nullable constituent algebra are
             // separate slices. Ordinary nullable wrappers use existing lifting.
             return type is INamedTypeSymbol &&
-                type.IsReferenceType && !type.ContainsErrorType();
+                (type.IsReferenceType || type.IsValueType) && !type.ContainsErrorType();
         }
     }
 }
