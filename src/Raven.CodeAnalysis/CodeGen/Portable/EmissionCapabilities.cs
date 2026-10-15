@@ -91,7 +91,7 @@ internal sealed class EmissionCapabilities(
     {
         if (type.Nominal is ITupleTypeSymbol tuple && Allows(LinearInstructionKind.NewTuple))
             return !type.IsByReference && tuple.TupleElements.All(e => CallableSignature.TryType(e.Type, false, out var element, this) && Allows(element));
-        if (type.Composition is not null) return AllowsImportedCompositionCalls && !type.IsByReference;
+        if (type.Composition is not null) return AllowsImportedCompositionCalls && (!type.IsByReference || AllowsManagedReferences);
         if (type.IsByReference) return AllowsManagedReferences && Allows(type with { IsByReference = false });
         if (type.Pointer is { } pointer) return AllowsUnmanagedPointers && CallableSignature.IsSupportedPointer(pointer);
         if (type.Nominal is { TypeKind: TypeKind.Delegate } function)

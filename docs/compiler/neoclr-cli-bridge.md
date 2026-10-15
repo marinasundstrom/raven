@@ -11815,3 +11815,28 @@ passes the earlier conversions but stops at native emission of
 `TryGetResidual(out HttpError | JsonError)`. Generic value-wrapper/byref integration,
 open alternatives and native JIT/AOT remain incomplete; no fresh full library bundle
 is delivered by this slice.
+
+## Direct structural managed parameters — 2026-10-15 development
+
+Native Raven calls now preserve managed-reference wrappers around direct structural
+union/intersection parameters. Admission requires both structural composition calls
+and managed references in the target capability contract. The metadata host validates
+owned direct composition targets and preserves them through native read/write;
+ordinary CLI projection remains rejected. This follows .NET ref/out slot semantics
+while extending their element types to native structural signatures.
+
+The interpreter permits local addresses and exact indirect reads/writes of these
+slots. Replacing a union payload leaves a previous union copy unchanged, and invalid
+payload writes fail verification and execution. Nominal interface conformance still
+controls intersection views. Managed-reference composition fields, nested wrapper
+addresses, argument-address emission, JIT/AOT and generic value wrappers remain
+outside this slice. This is interpreter storage support, not a finalized native ABI.
+
+Validation: all 44 structural composition runtime tests pass, including union
+replacement/copy preservation, invalid-write rejection and intersection dispatch.
+The host authored-composition roundtrip passes and default reads reject the signature.
+The native compiler build passes; the editable value-union sample tests out/ref
+writeback and returns 42. System.Web passes its former TryGetResidual(out union)
+emission boundary but now fails resolving `delegate T0 -> TResult` in Int32Emitter;
+a full fresh library build remains incomplete. The earlier full metadata harness
+result (169/175) is unchanged evidence, not a rerun for this slice.
