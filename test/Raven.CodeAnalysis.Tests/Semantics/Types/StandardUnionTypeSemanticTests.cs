@@ -11,6 +11,27 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class StandardUnionTypeSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("int | string", "int | string | bool", true)]
+    [InlineData("int | string", "string | int", true)]
+    [InlineData("int | string | bool", "int | string", false)]
+    [InlineData("int | string", "long | string", false)]
+    [InlineData("First", "Second", false)]
+    public void CarrierWidening_RequiresExactAlternativeInclusion(string from, string to, bool implicitConversion)
+    {
+        var (compilation, tree) = CreateCompilation($$"""
+            union First(int | string)
+            union Second(int | string | bool)
+            func Describe(value: {{from}}, target: {{to}}) -> () { }
+            """, references: TestMetadataReferences.DefaultWithRavenCore);
+        Assert.Empty(compilation.GetDiagnostics());
+        var parameters = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().ToArray();
+        var model = compilation.GetSemanticModel(tree);
+        var source = model.GetTypeInfo(parameters[0].TypeAnnotation!.Type).Type!;
+        var target = model.GetTypeInfo(parameters[1].TypeAnnotation!.Type).Type!;
+        Assert.Equal(implicitConversion, compilation.ClassifyConversion(source, target).IsImplicit);
+    }
+
     [Fact]
     public void UnionTypeSyntax_DoesNotFallBackToLegacyTypeUnionSemantics()
     {

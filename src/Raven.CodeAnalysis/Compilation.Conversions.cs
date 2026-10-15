@@ -229,6 +229,9 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
+        if (UnionFacts.IsStandardCarrierWidening(source, destination))
+            return Finalize(new Conversion(isImplicit: true, isDiscriminatedUnion: true));
+
         var sourceUnionCase = source.TryGetUnionCase();
         var destinationUnion = destination.TryGetUnion();
         var sourceUnionForCase = ResolveSourceUnionForCase(source, sourceUnionCase);

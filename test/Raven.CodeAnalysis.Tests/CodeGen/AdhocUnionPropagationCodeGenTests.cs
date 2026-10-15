@@ -92,6 +92,68 @@ public class AdhocUnionPropagationCodeGenTests
         Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Widening_PreservesPayloadDefaultAndSingleEvaluation(int selected)
+    {
+        const string code = """
+            import System.*
+            class Cell {
+                val Value: int = 42
+            }
+            class Harness {
+                private static var calls: int = 0
+                private static val cell = Cell()
+                private static func Read(selected: int) -> int | Cell {
+                    calls = calls + 1
+                    if selected == 0 { return 42 }
+                    return cell
+                }
+                private static func Widen<T>(value: int | T) -> bool | T | int {
+                    return value
+                }
+                public static func EmptyCheck(value: int | Cell) -> bool {
+                    let widened: bool | Cell | int = value
+                    return !widened.HasValue
+                }
+                public static func Check(selected: int) -> bool {
+                    let widened = Widen<Cell>(Read(selected))
+                    let reordered: int | bool | Cell = widened
+                    if calls != 1 { return false }
+                    if selected == 0 { return reordered is 42 }
+                    if selected == 1 {
+                        if reordered is let actual: Cell {
+                            return Object.ReferenceEquals(actual, cell) && actual.Value == 42
+                        }
+                        return false
+                    }
+                    return !reordered.HasValue
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("union-widening", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        var harness = loaded.Assembly.GetType("Harness")!;
+        if (selected == 2)
+        {
+            // A .NET caller can supply an inactive default carrier even though
+            // Raven diagnoses returning a known inactive carrier in source.
+            var method = harness.GetMethod("EmptyCheck")!;
+            Assert.Equal(true, method.Invoke(null, [Activator.CreateInstance(method.GetParameters()[0].ParameterType)]));
+        }
+        else
+        {
+            Assert.Equal(true, harness.GetMethod("Check")!.Invoke(null, [selected]));
+        }
+    }
+
     [Fact]
     public void ResultPropagation_RejectsErrorOutsideAlternatives()
     {

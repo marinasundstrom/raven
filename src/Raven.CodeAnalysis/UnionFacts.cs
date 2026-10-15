@@ -22,6 +22,19 @@ internal static class UnionFacts
                 SymbolEqualityComparer.Default.Equals(method.ReturnType, type))
             .ToImmutableArray() ?? ImmutableArray<IMethodSymbol>.Empty;
 
+    // Only the standard ad-hoc carrier has structural alternative-set conversion.
+    // Named user unions retain their declared identity.
+    public static bool IsStandardCarrierWidening(ITypeSymbol source, ITypeSymbol destination)
+        => source is INamedTypeSymbol from && destination is INamedTypeSymbol to &&
+           IsStandardCarrier(from) && IsStandardCarrier(to) &&
+           from.TypeArguments.All(part => to.TypeArguments.Any(candidate =>
+               SymbolEqualityComparer.Default.Equals(part, candidate)));
+
+    private static bool IsStandardCarrier(INamedTypeSymbol type)
+        => type.IsValueType && type.Arity is >= 2 and <= 5 &&
+           type.Name == "Union" && type.ContainingNamespace?.ToDisplayString() == "System" &&
+           type.TryGetUnion() is not null;
+
     private const char CaseMetadataSeparator = '_';
 
     public static bool IsUnionType(ITypeSymbol? type)

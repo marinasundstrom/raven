@@ -315,6 +315,12 @@ internal abstract class Generator
 
         if (conversion.IsUnion)
         {
+            if (conversion.IsImplicit && UnionFacts.IsStandardCarrierWidening(from, to))
+            {
+                EmitStandardUnionWidening((INamedTypeSymbol)from, (INamedTypeSymbol)to);
+                return;
+            }
+
             if (!conversion.IsImplicit &&
                 from is INamedTypeSymbol sourceNamedUnion &&
                 sourceNamedUnion.TryGetUnion() is not null &&
@@ -507,6 +513,39 @@ internal abstract class Generator
         var parameterConversion = Compilation.ClassifyConversion(from, parameterType, includeUserDefined: false);
         if (parameterConversion.Exists && !parameterConversion.IsIdentity)
             EmitConversion(from, parameterType, parameterConversion);
+    }
+
+    private void EmitStandardUnionWidening(INamedTypeSymbol source, INamedTypeSymbol destination)
+    {
+        var sourceClr = ResolveClrType(source);
+        var sourceLocal = ILGenerator.DeclareLocal(sourceClr);
+        var done = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Stloc, sourceLocal);
+        var provider = UnionFacts.GetMemberProvider(source);
+        foreach (var part in source.TypeArguments.Distinct<ITypeSymbol>(SymbolEqualityComparer.Default))
+        {
+            var extractor = (provider ?? source).GetMembers("TryGetValue").OfType<IMethodSymbol>()
+                .First(method => !method.IsStatic && method.Parameters.Length == 1 &&
+                    method.Parameters[0].RefKind == RefKind.Out &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), part));
+            var payload = ILGenerator.DeclareLocal(ResolveClrType(part));
+            var next = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Ldloca, sourceLocal);
+            ILGenerator.Emit(OpCodes.Ldloca, payload);
+            if (provider is not null)
+                ILGenerator.Emit(OpCodes.Constrained, sourceClr);
+            ILGenerator.Emit(provider is null ? OpCodes.Call : OpCodes.Callvirt, GetMethodInfo(extractor));
+            ILGenerator.Emit(OpCodes.Brfalse, next);
+            ILGenerator.Emit(OpCodes.Ldloc, payload);
+            EmitConversion(part, destination, Compilation.ClassifyConversion(part, destination));
+            ILGenerator.Emit(OpCodes.Br, done);
+            ILGenerator.MarkLabel(next);
+        }
+
+        // A default carrier has no active alternative. Preserve that state rather
+        // than inventing a payload or selecting the destination's first variant.
+        EmitDefaultValue(destination);
+        ILGenerator.MarkLabel(done);
     }
 
     private bool EmitExplicitUnionExtraction(INamedTypeSymbol unionType, ITypeSymbol memberType)
