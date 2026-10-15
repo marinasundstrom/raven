@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document bounded neoCLR AOT collector stress for structural union roots across allocating calls and normal/fault unwind, including eager/paced nonmoving collection and full post-entry reclamation. Raven emission, Runtime Contract and metadata are unchanged; fresh Raven consumer GC, JIT and async retention remain open.
+
 - Carry the independently validated main-based match reachability fix f7a4bc5a4: compare complete pattern type identity instead of generic definitions. Distinct closed class, struct, nested and imported types remain reachable; repeated identical types still report an unreachable arm. Runtime Contract and emission are unchanged. A fresh nine-input native consumer now preserves Response<int>/Response<long> value-record identity and substituted fields through imported mixed union calls, with interpreter/AOT agreement and only the explicit 16-byte HttpError allocation. Both compiler lines pass 195 match/identity tests. A further Response<Cell> consumer passes ten imported inputs and preserves shared mutation through a record copy, allocating only the explicit Cell/HttpError instances (32 bytes); this arena result does not qualify managed GC.
 
 - Document neoCLR native record/reference union layouts and actual nominal conformance checks; compiler emission and Runtime Contract configuration are unchanged. A fresh artifact-only Raven record/reference consumer now passes eight imported inputs with reordered signatures and typed patterns, allocating only its explicit HttpError (16 bytes); retained bundle libraries were not rebuilt and managed JIT/GC remains unqualified.

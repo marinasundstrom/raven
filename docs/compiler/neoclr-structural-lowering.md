@@ -211,3 +211,15 @@ Ordinary .NET emission and the legacy CLI bridge retain their nominal encodings.
 Do not infer their representation from this native document. Keep this map current
 when a compiler instruction, metadata signature, pattern path or runtime storage
 strategy changes; record validation separately from intended behavior.
+
+
+### Native collection qualification
+
+The neoCLR backend now has bounded AOT collector stress for unions containing
+records with references, direct references and scalars. Published arguments,
+locals and call operands/results preserve the live object through eighty temporary
+array allocations in a small heap; normal/fault unwind removes the root chain and
+permits complete reclamation. Both eager and paced nonmoving collection are tested
+against interpreter results with native sanitizers. This changes no Raven emission,
+metadata or Runtime Contract setting. Fresh imported Raven consumer evidence is
+still arena-only; JIT, async retention and broader structural shapes remain open.

@@ -12265,3 +12265,13 @@ Exactly 32 arena bytes cover Cell and HttpError, with no payload boxes or union
 carriers. Runtime Contract, compiler emission and native metadata are unchanged;
 the v3 bundle was retained. This qualifies one closed reference substitution,
 not open generics or managed collector behavior.
+
+
+### Native union root publication qualification (2026-10-15)
+
+The runtime feature branch now stress-tests record/reference/scalar union values
+across allocating calls and normal/fault unwind under eager/paced nonmoving native
+collection. The small-heap host checks published roots and complete post-entry
+reclamation with native sanitizers. Compiler emission, Runtime Contract and native
+metadata remain unchanged. This is bounded AOT backend evidence, not qualification
+of the fresh Raven application under collection or of JIT/async retention.
