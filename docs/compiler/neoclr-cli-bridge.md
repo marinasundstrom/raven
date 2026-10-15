@@ -11892,3 +11892,30 @@ a generic method's scoped parameter and structural argument in a value wrapper.
 The fresh v3 bundle HTTP-header consumer now emits; execution next rejects generic
 composition methods at the runtime surface gate. No runtime support is claimed by
 this reader slice.
+
+## Fresh bundle consumer qualification — 2026-10-15 development
+
+The interpreter now admits nominal value wrappers containing structural arguments,
+including scoped generic parameters outside the closed union/intersection operands.
+Structural admission follows static/instance generic calls and callback targets
+through substitution with the caller's parameter scope, retaining a bounded,
+deduplicated call graph. Function signatures and the runtime's existing inhabited
+Void value can be nominal generic arguments. Void remains invalid as a direct
+union alternative; this is neoCLR's existing unit-value contract, unlike CLR void.
+
+Managed local addresses and exact indirect operations support constructed wrappers.
+Replacement preserves earlier value copies. Callback owner substitutions are checked
+even when the callback's own parameter/result shape has no composition. Unsupported
+instructions introduced by substitution still reject. Nominal interface conformance,
+sealed-class intersection rules, field-address restrictions and native JIT/AOT gates
+remain unchanged. Union containers remain values independently of payload category.
+
+The fresh v3 Runtime/Data/Networking/Web bundle now compiles and executes the
+HTTP-header consumer, printing `HTTP header lookup checks passed` with exit 0.
+The reproducible project qualification also rejects invalid Object ownership before
+replacing the successful output. This qualifies that consumer against all four
+libraries, not every Web endpoint or every generic structural type form. Focused
+runtime checks cover value-wrapper copies, generic factories, callbacks, nested
+function arguments, inhabited unit arguments and rejection after substitution.
+Evidence and artifact hashes are saved in
+`docs/experiments/value-unions/fresh-bundle-qualification.json`.

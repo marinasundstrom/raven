@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Validate nominal value wrappers and generic call/callback substitutions containing structural arguments, preserving caller scope and copied wrapper storage. Admit nested function and inhabited-unit arguments with existing composition operand restrictions. The fresh Runtime/Data/Networking/Web bundle consumer executes successfully, and failed-build output preservation passes.
+
 - Preserve structural arguments in native generic value-wrapper and managed generic-method declaration reads. Report per-image catalog resolution failures. A focused metadata roundtrip passes and the fresh bundle consumer emits; runtime generic-composition admission remains the next boundary.
 
 - Preserve admitted structural callback signatures in native mapping instead of falling through to nominal delegate lookup. Support host callback signature reads and bounded interpreter union callbacks (sample 42; 46 runtime tests). Fresh Runtime/Data/Networking/Web source generation now passes; consumer qualification currently fails native metadata resolution before emission.
