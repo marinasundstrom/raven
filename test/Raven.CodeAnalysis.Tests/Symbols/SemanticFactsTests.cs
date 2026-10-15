@@ -435,6 +435,23 @@ class Handler : Consumer<object> {}
         Assert.True(SemanticFacts.ImplementsInterface(handler, consumerOfString));
     }
 
+    [Theory]
+    [InlineData("out", "int", SpecialType.System_Object, false)]
+    [InlineData("in", "object", SpecialType.System_Int32, false)]
+    [InlineData("out", "int", SpecialType.System_Int32, true)]
+    [InlineData("out", "string", SpecialType.System_Object, true)]
+    public void ImplementsInterface_VarianceRequiresReferenceConversion(
+        string variance, string argument, SpecialType targetArgument, bool expected)
+    {
+        var tree = SyntaxTree.ParseText($"interface Contract<{variance} T> {{}} class Provider : Contract<{argument}> {{}}");
+        var compilation = Compilation.Create("VarianceConversion", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var contract = GetSourceType(compilation, "Contract");
+        var provider = GetSourceType(compilation, "Provider");
+        var target = (INamedTypeSymbol)contract.Construct(compilation.GetSpecialType(targetArgument));
+        Assert.Equal(expected, SemanticFacts.ImplementsInterface(provider, target));
+    }
+
     private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)

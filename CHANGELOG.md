@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Carry main aefd5d4ed: require identity or reference conversions for interface variance compatibility. Reject boxing and unconstrained type arguments while retaining exact value-type arguments; align semantic interface checks with .NET variance rules.
+
 - **2026-10-16:** Document the matching neoCLR generic-parameter variance introspection contract and the existing native open-definition reflection gap; no language lowering or Runtime Contract option changes.
 
 - **2026-10-16:** Enable explicit interface `in`/`out` annotations in the neoCLR emission capability and preserve them in native imported symbols and metadata. Validate reference-only producer/consumer calls across a separately compiled library; unsafe, reverse, invariant and value-argument conversions reject. Interpreter consumer returns 42. Ordinary .NET behavior is unchanged; AOT/JIT qualification and library annotations remain in progress.
