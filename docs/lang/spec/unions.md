@@ -29,6 +29,25 @@ Use ad-hoc unions to expose several existing error types in a Result without
 conversion boilerplate; see [combining error types](async-and-error-propagation.md#combining-error-types-with-an-ad-hoc-union).
 Nominal error unions remain preferable when a public API needs its own domain contract.
 
+### Overload resolution
+
+Union parameters participate in ordinary Raven overload resolution on every target.
+An exact `A` parameter is preferred over `A | B` for an `A` argument. An exact
+`A | B` parameter is preferred for an argument of that type. An `A` argument
+accepted by both `A | B` and `A | C` does not identify a unique better overload:
+Raven reports ambiguity regardless of declaration order. The argument's static
+type determines overload selection; its active union alternative does not select
+a different overload at runtime.
+
+**Known implementation gap (2026-10-15):** the ordinary .NET temporary carrier
+currently rejects conversion from `A | B` to `A | B | C`. Consequently, overloads
+accepting `A | B | C` and `A | B | D` currently fail applicability for an `A | B`
+argument rather than reaching ambiguity comparison. This is an implementation gap
+against the all-alternatives conversion intent in the [type system](type-system.md#conversions),
+not a new language restriction. Closing it requires conversion classification,
+carrier lowering and execution coverage together. It is general Raven work;
+native neoCLR metadata does not own overload ranking.
+
 ## Nominal unions
 
 Use a nominal union when a fixed set of variants has a domain identity of its

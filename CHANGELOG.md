@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Carry general union-parameter overload regressions from main-based `7e2e8f07c`: exact selection and overlapping ambiguity are declaration-order independent. Document the ordinary .NET carrier widening gap; no Runtime Contract or emission change. Make the existing metadata-priority fixture library explicitly public so cross-assembly visibility does not mask priority selection.
+
 - Record fresh direct and closed-generic Task union consumers passing interpreter, macOS ARM64 AOT and managed JIT with v4 libraries, eager/paced collection and cleanup. Native encoding and Runtime Contract configuration are unchanged; broader async and throughput qualification remains open.
 
 - Record paired runtime admission of structural signatures on managed value-record methods. Track union overload applicability/ambiguity as general Raven work for main and deliberate carry, not a neoCLR lowering rule.
