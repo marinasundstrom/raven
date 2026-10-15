@@ -39,14 +39,23 @@ Raven reports ambiguity regardless of declaration order. The argument's static
 type determines overload selection; its active union alternative does not select
 a different overload at runtime.
 
-**Known implementation gap (2026-10-15):** the ordinary .NET temporary carrier
-currently rejects conversion from `A | B` to `A | B | C`. Consequently, overloads
-accepting `A | B | C` and `A | B | D` currently fail applicability for an `A | B`
-argument rather than reaching ambiguity comparison. This is an implementation gap
-against the all-alternatives conversion intent in the [type system](type-system.md#conversions),
-not a new language restriction. Closing it requires conversion classification,
-carrier lowering and execution coverage together. It is general Raven work;
-native neoCLR metadata does not own overload ranking.
+An ad-hoc carrier implicitly converts to another when every source alternative
+occurs exactly in the destination. This supports widening (`A | B` to
+`A | B | C`) and reordering (`A | B` to `B | A`). When both larger union overloads
+are applicable, the ordinary better-conversion rule applies: a strict subset is
+preferred; overlapping incomparable destinations remain ambiguous.
+
+On ordinary .NET, emission evaluates the source once, extracts its active payload
+and constructs the corresponding destination `System.Union` carrier. References
+retain identity; values are copied; an inactive default received from .NET remains
+inactive. Raven's existing diagnostics for known inactive source returns still
+apply. Named unions do not acquire structural conversion merely by listing the
+same alternatives. No Runtime Contract option is required.
+
+**Remaining conversion gap:** conversions that also transform alternatives (for
+example `int | string` to `long | string`) are not implemented by this exact-set
+widening rule. They remain a gap against the broader all-alternatives conversion
+intent in the [type system](type-system.md#conversions).
 
 ## Nominal unions
 

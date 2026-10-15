@@ -673,3 +673,23 @@ statements are normalized before async capture as well, so `continue outer` cann
 replace a hoisted scoped resource without first disposing it. A regression with
 `use` inside an awaiting `for` and an enclosing labeled `while` verifies this on
 ordinary .NET; native qualification must also cover mixed-loop iterator disposal.
+
+### Shared ad-hoc carrier widening (2026-10-15)
+
+General Raven conversion classification now admits exact alternative inclusion
+between ordinary .NET `System.Union` carriers, including reordered alternatives.
+The semantic conversion is implicit and participates in ordinary overload ranking;
+strict subsets win and incomparable overlaps are ambiguous. Named unions remain
+nominal. CLI emission saves the source once, probes its exact typed extraction
+members and constructs the destination carrier for the active payload. A default
+carrier received from a .NET caller stays inactive. This introduces at most one
+probe per distinct source alternative and retains the existing carrier's storage
+costs; it is not a claim of allocation-free .NET unions.
+
+This shared compiler fix requires no Runtime Contract change and does not change
+native structural signatures. The native target continues using its own explicit
+structural conversion contract and backend. Payload-transforming conversions such
+as `int | string` to `long | string` remain unsupported by the CLI widening rule.
+Validation: 85 focused semantic/overload/emission tests on modern .NET, including
+open generic transport, payload reference identity, single evaluation and a .NET
+caller supplying an inactive default. Older .NET targets are not execution-qualified.

@@ -322,6 +322,8 @@ let result = Runner.Choose(handler)
     [InlineData("A | B", "A | B", "A | B | C", "first")]
     [InlineData("A | B", "A", "object", "second")]
     [InlineData("A", "A | B", "A | C", null)]
+    [InlineData("A | B", "A | B | C", "A | B | D", null)]
+    [InlineData("A | B", "A | B | C", "A | B | C | D", "first")]
     public void UnionParameterOverloads_RespectApplicabilitySpecificityAndAmbiguity(
         string argumentType, string firstType, string secondType, string? expectedParameter)
     {

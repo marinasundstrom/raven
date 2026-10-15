@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
-- **2026-10-15:** Lock general union-parameter overload selection and overlap ambiguity in both declaration orders. Document the ordinary .NET carrier widening gap separately from overload ranking; no Runtime Contract, conversion or emission change.
+- **2026-10-15:** Support exact-alternative widening and reordering between ordinary .NET ad-hoc union carriers, evaluating the source once and preserving payload identity and inactive defaults from .NET callers. Overload comparison now considers these conversions, preferring strict subsets and diagnosing incomparable overlaps in either declaration order. Named unions retain nominal identity; per-alternative numeric/reference transformations remain unsupported. No Runtime Contract setting is required.
 
 - **2026-10-15:** Preserve complete type identity when checking duplicate match patterns. Distinct closed generic class, struct, nested and imported types remain reachable; repeating the same closed type still reports an unreachable arm. Use the shared symbol comparer instead of erasing generic arguments. No Runtime Contract or emission change.
 
