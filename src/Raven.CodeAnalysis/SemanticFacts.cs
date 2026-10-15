@@ -403,11 +403,13 @@ public static class SemanticFacts
         if (source.MetadataIdentityEquals(destination))
             return true;
 
+        // Variance preserves reference representation; boxing and unconstrained
+        // type parameters cannot establish a reference conversion.
+        if (!source.IsReferenceType || !destination.IsReferenceType)
+            return false;
+
         if (destination.SpecialType == SpecialType.System_Object)
-        {
-            // Reference and boxing conversions are both valid for variance purposes.
             return true;
-        }
 
         if (IsDerivedFrom(source, destination, comparer))
             return true;

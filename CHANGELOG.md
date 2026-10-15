@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-16:** Require identity or reference conversions for interface variance compatibility. Reject boxing and unconstrained type arguments while retaining exact value-type arguments; align semantic interface checks with .NET variance rules.
+
 - **2026-10-15:** Make range endpoints consistent: `..` excludes the end and `..=` includes it in loops, collections, patterns and .NET slices/stored Range values. Remove `..<`, migrate owned consumers and expose optional EqualsToken in range syntax nodes. Inclusive .NET endpoints use checked Index conversion; no Runtime Contract switch is required. Rename the sequence prefix slot to OperatorToken because it accepts both `..` and `...`; spread nodes use DotDotDotToken and default to `...`. Distinguish ranges, slices, sequence segments/rest patterns, spreads and progressions in the language/compiler documentation. Native neoCLR lowering is qualified separately. Stop signed int/long loop and comprehension advancement before overflow, including async loops after await, preserving break/continue semantics. Other numeric domains and stored-interval enumeration remain unchanged.
 
 - **2026-10-15:** Propose consistent range endpoints across .NET and neoCLR, nominal generic bounds, explicit ordering/stepping capabilities and overflow-safe integer progressions. Record the author-directed coordinated migration without a compatibility mode; compiler behavior and Runtime Contract configuration are unchanged. Structural-type work remains parked.

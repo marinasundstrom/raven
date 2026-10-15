@@ -76,3 +76,11 @@ let logger = QuietLogger()
 logger.Log("hi")              // error: member not found
 (logger :> ILogger).Log("hi") // ok
 ```
+
+### Reference-only variance conversions
+
+Generic interface `out` and `in` annotations admit identity or reference conversions
+between the corresponding type arguments. Boxing is not a variance conversion:
+`Producer<int>` cannot become `Producer<object>`, and `Consumer<object>` cannot
+become `Consumer<int>`. Identical value arguments remain valid. An unconstrained
+type parameter does not establish the required reference conversion.
