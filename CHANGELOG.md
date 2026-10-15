@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Record fresh direct and closed-generic Task union consumers passing interpreter, macOS ARM64 AOT and managed JIT with v4 libraries, eager/paced collection and cleanup. Native encoding and Runtime Contract configuration are unchanged; broader async and throughput qualification remains open.
+
 - Record paired runtime admission of structural signatures on managed value-record methods. Track union overload applicability/ambiguity as general Raven work for main and deliberate carry, not a neoCLR lowering rule.
 
 - Document paired runtime/metadata support for structural union/intersection instance fields in nominal value records, preserving copy semantics and embedded references. Rebuild with the matching metadata host; native encoding and Runtime Contract configuration are unchanged.

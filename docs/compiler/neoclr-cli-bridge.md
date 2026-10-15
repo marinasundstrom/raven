@@ -12335,3 +12335,24 @@ qualify the imported callable union consumer in interpreter, AOT and managed JIT
 Both native collector policies reclaim all explicit objects before synchronous
 JIT code release. See the structural lowering guide; async retention remains open.
 Runtime Contract configuration and native encoding are unchanged.
+
+### Fresh Task union native qualification (2026-10-15)
+
+Both `Task<Response | HttpError | JsonError>` and
+`Task<Response<int> | HttpError | JsonError>` now pass fresh Raven compilation,
+interpreter execution, macOS ARM64 AOT and managed JIT against the rebuilt v4
+class libraries. Each entry checks ten completed, queued and async-forwarded
+alternative/identity paths and returns 42. For each consumer, eager and paced
+collector policies each pass eight AOT entries with undefined/bounds sanitizers
+and one managed JIT entry. The 64 KiB host checks task/socket scopes, roots and
+heap cleanup before generated code release.
+
+This closes the bounded Task delivery gate after structural generic arguments,
+reserved arrays, record fields and managed record methods were admitted. It does
+not qualify escaped callbacks, unrestricted open generics, other architectures,
+exact allocation counts or union throughput. The JIT host is not sanitizer-built.
+Runtime Contract configuration and native signature encoding are unchanged; no
+CLI carrier replacement is introduced. Runtime/storage owns the newly admitted
+operations; Raven continues emitting native structural signatures.
+
+Reproducer and fingerprinted results live in neoCLR `docs/experiments/native-structural-types/verify-raven-task-unions.py` and the adjacent `task-unions-v4-results.json` / `generic-task-unions-v4-results.json`. Tested runtime: `eb3d73529`; compiler: `632f5efa5`.
