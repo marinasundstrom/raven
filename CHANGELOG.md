@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Record paired native String union support and matching metadata-host rebuild requirements. Fresh `string | int` source uses existing injection and type-pattern lowering; ordinary .NET carriers and Runtime Contract configuration are unchanged.
+
 - Emit explicit native union widening conversions so differing inline payload layouts are repacked by neoCLR. Keep no-op composition conversion limited to intersection reference views. A fresh overload/scalar/record consumer passes interpreter, AOT and managed JIT with zero arena use against the paired runtime change; Runtime Contract and metadata encoding are unchanged.
 
 - Preserve structural union/intersection constituent identity and ordered tuple element identity in overload lookup keys, including nested generic arguments. Distinct structural overloads now reach ranking instead of being discarded; ambiguity is declaration-order independent. Align inherited mixed-union assertions with value semantics. Runtime Contract and metadata encoding are unchanged.

@@ -12423,3 +12423,26 @@ roots/heap cleanup before returning; its host is not sanitizer-built. No Runtime
 Contract or metadata encoding change is introduced.
 
 Evidence and executable reproducer live in neoCLR `docs/experiments/native-structural-types/widening-v4-results.json` and `verify-raven-union-widening.py`.
+
+
+### Intrinsic String union alternatives (2026-10-15)
+
+The paired native metadata host/runtime admits intrinsic String alternatives in
+structural unions. Native source `string | int` retains the union signature;
+injection emits a reference conversion and `string text => ...` uses the existing
+type-test/checked-extraction path. Reordered union calls preserve the payload.
+The enclosing union remains a value while String is a traced reference alternative.
+String intersection bounds remain rejected.
+
+Runtime Contract selection and metadata encoding are unchanged. Rebuild the
+`Raven.CodeAnalysis.NeoClr` adapter and compiler against the matching metadata host;
+an older host rejects String composition alternatives. Ordinary .NET union carriers
+are unchanged. Native storage uses a separate text-owner slot, with no extra union
+carrier; existing String owner materialization can allocate.
+
+The paired neoCLR `string-project` fixture and `verify-raven-union-widening.py
+--string-union` qualify source compilation against the fresh v4 bundle, interpreter,
+macOS ARM64 AOT and managed JIT, with post-entry root/heap cleanup. Native collector
+stress additionally covers embedded-NUL UTF-8 payloads, integer alternatives and
+InvalidCast under eager/paced policies. Other platforms and escaped async String
+retention remain unqualified. See neoCLR's native structural experiment record.
