@@ -20,6 +20,11 @@ also give the matched value a name for use in that branch.
   static type is `object` or another generic definition), explicit arguments are
   still required.
 
+  Explicit closed generic arguments remain part of the pattern type. For example,
+  an arm for `Box<int>` does not make a later `Box<long>` arm unreachable merely
+  because both use `Box<T>`. Repeating the same closed type without a guard still
+  makes the later identical type arm unreachable.
+
   This inference applies uniformly in:
 
   * `is` patterns (`if value is Box box { ... }`)
