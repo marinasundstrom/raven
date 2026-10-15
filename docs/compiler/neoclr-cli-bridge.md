@@ -12275,3 +12275,11 @@ collection. The small-heap host checks published roots and complete post-entry
 reclamation with native sanitizers. Compiler emission, Runtime Contract and native
 metadata remain unchanged. This is bounded AOT backend evidence, not qualification
 of the fresh Raven application under collection or of JIT/async retention.
+
+
+The fresh imported Response<Cell> consumer now also passes collection-enabled
+AOT in eager and paced modes: 32 invocations each, exactly 64 explicit allocations
+reclaimed per mode, empty roots/heaps after each return, and native sanitizer
+checks. The runtime evidence records 1792 eager and 64 paced collections. No
+Runtime Contract or emission change was needed; JIT lifetime, async retention
+and broader structural combinations remain open.

@@ -221,5 +221,7 @@ locals and call operands/results preserve the live object through eighty tempora
 array allocations in a small heap; normal/fault unwind removes the root chain and
 permits complete reclamation. Both eager and paced nonmoving collection are tested
 against interpreter results with native sanitizers. This changes no Raven emission,
-metadata or Runtime Contract setting. Fresh imported Raven consumer evidence is
-still arena-only; JIT, async retention and broader structural shapes remain open.
+metadata or Runtime Contract setting. The fresh imported Response<Cell> consumer also passes 32 invocations in each
+eager/paced collection mode, reclaiming exactly 64 explicit objects per mode and
+leaving empty roots/heaps after each return. JIT, async retention and broader
+structural shapes remain open.
