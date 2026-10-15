@@ -1,5 +1,7 @@
 # neoCLR CLI bridge and native metadata replacement
 
+See [native structural type and pattern lowering](neoclr-structural-lowering.md) for the source-to-metadata and runtime operation map.
+
 Status: temporary bridge, 2026-09-30. The intended destination is a native neoCLR
 semantic-data/metadata layer that exposes neoCLR's types, features and semantics
 to Raven's shared semantic model, paired with a compatible neoCLR code generator.
@@ -12069,3 +12071,22 @@ Native mixed-value alternatives still need tagged storage and a conversion path
 that avoids the existing early scalar-box projection. Native reflection, arrays,
 JIT/collector stress and complete Task consumers are not qualified by this slice.
 See neoCLR's `docs/experiments/native-structural-types/` for sources and boundaries.
+
+## Native scalar-union allocation elision (2026-10-15)
+
+The structural runtime feature branch now lowers unions containing only Int32,
+Int64 and Boolean to a private tag plus numeric payload. An exact adjacent scalar
+box/union-cast pair avoids allocating a box. Copies, calls/results, output slots,
+default null checks and exact extraction are covered by focused macOS ARM64 AOT
+checks against the interpreter; numeric lanes are excluded from tracing and these
+closed objects have no allocator/runtime imports (C memory intrinsics are permitted).
+
+No Runtime Contract setting, Raven syntax or metadata encoding changes. Ordinary
+Object boxing retains its existing behavior. The runtime backend owns this native
+replacement of the bounded boxed source conversion; immediate union local/argument
+loads or casts are supported extraction producers. Mixed reference/value unions,
+nominal value alternatives, scalar-union instance tests and general extraction
+producers remain gated. Whole-union boxing, native reflection, JIT/GC stress and
+full Task consumer qualification are still required before main-track integration.
+See neoCLR's native structural experiment for scope and reproduction tests. The
+private two-slot representation is not a published ABI or a general timing claim.

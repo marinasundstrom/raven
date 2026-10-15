@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document native structural type lowering, especially union pattern tests, guarded extraction, match-arm control flow and the separate nominal case-helper path. Link compiler implementation and state the remaining scalar-pattern backend gap explicitly.
+
+- Document companion native scalar-union allocation elision and focused AOT qualification. Raven metadata and Runtime Contract configuration are unchanged; mixed payloads and full integration remain gated.
+
 - Document native reference-alternative union storage in the companion runtime: structural values copy one payload reference without a carrier. Compiler configuration/emission remain unchanged; mixed-value native storage, whole-union boxing and full Task/GC qualification remain open.
 
 - Record companion native intersection reference-view qualification, preserving explicit nominal bounds and unchanged Runtime Contract/emission behavior. AOT checks cover casts, identity, dispatch, nulls and managed outputs; native unions and full application/GC qualification remain open.

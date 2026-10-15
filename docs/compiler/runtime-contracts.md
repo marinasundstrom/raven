@@ -1,5 +1,7 @@
 # Runtime Contracts
 
+See [native structural type and pattern lowering](neoclr-structural-lowering.md) for the source-to-metadata and runtime operation map.
+
 The planned general model is a **runtime/platform contract** governing semantic
 rules, available types, representations, supported features, compatible symbol
 sources, and one or more code generators. See the
