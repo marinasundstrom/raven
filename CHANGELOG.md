@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Integrate the validated structural-type work into the Raven neoCLR line separately from Raven main. Pair with carrier-free neoCLR main and record fresh direct/closed-generic Task union interpreter/AOT/JIT/GC qualification and explicit unsupported forms.
+
 - Unify native metadata references/catalogs without structural opt-in readers or flags. Preserve explicit external-bound dependency validation and CLI restrictions. Validate tuple/source composition, generic wrapper calls and external constraint consumers against the carrier-free bundle.
 
 - Preserve structural tuple method results in native symbol-only imports instead of looking for a nominal declaration. Validate imported `Range` direct/nested Result tuples with interpreter/AOT/JIT; requires the paired metadata-host tuple-reference admission.

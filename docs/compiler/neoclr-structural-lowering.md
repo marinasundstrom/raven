@@ -387,3 +387,18 @@ selection remains `CompilationOptions.NeoCLR`, with no tuple switch.
 
 The imported Range/Result consumer returns 42 in interpreter, macOS ARM64 AOT and
 managed JIT with zero arena allocation; AOT undefined/bounds sanitizers pass.
+
+## Integration into the neoCLR line (2026-10-15)
+
+The structural experiment is integrated into `codex/source-object-metadata-resolution`,
+Raven's neoCLR work line, independently of Raven main. The paired neoCLR main
+removes nominal Union/Tuple runtime carriers. Use matching rebuilt artifacts;
+Range's structural tuple results change metadata compatibility.
+
+The integration includes default structural binding/emission and unified native
+readers, with 50 focused compiler checks and native source/import/constraint probes.
+Fresh direct and closed-generic Task union consumers pass interpreter, macOS ARM64
+AOT and managed JIT with eager/paced collection against carrier-free libraries.
+[Runtime qualification and remaining gaps](https://github.com/marinasundstrom/neoCLR/blob/main/docs/validation/structural-integration-20261015.md)
+record the bounded support: bare generic alternatives and tuple alternatives inside
+unions are still unsupported, and broader combinations/platforms are not qualified.
