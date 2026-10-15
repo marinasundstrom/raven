@@ -127,7 +127,7 @@ and a compile-time constant. Runtime value comparisons are always explicit.
 ## Range patterns
 
 A **range pattern** matches values that fall within a lower and/or upper bound
-using `..` (inclusive upper bound) or `..<` (exclusive upper bound). Range
+using `..=` (inclusive upper bound) or `..` (exclusive upper bound). Range
 patterns are valid when the scrutinee type is **orderable** (for example
 numeric types, `char`, or other types that support relational comparison).
 
@@ -135,12 +135,12 @@ Like comparison patterns, range bounds must match the scrutinee type after
 nullable/plain-type unwrapping; normal implicit numeric conversions are not
 applied to range bounds.
 
-Both bounds are optional:
+Both bounds are optional with `..`; `..=` requires an upper bound:
 
-* `lo..hi` — matches values greater than or equal to `lo` and less than or equal to `hi`.
-* `lo..<hi` — matches values greater than or equal to `lo` and less than `hi`.
-* `..hi` — matches values less than or equal to `hi`.
-* `..<hi` — matches values less than `hi`.
+* `lo..=hi` — matches values greater than or equal to `lo` and less than or equal to `hi`.
+* `lo..hi` — matches values greater than or equal to `lo` and less than `hi`.
+* `..=hi` — matches values less than or equal to `hi`.
+* `..hi` — matches values less than `hi`.
 * `lo..` — matches values greater than or equal to `lo`.
 
 Bounds are written as expressions, but Raven may require constant-like values
@@ -150,15 +150,18 @@ in contexts where the range must be known during compilation.
 let value = 42
 
 let result = match value {
-    ..4 => "No"
-    40..43 => "Yes"
+    ..=4 => "No"
+    40..=43 => "Yes"
     _ => "Other"
 }
 ```
 
-Range patterns participate in exhaustiveness and subsumption analysis alongside comparison patterns. They are treated as syntactic sugar for a conjunction of comparison operators (for example `40..43` behaves like `>= 40 and <= 43`).
+Range patterns participate in exhaustiveness and subsumption analysis alongside comparison patterns. They are treated as syntactic sugar for a conjunction of comparison operators (for example `40..=43` behaves like `>= 40 and <= 43`).
 
-> 🧭 **Disambiguation:** In pattern position, `..` introduces a range pattern rather than a range expression. The expression parser stops at `..` so the bounds are parsed independently.
+> 🧭 **Disambiguation:** A range pattern tests bounds. Within a sequence pattern,
+> `..N` introduces a fixed segment and `...let rest` matches the remaining elements;
+> these are sequence prefixes, not range patterns. A slice such as `items[1..3]`
+> is an element-access expression consuming a range, not a pattern.
 
 ## Positional patterns
 

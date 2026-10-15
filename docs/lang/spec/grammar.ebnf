@@ -589,7 +589,8 @@ ComparisonPattern        ::= RelationalOperator ComparisonPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
 ComparisonPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
-RangePattern             ::= RangeLower '..' RangeUpper ;
+RangePattern             ::= RangeLower '..' RangeUpper
+                           | RangeLower '..=' RangePatternOperand ;
 RangeLower               ::= RangePatternOperand? ;
 RangeUpper               ::= RangePatternOperand? ;
 RangePatternOperand      ::= Expression ; (* binder should enforce “constant-ish” rules; parser stops at `..` when parsing the lower bound *)
@@ -616,6 +617,7 @@ RelationalExpression     ::= TypeTestExpression
 TypeTestExpression       ::= RangeExpression { 'as' Type } [ 'is' Pattern ] ;
 
 RangeExpression          ::= RangeStart '..' RangeEnd
+                           | RangeStart '..=' RangeIndex
                            | ShiftExpression ;
 
 RangeStart               ::= RangeIndex? ;

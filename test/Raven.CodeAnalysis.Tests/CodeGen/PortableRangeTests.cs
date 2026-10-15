@@ -16,19 +16,19 @@ public class PortableRangeTests
             public static class Ranges {
                 public static func Run(zero: int) -> int {
                     var total = 0
-                    for value in 1..5 by 2 { total += value }
-                    for value in 5..1 by -2 { total += value }
-                    for value in 0..<3 { total += value }
-                    for value in 3..<0 by -1 { total += value }
-                    for value in 1..3 by zero { return 1 }
-                    for value in 1..3 by -1 { return 2 }
-                    outer: for value in 1..3 {
-                        for inner in 1..3 {
+                    for value in 1..=5 by 2 { total += value }
+                    for value in 5..=1 by -2 { total += value }
+                    for value in 0..3 { total += value }
+                    for value in 3..0 by -1 { total += value }
+                    for value in 1..=3 by zero { return 1 }
+                    for value in 1..=3 by -1 { return 2 }
+                    outer: for value in 1..=3 {
+                        for inner in 1..=3 {
                             if inner == 2 { continue outer }
                             total += 1
                         }
                     }
-                    for value in 1..10 {
+                    for value in 1..=10 {
                         if value == 1 { continue }
                         if value == 3 { break }
                         total += value
@@ -36,7 +36,7 @@ public class PortableRangeTests
                     let start: long = 4294967296
                     let end: long = 4294967300
                     let step: long = 2
-                    for value in start..<end by step { total += 5 }
+                    for value in start..end by step { total += 5 }
                     return total
                 }
             }

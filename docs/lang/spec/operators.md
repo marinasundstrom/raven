@@ -7,7 +7,7 @@ for pipelines, ranges, null handling, error propagation, and from-end indexes.
 ```raven
 let total = price * quantity + shipping
 let last = values[^1]
-let page = values[10..<20]
+let page = values[10..20]
 let normalized = input |> Trim() |> Normalize()
 ```
 
@@ -28,7 +28,7 @@ From lowest to highest precedence:
 7. Bitwise XOR and AND: `^  &`
 8. Equality and relational: `==  !=  <  >  <=  >=`
 9. Type tests: `is  as`
-10. Range and shifts: `..  ..<  <<  >>`
+10. Range and shifts: `..  ..=  <<  >>`
 11. Additive: `+  -`
 12. Multiplicative: `*  /  %`
 13. Cast: `(T)expression`
@@ -66,18 +66,20 @@ The prefix is adjacent: `^1` is valid, while `^ 1` is not.
 
 ## Ranges
 
-Use `..` for a range with inclusive notation and `..<` for a half-open range
+Use `..=` for an inclusive range and `..` for a half-open range
 whose upper bound is excluded:
 
 ```raven
+let inclusive = 3..=5
 let range = 3..^5
-let halfOpen = 3..<10
+let halfOpen = 3..10
 let head = ..3
 let tail = 3..
 let all = ..
 ```
 
-Either bound may be omitted or prefixed with `^` to count from the end. Each
+Either bound may be omitted with `..`; `..=` requires its upper bound. Bounds may
+be prefixed with `^` to count from the end. Each
 written bound must be implicitly convertible to `int` and is evaluated once,
 from left to right. The expression retains its `System.Range` type when no
 target type is supplied.
@@ -89,7 +91,7 @@ Ordinary boundaries use `Index.FromStart`; `^` boundaries use
 A one-dimensional array accepts one range argument and produces a sliced array:
 
 ```raven
-let middle = values[2..<5]
+let middle = values[2..5]
 ```
 
 Other receivers resolve `[]` through their indexers, so overloads accepting
@@ -99,6 +101,10 @@ Inside a collection expression or `for` source, a numeric range is enumerated
 instead of being stored as a `Range` value. See [Collection
 expressions](collection-expressions.md) and [Control-flow expressions and
 loops](control-flow-expressions.md#range-loops).
+
+Inclusive ends are converted to equivalent exclusive `System.Index` boundaries
+using checked arithmetic. Inclusive `^0` and negative distances are invalid;
+`..=^1` includes the last element. See [range lowering](../../compiler/range-endpoints.md).
 
 ## Bitwise operators
 

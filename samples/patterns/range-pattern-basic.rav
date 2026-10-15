@@ -4,8 +4,8 @@ import System.Console.*
 let shipmentCount = 4
 
 let sizeBand = match shipmentCount {
-    ..4 => "No"
-    40 .. 43 => "Yes"
+    ..=4 => "No"
+    40 ..= 43 => "Yes"
     _ => "What?"
 }
 
@@ -14,8 +14,8 @@ WriteLine(sizeBand)
 let routeCode = 'B'
 
 let routeBand = match routeCode {
-    'a' .. 'b' => "lowercase"
-    'A' .. 'B' => "uppercase"
+    'a' ..= 'b' => "lowercase"
+    'A' ..= 'B' => "uppercase"
     _ => "Not in range"
 }
 

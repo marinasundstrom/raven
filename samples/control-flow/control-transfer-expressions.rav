@@ -5,8 +5,8 @@ import System.Console.*
 // Feature: statement and expression forms of loop and iterator transfers.
 // Use statement forms for sequential flow and expression forms where a branch
 // should transfer directly without an extra block.
-outer: for row in 0..<4 {
-    for column in 0..<4 {
+outer: for row in 0..4 {
+    for column in 0..4 {
         match (row, column) {
             (0, 0) => continue
             (0, 2) => break

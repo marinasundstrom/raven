@@ -2984,7 +2984,7 @@ partial class BlockBinder : Binder
             start as BoundIndexExpression,
             end as BoundIndexExpression,
             GetRangeType(),
-            rangeExpression.LessThanToken.Kind == SyntaxKind.LessThanToken);
+            rangeExpression.EqualsToken.Kind != SyntaxKind.EqualsToken);
     }
 
     private BoundExpression? BindRangeEndpoint(ExpressionSyntax? endpointSyntax)
@@ -12272,12 +12272,12 @@ partial class BlockBinder : Binder
         return GetSequenceSliceType(valueType, elementType);
     }
 
-    private static int GetSequenceRestElementIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
+    private static int GetFirstSequenceSegmentIndex(SeparatedSyntaxList<SequencePatternElementSyntax> elements)
     {
         var index = -1;
         for (var i = 0; i < elements.Count; i++)
         {
-            if (!IsSequenceRestElement(elements[i]))
+            if (!IsSequenceSegmentElement(elements[i]))
                 continue;
 
             if (index >= 0)
@@ -12300,8 +12300,8 @@ partial class BlockBinder : Binder
         {
             var element = elements[i];
             var prefix = element.Prefix;
-            var dotDotKind = prefix.DotDotToken.Kind;
-            if (dotDotKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
+            var prefixKind = prefix.OperatorToken.Kind;
+            if (prefixKind is not SyntaxKind.DotDotToken and not SyntaxKind.DotDotDotToken)
             {
                 widths.Add(1);
                 kinds.Add(BoundPositionalPattern.SequenceElementKind.Single);
@@ -12327,8 +12327,8 @@ partial class BlockBinder : Binder
         return (widths.ToImmutable(), kinds.ToImmutable(), restIndex);
     }
 
-    private static bool IsSequenceRestElement(SequencePatternElementSyntax element)
-        => element.Prefix.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
+    private static bool IsSequenceSegmentElement(SequencePatternElementSyntax element)
+        => element.Prefix.OperatorToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken;
 
     private BoundPattern BindIdentifierPatternForAssignment(
         IdentifierNameSyntax identifierName,
@@ -15804,7 +15804,7 @@ partial class BlockBinder : Binder
             new BoundIndexExpression(rangeInfo.Start!, isFromEnd: false, GetIndexType()),
             new BoundIndexExpression(rangeInfo.End!, isFromEnd: false, GetIndexType()),
             GetRangeType(),
-            rangeSyntax.LessThanToken.Kind == SyntaxKind.LessThanToken);
+            rangeSyntax.EqualsToken.Kind != SyntaxKind.EqualsToken);
 
         loweredSource = rangeExpression;
         iterationType = rangeInfo.ElementType!;

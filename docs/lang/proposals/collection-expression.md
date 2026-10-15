@@ -104,13 +104,13 @@ Each `...expr` enumerates `expr` and inserts its elements in order. Spread segme
 let mixed = [0, ...marvel, 1, ...dc]
 ```
 
-Bare range elements also expand inline. Inside a collection expression, `a..b` and
-`a..<b` contribute the produced sequence rather than a single `Range` value:
+Bare range elements also expand inline. Inside a collection expression, `a..=b` and
+`a..b` contribute the produced sequence rather than a single `Range` value:
 
 ```raven
-let values: int[] = [1..3]          // [1, 2, 3]
-let mixed: int[] = [1, 3..4, 9]     // [1, 3, 4, 9]
-let exclusive: int[] = [1..<4]      // [1, 2, 3]
+let values: int[] = [1..=3]          // [1, 2, 3]
+let mixed: int[] = [1, 3..=4, 9]     // [1, 3, 4, 9]
+let exclusive: int[] = [1..4]      // [1, 2, 3]
 ```
 
 If `expr` evaluates to `null` a runtime exception is produced, matching the behavior of C# collection expressions.
@@ -145,9 +145,9 @@ Raven currently supports one `for` clause with an optional `if` filter.
 List comprehensions:
 
 ```raven
-let squares = [for i in 1..10 => i * 2]
+let squares = [for i in 1..=10 => i * 2]
 let evenSquares = [for i in numbers if i % 2 == 0 => i * i]
-let ranged = [for i in 1..<10 => i]
+let ranged = [for i in 1..10 => i]
 ```
 
 Dictionary comprehensions:
@@ -175,7 +175,7 @@ Examples of invalid mixtures:
 
 ```raven
 [1, "a": 2]
-[1..3, "a": 2]
+[1..=3, "a": 2]
 [for n in numbers => n, "a": 2]
 ```
 

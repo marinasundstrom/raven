@@ -251,7 +251,7 @@ class NullableDictionaryPatterns {
         var code = """
 class RangePatterns {
     public static func IsClosed(value: int) -> int {
-        if value is 2..4 {
+        if value is 2..=4 {
             return 1
         }
 
@@ -259,7 +259,7 @@ class RangePatterns {
     }
 
     public static func IsExclusive(value: int) -> int {
-        if value is 2..<4 {
+        if value is 2..4 {
             return 1
         }
 
@@ -268,21 +268,21 @@ class RangePatterns {
 
     public static func MatchClosed(value: int) -> int {
         return match value {
-            2..4 => 1
+            2..=4 => 1
             _ => 0
         }
     }
 
     public static func MatchExclusive(value: int) -> int {
         return match value {
-            2..<4 => 1
+            2..4 => 1
             _ => 0
         }
     }
 
     public static func MatchOpen(value: int) -> int {
         return match value {
-            ..1 => 10
+            ..=1 => 10
             5.. => 20
             _ => 0
         }

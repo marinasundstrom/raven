@@ -153,10 +153,10 @@ func ReadScd4xWord(data: byte[], offset: int) -> int {
 func HasValidScd4xWord(data: byte[], offset: int) -> bool {
     var crc = 0xFF
 
-    for index in offset ..< offset + 2 {
+    for index in offset .. offset + 2 {
         crc = crc ^ Convert.ToInt32(data[index])
 
-        for _ in 0 ..< 8 {
+        for _ in 0 .. 8 {
             crc = if (crc & 0x80) != 0 {
                 ((crc << 1) ^ 0x31) & 0xFF
             } else {

@@ -4,8 +4,8 @@ import System.Console.*
 var processed = 0
 var skippedRows = 0
 
-outer: for row in 0..<4 {
-    for column in 0..<4 {
+outer: for row in 0..4 {
+    for column in 0..4 {
         if row == 1 {
             skippedRows += 1
             continue outer

@@ -814,7 +814,7 @@ import System.Collections.Generic.*
 
 func Pick(items: IEnumerable<Person>) -> Result<Person, AppError> {
     let current = items.FirstOrError(
-        person => person.YearOfBirth is 1950..1960,
+        person => person.YearOfBirth is 1950..=1960,
         () => DomainError("No match"))?
 
     return .Ok(current)

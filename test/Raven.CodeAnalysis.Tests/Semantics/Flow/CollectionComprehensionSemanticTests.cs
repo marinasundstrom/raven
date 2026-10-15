@@ -82,7 +82,7 @@ let result = [for n in numbers => n * n]
 import System.*
 import System.Linq.*
 
-let result = [for n in 4..250 if n % 2 == 0 => n * n]
+let result = [for n in 4..=250 if n % 2 == 0 => n * n]
 """;
 
         var verifier = CreateVerifier(source);

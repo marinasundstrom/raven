@@ -12549,3 +12549,43 @@ AOT and managed JIT with eager/paced collection against carrier-free libraries.
 [Runtime qualification and remaining gaps](https://github.com/marinasundstrom/neoCLR/blob/main/docs/validation/structural-integration-20261015.md)
 record the bounded support: bare generic alternatives and tuple alternatives inside
 unions are still unsupported, and broader combinations/platforms are not qualified.
+
+## Range syntax carry from main (2026-10-15)
+
+The `codex/neoclr` line carries Raven main `c16fca24c` deliberately, without merging
+the branches. `..` excludes the end and `..=` includes it; `..<` is removed. Range
+syntax uses EqualsToken, sequence prefixes use OperatorToken and spreads use
+DotDotDotToken. Existing native-only test fixtures are migrated with their original
+endpoint behavior preserved. Shared main validation remains applicable to unchanged
+code; this line additionally validates the portable range/index paths.
+
+Portable signed integer loops already consume RangeUpperExclusive and therefore
+retain the shared endpoint meaning. Stored/sliced System.Range construction currently
+supports exclusive ends only. Inclusive values now reject with a checked-Index-
+conversion diagnostic instead of silently losing inclusion. This is a native lowering
+gap, not a language restriction. Ordinary .NET emission implements checked conversion
+as documented in [range endpoints](range-endpoints.md). Native implementation must
+preserve once-only source-order evaluation, negative-distance checks and overflow
+handling through explicit target/library capabilities and native Fault behavior.
+
+No Runtime Contract switch or metadata format change is introduced. neoCLR owns
+native Index/Range library behavior and failure transport; Raven owns portable
+construction/lowering. Generic bounds, overflow-safe integer advancement and native
+inclusive Range conversion are subsequent slices. Structural-type work stays parked.
+
+A native consumer also exposes an existing range-pattern gap: shared lowering creates
+BoundAndPattern/BoundComparisonPattern, which the portable backend currently rejects.
+This remains an explicit diagnostic, not a change to the language endpoint rule.
+The independent PortableDefaultReceiverTests.ReadOnlyFieldReceiverUsesDefensiveCopy
+case reports 3 instead of 2 under ordinary .NET emission; the same source reproduces
+3 with Raven main c16fca24c. Track that general defensive-copy candidate separately
+for a main-first fix; it is not range qualification evidence.
+
+Validation on the carried line: generator/build and native-enabled compiler build
+pass; 169 focused range/syntax/portable-contract tests pass, including three
+inclusive stored-range rejection cases. The compiler driver also rejects an
+inclusive stored-range native project with NEOMETA001 and the checked-Index
+conversion reason. A fresh five-library build succeeds. Native loop/stored-bound
+execution evidence is maintained in neoCLR's range-endpoints validation record.
+The broader attempted selection also exposed the independent readonly-field case
+above; it is explicitly not counted as passing.

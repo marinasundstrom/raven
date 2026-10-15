@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
 
@@ -7,11 +8,11 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class PortableArrayComprehensionTests
 {
     [Theory]
-    [InlineData("0..<4", "i + 1", 4, 1, 4)]
-    [InlineData("2..4", "i * 2", 3, 4, 8)]
-    [InlineData("4..<4", "i", 0, 0, 0)]
-    [InlineData("4..2", "i", 0, 0, 0)]
-    [InlineData("2147483647..2147483647", "i", 1, int.MaxValue, int.MaxValue)]
+    [InlineData("0..4", "i + 1", 4, 1, 4)]
+    [InlineData("2..=4", "i * 2", 3, 4, 8)]
+    [InlineData("4..4", "i", 0, 0, 0)]
+    [InlineData("4..=2", "i", 0, 0, 0)]
+    [InlineData("2147483647..=2147483647", "i", 1, int.MaxValue, int.MaxValue)]
     public void ConstantRangeArraysPreserveDotNetResults(string range, string selector, int length, int first, int last)
     {
         var (compilation, syntax, model) = Create($"[for i in {range} => {selector}]");
@@ -30,9 +31,9 @@ public class PortableArrayComprehensionTests
     }
 
     [Theory]
-    [InlineData("[for i in 0..<n => i]")]
-    [InlineData("[for i in 0..<4 if i > 1 => i]")]
-    [InlineData("[for i in 0..2147483647 => i]")]
+    [InlineData("[for i in 0..n => i]")]
+    [InlineData("[for i in 0..4 if i > 1 => i]")]
+    [InlineData("[for i in 0..=2147483647 => i]")]
     [InlineData("[1, ...[|2, 3|]]")]
     public void UnsupportedShapesRemainDiagnosed(string expression)
     {
@@ -45,7 +46,7 @@ public class PortableArrayComprehensionTests
     [Fact]
     public void FilteredInclusiveMaximumTerminatesOnDotNet()
     {
-        var (compilation, _, _) = Create("[for i in 2147483647..2147483647 if i < 0 => i]");
+        var (compilation, _, _) = Create("[for i in 2147483647..=2147483647 if i < 0 => i]");
         using var image = new MemoryStream();
         var emitted = compilation.Emit(image);
         Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
@@ -60,7 +61,7 @@ public class PortableArrayComprehensionTests
             public static class Dictionaries {
                 public static func Run() -> int {
                     let values: System.Collections.Generic.Dictionary<int, int> =
-                        [for i in 2147483647..2147483647 => i: i]
+                        [for i in 2147483647..=2147483647 => i: i]
                     return values.Count
                 }
             }

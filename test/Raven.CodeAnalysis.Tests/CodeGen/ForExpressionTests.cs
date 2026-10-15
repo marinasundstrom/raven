@@ -55,14 +55,14 @@ class Foo {
         var code = """
 import System.Console.*
 
-for x in 2..6 {
+for x in 2..=6 {
     WriteLine(x)
 }
 
 let bottom = -3
 let top = 7
 
-for x in bottom..top {
+for x in bottom..=top {
     WriteLine(x)
 }
 """;
@@ -111,14 +111,14 @@ class Program {
         var code = """
 import System.Console.*
 
-for c in 'a'..'c' {
+for c in 'a'..='c' {
     WriteLine(c)
 }
 
 let start: decimal = 1
 let end: decimal = 3
 
-for n in start..end {
+for n in start..=end {
     WriteLine(n)
 }
 """;
@@ -133,11 +133,11 @@ for n in start..end {
         var code = """
 import System.Console.*
 
-for x in 0..10 by 2 {
+for x in 0..=10 by 2 {
     WriteLine(x)
 }
 
-for x in 10..0 by -3 {
+for x in 10..=0 by -3 {
     WriteLine(x)
 }
 """;
@@ -152,7 +152,7 @@ for x in 10..0 by -3 {
         var code = """
 import System.Console.*
 
-for x in 0..1.0 by 0.5 {
+for x in 0..=1.0 by 0.5 {
     WriteLine(x)
 }
 """;
@@ -168,11 +168,11 @@ for x in 0..1.0 by 0.5 {
         var code = """
 import System.Console.*
 
-for x in 2..<6 {
+for x in 2..6 {
     WriteLine(x)
 }
 
-for x in 6..<2 by -2 {
+for x in 6..2 by -2 {
     WriteLine(x)
 }
 """;
@@ -187,7 +187,7 @@ for x in 6..<2 by -2 {
         var code = """
 import System.Console.*
 
-for let [..2, x, ...] in [[2, 1..2, 5]] {
+for let [..2, x, ...] in [[2, 1..=2, 5]] {
     WriteLine(x)
 }
 """;
@@ -202,11 +202,11 @@ for let [..2, x, ...] in [[2, 1..2, 5]] {
         var code = """
 import System.Console.*
 
-for x in [2, 1..2] {
+for x in [2, 1..=2] {
     WriteLine(x)
 }
 
-for let [..2, ..2 x, ...] in [[2, 1..3]] {
+for let [..2, ..2 x, ...] in [[2, 1..=3]] {
     WriteLine(x.Count)
     WriteLine(x[0])
     WriteLine(x[1])
@@ -250,7 +250,7 @@ class Program {
         var code = """
 import System.Console.*
 
-for let [..2, ..2 x, ...] in [[|2, 1..4|]] {
+for let [..2, ..2 x, ...] in [[|2, 1..=4|]] {
     WriteLine(x[1])
 }
 """;
@@ -495,7 +495,7 @@ import System.Collections.Generic.*
 
 class C {
     static func Values() -> IEnumerable<int> {
-        for i in 1..3 {
+        for i in 1..=3 {
             yield i
         }
     }
@@ -549,7 +549,7 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
-        for i in 1..3 {
+        for i in 1..=3 {
             yield i
             await Task.Delay(1)
         }

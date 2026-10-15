@@ -22,7 +22,7 @@ class Sample {
 
     static async func AsyncSecondGenerator([EnumeratorCancellation] token: CancellationToken) -> IAsyncEnumerable<int> {
         try {
-            for value in 1..3 {
+            for value in 1..=3 {
                 await Task.Delay(1, token)
                 yield value
             }

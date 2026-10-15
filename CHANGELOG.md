@@ -4,7 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-15:** Propose consistent range endpoints across .NET and neoCLR, nominal generic bounds and overflow-safe integer progressions. Record the author-directed coordinated migration without a compatibility mode; compiler behavior and Runtime Contract configuration are unchanged. Structural-type work remains parked.
+- **2026-10-15:** Make range endpoints consistent: `..` excludes the end and `..=` includes it in loops, collections, patterns and .NET slices/stored Range values. Remove `..<`, migrate owned consumers and expose optional EqualsToken in range syntax nodes. Inclusive .NET endpoints use checked Index conversion; no Runtime Contract switch is required. Rename the sequence prefix slot to OperatorToken because it accepts both `..` and `...`; spread nodes use DotDotDotToken and default to `...`. Distinguish ranges, slices, sequence segments/rest patterns, spreads and progressions in the language/compiler documentation. Carry main c16fca24c deliberately to codex/neoclr, migrate portable fixtures, and reject inclusive stored/sliced Range values until native checked Index conversion exists; portable integer loops honor the shared endpoint flag. Native inclusive conversion and integer advancement remain separate follow-ups.
+
+- **2026-10-15:** Propose consistent range endpoints across .NET and neoCLR, nominal generic bounds, explicit ordering/stepping capabilities and overflow-safe integer progressions. Record the author-directed coordinated migration without a compatibility mode; compiler behavior and Runtime Contract configuration are unchanged. Structural-type work remains parked.
 
 ### 2026-10-15
 

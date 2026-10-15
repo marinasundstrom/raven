@@ -8,6 +8,35 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class PortableIndexValueTests
 {
     [Theory]
+    [InlineData("1..=2")]
+    [InlineData("..=^1")]
+    [InlineData("^3..=^2")]
+    public void InclusiveRangeValuesRejectUntilCheckedIndexConversionIsSupported(string range)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            public static class Slices {
+                public static func Run() -> int {
+                    let values: int[] = [10, 20, 30, 40]
+                    let selection = {{range}}
+                    return values[selection].Length
+                }
+            }
+            """);
+        var compilation = Compilation.Create("InclusivePortableRange", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsArrays: true, allowsGenericMethods: true, allowsManagedReferences: true,
+            allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsExternalConstructors: true);
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
+        Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities));
+        Assert.Contains("checked Index conversion", failure!.Detail);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void IndexAndRangeValuesUseAdmittedLibraryCalls(bool constructors)

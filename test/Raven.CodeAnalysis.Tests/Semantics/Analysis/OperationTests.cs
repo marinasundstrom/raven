@@ -613,7 +613,7 @@ record class Person(Name: string, Age: int, Items: string[])
         const string source = """
 let value: int = 9
 let result = match value {
-    2..<10 => 1
+    2..10 => 1
     _ => 0
 }
 """;

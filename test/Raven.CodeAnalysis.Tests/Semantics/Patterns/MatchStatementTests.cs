@@ -340,7 +340,7 @@ record SupportTicket(Id: int, Priority: int)
 func Route(ticket: SupportTicket, target: object) -> unit {
     match ticket.Priority {
         1 => ()
-        2..3 => ()
+        2..=3 => ()
         _ => ()
     }
 

@@ -96,12 +96,12 @@ func RunCollectionPatternExamples() {
 
     PrintSection("Collection range iteration")
     WriteLine("Input:  [2, 1..2]")
-    for value in [2, 1..2] {
+    for value in [2, 1..=2] {
         WriteLine("item -> $value")
     }
 
     PrintSection("Collection segment pattern")
-    for let [..2, ..2 segment, ...] in [[|2, 1..4|]] {
+    for let [..2, ..2 segment, ...] in [[|2, 1..=4|]] {
         WriteLine("Matched [|2, 1..4|] with [..2, ..2 segment, ...]")
         WriteLine("Bound: segment = ${DescribeInts(segment)}")
     }
@@ -134,7 +134,7 @@ func RunCollectionComprehensionExamples() {
     let numbers = [|1, 2, 3, 4, 5|]
     let squares = [for n in numbers => n * n]
     let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
-    let rangeValues = [for n in 3..<7 => n]
+    let rangeValues = [for n in 3..7 => n]
 
     WriteLine("Input numbers: ${DescribeInts(numbers)}")
     WriteLine("Squares:       ${DescribeInts(squares)}")

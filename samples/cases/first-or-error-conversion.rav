@@ -12,7 +12,7 @@ func Main() -> Result<(), AppError> {
     ]
 
     let current = persons.FirstOrError(
-        p => p.YearOfBirth is 1950..1960,
+        p => p.YearOfBirth is 1950..=1960,
         () => DomainError("No match"))?
 
     WriteLine(current)

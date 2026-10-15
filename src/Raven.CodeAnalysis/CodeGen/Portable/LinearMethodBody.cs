@@ -1386,6 +1386,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (indexFactory is null) return Reject("missing System.Index factory", Syntax(expression));
                     return LowerValue(new BoundInvocationExpression(indexFactory, [indexValue.Value], receiver: null, extensionReceiver: null));
                 case BoundRangeExpression range when range.Type is INamedTypeSymbol rangeOwner:
+                    if (!range.IsUpperExclusive && range.Right is not null)
+                        return Reject("inclusive System.Range endpoints require target-supported checked Index conversion", Syntax(expression));
                     if (range.Left is null && range.Right is null)
                     {
                         var all = rangeOwner.GetMembers("All").OfType<IPropertySymbol>().FirstOrDefault(p => p.IsStatic)?.GetMethod;

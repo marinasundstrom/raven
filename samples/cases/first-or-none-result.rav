@@ -11,7 +11,7 @@ func Main() -> Result<(), CustomError> {
         Person("Marina", "S", 1990)
     ]
 
-    let current = persons.FirstOrNone(p => p.YearOfBirth is 1980..1990)
+    let current = persons.FirstOrNone(p => p.YearOfBirth is 1980..=1990)
 
     match current {
         Some(let p) => WriteLine(p)

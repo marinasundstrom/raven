@@ -8,7 +8,7 @@ internal partial class BoundRangeExpression : BoundExpression
         BoundIndexExpression? left,
         BoundIndexExpression? right,
         ITypeSymbol type,
-        bool isUpperExclusive = false)
+        bool isUpperExclusive = true)
         : base(type, null, BoundExpressionReason.None)
     {
         Left = left;

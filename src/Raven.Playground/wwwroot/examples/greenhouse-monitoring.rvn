@@ -5,7 +5,7 @@ union PercentageError {
 record struct Percentage private (Value: int) {
     static func Create(value: int) -> Result<Percentage, PercentageError> =>
         value match {
-            0..100 => Ok(Percentage(value))
+            0..=100 => Ok(Percentage(value))
             _ => Error(.OutOfRange(value))
         }
 }

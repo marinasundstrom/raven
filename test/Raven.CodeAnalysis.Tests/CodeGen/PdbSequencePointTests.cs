@@ -355,7 +355,7 @@ class C {
 class C {
     func Sum() -> int {
         var total = 0
-        for value in 1..3 {
+        for value in 1..=3 {
             total = total + value
         }
 
@@ -783,7 +783,7 @@ func Add(left: int, right: int) -> int {
 class Program {
     static func Main() {
         var total = 0
-        for value in 1..3 {
+        for value in 1..=3 {
             total = total + value
         }
 

@@ -69,7 +69,7 @@ public class FunctionExpressionSyntaxTests
         Assert.True(parameter.Identifier.IsMissing);
         var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
         Assert.Equal(2, pattern.Elements.Count);
-        Assert.Equal(SyntaxKind.DotDotDotToken, pattern.Elements[1].Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, pattern.Elements[1].Prefix.OperatorToken.Kind);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class FunctionExpressionSyntaxTests
         Assert.True(parameter.Identifier.IsMissing);
         var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
         Assert.Equal(2, pattern.Elements.Count);
-        Assert.Equal(SyntaxKind.DotDotDotToken, pattern.Elements[1].Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotDotToken, pattern.Elements[1].Prefix.OperatorToken.Kind);
         Assert.IsType<DiscardPatternSyntax>(pattern.Elements[1].Pattern);
     }
 
@@ -96,7 +96,7 @@ public class FunctionExpressionSyntaxTests
         Assert.True(parameter.Identifier.IsMissing);
         var pattern = Assert.IsType<SequencePatternSyntax>(parameter.Pattern);
         Assert.Equal(2, pattern.Elements.Count);
-        Assert.Equal(SyntaxKind.DotDotToken, pattern.Elements[1].Prefix.DotDotToken.Kind);
+        Assert.Equal(SyntaxKind.DotDotToken, pattern.Elements[1].Prefix.OperatorToken.Kind);
     }
 
     [Fact]

@@ -105,13 +105,13 @@
     <Slot Name="Value" Type="Expression" />
   </Node>
   <Node Name="DictionarySpreadElement" Inherits="CollectionElement">
-    <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotDotToken" />
+    <Slot Name="DotDotDotToken" Type="Token" DefaultToken="DotDotDotToken" />
     <Slot Name="Key" Type="Expression" />
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
     <Slot Name="Value" Type="Expression" />
   </Node>
   <Node Name="SpreadElement" Inherits="CollectionElement">
-    <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
+    <Slot Name="DotDotDotToken" Type="Token" DefaultToken="DotDotDotToken" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="CollectionComprehensionElement" Inherits="CollectionElement">
@@ -1000,7 +1000,7 @@
   <Node Name="RangePattern" Inherits="Pattern">
     <Slot Name="LowerBound" Type="Expression" IsNullable="true" IsOptional="true" />
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
-    <Slot Name="LessThanToken" Type="Token" IsOptionalToken="true" DefaultToken="LessThanToken" />
+    <Slot Name="EqualsToken" Type="Token" IsOptionalToken="true" DefaultToken="EqualsToken" />
     <Slot Name="UpperBound" Type="Expression" IsNullable="true" IsOptional="true" />
   </Node>
   <Node Name="MemberPattern" Inherits="Pattern">
@@ -1041,7 +1041,7 @@
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="SequencePatternPrefix" Inherits="Node">
-    <Slot Name="DotDotToken" Type="Token" IsOptionalToken="true" />
+    <Slot Name="OperatorToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="SegmentLengthToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="SequencePatternElement" Inherits="Node">
@@ -1234,7 +1234,7 @@
   <Node Name="RangeExpression" Inherits="Expression">
     <Slot Name="LeftExpression" Type="Expression" IsNullable="true" />
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
-    <Slot Name="LessThanToken" Type="Token" IsOptionalToken="true" DefaultToken="LessThanToken" />
+    <Slot Name="EqualsToken" Type="Token" IsOptionalToken="true" DefaultToken="EqualsToken" />
     <Slot Name="RightExpression" Type="Expression" IsNullable="true" />
   </Node>
   <Node Name="IndexExpression" Inherits="Expression">
