@@ -904,8 +904,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(call, atStatementBoundary: atStatementBoundary)) return false;
                     if (ReturnsValue(call.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
                     // CLI void signatures cannot express a terminal call. Preserve the
-                    // call (and its dynamic message), then guard its impossible return.
-                    if (BoundNodeFacts.IsTerminalRuntimeFault(call.Method))
+                    // call and guard its impossible return only at an empty-stack boundary.
+                    // Inside an expression the explicit runtime failure contract owns
+                    // termination; a bare fail cannot retain pending caller operands.
+                    if (atStatementBoundary && BoundNodeFacts.IsTerminalRuntimeFault(call.Method))
                         Add(LinearInstructionKind.CompilerFailure, Syntax(statement),
                             text: "A terminal runtime failure unexpectedly returned.");
                     continue;
@@ -1419,8 +1421,52 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (indexFactory is null) return Reject("missing System.Index factory", Syntax(expression));
                     return LowerValue(new BoundInvocationExpression(indexFactory, [indexValue.Value], receiver: null, extensionReceiver: null));
                 case BoundRangeExpression range when range.Type is INamedTypeSymbol rangeOwner:
-                    if (!range.IsUpperExclusive && range.Right is not null)
-                        return Reject("inclusive System.Range endpoints require target-supported checked Index conversion", Syntax(expression));
+                    if (!range.IsUpperExclusive && range.Right is { } inclusiveEnd)
+                    {
+                        if (capabilities?.Allows(LinearInstructionKind.CompilerFailure) != true ||
+                            inclusiveEnd.Type is not INamedTypeSymbol indexType ||
+                            indexType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault(p =>
+                                !p.IsStatic && p.Type.SpecialType == SpecialType.System_Int32 && p.GetMethod is not null) is not { } distance)
+                            return Reject("inclusive System.Range endpoints require target-supported checked Index conversion", Syntax(expression));
+                        // Construct the original Index first: negative distances must
+                        // fault before translation. The saved Index also ensures the
+                        // source end is evaluated exactly once, after the start.
+                        var saved = new SourceLocalSymbol("<inclusiveEnd>", indexType, false, source,
+                            source.ContainingType, source.ContainingNamespace, [Location.None], []);
+                        var intType = model.Compilation.GetSpecialType(SpecialType.System_Int32);
+                        BoundExpression Number(int value) => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, value, intType);
+                        BoundExpression ReadDistance() => new BoundMemberAccessExpression(new BoundLocalAccess(saved), distance);
+                        if (!BoundBinaryOperator.TryLookup(model.Compilation, SyntaxKind.EqualsEqualsToken, intType, intType, out var equality) ||
+                            !BoundBinaryOperator.TryLookup(model.Compilation, inclusiveEnd.IsFromEnd ? SyntaxKind.MinusToken : SyntaxKind.PlusToken,
+                                intType, intType, out var arithmetic))
+                            return Reject("missing checked Index conversion operators", Syntax(expression));
+                        const string failureMessage = "Inclusive range endpoint has no representable exclusive boundary";
+                        BoundStatement invalidEnd = new BoundThrowStatement(new BoundDefaultValueExpression(intType), compilerFailure: failureMessage);
+                        if (model.Compilation.Options.RuntimeFailureContract is { } failureContract)
+                        {
+                            INamespaceSymbol? failureNamespace = model.Compilation.GlobalNamespace;
+                            foreach (var part in failureContract.NamespaceName.Split('.'))
+                                failureNamespace = failureNamespace?.GetMembers(part).OfType<INamespaceSymbol>().SingleOrDefault();
+                            var members = failureNamespace?.GetMembers() ?? [];
+                            var failMethod = members.OfType<IMethodSymbol>().Concat(members.OfType<INamedTypeSymbol>()
+                                .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>()))
+                                .Where(failureContract.Matches).Distinct(SymbolEqualityComparer.Default).OfType<IMethodSymbol>().SingleOrDefault();
+                            if (failMethod is null) return Reject("inclusive Index conversion requires the configured runtime failure function", Syntax(expression));
+                            // A call propagates terminal faults through the normal ABI,
+                            // even when an enclosing expression has pending operands.
+                            invalidEnd = new BoundExpressionStatement(new BoundInvocationExpression(failMethod,
+                                [new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, failureMessage,
+                                    model.Compilation.GetSpecialType(SpecialType.System_String))], receiver: null, extensionReceiver: null));
+                        }
+                        var translated = new BoundBlockExpression([
+                            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(saved, inclusiveEnd)]),
+                            new BoundIfStatement(new BoundBinaryExpression(ReadDistance(), equality, Number(inclusiveEnd.IsFromEnd ? 0 : int.MaxValue)),
+                                invalidEnd),
+                            new BoundExpressionStatement(new BoundBinaryExpression(ReadDistance(), arithmetic, Number(1)))
+                        ], intType, []);
+                        return LowerValue(new BoundRangeExpression(range.Left,
+                            new BoundIndexExpression(translated, inclusiveEnd.IsFromEnd, indexType), range.Type));
+                    }
                     if (range.Left is null && range.Right is null)
                     {
                         var all = rangeOwner.GetMembers("All").OfType<IPropertySymbol>().FirstOrDefault(p => p.IsStatic)?.GetMethod;

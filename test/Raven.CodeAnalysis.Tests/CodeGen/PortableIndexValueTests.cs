@@ -8,10 +8,10 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class PortableIndexValueTests
 {
     [Theory]
-    [InlineData("1..=2")]
-    [InlineData("..=^1")]
-    [InlineData("^3..=^2")]
-    public void InclusiveRangeValuesRejectUntilCheckedIndexConversionIsSupported(string range)
+    [InlineData("1..=2", 2)]
+    [InlineData("..=^1", 4)]
+    [InlineData("^3..=^2", 2)]
+    public void InclusiveRangeValuesPreserveSelection(string range, int expected)
     {
         var tree = SyntaxTree.ParseText($$"""
             public static class Slices {
@@ -32,8 +32,12 @@ public class PortableIndexValueTests
             allowsArrays: true, allowsGenericMethods: true, allowsManagedReferences: true,
             allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsExternalConstructors: true);
         Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
-        Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities));
-        Assert.Contains("checked Index conversion", failure!.Detail);
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(expected, loaded.Assembly.GetType("Slices")!.GetMethod("Run")!.Invoke(null, null));
     }
 
     [Theory]

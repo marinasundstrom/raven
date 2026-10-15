@@ -12618,3 +12618,26 @@ checks match arms, once-only subject evaluation and the maximum signed 64-bit en
 Focused validation: 32 range/index/portable-pattern compiler tests pass on .NET 11;
 the native-enabled compiler build passes. Native execution uses the unchanged
 five-library range bundle and existing runtime, qualified on macOS ARM64.
+
+
+## Checked inclusive native Range conversion (2026-10-15)
+
+The native portable backend now translates inclusive System.Range ends while
+preserving the existing half-open library ABI. It evaluates the start, constructs
+and saves the original end Index once (retaining negative-distance validation),
+then translates start-relative n to n+1 or from-end n to n-1. Before arithmetic,
+Int32.MaxValue and from-end zero reject. A valid translated Index is constructed
+through the existing factory. No receiver length or new metadata representation
+is required. Range.End exposes the translated exclusive boundary, not source spelling.
+
+The configured RuntimeFailureContract selects the native terminal failure function.
+Invalid conversion calls it through the ordinary call ABI so pending enclosing
+expression operands are safe. Impossible-return guards remain at empty-stack
+statement boundaries; nested calls rely on the explicit terminal runtime contract.
+This is native fault transport, not CLI exception encoding. Ordinary .NET checked
+Index emission remains unchanged. No library API or runtime opcode is added.
+
+Raven owns conversion/evaluation order; the native Index constructors own negative
+validation and neoCLR owns terminal fault propagation. Qualification uses the
+existing range library bundle, 32 focused compiler tests and the paired neoCLR
+checked-range consumer/fault record. Structural types remain parked.
