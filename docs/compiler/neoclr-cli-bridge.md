@@ -12329,3 +12329,9 @@ Validation passes 78 focused compiler tests and an artifact-only Raven consumer 
 the interpreter and AOT, including 32 entries per eager/paced collection mode with
 exact Cell/descriptor allocation/reclamation and native sanitizers. This uses the
 retained v3 libraries; fresh-bundle and managed JIT qualification remain separate.
+
+Fresh-bundle follow-up (2026-10-15): runtime bd1540362 and compiler 0e319052b
+qualify the imported callable union consumer in interpreter, AOT and managed JIT.
+Both native collector policies reclaim all explicit objects before synchronous
+JIT code release. See the structural lowering guide; async retention remains open.
+Runtime Contract configuration and native encoding are unchanged.

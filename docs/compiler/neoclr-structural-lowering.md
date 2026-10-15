@@ -252,5 +252,7 @@ signatures into consumer ownership and admits the function test target. No nomin
 carrier is emitted. Ordinary .NET capability defaults and Runtime Contract settings
 are unchanged. The artifact-only callable/int consumer passes interpreter/AOT and
 32 entries per eager/paced collection mode with exact Cell/descriptor allocations;
-78 focused planner/function-contract tests pass. JIT and fresh-bundle qualification
-remain separate. See neoCLR's `docs/experiments/native-structural-types/callable-import-project/README.md`.
+78 focused planner/function-contract tests pass. The fresh v4 Runtime/Data/Networking/Web
+bundle now also passes this consumer in AOT and managed JIT, with 32 invocations
+per eager/paced collector policy, exact reclamation and cleanup before JIT code
+release. Escaped callbacks and async retention remain unqualified. See neoCLR's `docs/experiments/native-structural-types/callable-import-project/README.md`.
