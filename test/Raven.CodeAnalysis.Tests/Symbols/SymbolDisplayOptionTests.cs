@@ -12,6 +12,22 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class SymbolDisplayOptionTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("System.Collections.Generic.IEnumerable`1", "IEnumerable<out T>")]
+    [InlineData("System.Collections.Generic.IComparer`1", "IComparer<in T>")]
+    public void VarianceDisplay_OnlyAnnotatesDefinitionParameters(string metadataName, string expected)
+    {
+        var compilation = CreateCompilation();
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
+            SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeVariance);
+        Assert.Equal(expected, definition.ToDisplayString(format));
+        Assert.DoesNotContain("out ", definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.DoesNotContain("in ", definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var constructed = definition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        Assert.Equal(definition.Name + "<string>", constructed.ToDisplayString(format));
+    }
+
     [Fact]
     public void LocalDisplay_UsesIncludeTypeOption()
     {

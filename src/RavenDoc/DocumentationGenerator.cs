@@ -122,7 +122,8 @@ public static partial class DocumentationGenerator
             SymbolDisplayFormat.RavenSignatureFormat
                 .WithGenericsOptions(
                     SymbolDisplayGenericsOptions.IncludeTypeParameters |
-                    SymbolDisplayGenericsOptions.IncludeTypeConstraints)
+                    SymbolDisplayGenericsOptions.IncludeTypeConstraints |
+                    SymbolDisplayGenericsOptions.IncludeVariance)
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
                 .WithMiscellaneousOptions(miscOpt)
                 .WithMemberOptions(

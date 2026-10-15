@@ -419,7 +419,7 @@ that shapes RavenDoc's APIs.
 The current HTML renderer provides a Raven-specific, responsive API-reference
 presentation with light and dark color schemes. Page titles use a compact
 reference-heading scale, while editor-like Raven signatures carry the primary
-visual weight. Since RavenDoc presents the exported Raven API, signatures omit
+visual weight. Generic interface declarations preserve `out` and `in` qualifiers from source or imported metadata; constructed type arguments remain unannotated. Since RavenDoc presents the exported Raven API, signatures omit
 the redundant leading `public` modifier. Private and internal accessor details
 remain implementation details; restricted accessors are shown only when they
 contribute to the inheritable surface through protected accessibility.

@@ -5,6 +5,44 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InterfaceSignaturesPreserveVariance(bool metadata)
+    {
+        const string source = """
+            namespace VarianceDocs
+            public interface Producer<out T> { func Get() -> T }
+            public interface Consumer<in T> { func Accept(value: T) -> () }
+            public interface Fixed<T> { func Echo(value: T) -> T }
+            """;
+        var (compilation, _) = CreateCompilation(source, assemblyName: "VarianceDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "VarianceDocs");
+            compilation = Compilation.Create("Host", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+            foreach (var (name, parameter) in new[] { ("Producer", "out T"), ("Consumer", "in T"), ("Fixed", "T") })
+            {
+                var page = Directory.GetFiles(output, "index.html", SearchOption.AllDirectories)
+                    .Single(path => Path.GetFileName(Path.GetDirectoryName(path))!.StartsWith(name, StringComparison.Ordinal));
+                var html = System.Net.WebUtility.HtmlDecode(File.ReadAllText(page));
+                html.ShouldContain($"interface {name}<{parameter}>");
+            }
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Fact]
     public void ExternalSubclassContractsIncludeProtectedMembers()
     {
