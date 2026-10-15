@@ -12727,3 +12727,21 @@ open-definition discovery and intrinsic String variance are still runtime gaps.
 RavenDoc's general variance-signature fix (`fcefb7836` on main, carried as
 `eef1ed456`) is also qualified against the native bundle: all eleven annotated
 interface declarations retain their `in`/`out` qualifiers in the API snapshot.
+
+### Native open-descriptor backend slices (2026-10-16)
+
+neoCLR `ce30fda49` adds compiler-owned descriptive handles for open definitions
+and their declaring-definition/ordinal parameters; `88305ab8f` binds native
+name/count/indexed-argument/metadata-token/shape queries over those handles,
+including variance facts shared with the interpreter. Private handles survive
+selection and nominal rewriting without creating executable generic layouts.
+Serialized applications cannot supply the descriptor table. Focused tests cover
+forgery rejection, distinct/repeated identity, mixed closed/open queries, invalid
+indices/selectors, AOT object emission and macOS ARM64 JIT execution.
+
+This is internal backend support. Raven continues emitting the existing source
+metadata and ordinary library calls, with no Runtime Contract or CLI bridge change.
+Guest AssemblyInfo.GetTypes/ModuleInfo.GetTypes discovery is not yet connected to
+these handles; the original open-definition consumer is not native-qualified.
+Open member substitution/relationship queries and intrinsic String variance remain
+gaps. Structural work remains parked.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document neoCLR native open-definition descriptor handles and query validation. Source emission and Runtime Contract configuration are unchanged; guest assembly/module discovery, open relationships and intrinsic String variance remain unqualified.
+
 - **2026-10-16:** Record matching neoCLR class-library generic argument sequence qualification across interpreter/AOT/JIT and native API variance rendering. No compiler lowering or Runtime Contract change; native open-definition discovery and intrinsic String variance remain runtime gaps.
 
 - **2026-10-16:** Carry main fcefb7836: render declared interface variance in RavenDoc signatures and honor IncludeVariance in named-type symbol display. Constructed type arguments remain unannotated; no Runtime Contract or emitted metadata change.
