@@ -12015,3 +12015,24 @@ intersection execution. Evidence is in neoCLR's
 `docs/experiments/value-unions/open-generic-results.json`. The earlier rejection in
 `direct-task-results.json` is historical evidence. This slice validates interpreter
 execution; AOT/JIT support is not implied.
+
+## Native tuple backend qualification (2026-10-15)
+
+The companion runtime structural branch now lowers admitted tuple signatures to
+inline native slots without a nominal carrier. Runtime commit `4fe78429b` adds
+macOS ARM64 AOT copying, nested element mutation/addresses, default initialization,
+call/return handling and reference tracing recipes, bounded to 256 flattened slots.
+Subsequent direct JIT tests execute two- and sixteen-integer copy/call workloads.
+Both AOT workloads generate byte-identical code to equivalent nominal records;
+measured direct JIT costs are also comparable. Evidence and exact tool hashes live
+in neoCLR's `docs/experiments/native-structural-types/`.
+
+Runtime Contract structural tuple configuration, native metadata names and Raven
+emission/import semantics are unchanged. Ordinary .NET continues to use its normal
+nominal ValueTuple mapping; the legacy neoCLR CLI carrier remains a temporary
+compatibility path. No new bridge encoding is introduced. The backend can consume
+structural tuple signatures directly, but full compiler-produced managed applications,
+collector stress, tuple boxing/reflection and Windows still need qualification.
+Native union and intersection backend support remains incomplete. These runtime
+results do not qualify every matching Raven bundle or authorize merging the
+experimental branches into their main tracks.
