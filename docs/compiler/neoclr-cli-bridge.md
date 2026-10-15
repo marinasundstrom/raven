@@ -12229,6 +12229,9 @@ The neoCLR structural feature branch now admits bounded mixtures of inline nomin
 records and direct reference alternatives. Native fixture tests cover calls,
 copies, actual nominal interface conformance and allocation accounting. Raven
 emission, native metadata signatures and Runtime Contract configuration are
-unchanged; this does not qualify a new fresh Raven mixed-record consumer or
-managed JIT/GC. Whole-union boxing remains gated. See the structural lowering
+unchanged. A fresh artifact-only Raven consumer now qualifies eight inputs
+through `int | long | bool | Response | HttpError`, with Response a struct and
+HttpError a class. Interpreter/AOT agree (42), with only the explicit HttpError
+allocation (16 bytes). The retained v3 bundle was not rebuilt; managed JIT/GC
+remains unqualified. Whole-union boxing remains gated. See the structural lowering
 section for the private disjoint-region storage tradeoff.

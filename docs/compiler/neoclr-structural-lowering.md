@@ -169,8 +169,11 @@ cases, including preserved Int32/Int64 fields and reordered alternatives, with
 no native imports or arena allocation. Native backend tests also admit records mixed with direct nominal reference
 alternatives. One reference region stores the admitted object; reference tests
 and casts inspect actual nominal conformance, including overlapping interfaces.
-Inactive regions stay zero. This has native fixture coverage; a fresh Raven
-record/reference consumer and whole-union boxing remain open.
+Inactive regions stay zero. A fresh artifact-only Raven consumer also passes eight scalar/record/reference
+inputs through imported reordered signatures and typed patterns. It preserves
+Response struct fields and HttpError class properties with only the explicit
+HttpError allocation (16 bytes). It uses the retained v3 bundle; whole-union
+boxing, managed JIT/GC and throughput qualification remain open.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference
