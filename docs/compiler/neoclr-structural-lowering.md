@@ -225,3 +225,13 @@ metadata or Runtime Contract setting. The fresh imported Response<Cell> consumer
 eager/paced collection mode, reclaiming exactly 64 explicit objects per mode and
 leaving empty roots/heaps after each return. JIT, async retention and broader
 structural shapes remain open.
+
+## Callable union runtime boundary — 2026-10-15
+
+The paired neoCLR interpreter now accepts function alternatives in structural
+union metadata. Exact checked narrowing preserves the callable target and bound
+receiver, including interpreter collection across a union local. Runtime IL tests
+cover this boundary; this does not yet qualify Raven source emission of callable
+unions or native JIT/AOT storage. Runtime Contract configuration, compiler mapping
+and CLI carriers are unchanged. Callable intersection bounds remain rejected;
+ordinary nominal interface conformance stays explicit.

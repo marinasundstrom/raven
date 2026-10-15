@@ -12283,3 +12283,15 @@ reclaimed per mode, empty roots/heaps after each return, and native sanitizer
 checks. The runtime evidence records 1792 eager and 64 paced collections. No
 Runtime Contract or emission change was needed; JIT lifetime, async retention
 and broader structural combinations remain open.
+
+## 2026-10-15 — Callable alternatives in structural unions
+
+The runtime interpreter now admits function signatures as union alternatives and
+retains an explicit union view on callable values. Exact narrowing restores the
+callable signature without rebinding or losing its receiver. Focused runtime tests
+cover metadata round-trip, calls/returns/locals, receiver collection, null and wrong
+shape checks; invocation without narrowing and callable intersection bounds remain
+rejected. This extends native metadata interpretation, not the CLI carrier bridge.
+Runtime Contract configuration and Raven emission are unchanged. The runtime owns
+admission/storage; Raven source qualification and native JIT/AOT layout/tracing are
+still required before advertising this combination as integrated compiler support.
