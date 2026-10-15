@@ -18,7 +18,7 @@ internal static class SourceCompositionChecks
         {
             var name = intersection ? "AuthoredIntersection" : "AuthoredUnion";
             var operation = intersection ? "&" : "|";
-            var catalog = NeoClrReferenceCatalog.Read(corePath, [libraryPath], seedPath, allowExperimentalCompositions: true);
+            var catalog = NeoClrReferenceCatalog.Read(corePath, [libraryPath], seedPath);
             var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
                 .WithRuntimeTypeOfContract(null)
                 .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name)
@@ -33,24 +33,18 @@ internal static class SourceCompositionChecks
             var path = Path.Combine(output, name + ".neox");
             Emit(producer, catalog, name, path);
             var image = File.ReadAllBytes(path);
-            var definition = AssemblyDefinition.ReadNativeAssembly(image, allowExperimentalCompositions: true);
+            var definition = AssemblyDefinition.ReadNativeAssembly(image);
             var echo = definition.MainModule.Functions.Single(m => m.Name == "Echo");
             Check(echo.TryGetSignature(out var signature) && signature!.ReturnType.Composition?.Kind ==
                 (intersection ? ReferenceCompositionKind.Intersection : ReferenceCompositionKind.Union), "source composition was erased");
             Check(!definition.MainModule.Types.Any(t => t.Name.StartsWith("Union`")), "ad hoc nominal carrier emitted");
-            try
-            {
-                _ = NeoClrReferenceCatalog.Read(corePath, [libraryPath, path], seedPath);
-                throw new Exception("default catalog admitted structural NEOX");
-            }
-            catch (InvalidDataException) { }
-            var consumerCatalog = NeoClrReferenceCatalog.Read(corePath, [libraryPath, path], seedPath, allowExperimentalCompositions: true);
+            var consumerCatalog = NeoClrReferenceCatalog.Read(corePath, [libraryPath, path], seedPath);
             var consumer = Compilation.Create(name + "Consumer",
                 [SyntaxTree.ParseText("func Main() -> int { let value = Echo(Both()); let copy = value; return 42 }")],
                 consumerCatalog.References.ToArray(), options.WithOutputKind(OutputKind.ConsoleApplication));
             Emit(consumer, consumerCatalog, name + "Consumer", Path.Combine(output, name + "Consumer.neox"));
         }
-        Console.WriteLine("PASS source union/intersection native signatures, catalog roundtrip, consumer emission and default gate");
+        Console.WriteLine("PASS source union/intersection native signatures, catalog roundtrip, consumer emission");
     }
 
     private static void Emit(Compilation compilation, NeoClrReferenceCatalog catalog, string name, string path)

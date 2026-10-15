@@ -29,8 +29,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
     /// <inheritdoc />
     public void ValidateProjectArtifact(string path, string assemblyName)
     {
-        // Identity validation does not admit semantic references; Load applies the project opt-in.
-        var definition = AssemblyDefinition.ReadExperimentalTupleAssembly(File.ReadAllBytes(path), allowExperimentalCompositions: true);
+        // Identity validation uses the native reader; Load resolves selected semantic dependencies.
+        var definition = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path));
         if (definition.Name != assemblyName)
             throw new InvalidDataException("Native project artifact identity does not match " + assemblyName + ": " + path);
     }
@@ -54,8 +54,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
                     throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
         var catalog = nativeCore is not null
-            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths, true, true)
-            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"), true, true);
+            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths)
+            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
         if (options.MetadataImportOptions is { } imports && imports.CoreAssemblyName != catalog.CoreIdentity.Name)
             throw new InvalidDataException("Native project core identity does not match RavenMetadataCoreAssemblyName.");
         if (properties.TryGetValue("RavenTargetCoreAssemblyName", out var targetCore) &&

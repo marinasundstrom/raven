@@ -46,9 +46,7 @@ internal static class IntersectionSymbolChecks
         foreach (var library in new[] { false, true })
         {
             var image = Image(ab, ba, library);
-            Reject(() => NeoClrMetadataReference.ReadAssembly(image));
-            Reject(() => NeoClrMetadataReference.ReadAssembly(image, bootstrap));
-            var reference = NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(image, bootstrap);
+            var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
             foreach (var warm in new[] { false, true })
             {
                 var tree = SyntaxTree.ParseText("func Main() -> unit { let value = Echo(Produce()) }");
@@ -76,7 +74,7 @@ internal static class IntersectionSymbolChecks
                 Check(!rawResult.Success && rawResult.Diagnostics.Any(d => d.Id == "NEOMETA001") && rawOutput.Position == 1 && rawOutput.ToArray().SequenceEqual(new byte[] { 42 }), "raw emission rejection preserves existing output");
             }
             var reducedImage = Image(Compose("Intersection", Named(0), Named(2)), Compose("Intersection", Named(2), Named(0)), library);
-            var reduced = NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(reducedImage, bootstrap);
+            var reduced = NeoClrMetadataReference.ReadAssembly(reducedImage, bootstrap);
             var reducedTree = SyntaxTree.ParseText("func Main() -> unit { let value = Echo(Produce()) }");
             var reducedConsumer = Compilation.Create("Reduced", [reducedTree], [bootstrap.Reference, reduced], options);
             var reducedCall = reducedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single(c => c.Expression.ToString() == "Echo");
@@ -93,9 +91,9 @@ internal static class IntersectionSymbolChecks
             var valid = Compilation.Create("Valid", [SyntaxTree.ParseText("func CheckValue(value: Example.A) -> unit { let result = Echo(Produce()); let projected: Example.A = result }")], [bootstrap.Reference, reference], options);
             CheckDiagnostics(valid);
             var union = Compose("Union", Named(0), Named(1));
-            Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(Image(union, ab, library), bootstrap));
-            Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(Image(ab, union, library), bootstrap));
-            Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(Image(ab, Compose("Intersection", Named(0), union), library), bootstrap));
+            Reject(() => NeoClrMetadataReference.ReadAssembly(Image(union, ab, library), bootstrap));
+            Reject(() => NeoClrMetadataReference.ReadAssembly(Image(ab, union, library), bootstrap));
+            Reject(() => NeoClrMetadataReference.ReadAssembly(Image(ab, Compose("Intersection", Named(0), union), library), bootstrap));
         }
         Console.WriteLine("PASS native experimental intersection import: two schemas, cold/warm queries, canonical identity, nominal reduction, union rejection and emission gate");
     }

@@ -452,7 +452,7 @@ internal static class Int32Emitter
         {
             foreach (var dependency in dependencies)
             {
-                if (dependency.Symbol is not NativeAssemblySymbol nativeAssembly || !nativeAssembly.Reference.HasExperimentalCompositions) continue;
+                if (dependency.Symbol is not NativeAssemblySymbol nativeAssembly || !nativeAssembly.Reference.HasStructuralCompositions) continue;
                 foreach (var definition in nativeAssembly.Reference.Definition.MainModule.Functions)
                 {
                     if (!definition.TryGetSignature(out var raw) || !NeoClrMetadataReference.ContainsComposition(raw!.ReturnType)) continue;
@@ -1303,7 +1303,7 @@ internal static class Int32Emitter
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
             if (symbol is NativeMethodSymbol tupleMethod &&
-                symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference { HasExperimentalTuples: true } tupleReference)
+                symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference { HasStructuralTuples: true } tupleReference)
             {
                 if (binding.NativeArtifactSha256 != tupleReference.Artifact.Sha256)
                     throw Unsupported("tuple callable requires its exact semantic snapshot");

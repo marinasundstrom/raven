@@ -51,12 +51,11 @@ public sealed class NeoClrReferenceCatalog
     /// <param name="corePath">Required ordinary CLI primitive bootstrap, at most 4 MiB.</param>
     /// <param name="nativeReferencePaths">Native PE/#Neo libraries, at most 16 MiB each; never projected to CLI.</param>
     /// <param name="runtimeSeedPath">Optional retained System runtime seed, at most 8 MiB. Adds no semantic declarations.</param>
-    /// <param name="allowExperimentalCompositions">Explicitly admit experimental native composition signatures, including standalone NEOX libraries.</param>
     /// <returns>A new catalog; existing catalogs are unaffected by subsequent file changes.</returns>
     /// <exception cref="ArgumentException">Duplicate paths or identities, including the core identity.</exception>
     /// <exception cref="IOException">An artifact is missing, inaccessible, too large or changes length during reading.</exception>
     /// <exception cref="InvalidDataException">An artifact is malformed or has an unsupported metadata contract.</exception>
-    public static NeoClrReferenceCatalog Read(string corePath, IEnumerable<string> nativeReferencePaths, string? runtimeSeedPath = null, bool allowExperimentalCompositions = false, bool allowExperimentalTuples = false)
+    public static NeoClrReferenceCatalog Read(string corePath, IEnumerable<string> nativeReferencePaths, string? runtimeSeedPath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(corePath);
         ArgumentNullException.ThrowIfNull(nativeReferencePaths);
@@ -78,7 +77,7 @@ public sealed class NeoClrReferenceCatalog
             dependencies.Add(new(bootstrap.Reference, bootstrap.Definition, bootstrap.Definition.Identity, seed));
         }
         var identities = new HashSet<AssemblyIdentity> { bootstrap.Definition.Identity };
-        foreach (var reference in ReadSelectedReferences(paths, bootstrap, allowExperimentalCompositions, allowExperimentalTuples))
+        foreach (var reference in ReadSelectedReferences(paths, bootstrap))
         {
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
@@ -91,8 +90,6 @@ public sealed class NeoClrReferenceCatalog
     /// <summary>Snapshots a native semantic core and native libraries without a CLI bootstrap or projection.</summary>
     /// <param name="corePath">Native PE/#Neo core, at most 16 MiB; no core completeness is inferred from its filename.</param>
     /// <param name="nativeReferencePaths">Explicit native library paths, at most 16 MiB each, in host order.</param>
-    /// <param name="allowExperimentalCompositions">Explicitly admit experimental native composition signatures, including standalone NEOX libraries.</param>
-    /// <param name="allowExperimentalTuples">Explicitly admit native tuple signatures, independently of compositions.</param>
     /// <returns>An immutable catalog with the core first in References and Dependencies, using the same reference instances.</returns>
     /// <remarks>Use MetadataImportOptions.WithNativeMetadata and explicit runtime contracts. Runtime seeds are separate
     /// execution inputs, not translated implementations attached to the native core. Missing semantic dependencies remain
@@ -101,7 +98,7 @@ public sealed class NeoClrReferenceCatalog
     /// <exception cref="ArgumentException">Paths or assembly identities are duplicated.</exception>
     /// <exception cref="IOException">An input cannot be read or changes length during reading.</exception>
     /// <exception cref="InvalidDataException">An input is oversized, malformed, or lacks the supported native metadata contract.</exception>
-    public static NeoClrReferenceCatalog ReadNative(string corePath, IEnumerable<string> nativeReferencePaths, bool allowExperimentalCompositions = false, bool allowExperimentalTuples = false)
+    public static NeoClrReferenceCatalog ReadNative(string corePath, IEnumerable<string> nativeReferencePaths)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(corePath);
         ArgumentNullException.ThrowIfNull(nativeReferencePaths);
@@ -112,7 +109,7 @@ public sealed class NeoClrReferenceCatalog
         var dependencies = ImmutableArray.CreateBuilder<NeoClrMetadataDependency>();
         var identities = new HashSet<AssemblyIdentity>();
         NeoClrMetadataReference? core = null;
-        foreach (var reference in ReadSelectedReferences(paths, null, allowExperimentalCompositions, allowExperimentalTuples))
+        foreach (var reference in ReadSelectedReferences(paths, null))
         {
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
@@ -143,7 +140,7 @@ public sealed class NeoClrReferenceCatalog
         public AssemblyDefinition? Resolve(AssemblyIdentity identity) => definitions.GetValueOrDefault(identity);
     }
 
-    private static NeoClrMetadataReference[] ReadSelectedReferences(string[] paths, NeoClrPrimitiveBootstrap? bootstrap, bool compositions, bool tuples)
+    private static NeoClrMetadataReference[] ReadSelectedReferences(string[] paths, NeoClrPrimitiveBootstrap? bootstrap)
     {
         var images = paths.Select(path => ReadImage(path, 16 * 1024 * 1024)).ToArray();
         var references = new NeoClrMetadataReference?[paths.Length];
@@ -160,15 +157,14 @@ public sealed class NeoClrReferenceCatalog
                 if (references[i] is not null) continue;
                 try
                 {
-                    if (!compositions && !tuples) _ = RuntimeAssemblyContainer.Read(images[i]);
-                    var reference = NeoClrMetadataReference.ReadDocumentedAssembly(images[i], bootstrap, paths[i], compositions, resolver, tuples);
+                    var reference = NeoClrMetadataReference.ReadDocumentedAssembly(images[i], bootstrap, paths[i], resolver);
                     if (!definitions.TryAdd(reference.Definition.Identity, reference.Definition))
                         throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
                     references[i] = reference;
                     remaining--;
                     progress = true;
                 }
-                catch (InvalidDataException error) when (compositions || tuples)
+                catch (InvalidDataException error)
                 {
                     // Retry only after another selected snapshot becomes available; never search for dependencies.
                     errors[i] = error;

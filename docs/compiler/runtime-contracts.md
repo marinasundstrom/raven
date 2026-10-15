@@ -4215,3 +4215,17 @@ It does not delete the old tuple declarations from the runtime library or CLI
 bootstrap: those remain for existing bridge consumers pending bundle migration.
 Open-element emission, nonlocal mutation, managed element addresses and broader
 backend support remain separate work.
+
+## Unified native readers (2026-10-15)
+
+Native metadata references and catalogs now read nominal, union, intersection and
+tuple signatures together. Use `NeoClrMetadataReference.ReadAssembly(image,
+bootstrap, resolver)` and `NeoClrReferenceCatalog.Read` / `ReadNative` without
+composition/tuple flags. The separate experimental readers have been removed.
+External intersection bounds still require exact selected dependency snapshots and
+explicit nominal conformance; missing/ineligible dependencies reject. This changes
+host API configuration, not structural identity or native signature encoding. CLI
+projection remains unsupported for structural compositions and tuples.
+
+Source tuple/import/mutation, source union/intersection, wrapper call and external
+structural constraint probes pass with these defaults against carrier-free libraries.

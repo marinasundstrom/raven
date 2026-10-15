@@ -89,7 +89,7 @@ internal static class TaskCompositionAwaitChecks
         }
         var image = NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(root.ToJsonString()));
         File.WriteAllBytes(Path.Combine(output, "TaskCompositionProvider.neox"), image);
-        var reference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap);
+        var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
         var localConsumer = Compilation.Create("TaskCompositionLocal", [SyntaxTree.ParseText("func Main() -> int { let task = ProduceResponse(); let copy = task; return 42 }")],
             [bootstrap.Reference, library, reference], options.WithOutputKind(OutputKind.ConsoleApplication));
         using var localOutput = new MemoryStream();
@@ -116,7 +116,7 @@ internal static class TaskCompositionAwaitChecks
                 var emission = NeoClrCompilationEmitter.Emit(consumer, result, EmitOptions(name, reference));
                 Check(emission.Success, string.Join("\n", emission.Diagnostics));
                 var emittedImage = NativeModuleContainer.WriteLibraryBinary(result.ToArray());
-                _ = AssemblyDefinition.ReadNativeAssembly(emittedImage, true);
+                _ = AssemblyDefinition.ReadNativeAssembly(emittedImage);
                 File.WriteAllBytes(Path.Combine(output, name + ".neox"), emittedImage);
                 File.WriteAllText(Path.Combine(output, name + ".rvn"), body);
                 using var denied = new MemoryStream();

@@ -67,19 +67,19 @@ internal static class WrapperCompositionCallChecks
             byte[] Encode(JsonNode node) => NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(node.ToJsonString()));
             var wrongArity = root.DeepClone();
             wrongArity["functions"]![0]!["returns"]!["Constructed"]!["arguments"]!.AsArray().Add(Shape());
-            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(wrongArity), true));
+            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(wrongArity)));
             foreach (var index in new[] { 4, 5 })
             {
                 var invalidWrapper = root.DeepClone();
                 invalidWrapper["functions"]![0]!["returns"]!["Constructed"]!["definition"] = root["types"]![index]!["name"]!.DeepClone();
-                Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(invalidWrapper), true));
+                if (index == 4) Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(invalidWrapper)));
+                else _ = AssemblyDefinition.ReadNativeAssembly(Encode(invalidWrapper));
             }
             var arrayWrapper = root.DeepClone();
             arrayWrapper["functions"]![0]!["returns"] = new JsonObject { ["ArrayRef"] = Shape() };
-            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(arrayWrapper), true));
+            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(arrayWrapper)));
             var image = NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(root.ToJsonString()));
-            Reject(() => AssemblyDefinition.ReadNativeAssembly(image));
-            var snapshot = AssemblyDefinition.ReadNativeAssembly(image, true);
+            var snapshot = AssemblyDefinition.ReadNativeAssembly(image);
             Check(snapshot.Write().SequenceEqual(image), "original wrapper image retained");
             var host = new AssemblyBuilder(new("WrapperHost" + kind, new(1, 0, 0, 0)), core);
             var factory = snapshot.MainModule.Functions.Single(f => f.Name == "Make");
@@ -101,7 +101,7 @@ internal static class WrapperCompositionCallChecks
             var other = kind == "Union" ? "Intersection" : "Union";
             var wrongShape = new JsonObject { [other] = Shape()[kind]!.DeepClone() };
             wrongKind["functions"]![1]!["parameters"]![0]!["Constructed"]!["arguments"]![0] = wrongShape;
-            var incompatible = AssemblyDefinition.ReadNativeAssembly(Encode(wrongKind), true);
+            var incompatible = AssemblyDefinition.ReadNativeAssembly(Encode(wrongKind));
             var badHost = new AssemblyBuilder(new("WrongWrapper", new(1, 0, 0, 0)), core);
             var badMain = badHost.AddFunction("Main"); badHost.EntryPoint = badMain;
             badMain.Call(badHost.ImportExperimentalCompositionReference(incompatible.MainModule.Functions.Single(f => f.Name == "Make"), core));
@@ -109,11 +109,9 @@ internal static class WrapperCompositionCallChecks
             badMain.Emit(OpCode.Pop); badMain.LoadConstant(42); badMain.Return();
             Reject(() => badHost.WriteNativeAssembly());
             Reject(() => host.ImportReference(factory, core));
-            Reject(() => NeoClrMetadataReference.ReadAssembly(image, bootstrap));
-            if (kind == "Union") Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(image, bootstrap));
-            var reference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap);
+            var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
             var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
-            var wrongReference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(Encode(wrongKind), bootstrap);
+            var wrongReference = NeoClrMetadataReference.ReadAssembly(Encode(wrongKind), bootstrap);
             var wrongCompilation = Compilation.Create("WrongWrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, wrongReference], options);
             var wrongDiagnostics = wrongCompilation.GetDiagnostics();
             var wrongAssembly = (IAssemblySymbol)wrongCompilation.GetAssemblyOrModuleSymbol(wrongReference)!;

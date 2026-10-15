@@ -140,7 +140,6 @@ internal static class NeoClrCommand
             Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
             Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
             Console.WriteLine("Native references require --core-reference; without references the legacy host primitive bootstrap remains available.");
-            Console.WriteLine("--structural-tuples enables native tuple signatures and values; native projects enable this by default.");
             Console.WriteLine("Native projects: rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]. No publish, PDB or managed execution support.");
             return 0;
         }
@@ -262,8 +261,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Output must differ from the primitive core input.");
             var name = Path.GetFileNameWithoutExtension(output);
             var catalog = corePath is null ? null : nativeCore
-                ? NeoClrReferenceCatalog.ReadNative(corePath, referencePaths, allowExperimentalTuples: true)
-                : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath, allowExperimentalTuples: true);
+                ? NeoClrReferenceCatalog.ReadNative(corePath, referencePaths)
+                : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath);
             catalog?.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
             var host = typeof(object).Assembly.GetName();
             var core = catalog?.CoreIdentity ?? new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));

@@ -89,19 +89,19 @@ internal static class CompositionCallChecks
             {
                 var invalid = root.DeepClone();
                 invalid["functions"]![2]!["returns"]!["Intersection"]![0]!["Constructed"]!["arguments"]![0] = argument.DeepClone();
-                Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(invalid), true));
+                Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(invalid)));
             }
             var wrongArity = root.DeepClone();
             wrongArity["functions"]![2]!["returns"]!["Intersection"]![0]!["Constructed"]!["arguments"] = new JsonArray();
-            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(wrongArity), true));
+            Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(wrongArity)));
             foreach (var kind in new[] { "Union", "Intersection" })
             {
                 var sealedBound = root.DeepClone();
                 sealedBound["functions"]![2]!["returns"] = Shape(kind, 4, 4);
-                if (kind == "Intersection") Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound), true));
-                else _ = AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound), true);
+                if (kind == "Intersection") Reject(() => AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound)));
+                else _ = AssemblyDefinition.ReadNativeAssembly(Encode(sealedBound));
             }
-            var snapshot = AssemblyDefinition.ReadNativeAssembly(Encode(root), true);
+            var snapshot = AssemblyDefinition.ReadNativeAssembly(Encode(root));
             var host = new AssemblyBuilder(new("WrongGenericComposition", new(1, 0, 0, 0)), core);
             var main = host.AddFunction("Main"); host.EntryPoint = main;
             main.Call(host.ImportExperimentalCompositionReference(snapshot.MainModule.Functions.Single(m => m.Name == "MakeFirst"), core));
@@ -110,9 +110,7 @@ internal static class CompositionCallChecks
             Reject(() => host.WriteNativeAssembly());
         }
         var image = NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(root.ToJsonString()));
-        Reject(() => NeoClrMetadataReference.ReadAssembly(image, bootstrap));
-        Reject(() => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(image, bootstrap));
-        var reference = NeoClrMetadataReference.ReadExperimentalCompositionAssembly(image, bootstrap);
+        var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
         var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
         Compilation Create(string name, string source) => Compilation.Create(name, [SyntaxTree.ParseText(source)], [bootstrap.Reference, reference], options);
         NeoClrEmitOptions EmitOptions(string name) => new(new(name, new(1, 0, 0, 0)), core,

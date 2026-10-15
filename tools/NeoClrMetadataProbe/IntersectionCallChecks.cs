@@ -48,7 +48,7 @@ internal static class IntersectionCallChecks
                 ? new JsonObject { ["Intersection"] = new JsonArray(Named(1), Named(2)) }
                 : Compound(second);
             var image = NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(native.ToJsonString()));
-            var reference = NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(image, bootstrap);
+            var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
             var name = reduced ? "ReducedCalls" : "IntersectionCallsConsumer";
             var options = CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null);
             Compilation Create(string source) => Compilation.Create(name, [SyntaxTree.ParseText(source)], [bootstrap.Reference, reference], options);

@@ -12520,3 +12520,17 @@ selection remains `CompilationOptions.NeoCLR`, with no tuple switch.
 
 The imported Range/Result consumer returns 42 in interpreter, macOS ARM64 AOT and
 managed JIT with zero arena allocation; AOT undefined/bounds sanitizers pass.
+
+## Unified native readers (2026-10-15)
+
+Native metadata references and catalogs now read nominal, union, intersection and
+tuple signatures together. Use `NeoClrMetadataReference.ReadAssembly(image,
+bootstrap, resolver)` and `NeoClrReferenceCatalog.Read` / `ReadNative` without
+composition/tuple flags. The separate experimental readers have been removed.
+External intersection bounds still require exact selected dependency snapshots and
+explicit nominal conformance; missing/ineligible dependencies reject. This changes
+host API configuration, not structural identity or native signature encoding. CLI
+projection remains unsupported for structural compositions and tuples.
+
+Source tuple/import/mutation, source union/intersection, wrapper call and external
+structural constraint probes pass with these defaults against carrier-free libraries.

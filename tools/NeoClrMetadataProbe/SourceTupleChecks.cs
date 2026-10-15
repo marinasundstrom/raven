@@ -41,7 +41,7 @@ internal static class SourceTupleChecks
             if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
             var image = stream.ToArray();
             File.WriteAllBytes(Path.Combine(output, "SourceTuple.neox"), image);
-            var snapshot = AssemblyDefinition.ReadExperimentalTupleAssembly(image);
+            var snapshot = AssemblyDefinition.ReadNativeAssembly(image);
             var echo = snapshot.MainModule.Functions.Single(m => m.Name == "Echo");
             if (!echo.TryGetSignature(out var signature) || signature!.ReturnType.Tuple?.ElementTypes.Count != 2) throw new Exception("tuple signature erased");
             if (!signature.ReturnType.Tuple.ElementNames.SequenceEqual(new[] { "left", "right" })) throw new Exception("native tuple names erased");
@@ -121,13 +121,6 @@ internal static class SourceTupleChecks
         if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
         if (compilation.GetTypeByMetadataName("System.Tuple`9") is not null) throw new Exception("fixture unexpectedly has a nominal 9-tuple");
         File.WriteAllBytes(Path.Combine(output, "CarrierFreeTuple.neox"), stream.ToArray());
-        var legacy = Compilation.Create("CarrierFreeTuple", [SyntaxTree.ParseText("func Main() -> int { return 42 }")], catalog.References.ToArray(),
-            options.WithMetadataImportOptions(options.MetadataImportOptions!));
-        using (var mismatch = new MemoryStream())
-        {
-            var failedContract = legacy.Emit(mismatch, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(emitOptions, emitMetadataAssembly: true)));
-            if (failedContract.Success || mismatch.Length != 0 || !failedContract.Diagnostics.Any(d => d.Id == "NEOMETA002")) throw new Exception("native tuples accepted nominal binding contract");
-        }
         var immutable = Compilation.Create("ImmutableTuple", [SyntaxTree.ParseText("""
             func Main() -> int {
                 let pair = (1, 2)
@@ -166,9 +159,7 @@ internal static class SourceTupleChecks
         if (!produced.Success) throw new Exception(string.Join("\n", produced.Diagnostics));
         var bytes = producerStream.ToArray();
         File.WriteAllBytes(Path.Combine(output, "TupleLibrary.neox"), bytes);
-        try { NeoClrMetadataReference.ReadAssembly(bytes, catalog.Bootstrap); throw new Exception("ordinary reader accepted tuples"); }
-        catch (InvalidDataException) { }
-        var reference = NeoClrMetadataReference.ReadExperimentalTupleAssembly(bytes, catalog.Bootstrap);
+        var reference = NeoClrMetadataReference.ReadAssembly(bytes, catalog.Bootstrap);
         var consumer = Compilation.Create("TupleImportConsumer", [SyntaxTree.ParseText("""
             func Main() -> int {
                 let pair = RenameImported((40, 2))

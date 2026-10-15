@@ -11,7 +11,7 @@ internal static class StructuralConstraintChecks
     internal static void Run(string inputs, string output)
     {
         Directory.CreateDirectory(output);
-        var catalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll")], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var catalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll")], Path.Combine(inputs, "System.runtime.neox"));
         var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication)
             .WithRuntimeTypeOfContract(null)
             .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name).WithObjectAssemblyName("System.Runtime"));
@@ -57,8 +57,7 @@ internal static class StructuralConstraintChecks
             }
             """)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         Emit(traitLibrary, catalog, "TraitLibrary", traitLibraryPath);
-        var traitCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
-            [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var traitCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath], Path.Combine(inputs, "System.runtime.neox"));
         var externalBoundSource = """
             public class ExternalOnlyA : ImportedReadsA {
                 func ReadA() -> int { return 40 }
@@ -76,9 +75,7 @@ internal static class StructuralConstraintChecks
             traitCatalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var externalBoundPath = Path.Combine(output, "ExternalBoundLibrary.neox");
         Emit(externalBoundLibrary, traitCatalog, "ExternalBoundLibrary", externalBoundPath);
-        var externalBoundCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
-            [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath, externalBoundPath],
-            Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var externalBoundCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath, externalBoundPath], Path.Combine(inputs, "System.runtime.neox"));
         var externalBoundConsumer = Compilation.Create("ExternalBoundConsumer", [SyntaxTree.ParseText("""
             func Main() -> int { return ExternalEither<ExternalOnlyA>() + ExternalClosed<ExternalIntReader>() }
             """)], externalBoundCatalog.References.ToArray(), options);
@@ -108,28 +105,21 @@ internal static class StructuralConstraintChecks
         var intersectionImage = File.ReadAllBytes(intersectionPath);
         var traitSnapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(traitLibraryPath));
         var resolver = new SnapshotResolver(traitSnapshot);
-        var directIntersection = NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(
+        var directIntersection = NeoClrMetadataReference.ReadAssembly(
             intersectionImage, catalog.Bootstrap, resolver);
         Check(directIntersection.Definition.MainModule.Functions.Single(m => m.Name == "ReadExternal")
             .TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection,
             "intersection-only reader erased the external bound");
-        foreach (var read in new Action[] {
-            () => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(intersectionImage, catalog.Bootstrap),
-            () => NeoClrMetadataReference.ReadExperimentalIntersectionAssembly(
-                File.ReadAllBytes(externalBoundPath), catalog.Bootstrap, resolver) })
+        try
         {
-            try
-            {
-                read();
-                throw new Exception("intersection-only reader admitted an unresolved intersection or a union");
-            }
-            catch (InvalidDataException) { }
+            _ = NeoClrMetadataReference.ReadAssembly(intersectionImage, catalog.Bootstrap);
+            throw new Exception("unresolved intersection accepted");
         }
-        Console.WriteLine("PASS resolved intersection-only reader and profile rejection");
+        catch (InvalidDataException) { }
+        _ = NeoClrMetadataReference.ReadAssembly(File.ReadAllBytes(externalBoundPath), catalog.Bootstrap, resolver);
+        Console.WriteLine("PASS resolved structural reader and unresolved intersection rejection");
         // Deliberately put the dependent first: selected snapshots resolve independent of input order.
-        var intersectionCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"),
-            [intersectionPath, Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath],
-            Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var intersectionCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [intersectionPath, Path.Combine(inputs, "System.Runtime.dll"), traitLibraryPath], Path.Combine(inputs, "System.runtime.neox"));
         var intersectionConsumer = Compilation.Create("ExternalIntersectionConsumer", [SyntaxTree.ParseText("""
             func Main() -> int { return ReadExternal<BothExternal>(BothExternal()) + CheckAnimal<ExternalDuck>() }
             """)], intersectionCatalog.References.ToArray(), options);
@@ -140,8 +130,7 @@ internal static class StructuralConstraintChecks
         Check(invalidIntersection.GetDiagnostics().Any(d => d.Id == "RAV0320"), "external intersection accepted member-only conformance");
         try
         {
-            _ = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [intersectionPath, Path.Combine(inputs, "System.Runtime.dll")],
-                Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+            _ = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [intersectionPath, Path.Combine(inputs, "System.Runtime.dll")], Path.Combine(inputs, "System.runtime.neox"));
             throw new Exception("missing intersection dependency accepted");
         }
         catch (InvalidDataException) { }
@@ -188,7 +177,7 @@ internal static class StructuralConstraintChecks
         var compilation = Compilation.Create("ConstraintSource", [SyntaxTree.ParseText(source)], catalog.References.ToArray(), options);
         var path = Path.Combine(output, "ConstraintSource.neox");
         Emit(compilation, catalog, "ConstraintSource", path);
-        var snapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path), true);
+        var snapshot = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path));
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "Either").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Union, "union constraint erased");
         Check(snapshot.MainModule.Functions.Single(m => m.Name == "All").TypeConstraints.Single().Bound.Composition?.Kind == ReferenceCompositionKind.Intersection, "intersection constraint erased");
         var negative = Compilation.Create("Negative", [SyntaxTree.ParseText(source.Replace("ForwardAll<Both>()", "ForwardAll<OnlyA>()"))], catalog.References.ToArray(), options);
@@ -199,7 +188,7 @@ internal static class StructuralConstraintChecks
         var producer = Compilation.Create("ConstraintLibrary", [SyntaxTree.ParseText(producerSource)], catalog.References.ToArray(), options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var producerPath = Path.Combine(output, "ConstraintLibrary.neox");
         Emit(producer, catalog, "ConstraintLibrary", producerPath);
-        var importedCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"), allowExperimentalCompositions: true);
+        var importedCatalog = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"));
         var consumer = Compilation.Create("ConstraintConsumer", [SyntaxTree.ParseText("func Main() -> int { return Forward<OnlyA>() + ForwardAll<Both>() + Reply<Response<A>>() }")], importedCatalog.References.ToArray(), options);
         Emit(consumer, importedCatalog, "ConstraintConsumer", Path.Combine(output, "ConstraintConsumer.neox"));
         foreach (var call in new[] { "Either<Neither>()", "All<OnlyA>()", "Reply<Response<B>>()" })
@@ -207,12 +196,6 @@ internal static class StructuralConstraintChecks
             var invalid = Compilation.Create("InvalidConsumer", [SyntaxTree.ParseText($"func Main() -> int {{ return {call} }}")], importedCatalog.References.ToArray(), options);
             Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "imported constraint was ignored: " + call);
         }
-        try
-        {
-            _ = NeoClrReferenceCatalog.Read(Path.Combine(inputs, "Core.dll"), [Path.Combine(inputs, "System.Runtime.dll"), producerPath], Path.Combine(inputs, "System.runtime.neox"));
-            throw new Exception("default catalog admitted constrained library");
-        }
-        catch (InvalidDataException) { }
         Console.WriteLine("PASS native constrained library import and consumer emission");
         Console.WriteLine("PASS native source structural constraint emission and negative semantics");
     }
