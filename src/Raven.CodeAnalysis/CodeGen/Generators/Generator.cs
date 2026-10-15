@@ -1021,4 +1021,91 @@ internal abstract class Generator
 
         return false;
     }
+    protected void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal, IILocal stepLocal, ILLabel endLabel)
+    {
+        var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
+
+        if (specialType is SpecialType.System_Int32 or SpecialType.System_Int64)
+        {
+            var negative = ILGenerator.DefineLabel();
+            var add = ILGenerator.DefineLabel();
+            void Constant(long value)
+            {
+                if (specialType == SpecialType.System_Int64) ILGenerator.Emit(OpCodes.Ldc_I8, value);
+                else ILGenerator.Emit(OpCodes.Ldc_I4, (int)value);
+            }
+            // Test the domain before addition. Both limit-minus-step expressions
+            // are representable in their respective sign branches, even for MinValue.
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+            Constant(0);
+            ILGenerator.Emit(OpCodes.Blt, negative);
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            Constant(specialType == SpecialType.System_Int64 ? long.MaxValue : int.MaxValue);
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+            ILGenerator.Emit(OpCodes.Sub);
+            ILGenerator.Emit(OpCodes.Bgt, endLabel);
+            ILGenerator.Emit(OpCodes.Br, add);
+            ILGenerator.MarkLabel(negative);
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            Constant(specialType == SpecialType.System_Int64 ? long.MinValue : int.MinValue);
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+            ILGenerator.Emit(OpCodes.Sub);
+            ILGenerator.Emit(OpCodes.Blt, endLabel);
+            ILGenerator.MarkLabel(add);
+        }
+
+        if (specialType == SpecialType.System_Decimal)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+
+            var addMethod = typeof(decimal).GetMethod(
+                nameof(decimal.Add),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                [typeof(decimal), typeof(decimal)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("Failed to resolve decimal.Add(decimal, decimal).");
+
+            ILGenerator.Emit(OpCodes.Call, addMethod);
+            ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, currentLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, stepLocal);
+        ILGenerator.Emit(OpCodes.Add);
+
+        switch (specialType)
+        {
+            case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Conv_U1);
+                break;
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Conv_I1);
+                break;
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Conv_I2);
+                break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Conv_U2);
+                break;
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Conv_I8);
+                break;
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Conv_U8);
+                break;
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, currentLocal);
+    }
+
 }

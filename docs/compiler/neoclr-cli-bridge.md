@@ -12641,3 +12641,21 @@ Raven owns conversion/evaluation order; the native Index constructors own negati
 validation and neoCLR owns terminal fault propagation. Qualification uses the
 existing range library bundle, 32 focused compiler tests and the paired neoCLR
 checked-range consumer/fault record. Structural types remain parked.
+
+
+## Signed range overflow carry (2026-10-15)
+
+Main cf7d7c52b is carried deliberately, retaining the native branch's existing
+comprehension endpoint checks. Shared .NET scalar emission and async lowering now
+stop before signed Int32/Int64 addition leaves the domain. Native portable loop
+lowering adds the same sign-selected limit-minus-step guard at the continue label.
+The minimum signed step is handled without negation. Bound/source iteration state
+remains independent of the body binding, and start/end/step evaluate once in order.
+
+No Runtime Contract option, metadata format, library API or opcode changes.
+The native consumer checks both widths, ascending/descending limits, overshoot,
+minimum-valued steps, continue/break and source order. Interpreter/AOT/JIT evidence
+is maintained in neoCLR docs/validation/range-iteration. Async pending-await tests
+are ordinary .NET qualification, not a new native async scheduling claim. Other
+numeric domains and existing zero-step behavior are unchanged; generic Interval
+and explicit progression APIs are separate library design work.
