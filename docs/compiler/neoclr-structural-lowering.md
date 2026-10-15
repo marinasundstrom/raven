@@ -281,3 +281,9 @@ This aligns explicit fields with closed generic wrappers without changing Raven'
 Runtime Contract configuration or native signature encoding. Record copies retain
 value semantics and share embedded references. Static composition fields and borrowed
 fields remain rejected; native Task application qualification remains separate.
+
+Managed nominal value-record methods now admit structural signatures in the paired
+runtime. The native specialization test returns tuple, union and intersection values
+through ordinary borrowed instance receivers. No emission or Runtime Contract change
+is needed. Union overload applicability and ambiguity remain general Raven frontend
+work: implement and validate on main first, then carry to the neoCLR line.

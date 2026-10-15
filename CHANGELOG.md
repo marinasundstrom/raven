@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Record paired runtime admission of structural signatures on managed value-record methods. Track union overload applicability/ambiguity as general Raven work for main and deliberate carry, not a neoCLR lowering rule.
+
 - Document paired runtime/metadata support for structural union/intersection instance fields in nominal value records, preserving copy semantics and embedded references. Rebuild with the matching metadata host; native encoding and Runtime Contract configuration are unchanged.
 
 - Document paired native checked reserved-array storage for structural elements and its remaining default-allocation, borrow and nominal-view gates. Emission and Runtime Contract configuration are unchanged.
