@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document the paired host-metadata callable-union admission/cast fix required by Raven native emission. Rebuild with the matching metadata project; Runtime Contract and CLI mappings are unchanged. Source-consumer qualification remains separate.
+
 - Record paired runtime AOT callable-union storage and collector qualification, with exact allocation checks and explicit native conversion limits. Raven source qualification remains open; Runtime Contract and compiler emission are unchanged.
 
 - Document paired runtime admission of callable union alternatives and exact narrowing, with interpreter receiver-collection checks. Raven source emission and native JIT/AOT callable-union layout remain unqualified; Runtime Contract and compiler mappings are unchanged.

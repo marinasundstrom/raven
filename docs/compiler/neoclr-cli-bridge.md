@@ -12308,3 +12308,13 @@ unchanged. The runtime owns native layout/tracing; Raven source qualification,
 native Object widening and JIT lifetime remain open. See neoCLR's
 `docs/experiments/native-structural-types/README.md` for the executable fixture,
 limits and reproduction. These are feature-branch results, not main support.
+
+## 2026-10-15 — Host metadata callable-union parity
+
+The paired neoCLR C# metadata builder/reader now accepts function union alternatives
+and recognizes callable values in reference-cast verification. This addresses the
+NEOMETA003 failure in a source callable-union library. The host regression checks
+nested union-valued function results and exact injection/narrowing. Rebuild the
+compiler with the matching NeoClrMetadataProject; Runtime Contract configuration,
+CLI carriers and compiler mapping are unchanged. Imported Raven consumer execution
+remains a separate qualification step.
