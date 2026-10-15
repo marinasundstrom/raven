@@ -11722,3 +11722,21 @@ emitter currently calls the 4 MiB application JSON writer before library binary
 encoding. It needs the bounded 32 MiB library writer path; the existing validated
 bundle remains the sample dependency. This supersedes the parser-blocked status
 in the preceding integration entry, without claiming a successful fresh bundle.
+
+### Native structural library writer — 2026-10-15
+
+Structural emission now calls the new authored-graph overload of
+`NativeModuleContainer.WriteLibraryBinary`, preserving graph validation while
+using the existing 32 MiB library JSON budget and 16 MiB binary bound.
+Application limits are unchanged. No CLI projection is introduced.
+The default Runtime Contract profile remains the same as the preceding slice.
+
+A fresh build with the corrected compiler passes System.Runtime, System.Data and
+System.Networking, including retained runtime-seed generation. System.Web fails
+semantic conversion checks in JsonClientOperations: HttpError/JsonError widening
+and Result case/error propagation involving a structural error union. A complete
+new bundle has **not** been produced. The sample continues using the known older
+bundle; full source-library migration cannot be declared complete. See neoCLR
+`docs/experiments/structural-tuples/library-build-results.json` for commands,
+artifact hashes and exact failing diagnostics. These results supersede the writer
+size blocker above.

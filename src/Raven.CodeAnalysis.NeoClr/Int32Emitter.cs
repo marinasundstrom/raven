@@ -1151,7 +1151,7 @@ internal static class Int32Emitter
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
         if (metadataAssembly && (options.AllowExperimentalTuples || compilation.UsesStructuralCompositions && options.AllowExperimentalCompositionCalls))
-            return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly.WriteNativeAssembly());
+            return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly);
         return metadataAssembly
             ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
                 ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)
