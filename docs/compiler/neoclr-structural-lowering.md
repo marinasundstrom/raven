@@ -274,3 +274,10 @@ without element boxing; no Runtime Contract or metadata encoding change is requi
 Default allocation, element borrows and nominal Array<T> projections remain separate
 native gates. Collection reuses the existing conservative record-array scan. This
 bounded storage addition alone is not qualification of the full Task consumer.
+
+Direct structural union/intersection fields in nominal value records are now admitted
+by the paired runtime, native backend and experimental metadata builder/reader.
+This aligns explicit fields with closed generic wrappers without changing Raven's
+Runtime Contract configuration or native signature encoding. Record copies retain
+value semantics and share embedded references. Static composition fields and borrowed
+fields remain rejected; native Task application qualification remains separate.
