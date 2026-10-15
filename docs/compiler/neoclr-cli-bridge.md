@@ -12150,3 +12150,16 @@ Runtime Contract settings and Raven emission/import are unchanged. The companion
 `mixed_union` tests document the private layout and its tradeoff: an extra slot
 for unambiguous reference tracing. Fresh mixed Raven application, JIT/collector
 stress and throughput qualification remain open; this is not an external C ABI.
+
+## Raven mixed-pattern consumer (2026-10-15)
+
+A fresh Raven `int | long | bool | Response` parameter and typed match now qualify
+against the retained v3 library bundle. Six scalar inputs exercise guards and
+fallbacks; the reference input reads Response.Code. Interpreter and macOS ARM64
+AOT return 42. The native object imports only `neoclr_allocate_object_v1`, and the
+host observes exactly 16 arena bytes for the explicit Response, with no scalar
+boxes or union carriers. No compiler emission or Runtime Contract change was
+needed. neoCLR's `docs/experiments/native-structural-types/mixed-pattern-project/`
+and `raven-mixed-pattern-results.json` retain reproduction and artifact evidence.
+The bundle is retained, not rebuilt. Imported mixed calls, nominal value payloads,
+managed JIT/collector stress and full Task/throughput qualification remain open.

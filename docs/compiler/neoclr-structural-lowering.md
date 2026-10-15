@@ -128,7 +128,10 @@ zero-arena result. Broader application/JIT/collector coverage still needs qualif
 an immediate union local/argument load or union cast. Escaping or duplicating the
 `isinst` result and compound-union test targets remain gated. Mixed scalar/nominal
 reference unions now have bounded runtime AOT tests using separate numeric and
-traced reference slots; fresh Raven-produced mixed consumers remain unqualified.
+traced reference slots. A fresh Raven `int | long | bool | Response` consumer also
+passes seven scalar/reference pattern inputs in interpreter and AOT, using 16
+arena bytes only for the explicit Response allocation. Imported mixed consumers
+and broader application coverage remain open.
 Object views requiring scalar boxing, intrinsic String and nominal-value
 alternatives remain gated.
 Do not infer complete Raven match support from these bounded runtime tests.
