@@ -365,7 +365,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return true;
             }
             if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator } referencePattern &&
-                UsesReferenceStorage(input) && referencePattern.DeclaredType.IsReferenceType && referencePattern.DeclaredType.TypeKind != TypeKind.Delegate &&
+                UsesReferenceStorage(input) && referencePattern.DeclaredType.IsReferenceType &&
+                (referencePattern.DeclaredType.TypeKind != TypeKind.Delegate || capabilities?.AllowsFunctionValues == true) &&
                 capabilities?.Allows(LinearInstructionKind.TypeTest) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                 TryType(input, false, out var inputReferenceType) && capabilities.Allows(inputReferenceType) &&
                 TryType(referencePattern.DeclaredType, false, out var referenceType) && capabilities.Allows(referenceType))

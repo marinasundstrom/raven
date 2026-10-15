@@ -241,3 +241,16 @@ separate traced callable slots, with exact injection/narrowing and no union carr
 allocation. Runtime IL tests exercise receiver retention, fault unwind and exact
 allocations under eager/paced native collection. This does not yet qualify Raven
 source emission, native Object widening, cross-layout conversions or JIT lifetime.
+
+### Imported callable patterns (2026-10-15)
+
+Typed callable patterns now use the existing type-test/checked-reference-conversion
+path when the target explicitly advertises function-value support. A native callable
+union test becomes an exact function-signature `isinst`, followed by narrowing and
+ordinary callable invocation. The paired metadata builder imports nested function
+signatures into consumer ownership and admits the function test target. No nominal
+carrier is emitted. Ordinary .NET capability defaults and Runtime Contract settings
+are unchanged. The artifact-only callable/int consumer passes interpreter/AOT and
+32 entries per eager/paced collection mode with exact Cell/descriptor allocations;
+78 focused planner/function-contract tests pass. JIT and fresh-bundle qualification
+remain separate. See neoCLR's `docs/experiments/native-structural-types/callable-import-project/README.md`.

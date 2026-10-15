@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Lower typed callable patterns through type tests and checked narrowing when the target explicitly supports function values. Qualify a separately compiled native callable/scalar union consumer with interpreter/AOT agreement and eager/paced collector checks; preserve ordinary .NET defaults. The paired metadata importer/type-test emitter is required. All 78 focused compiler checks pass; fresh-bundle and JIT qualification remain separate.
+
 - Document the paired host-metadata callable-union admission/cast fix required by Raven native emission. Rebuild with the matching metadata project; Runtime Contract and CLI mappings are unchanged. Source-consumer qualification remains separate.
 
 - Record paired runtime AOT callable-union storage and collector qualification, with exact allocation checks and explicit native conversion limits. Raven source qualification remains open; Runtime Contract and compiler emission are unchanged.

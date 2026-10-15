@@ -1120,6 +1120,34 @@ public class SharedLinearBodyTests
         Assert.Equal(7, method.Invoke(null, [false, false]));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CallableTypePatternsRequireFunctionValueCapability(bool functionValues)
+    {
+        var compilation = Create("""
+            public static class CallablePatterns {
+                public static func Inspect(value: object) -> int {
+                    return match value {
+                        let callback: (int) -> int => callback(42)
+                        _ => 0
+                    }
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true,
+            allowsRootClassSignatures: true, allowsRootClassLocals: true,
+            allowsManagedReferences: true, allowsCasePatterns: true, allowsFunctionValues: functionValues);
+        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities);
+        Assert.True(success == functionValues, failure?.Detail);
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

@@ -12318,3 +12318,14 @@ nested union-valued function results and exact injection/narrowing. Rebuild the
 compiler with the matching NeoClrMetadataProject; Runtime Contract configuration,
 CLI carriers and compiler mapping are unchanged. Imported Raven consumer execution
 remains a separate qualification step.
+
+## 2026-10-15 — Imported callable-union patterns
+
+Enable typed callable pattern lowering behind the existing AllowsFunctionValues
+contract. Native output retains Union/Function signatures, exact type tests and
+checked narrowing; CLI defaults and Runtime Contract configuration are unchanged.
+The paired host metadata importer/type-test emitter closes the artifact boundary.
+Validation passes 78 focused compiler tests and an artifact-only Raven consumer in
+the interpreter and AOT, including 32 entries per eager/paced collection mode with
+exact Cell/descriptor allocation/reclamation and native sanitizers. This uses the
+retained v3 libraries; fresh-bundle and managed JIT qualification remain separate.
