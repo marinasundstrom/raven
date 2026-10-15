@@ -12235,3 +12235,15 @@ HttpError a class. Interpreter/AOT agree (42), with only the explicit HttpError
 allocation (16 bytes). The retained v3 bundle was not rebuilt; managed JIT/GC
 remains unqualified. Whole-union boxing remains gated. See the structural lowering
 section for the private disjoint-region storage tradeoff.
+
+
+### Complete generic identity in pattern reachability (2026-10-15)
+
+The native imported record/reference experiment exposed a general Raven binder
+bug: pattern equivalence compared generic definitions and marked Response<long>
+unreachable after Response<int>. The fix was developed on the main-based branch
+`codex/pattern-closed-type-identity` (f7a4bc5a4), with four failing regressions and
+195 passing match/identity tests after repair, then carried selectively here.
+The shared symbol comparer now preserves complete pattern identity. Runtime
+Contract configuration, native metadata and emission are unchanged; this corrects
+source diagnostics rather than introducing target-specific matching rules.

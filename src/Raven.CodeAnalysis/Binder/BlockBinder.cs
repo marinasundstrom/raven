@@ -5493,34 +5493,9 @@ partial class BlockBinder : Binder
     }
 
     private static bool ArePatternTypesEquivalent(ITypeSymbol left, ITypeSymbol right)
-    {
-        if (ReferenceEquals(left, right))
-            return true;
-
-        left = UnwrapAlias(left);
-        right = UnwrapAlias(right);
-
-        if (left.SpecialType != SpecialType.None && left.SpecialType == right.SpecialType)
-            return true;
-
-        if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed)
-        {
-            leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
-            rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
-
-            if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
-                return false;
-
-            if (leftNamed.TypeParameters.Length != rightNamed.TypeParameters.Length)
-                return false;
-
-            var leftNs = leftNamed.ContainingNamespace?.ToDisplayString();
-            var rightNs = rightNamed.ContainingNamespace?.ToDisplayString();
-            return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
-        }
-
-        return false;
-    }
+        // Reachability compares complete types, including generic arguments and
+        // containing types. Sharing a generic definition does not imply coverage.
+        => SymbolEqualityComparer.Default.Equals(UnwrapAlias(left), UnwrapAlias(right));
 
     private static string GetMatchPatternDisplay(ITypeSymbol patternType)
         => patternType switch

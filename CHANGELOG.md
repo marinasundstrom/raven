@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Carry the independently validated main-based match reachability fix f7a4bc5a4: compare complete pattern type identity instead of generic definitions. Distinct closed class, struct, nested and imported types remain reachable; repeated identical types still report an unreachable arm. Runtime Contract and emission are unchanged.
+
 - Document neoCLR native record/reference union layouts and actual nominal conformance checks; compiler emission and Runtime Contract configuration are unchanged. A fresh artifact-only Raven record/reference consumer now passes eight imported inputs with reordered signatures and typed patterns, allocating only its explicit HttpError (16 bytes); retained bundle libraries were not rebuilt and managed JIT/GC remains unqualified.
 
 - Add bounded native nominal value-record union alternatives using disjoint inline payload regions, exact identity tests and allocation-free injection/extraction. Validate snapshots, out copies, floating/wide fields, null/wrong extraction, embedded references and the 256-lane boundary; preserve Object verification for unbox-only paths. A fresh artifact-only Raven struct consumer also passes seven union-call/pattern cases with preserved Int32/Int64 fields, no native imports and zero arena use. Broader layouts, throughput and managed JIT/GC remain open.
