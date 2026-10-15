@@ -180,7 +180,10 @@ remain distinct constructed types; guards read correctly substituted fields.
 Interpreter/AOT agree (42), with only the explicit HttpError allocation (16 bytes).
 This required fixing general pattern reachability to retain complete type identity,
 selectively carried from main-based commit f7a4bc5a4. It does not qualify all open
-generic execution or reference-valued T substitutions.
+generic execution. A further ten-input consumer qualifies Response<Cell> beside
+the numeric records and HttpError: copying the value record preserves shared
+mutation of the embedded Cell. Interpreter/AOT agree with exactly the two explicit
+object allocations (32 bytes). The arena host does not qualify collector behavior.
 
 Intersections are views satisfying every nominal bound; they introduce no trait
 implementation or generated members. Native bounded views occupy one reference

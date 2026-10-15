@@ -12254,3 +12254,14 @@ struct alternatives alongside scalar and HttpError class alternatives, including
 substituted fields and reordered imported signatures. Interpreter/AOT return 42
 with only the explicit 16-byte HttpError allocation. The compiler was rebuilt;
 the v3 bundle remains retained. This is not open-generic or managed JIT/GC qualification.
+
+
+### Reference-valued generic record union qualification (2026-10-15)
+
+A fresh artifact-only consumer adds Response<Cell> beside numeric Response<T>
+records, scalars and HttpError. Ten inputs pass interpreter/AOT (42); mutation
+through a copied record remains visible through the original embedded reference.
+Exactly 32 arena bytes cover Cell and HttpError, with no payload boxes or union
+carriers. Runtime Contract, compiler emission and native metadata are unchanged;
+the v3 bundle was retained. This qualifies one closed reference substitution,
+not open generics or managed collector behavior.
