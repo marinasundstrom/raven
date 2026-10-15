@@ -11740,3 +11740,46 @@ bundle; full source-library migration cannot be declared complete. See neoCLR
 `docs/experiments/structural-tuples/library-build-results.json` for commands,
 artifact hashes and exact failing diagnostics. These results supersede the writer
 size blocker above.
+
+### Value and reference union alternatives — 2026-10-15 development
+
+The author explicitly requires unions to support value and reference alternatives;
+reference-only admission was a POC limitation, not the language contract.
+Intersections retain their explicit nominal interface/extendable-reference rules.
+The Web build's HttpError and JsonError declarations are nominal **value** unions,
+so a conversion-only fix would not suffice. The source compiler has not been
+relaxed to accept values it cannot yet emit.
+
+The first runtime slice admits closed nominal records and scalar value alternatives
+in structural unions. Explicit `box` followed by checked `castclass union<...>`
+retains the native union signature and payload identity; `unbox.any` checks the
+exact value type and returns a copy. Reference alternatives keep their existing
+reference behavior. Direct unboxed stores remain invalid. Mixed union constraints
+recognize exact scalar alternatives; whole-union coverage remains required.
+Value types remain invalid intersection operands.
+
+This is an interpreter representation choice, not a nominal Union declaration or
+a new inheritance relationship. It reuses existing heap/GC/boxing support. Like
+[CLR boxing](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/types/boxing-and-unboxing),
+boxing copies a value into heap storage and unboxing copies it out. The benefit
+is reuse of checked payload identity and GC traversal; the cost is allocation and
+unboxing, so this is not a claim of an optimal layout. Inline tagged storage is a
+possible future backend choice, with copy/identity semantics to preserve.
+
+This slice does not complete Raven authoring/import/conversion, generic value
+wrappers such as Result, intrinsic String/array/function alternatives, tuple
+alternatives, open types or JIT/AOT. It retains the current reference-container
+null/default behavior; a general union default-value policy remains to be settled.
+The fresh System.Web bundle remains blocked until compiler/host and generic
+value-wrapper integration are completed.
+
+Formatting remains a separate design question. The author proposed duck-typed
+ToString because a union has no nominal declaration for an override. The assistant
+proposed dispatching to the actual payload's ordinary ToString as the default;
+no formatting rule or duck-typing feature is implemented by this slice.
+
+Validation: `cargo test --test structural_compositions --test composition_constraints`
+passes 41 composition and five constraint tests with the default feature profile.
+The three new runtime tests cover mixed alternatives, copy-preserving extraction,
+wrong boxed membership, explicit boxing requirements and invalid value intersections.
+Existing constraint tests now cover scalar alternatives and reject incomplete unions.
