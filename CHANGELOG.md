@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Support scoped parameters inside nominal structural constituents in the companion metadata host and runtime, including recursive method/owner substitution and actual-use scope checks. The generic `Response<T> | HttpError | JsonError` consumer returns 42; host checks and 58 runtime tests pass. Bare parameter alternatives and backend support remain incomplete.
+
 - Allow explicit extraction of exact reference alternatives from native structural unions while retaining implicit all-alternative membership and unrelated-type rejection. Track structural generic arguments on nominal runtime calls with no value parameters. Validate direct and closed-generic task consumers (42 each, ten checks per consumer), 21 compiler tests and 55 runtime tests. Save an open-generic metadata rejection probe; open `Response<T>` operands and union-local closure capture remain incomplete.
 
 - Document companion runtime admission of native structural-union extraction from nominal Result payloads. The fresh-bundle awaited `Task<Result<Response, HttpError | JsonError>>` consumer validates completed/queued success and both imported error alternatives (42); whole-union boxing and native ABI remain incomplete.

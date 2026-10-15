@@ -11988,3 +11988,30 @@ metadata diagnostic. Commands, revisions and hashes are saved in neoCLR's
 `docs/experiments/value-unions/direct-task-results.json`; all three editable projects
 use the v3 bundle props. These results do not qualify all library endpoints or
 open composition forms.
+
+## Scoped nominal constituents — 2026-10-15 development
+
+Native signatures now admit scoped generic parameters inside nominal union and
+intersection constituents, such as `Response<T> | HttpError | JsonError`. The host
+checks ownership and bounded argument forms when constructing the signature, then
+checks the actual method/type parameter scope at its use site. Native reads retain
+those indices. Owned and imported generic-method call signatures use recursive
+composition substitution; constructed-owner call signatures substitute owner and
+method parameters. The assembler binds parameters recursively through compositions,
+and runtime validation retains the declaring signature context rather than treating
+an open nominal constituent as closed.
+
+This extends the existing Runtime Contract structural capability; no temporary CLI
+carrier or ordinary .NET behavior changes. Relative to CLR generic nominal signatures,
+parameter scope/substitution remains familiar, but the enclosing union/intersection
+is a native structural type. Interface conformance and extendable intersection
+bounds remain nominal. Bare `T | Error` operands, symbolic structural constraints,
+closure capture of union locals and final boxing/layout remain separate work.
+
+The former negative `open-generic-project` now compiles and returns 42 against the
+fresh v3 bundle. The host authoring/roundtrip checks and 58 structural runtime tests
+pass, including wrong-scope rejection, method/owner substitution and generic
+intersection execution. Evidence is in neoCLR's
+`docs/experiments/value-unions/open-generic-results.json`. The earlier rejection in
+`direct-task-results.json` is historical evidence. This slice validates interpreter
+execution; AOT/JIT support is not implied.
