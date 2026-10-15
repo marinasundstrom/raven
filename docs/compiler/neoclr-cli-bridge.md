@@ -12051,3 +12051,21 @@ Runtime Contract settings and Raven native signature emission/import are unchang
 no CLI carrier or duck-typed member matching is introduced. Dedicated intersection
 JIT/collector stress, native reflection and full compiler-produced applications
 still need validation. Native union storage remains a backend blocker.
+
+## Native reference-alternative unions (2026-10-15)
+
+The companion runtime backend now admits unions of nominal reference alternatives
+as structural values carried in one payload reference slot. Native selection and
+specialization preserve the union signature; membership accepts any alternative,
+while implicit extraction requires every possible alternative to fit the target.
+Copies preserve payload identity and allocate no union carrier. This physical slot
+does not make the union a nominal reference type.
+
+Runtime Contract configuration and Raven emission/import are unchanged. AOT tests
+compare calls/results, managed outputs, nulls and casts against interpretation with
+both, either or neither interface explicitly implemented. Whole-union boxing is
+rejected before payload-reference projection could erase structural identity.
+Native mixed-value alternatives still need tagged storage and a conversion path
+that avoids the existing early scalar-box projection. Native reflection, arrays,
+JIT/collector stress and complete Task consumers are not qualified by this slice.
+See neoCLR's `docs/experiments/native-structural-types/` for sources and boundaries.

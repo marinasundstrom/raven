@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Document native reference-alternative union storage in the companion runtime: structural values copy one payload reference without a carrier. Compiler configuration/emission remain unchanged; mixed-value native storage, whole-union boxing and full Task/GC qualification remain open.
+
 - Record companion native intersection reference-view qualification, preserving explicit nominal bounds and unchanged Runtime Contract/emission behavior. AOT checks cover casts, identity, dispatch, nulls and managed outputs; native unions and full application/GC qualification remain open.
 
 - Document companion structural tuple native storage and direct JIT/AOT cost qualification. Runtime Contract configuration and compiler emission/import are unchanged; managed application/GC qualification and native union/intersection backends remain incomplete.
