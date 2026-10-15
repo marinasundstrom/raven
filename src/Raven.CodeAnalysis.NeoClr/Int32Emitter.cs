@@ -1445,7 +1445,7 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
-            IStructuralUnionTypeSymbol or IIntersectionTypeSymbol => ImportExternalType(type),
+            IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or ITupleTypeSymbol => ImportExternalType(type),
             _ when type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType => MapSymbolOnlyType(type.GetNonNullableType(), result),
             IPointerTypeSymbol pointer => NeoClrTypeMapper.Map(pointer, owned => nativeTypes[owned], ImportExternalType),
             _ when RuntimeSelfTypes.IsSelf(compilation, type) => SignatureType.Self,

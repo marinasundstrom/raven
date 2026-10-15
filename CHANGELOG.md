@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-15
 
+- Preserve structural tuple method results in native symbol-only imports instead of looking for a nominal declaration. Validate imported `Range` direct/nested Result tuples with interpreter/AOT/JIT; requires the paired metadata-host tuple-reference admission.
+
 - Make structural union, intersection and tuple binding/emission standard for the neoCLR target. Remove semantic/emitter and project/driver opt-ins; native metadata output uses NEOX. Preserve ordinary .NET target mappings and declared nominal unions. Validate 50 focused compiler checks and a fresh interpreter/AOT/JIT mixed-union consumer. Reader profile and nominal carrier cleanup remains in progress.
 
 - Record fresh float/double union source qualification against the paired native runtime and v4 libraries: interpreter/AOT/JIT preserve exact typed alternatives and widening with zero arena allocation. Runtime Contract and compiler encoding are unchanged.

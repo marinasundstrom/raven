@@ -12507,3 +12507,16 @@ See neoCLR `docs/experiments/native-structural-types/floating-v4-results.json` a
 `verify-raven-union-widening.py --floating-union` for exact hashes/reproduction.
 No compiler encoding or Runtime Contract changes were needed; NaN payloads,
 broader workloads and other platforms remain unqualified.
+
+## Imported tuple method results (2026-10-15)
+
+Native symbol-only member references map structural tuples before nominal owner
+lookup, including tuples returned directly or nested in a closed generic result.
+This allows the carrier-free `System.Range.GetOffsetAndLength` and
+`TryGetOffsetAndLength` APIs to preserve ordered elements and native names across
+assembly boundaries. The paired metadata host admits tuple-bearing method references
+recursively and still rejects CLI projection of those shapes. Runtime Contract
+selection remains `CompilationOptions.NeoCLR`, with no tuple switch.
+
+The imported Range/Result consumer returns 42 in interpreter, macOS ARM64 AOT and
+managed JIT with zero arena allocation; AOT undefined/bounds sanitizers pass.

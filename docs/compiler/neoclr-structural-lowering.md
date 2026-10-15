@@ -374,3 +374,16 @@ roots/heap cleanup before returning; its host is not sanitizer-built. No Runtime
 Contract or metadata encoding change is introduced.
 
 Evidence and executable reproducer live in neoCLR `docs/experiments/native-structural-types/widening-v4-results.json` and `verify-raven-union-widening.py`.
+
+## Imported tuple method results (2026-10-15)
+
+Native symbol-only member references map structural tuples before nominal owner
+lookup, including tuples returned directly or nested in a closed generic result.
+This allows the carrier-free `System.Range.GetOffsetAndLength` and
+`TryGetOffsetAndLength` APIs to preserve ordered elements and native names across
+assembly boundaries. The paired metadata host admits tuple-bearing method references
+recursively and still rejects CLI projection of those shapes. Runtime Contract
+selection remains `CompilationOptions.NeoCLR`, with no tuple switch.
+
+The imported Range/Result consumer returns 42 in interpreter, macOS ARM64 AOT and
+managed JIT with zero arena allocation; AOT undefined/bounds sanitizers pass.
