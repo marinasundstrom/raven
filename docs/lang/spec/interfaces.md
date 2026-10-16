@@ -84,3 +84,11 @@ between the corresponding type arguments. Boxing is not a variance conversion:
 `Producer<int>` cannot become `Producer<object>`, and `Consumer<object>` cannot
 become `Consumer<int>`. Identical value arguments remain valid. An unconstrained
 type parameter does not establish the required reference conversion.
+
+Nullable reference arguments obey the same variance direction while preserving
+nullability. `Producer<string?>` can widen to `Producer<object?>`, and
+`Consumer<object?>` can narrow to `Consumer<string?>`. Variance cannot remove a
+possible null: `Producer<string?>` cannot implicitly become `Producer<object>`,
+and `Consumer<object>` cannot become `Consumer<string?>`. Nullable value types do
+not become reference arguments through this rule. Runtime generic arguments and
+emitted interface variance annotations are unchanged.
