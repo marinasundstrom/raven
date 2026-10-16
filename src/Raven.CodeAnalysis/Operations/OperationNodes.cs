@@ -981,6 +981,8 @@ internal sealed class ConversionOperation : Operation, IConversionOperation
 
     public Conversion Conversion => _conversion;
 
+    public bool IsChecked => _bound is BoundConversionExpression { IsChecked: true };
+
     public IOperation? Operand
     {
         get

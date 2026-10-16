@@ -1712,7 +1712,7 @@ internal partial class TypeMemberBinder : Binder
         }
 
         var signatureArray = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray();
-        CheckForDuplicateSignature(metadataName, operatorText, signatureArray, conversionDecl.ConversionKindKeyword.GetLocation(), conversionDecl);
+        CheckForDuplicateSignature(metadataName, operatorText, signatureArray, conversionDecl.ConversionKindKeyword.GetLocation(), conversionDecl, conversionReturnType: returnType);
 
         var parameters = new List<SourceParameterSymbol>();
         var seenOptionalParameter = false;
@@ -2648,7 +2648,7 @@ internal partial class TypeMemberBinder : Binder
         RegisterMember(delegateSymbol, invoke);
     }
 
-    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration, int arity = 0)
+    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration, int arity = 0, ITypeSymbol? conversionReturnType = null)
     {
         foreach (var method in _containingType.GetMembers(searchName).OfType<IMethodSymbol>())
         {
@@ -2666,7 +2666,8 @@ internal partial class TypeMemberBinder : Binder
                 continue;
             }
 
-            if (SignaturesMatch(method, parameters))
+            if (SignaturesMatch(method, parameters) &&
+                (conversionReturnType is null || SymbolEqualityComparer.Default.Equals(method.ReturnType, conversionReturnType)))
             {
                 _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, displayName, location);
                 break;

@@ -91,7 +91,6 @@ public class CheckedExpressionTests
     }
 
     [Theory]
-    [InlineData("checked((byte)a)")]
     [InlineData("checked(a++)")]
     [InlineData("checked(a += 1)")]
     public void UnsupportedCheckedOperationsFailClosed(string expression)

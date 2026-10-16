@@ -237,6 +237,8 @@ public interface IConversionOperation : IOperation
 {
     Conversion Conversion { get; }
 
+    bool IsChecked { get; }
+
     IOperation? Operand { get; }
 }
 

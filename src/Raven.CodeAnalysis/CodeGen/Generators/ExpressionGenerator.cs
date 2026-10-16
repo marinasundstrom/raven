@@ -2282,13 +2282,13 @@ internal partial class ExpressionGenerator : Generator
 
             if (TryEmitDiscriminatedUnionCaseCreation(caseTypeToConstruct))
             {
-                EmitConversion(caseTypeToConstruct, conversionExpression.Type, conversionExpression.Conversion);
+                EmitConversion(caseTypeToConstruct, conversionExpression.Type, conversionExpression.Conversion, conversionExpression.IsChecked);
                 return;
             }
         }
 
         new ExpressionGenerator(this, conversionExpression.Expression).Emit();
-        EmitConversion(conversionExpression.Expression.Type!, conversionExpression.Type, conversionExpression.Conversion);
+        EmitConversion(conversionExpression.Expression.Type!, conversionExpression.Type, conversionExpression.Conversion, conversionExpression.IsChecked);
     }
 
     private void EmitAsExpression(BoundAsExpression asExpression)

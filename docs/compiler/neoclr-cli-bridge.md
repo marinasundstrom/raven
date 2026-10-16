@@ -13728,3 +13728,23 @@ Qualification pairs Raven `ab010c687` with neoCLR SDK `0cdfb228b` for imported
 top-level functions. The separate-provider consumer returns 42 in interpreter,
 managed JIT and sanitized AOT; Add<string> rejects with RAV0320. Sources and exact
 result fingerprints live in neoCLR's `docs/validation/numerics-interfaces/`.
+
+
+### Checked numeric conversions
+
+Carry main `0c272f423` deliberately. Bound conversion context flows into a portable
+CheckedConvert instruction with source signedness and destination type. The native
+adapter maps it to existing SDK Conv_Ovf operations; checked explicit user conversions
+are ordinary calls to the selected nominal method. No Runtime Contract configuration,
+metadata format or opcode is added. .NET throws OverflowException; NeoCLR reports
+terminal ArithmeticOverflow. Recoverable Result methods remain a separate API.
+Nullable/pointer checked casts and checked user-defined expression trees remain
+diagnosed. Decimal and native-integer admission on NeoCLR is unchanged.
+Native symbol import classifies op_CheckedExplicit as a conversion, preserving its
+participation in checked cast lookup across separate assembly boundaries. A retained
+provider/consumer regression guards against falling back to the ordinary conversion.
+Validation: 106 focused tests pass on codex/neoclr. Source-local and separate-provider
+consumers return 42 on interpreter, managed JIT and sanitized AOT. Three overflow
+consumers (signed narrowing, unsigned-source crossing and floating-to-integer) fault
+on all backends; native result slots remain untouched. Exact manifests are retained
+in neoCLR's docs/validation/compound-operators/checked-conversions-*-results.json.

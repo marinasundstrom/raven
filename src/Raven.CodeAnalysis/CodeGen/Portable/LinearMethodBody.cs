@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1297,8 +1297,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
             SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
 
-        void ConvertNumeric(SpecialType source, SpecialType target, SyntaxNode syntax)
+        void ConvertNumeric(SpecialType source, SpecialType target, SyntaxNode syntax, bool isChecked = false)
         {
+            if (isChecked && target is not (SpecialType.System_Single or SpecialType.System_Double))
+            {
+                instructions.Add(new(LinearInstructionKind.CheckedConvert, syntax, Integer: (int)source,
+                    Type: model.Compilation.GetSpecialType(target)));
+                return;
+            }
             if (IsUnsigned(source) && target is SpecialType.System_Single or SpecialType.System_Double)
             {
                 Add(LinearInstructionKind.UnsignedConvertDouble, syntax);
@@ -1797,7 +1803,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
                     IsNumeric(conversion.Expression.Type.SpecialType) && IsNumeric(conversion.Type.SpecialType):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
-                    ConvertNumeric(conversion.Expression.Type.SpecialType, conversion.Type.SpecialType, Syntax(expression));
+                    ConvertNumeric(conversion.Expression.Type.SpecialType, conversion.Type.SpecialType, Syntax(expression), conversion.IsChecked);
                     return true;
                 case BoundBinaryExpression { Operator.MethodSymbol: { IsStatic: true } binaryMethod } binary when
                     binaryMethod.Parameters.Length == 2 && binaryMethod.Parameters.All(p => p.RefKind == RefKind.None) &&

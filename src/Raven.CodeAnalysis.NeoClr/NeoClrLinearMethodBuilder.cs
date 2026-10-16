@@ -100,6 +100,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.Argument: method.Emit(OpCode.Ldarg, instruction.Integer); break;
             case LinearInstructionKind.LoadLocal: method.Emit(OpCode.Ldloc, instruction.Integer); break;
             case LinearInstructionKind.StoreLocal: method.Emit(OpCode.Stloc, instruction.Integer); break;
+            case LinearInstructionKind.CheckedConvert: method.Emit(CheckedConversionCode((SpecialType)instruction.Integer, instruction.Type!.SpecialType)); break;
             case LinearInstructionKind.CheckedAdd: method.Emit(OpCode.Add_Ovf); break;
             case LinearInstructionKind.UnsignedCheckedAdd: method.Emit(OpCode.Add_Ovf_Un); break;
             case LinearInstructionKind.CheckedSubtract: method.Emit(OpCode.Sub_Ovf); break;
@@ -125,4 +126,23 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             default: throw new InvalidOperationException("Unsupported native linear instruction: " + instruction.Kind);
         }
     }
+
+    private static OpCode CheckedConversionCode(SpecialType source, SpecialType target)
+    {
+        var unsigned = source is SpecialType.System_Byte or SpecialType.System_UInt16
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64;
+        return target switch
+        {
+            SpecialType.System_SByte => unsigned ? OpCode.Conv_Ovf_I1_Un : OpCode.Conv_Ovf_I1,
+            SpecialType.System_Byte => unsigned ? OpCode.Conv_Ovf_U1_Un : OpCode.Conv_Ovf_U1,
+            SpecialType.System_Int16 => unsigned ? OpCode.Conv_Ovf_I2_Un : OpCode.Conv_Ovf_I2,
+            SpecialType.System_UInt16 => unsigned ? OpCode.Conv_Ovf_U2_Un : OpCode.Conv_Ovf_U2,
+            SpecialType.System_Int32 => unsigned ? OpCode.Conv_Ovf_I4_Un : OpCode.Conv_Ovf_I4,
+            SpecialType.System_UInt32 => unsigned ? OpCode.Conv_Ovf_U4_Un : OpCode.Conv_Ovf_U4,
+            SpecialType.System_Int64 => unsigned ? OpCode.Conv_Ovf_I8_Un : OpCode.Conv_Ovf_I8,
+            SpecialType.System_UInt64 => unsigned ? OpCode.Conv_Ovf_U8_Un : OpCode.Conv_Ovf_U8,
+            _ => throw new InvalidOperationException("unsupported checked numeric conversion")
+        };
+    }
+
 }
