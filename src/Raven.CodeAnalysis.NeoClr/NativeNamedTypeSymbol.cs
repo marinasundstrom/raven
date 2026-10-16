@@ -68,12 +68,15 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
                 _ => SpecialType.None
             };
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
-            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this, variance: parameter.Variance switch
+            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this, getConstraints: () => [.. parameter.GetTypeConstraints().Select(((NativeModuleSymbol)ContainingModule).MapView)], variance: parameter.Variance switch
             {
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Covariant => VarianceKind.Out,
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Contravariant => VarianceKind.In,
                 _ => VarianceKind.None
-            }))];
+            }, specialConstraints:
+                (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.ReferenceType) ? TypeParameterConstraintKind.ReferenceType : TypeParameterConstraintKind.None) |
+                (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.ValueType) ? TypeParameterConstraintKind.ValueType : TypeParameterConstraintKind.None) |
+                (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.DefaultConstructor) ? TypeParameterConstraintKind.Constructor : TypeParameterConstraintKind.None)))];
         TypeArguments = [.. TypeParameters];
         interfaces = new(() =>
         {

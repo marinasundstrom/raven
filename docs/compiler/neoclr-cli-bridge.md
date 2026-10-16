@@ -13233,3 +13233,49 @@ and nested value constructions. Interpreter/AOT/JIT return 42, with native clean
 and AOT sanitizer checks. Focused regressions reject reference/value mismatches,
 private constructors and abstract constructor arguments. Qualification is macOS ARM64
 development evidence, not a cross-platform release claim.
+
+## Imported generic class constraints (development, 2026-10-16)
+
+Native dependency type parameters now retain `class`, `struct`, `new()` and the
+existing nongeneric nominal class-bound profile. Raven imports these into ordinary
+constraint symbols, so invalid closed arguments and missing special requirements
+on symbolic base arguments receive constraint diagnostics. A nominal bound admits
+an explicit subclass; it does not infer interface conformance or erase type identity.
+`new()` requires a value type or a concrete class with a public parameterless
+constructor. Abstractness, accessibility and constructor arity matter.
+
+The host SDK materializes native special flags and nominal bound identities.
+Raven's native adapter supplies these facts through `SetSpecialConstraints`,
+`AddBaseTypeConstraint` and `DeclareDefaultConstructor` on output-owned imported
+references. Generic constructions share their definition's contract. The SDK checks
+closed arguments and repeats checks at emission, including constructions created
+before registration. Local constructor checks complete after declarations are built.
+External constructor facts include abstractness and visibility, and conflicting facts
+are rejected. Legacy reader-based `ImportReference` still rejects constrained owners;
+it cannot silently drop their requirements.
+
+Native specialization validates special requirements and nongeneric nominal class
+bounds against the original linked construction before creating/reusing a closed
+record/class shape. Source metadata keeps its generic contracts. The native provider
+remains authoritative; consumer registrations do not rewrite it. The existing CLI
+projection uses GenericParam flags/GenericParamConstraint in the provider and normal
+TypeSpec/MemberRef references in the consumer. No new encoding, ABI, or Runtime
+Contract setting is introduced. neoCLR `main` owns the SDK/runtime work; Raven
+`codex/neoclr` owns native import/emission. Raven main has not been merged or changed.
+
+This closes import/use of the existing reference-class constraint profile, not all
+CLR generic capabilities. Constrained generic methods, interface/constructed nominal
+type bounds, constrained interface/value owner imports, nested constrained owners,
+and authoring a source nominal bound from an external definition remain outside this
+profile and must not be silently accepted. Generic `new T()` lowering is separate
+from enforcing the `new()` constraint. Structural types remain parked, as does
+Sliceable/Result variance.
+
+Validation: the separate provider/consumer fixture exercises special constraints,
+nominal subclass arguments, local/imported default constructors, symbolic special
+base requirements, reference identity, and rejected reference/value/nominal,
+abstract/private-constructor and missing symbolic constructor arguments. It runs in
+the interpreter, AOT (UBSan/bounds), and JIT against the retained native bundle.
+SDK checks also cover native introspection, late registration, conflicting facts and
+CLR execution. Specialization tests verify rejection before closing and preservation
+of original metadata. See the retained `imported-special-constraints` qualification.

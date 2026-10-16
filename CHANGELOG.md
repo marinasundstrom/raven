@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-16:** Document native AOT/JIT reference/value/default-constructor type-constraint qualification and source metadata retention. This is a runtime prerequisite; Raven constrained dependency imports remain gated. No compiler admission or Runtime Contract change.
+- **2026-10-16:** Document native AOT/JIT reference/value/default-constructor type-constraint qualification and source metadata retention. Native imports now retain reference/value/default-constructor flags and nongeneric nominal class bounds in semantic symbols and emit explicit SDK dependency contracts. Check abstractness and public parameterless constructors, preserve nominal subtype identity, and qualify a separate-provider consumer plus invalid-argument diagnostics. Other constraint profiles remain gated. Runtime Contract settings are unchanged; structural types stay parked.
 
 - **2026-10-16:** Enable native abstract generic classes behind an explicit planning capability. Preserve abstract declaration/slot flags and imported constructed virtual calls; qualify local/separate-provider value/reference consumers in interpreter/AOT/JIT and focused capability/CLR tests. Generic virtual methods and constrained dependency imports remain separate. Runtime Contract settings are unchanged.
 

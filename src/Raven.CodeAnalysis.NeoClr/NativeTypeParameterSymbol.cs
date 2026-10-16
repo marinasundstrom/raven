@@ -8,28 +8,30 @@ internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
     private readonly Lazy<ImmutableArray<ITypeSymbol>> constraintTypes;
 
-    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None)
+    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None, TypeParameterConstraintKind specialConstraints = TypeParameterConstraintKind.None)
         : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], [])
     {
         Ordinal = ordinal;
         Variance = variance;
+        this.specialConstraints = specialConstraints;
         constraintTypes = new(getConstraints ?? (() => []));
     }
 
+    private readonly TypeParameterConstraintKind specialConstraints;
     public int Ordinal { get; }
     public TypeParameterOwnerKind OwnerKind => ContainingSymbol is IMethodSymbol ? TypeParameterOwnerKind.Method : TypeParameterOwnerKind.Type;
     public INamedTypeSymbol? DeclaringTypeParameterOwner => ContainingSymbol as INamedTypeSymbol;
     public IMethodSymbol? DeclaringMethodParameterOwner => ContainingSymbol as IMethodSymbol;
-    public TypeParameterConstraintKind ConstraintKind => ConstraintTypes.IsEmpty ? TypeParameterConstraintKind.None : TypeParameterConstraintKind.TypeConstraint;
+    public TypeParameterConstraintKind ConstraintKind => specialConstraints | (ConstraintTypes.IsEmpty ? TypeParameterConstraintKind.None : TypeParameterConstraintKind.TypeConstraint);
     public ImmutableArray<ITypeSymbol> ConstraintTypes => constraintTypes.Value;
     public VarianceKind Variance { get; }
     public SpecialType SpecialType => SpecialType.None;
     public TypeKind TypeKind => TypeKind.TypeParameter;
     public bool IsNamespace => false;
     public bool IsType => true;
-    public bool IsReferenceType => false;
-    public bool IsValueType => false;
-    public INamedTypeSymbol? BaseType => null;
+    public bool IsReferenceType => specialConstraints.HasFlag(TypeParameterConstraintKind.ReferenceType) || BaseType is { SpecialType: not SpecialType.System_Object };
+    public bool IsValueType => specialConstraints.HasFlag(TypeParameterConstraintKind.ValueType);
+    public INamedTypeSymbol? BaseType => ConstraintTypes.OfType<INamedTypeSymbol>().FirstOrDefault(t => t.TypeKind == TypeKind.Class);
     public ITypeSymbol? OriginalDefinition => this;
     public ImmutableArray<INamedTypeSymbol> Interfaces => [.. ConstraintTypes.OfType<INamedTypeSymbol>().Where(t => t.TypeKind == TypeKind.Interface)];
     public ImmutableArray<INamedTypeSymbol> AllInterfaces

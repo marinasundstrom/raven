@@ -597,6 +597,18 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
+                if (original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null)
+                    assembly.DeclareDefaultConstructor(imported, !original.IsAbstract && original.InstanceConstructors.Any(c => c.Parameters.IsEmpty && c.DeclaredAccessibility == Accessibility.Public));
+                foreach (var parameter in original.TypeParameters)
+                {
+                    var flags = TypeParameterConstraints.None;
+                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
+                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
+                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
+                    if (flags != TypeParameterConstraints.None) assembly.SetSpecialConstraints(imported, parameter.Ordinal, flags);
+                    foreach (var bound in parameter.ConstraintTypes)
+                        assembly.AddBaseTypeConstraint(imported, parameter.Ordinal, ImportExternalType((INamedTypeSymbol)bound).ImportedType!);
+                }
                 if (original.SpecialType == SpecialType.System_Object &&
                     original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativeObjectRoot(imported);
@@ -1457,7 +1469,9 @@ internal static class Int32Emitter
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
                 original.TypeKind == TypeKind.Class && original.BaseType is { ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)parentClass.OriginalDefinition, depth + 1)) &&
-            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
+            original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind == TypeKind.Class && original.ContainingType is null &&
+                (p.ConstraintKind & ~(TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.TypeConstraint)) == 0) &&
+                p.ConstraintTypes.All(bound => bound is INamedTypeSymbol { TypeKind: TypeKind.Class, Arity: 0, ContainingType: null } nominal && IsSymbolOnlyReferenceDefinition(nominal, depth + 1)) && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&
             SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Unit));
