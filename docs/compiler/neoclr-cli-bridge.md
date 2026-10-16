@@ -13207,3 +13207,29 @@ This is development support on Raven `codex/neoclr` with the matching NeoCLR mai
 SDK/runtime, not a Raven-main merge. Generic virtual methods, generic closed
 hierarchies and broader constrained dependency imports remain separate work.
 Structural types and Sliceable/Result variance stay parked.
+
+### Native special type-constraint specialization (2026-10-16)
+
+AOT and managed JIT now admit closed record/class constructions with the existing
+`ReferenceType`, `ValueType` and `DefaultConstructor` type-parameter constraints.
+Before creating or reusing a specialized shape, codegen asks the runtime's existing
+`Module.instantiated_fields` validation to check the original closed construction,
+including substituted base and nested arguments. This reuses interpreter semantics:
+reference/value requirements perform no boxing or conversion, and a class satisfying
+`new()` must be concrete with a public parameterless constructor.
+
+Only the executable closed shape drops generic parameters and their already-proven
+constraints. Original declarations and the native source metadata catalogue retain
+the generic contract for introspection. Checks occur during specialization, adding
+no per-call constraint check. No format, ABI or Runtime Contract change is required.
+Nominal bounds, constrained generic methods and constrained interface definitions
+remain unsupported in this codegen slice. Raven's symbol-only constrained dependency
+import is still gated; this closes its native specialization prerequisite, not its
+metadata-authoring or compiler-import gaps. Structural types remain parked.
+
+The retained `docs/validation/special-type-constraints` consumer covers a constrained
+reference base, reordered generic child arguments, public constructor requirements
+and nested value constructions. Interpreter/AOT/JIT return 42, with native cleanup
+and AOT sanitizer checks. Focused regressions reject reference/value mismatches,
+private constructors and abstract constructor arguments. Qualification is macOS ARM64
+development evidence, not a cross-platform release claim.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document native AOT/JIT reference/value/default-constructor type-constraint qualification and source metadata retention. This is a runtime prerequisite; Raven constrained dependency imports remain gated. No compiler admission or Runtime Contract change.
+
 - **2026-10-16:** Enable native abstract generic classes behind an explicit planning capability. Preserve abstract declaration/slot flags and imported constructed virtual calls; qualify local/separate-provider value/reference consumers in interpreter/AOT/JIT and focused capability/CLR tests. Generic virtual methods and constrained dependency imports remain separate. Runtime Contract settings are unchanged.
 
 - **2026-10-16:** Record SDK/native qualification for concrete generic class virtual slots, substituted override validation and closed base-slot retention. CLR/interpreter/AOT/JIT checks pass; Raven now opts native concrete generic class slots into shared planning, emits constructed virtual calls and direct base calls distinctly, and imports exact native slot contracts. Focused compiler admission tests and local/separate-provider native consumers qualify value/reference payloads. Generic virtual methods remain unsupported. Runtime Contract settings are unchanged.
