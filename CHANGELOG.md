@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document SDK external constructed-base reader/introspection support and validation. Exact dependency identity and generic arguments survive; native encoding is unchanged. Generic layout authoring and Raven executable qualification remain open.
+
 - **2026-10-16:** Document native SDK preservation and introspection of local constructed class bases and inherited interfaces. SDK checks pass; Raven owner/layout/emission support and executable qualification remain open. No compiler or Runtime Contract change.
 
 - **2026-10-16:** Document SDK generic dependency-base substitution, following .NET semantics. SDK/CLR checks pass; native generic base materialization, layout authoring and Raven/native qualification remain open. No compiler or Runtime Contract change.

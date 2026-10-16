@@ -12918,3 +12918,17 @@ Raven's remaining generic owner eligibility and layout/emission restrictions are
 still gaps; no Raven executable or guest JIT/AOT claim follows from host metadata
 inspection. External constructed bases and CLI inheritance projection remain
 unsupported. Sliceable/Result variance and structural work stay deferred.
+
+### External constructed-base reader support (2026-10-16)
+
+The SDK now retains generic bases across assemblies through explicit arity-matched
+native type bindings. BaseType metadata views substitute open/closed arguments
+and preserve inherited interface constructions through exact dependencies.
+Native encoding and Runtime Contract configuration are unchanged. Reader and
+variance/introspection regression checks pass; no implicit dependency load occurs.
+
+Raven owner eligibility, generic class-layout authoring and native emission still
+need completion and an executable consumer. This host metadata slice alone does
+not qualify Raven execution or guest reflection. CLI inheritance projection still
+rejects unsupported shapes. Sliceable/Result variance remains postponed and
+structural work stays parked.
