@@ -93,8 +93,8 @@ expression syntax, such as adding two vectors.
 Classes and structs can declare overloadable operators using function-style
 syntax where the operator token is the function name:
 `static func <operator>(...) -> ...`.
-Supported tokens are `+`, `-`, `*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`,
-`or`, `<<`, `>>`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `~`, `++`, `--`.
+Supported static operator tokens are `+`, `-`, `*`, `/`, `%`, `^`, `&`, `|`,
+`<<`, `>>`, `>>>`, `true`, `false`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `~`, `++`, `--`.
 Operators mirror methods: they take a parenthesized parameter list, optional
 return-type arrow, and either a block body or expression body. The parameter
 count must match the chosen operator (unary or binary). Operator declarations
@@ -211,3 +211,18 @@ return the updated value; discarded postfix expressions also prefer these
 instance operators. A consumed postfix expression uses the static one-parameter
 overload to preserve the previous value. Properties and indexers use the static
 overload and setter. Static and instance forms may coexist.
+
+### Truth and conditional logical operators
+
+Declare `static func true(value: T) -> bool` and `static func false(value: T) -> bool`
+together on the containing type. They express definitely true and definitely false;
+they need not be complements. Conditions (`if` and `while`) use `true` after
+ordinary implicit Boolean conversion has been considered.
+
+For `a && b` / `a and b`, `false(a)` decides whether to skip `b`; otherwise the
+compiler calls `a & b`. For `a || b` / `a or b`, `true(a)` decides whether to
+skip `b`; otherwise it calls `a | b`. The selected bitwise operator must have
+identical parameter and result types. The left operand is evaluated once.
+Direct `func &&`, `func ||`, `func and` and `func or` declarations are rejected;
+migrate them to `&`/`|` plus the truth pair. This aligns both targets with .NET
+operator metadata and conditional evaluation conventions.

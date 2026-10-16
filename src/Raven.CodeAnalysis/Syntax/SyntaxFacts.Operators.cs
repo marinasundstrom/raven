@@ -42,6 +42,8 @@ public static partial class SyntaxFacts
         SyntaxKind.GreaterThanOrEqualsToken,
         SyntaxKind.ExclamationToken,
         SyntaxKind.TildeToken,
+        SyntaxKind.TrueKeyword,
+        SyntaxKind.FalseKeyword,
     };
 
     internal static int LeadingGreaterThanCount(SyntaxKind kind) => kind switch

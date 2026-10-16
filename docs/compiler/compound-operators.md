@@ -134,3 +134,27 @@ expanded native consumer returns 42 under interpreter, macOS ARM64 AOT and JIT,
 including class/struct prefix results and static consumed-postfix fallback.
 Callable planning admits parameterless instance increment methods; execution uses
 ordinary instance calls without new Runtime Contract settings or opcodes.
+## Truth and conditional logical operators
+
+Paired static truth declarations emit `op_True`/`op_False`. Signature validation
+requires a Boolean result and one by-value containing-type operand. `if`/`while`
+conditions use implicit Boolean conversion first, then `op_True`. Conditional
+logical expressions select the corresponding `op_BitwiseAnd`/`op_BitwiseOr` with
+equal parameter/result types, capture the left operand once, test `op_False` for
+AND or `op_True` for OR, and lower to an existing conditional expression so the
+right operand is evaluated only on the required path. No new runtime operation
+or Runtime Contract switch is needed. This is compiler lowering on both targets.
+
+Direct logical declarations now report RAV0370; migrate `&&`/`and` and `||`/`or`
+to `&` and `|` with a truth pair. RAV0368 diagnoses invalid truth signatures and
+RAV0369 diagnoses a missing matching declaration. These follow the .NET
+[truth operator](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/true-false-operators)
+and conditional logical conventions, including the possibility that both truth
+operators return false.
+
+Truth/logical validation on main: generated-syntax solution build and 107 focused
+operator, if/while and logical tests pass, including an emitted-library consumer.
+
+Native truth/logical carry from main `7039b3e23`: 109 focused compiler tests
+pass; the consumer returns 42 in interpreter, macOS ARM64 JIT and AOT, including
+short-circuit side effects, neither-true-nor-false input and truth conditions.

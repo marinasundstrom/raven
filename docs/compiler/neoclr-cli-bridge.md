@@ -13604,3 +13604,11 @@ and ordinary native instance calls. No bridge encoding or metadata version is
 added. Raven owns prefix-value capture/writeback and consumed-postfix static
 fallback. Class/struct cases pass interpreter/JIT/AOT; 233 focused compiler
 tests pass. The existing nominal-value-array AOT allocation gap remains.
+
+Truth/logical operator carry (2026-10-16), main `7039b3e23`: native metadata
+uses ordinary static `op_True`/`op_False` and bitwise operator methods. Raven
+lowers conditional logical operators to captured-left tests and conditional
+calls; no native opcode, metadata version or Runtime Contract flag is added.
+109 focused tests and interpreter/JIT/AOT side-effect consumers pass. Direct
+logical declarations now require migration to bitwise operators plus a truth
+pair on both targets, following the author's .NET convention direction.

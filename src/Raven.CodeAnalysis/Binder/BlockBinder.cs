@@ -6606,17 +6606,7 @@ partial class BlockBinder : Binder
             CapturePatternLocalShadows(isPatternExpression.Pattern, patternLocalShadows);
         }
 
-        var condition = BindExpression(ifExpression.Condition);
-
-        if (!HasExpressionErrors(condition))
-        {
-            var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
-            var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
-            if (!conversion.Exists || !conversion.IsImplicit)
-            {
-                ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
-            }
-        }
+        var condition = BindBooleanCondition(BindExpression(ifExpression.Condition), ifExpression.Condition);
 
         return BindIfExpressionCore(
             ifExpression,
@@ -9348,6 +9338,9 @@ partial class BlockBinder : Binder
             return new BoundBinaryExpression(left, predefinedOperator, right);
         }
 
+        if (opKind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.AndToken or SyntaxKind.BarBarToken or SyntaxKind.OrToken)
+            return BindUserDefinedConditionalLogicalOperator(opKind, left, right, diagnosticLocation, leftSyntax, rightSyntax, callSyntax);
+
         // 2. Överlagrade operatorer
         var userDefinedExpression = BindUserDefinedBinaryOperator(opKind, left, right, diagnosticLocation, leftSyntax, rightSyntax, callSyntax);
         if (userDefinedExpression is not null)
@@ -10308,6 +10301,53 @@ partial class BlockBinder : Binder
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var kind = value ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral;
         return new BoundLiteralExpression(kind, value, boolType);
+    }
+
+    private BoundExpression BindUserDefinedConditionalLogicalOperator(
+        SyntaxKind opKind, BoundExpression left, BoundExpression right, Location? location,
+        ExpressionSyntax? leftSyntax, ExpressionSyntax? rightSyntax, SyntaxNode? callSyntax)
+    {
+        var isAnd = opKind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.AndToken;
+        var binary = BindUserDefinedBinaryOperator(isAnd ? SyntaxKind.AmpersandToken : SyntaxKind.BarToken,
+            left, right, location, leftSyntax, rightSyntax, callSyntax);
+        if (binary is BoundErrorExpression)
+            return binary;
+        if (binary is BoundInvocationExpression invocation && invocation.Method.Parameters.Length == 2 &&
+            SymbolEqualityComparer.Default.Equals(invocation.Method.Parameters[0].Type, invocation.Method.ReturnType) &&
+            SymbolEqualityComparer.Default.Equals(invocation.Method.Parameters[1].Type, invocation.Method.ReturnType))
+        {
+            var arguments = invocation.Arguments.ToArray();
+            var local = CreateTempLocal("logicalLeft", invocation.Method.ReturnType, callSyntax ?? leftSyntax!);
+            var access = new BoundLocalAccess(local);
+            var whenTrue = BindUserDefinedUnaryOperator(SyntaxKind.TrueKeyword, access, location, leftSyntax, callSyntax);
+            var whenFalse = BindUserDefinedUnaryOperator(SyntaxKind.FalseKeyword, access, location, leftSyntax, callSyntax);
+            if (whenTrue?.Type.SpecialType == SpecialType.System_Boolean && whenFalse?.Type.SpecialType == SpecialType.System_Boolean)
+            {
+                var result = new BoundIfExpression(isAnd ? whenFalse : whenTrue, access,
+                    new BoundInvocationExpression(invocation.Method, [access, arguments[1]], invocation.Receiver));
+                return new BoundBlockExpression([
+                    new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, arguments[0])]),
+                    new BoundExpressionStatement(result)], invocation.Type);
+            }
+        }
+        _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(OperatorFacts.GetDisplayText(opKind),
+            left.Type.ToDisplayString(), right.Type.ToDisplayString(), location ?? Location.None);
+        return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+    }
+
+    private BoundExpression BindBooleanCondition(BoundExpression condition, SyntaxNode syntax)
+    {
+        if (HasExpressionErrors(condition))
+            return condition;
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
+        if (conversion.Exists && conversion.IsImplicit)
+            return ApplyConversion(condition, boolType, conversion, syntax);
+        var truth = BindUserDefinedUnaryOperator(SyntaxKind.TrueKeyword, condition, syntax.GetLocation(), syntax as ExpressionSyntax, syntax);
+        if (truth is BoundErrorExpression || truth?.Type.SpecialType == SpecialType.System_Boolean)
+            return truth;
+        ReportCannotConvertFromTypeToType(condition.Type, boolType, syntax.GetLocation());
+        return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
     }
 
     private BoundExpression? BindUserDefinedUnaryOperator(
