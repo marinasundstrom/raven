@@ -138,7 +138,7 @@ let alias = counter
 counter += 42 // alias.Value is now 42; counter was not replaced
 ```
 
-The initial implementation supports `+=`, `-=`, `*=`, `/=`, `&=`, `|=` and `^=`.
+Instance compound operators support `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=` and `>>>=`.
 These are public instance operators with exactly one by-value parameter and a
 unit return type (omit the arrow or write `-> ()`). `static` and non-unit results
 are errors. The RHS need not have the receiver's type. Normal implicit argument

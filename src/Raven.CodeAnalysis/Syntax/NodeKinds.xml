@@ -43,6 +43,7 @@
   <NodeKind Name="BitwiseOrExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="BitwiseXorExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="ShiftLeftExpression" Type="InfixOperatorExpression" />
+  <NodeKind Name="UnsignedShiftRightExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="ShiftRightExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="PowerExpression" Type="InfixOperatorExpression" />
   <NodeKind Name="PipeExpression" Type="InfixOperatorExpression" />
@@ -58,6 +59,10 @@
   <NodeKind Name="AddAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SubtractAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="MultiplyAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="ModuloAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="ShiftLeftAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="ShiftRightAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="UnsignedShiftRightAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="DivideAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseAndAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseOrAssignmentExpression" Type="AssignmentExpression" />
@@ -69,6 +74,10 @@
   <NodeKind Name="AddAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="SubtractAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="MultiplyAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="ModuloAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="ShiftLeftAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="ShiftRightAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="UnsignedShiftRightAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DivideAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="BitwiseAndAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="BitwiseOrAssignmentStatement" Type="AssignmentStatement" />

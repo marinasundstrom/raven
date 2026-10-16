@@ -22,6 +22,10 @@ source token for both source and imported metadata.
 | `&=` | `op_BitwiseAndAssignment` |
 | `\|=` | `op_BitwiseOrAssignment` |
 | `^=` | `op_ExclusiveOrAssignment` |
+| `%=` | `op_ModulusAssignment` |
+| `<<=` | `op_LeftShiftAssignment` |
+| `>>=` | `op_RightShiftAssignment` |
+| `>>>=` | `op_UnsignedRightShiftAssignment` |
 
 Binding considers instance operators on the receiver through ordinary member
 lookup and overload resolution. It only does so for variable storage, preserving
@@ -42,16 +46,16 @@ the native compiler and a matching library bundle, not just successful CLI emiss
 `CompoundOperatorTests` covers source metadata, alias preservation, struct locals,
 array receiver evaluation, precedence/fallback, invalid declarations, readonly
 locals and an emitted-library consumer. Existing operator tests protect the static
-operator path. TextMate already recognizes the supported tokens; no new syntax
-node or language-service cache is introduced.
+operator path. TextMate recognizes the new assignment and unsigned-shift tokens. Public syntax
+kinds distinguish each assignment; `BinaryOperatorKind.UnsignedRightShift` exposes
+the zero-filling operation to semantic API consumers.
 
 Validation on Raven main: 70 focused operator/conversion/reference-field tests passed
 on .NET 11 (2026-10-16). Native evidence is recorded separately after carrying the
 shared change to `codex/neoclr`.
 
 The initial slice does not add checked forms, compound extension/interface members,
-virtual overrides, instance increment/decrement, or missing remainder/shift
-assignment tokens. These remain separate work. Performance follows ordinary instance
+virtual overrides or instance increment/decrement. These remain separate work. Performance follows ordinary instance
 calls; no benchmark claim is made.
 
 ## Design sources
@@ -61,3 +65,17 @@ defines in-place operators, variable eligibility, applicability-first fallback a
 metadata names. The [author-supplied article](https://www.damirscorner.com/blog/posts/20250919-UserDefinedCompoundOperatorsInCs14.html)
 illustrates the allocation/aliasing motivation. The former is the semantic model;
 the latter is context. Raven deliberately preserves its unit-valued assignments.
+
+The remainder/shift follow-up adds `%=` / `<<=` / `>>=` / `>>>=` and binary
+`>>>`, using .NET operator metadata names on both current targets. Predefined
+shifts preserve an `int` count independently of the left operand width, and
+compound shifts convert promoted small-integer results back to storage. Generic
+closing brackets are split contextually from the longest-match shift tokens.
+No new Runtime Contract setting is required. Native execution needs separate
+qualification after carrying the shared change. Capability interfaces with
+purpose-specific semantics remain separate design work; implementing `+` does
+not automatically establish a numeric contract.
+
+Follow-up validation on main: 101 focused compound/operator, assignment syntax,
+generic-name and binary-binding tests pass on .NET 11 (2026-10-16); the required
+generated-syntax solution build also passes.

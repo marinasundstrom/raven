@@ -919,6 +919,11 @@ public static partial class SymbolExtensions
 
             "op_LeftShift" => "<<",
             "op_RightShift" => ">>",
+            "op_UnsignedRightShift" => ">>>",
+            "op_ModulusAssignment" => "%=",
+            "op_LeftShiftAssignment" => "<<=",
+            "op_RightShiftAssignment" => ">>=",
+            "op_UnsignedRightShiftAssignment" => ">>>=",
 
             "op_LogicalNot" => "!",
             "op_OnesComplement" => "~",

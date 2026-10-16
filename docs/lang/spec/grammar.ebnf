@@ -291,8 +291,8 @@ OperatorDeclaration      ::= MemberModifiers?
 
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
                            | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
-                           | '>=' | '!' | '++' | '--'
-                           | '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^=' ;
+                           | '>=' | '!' | '++' | '--' | '<<' | '>>' | '>>>'
+                           | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' ;
 
 ExplicitInterfaceSpecifier ::= Type '.' ;
 
@@ -476,7 +476,7 @@ AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
 
 DeconstructionAssignment ::= VariableDesignation AssignmentOperator AssignmentExpression ;
 
-AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '??=' ;
+AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '??=' ;
 
 Assignable               ::= Identifier
                            | MemberAccessExpression
@@ -629,7 +629,7 @@ RangeEnd                 ::= RangeIndex? ;
 
 RangeIndex               ::= '^'? AdditiveExpression ;
 
-ShiftExpression          ::= AdditiveExpression {('<<' | '>>') AdditiveExpression} ;
+ShiftExpression          ::= AdditiveExpression {('<<' | '>>' | '>>>') AdditiveExpression} ;
 
 AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;

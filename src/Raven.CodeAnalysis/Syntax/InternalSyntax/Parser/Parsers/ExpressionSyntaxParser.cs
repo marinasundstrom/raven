@@ -199,6 +199,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.LessThanLessThanToken:
                 return SyntaxKind.ShiftLeftExpression;
 
+            case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+                return SyntaxKind.UnsignedShiftRightExpression;
+
             case SyntaxKind.GreaterThanGreaterThanToken:
                 return SyntaxKind.ShiftRightExpression;
 
@@ -596,6 +599,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.MinusEqualsToken => SyntaxKind.SubtractAssignmentExpression,
             SyntaxKind.StarEqualsToken => SyntaxKind.MultiplyAssignmentExpression,
             SyntaxKind.SlashEqualsToken => SyntaxKind.DivideAssignmentExpression,
+            SyntaxKind.PercentEqualsToken => SyntaxKind.ModuloAssignmentExpression,
+            SyntaxKind.LessThanLessThanEqualsToken => SyntaxKind.ShiftLeftAssignmentExpression,
+            SyntaxKind.GreaterThanGreaterThanEqualsToken => SyntaxKind.ShiftRightAssignmentExpression,
+            SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken => SyntaxKind.UnsignedShiftRightAssignmentExpression,
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.BitwiseAndAssignmentExpression,
             SyntaxKind.BarEqualsToken => SyntaxKind.BitwiseOrAssignmentExpression,
             SyntaxKind.CaretEqualsToken => SyntaxKind.BitwiseXorAssignmentExpression,
@@ -624,6 +631,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             or SyntaxKind.MinusEqualsToken
             or SyntaxKind.StarEqualsToken
             or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.PercentEqualsToken
+            or SyntaxKind.LessThanLessThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
             or SyntaxKind.AmpersandEqualsToken
             or SyntaxKind.BarEqualsToken
             or SyntaxKind.CaretEqualsToken
@@ -3609,7 +3620,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     || t.IsKind(SyntaxKind.PlusEqualsToken)
                     || t.IsKind(SyntaxKind.MinusEqualsToken)
                     || t.IsKind(SyntaxKind.StarEqualsToken)
-                    || t.IsKind(SyntaxKind.SlashEqualsToken))
+                    || IsAssignmentOperator(t.Kind))
                 {
                     return false;
                 }
@@ -3652,9 +3663,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 continue;
             }
 
-            if (t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+            if (SyntaxFacts.LeadingGreaterThanCount(t.Kind) > 0)
             {
-                typeArgumentDepth = Math.Max(0, typeArgumentDepth - 2);
+                typeArgumentDepth = Math.Max(0, typeArgumentDepth - SyntaxFacts.LeadingGreaterThanCount(t.Kind));
                 continue;
             }
         }

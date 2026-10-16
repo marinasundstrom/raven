@@ -762,6 +762,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.BarBarToken
             or SyntaxKind.LessThanLessThanToken
             or SyntaxKind.GreaterThanGreaterThanToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanToken
             or SyntaxKind.AndToken
             or SyntaxKind.OrToken
             or SyntaxKind.PipeToken
@@ -772,6 +773,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.MinusEqualsToken
             or SyntaxKind.StarEqualsToken
             or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.PercentEqualsToken
+            or SyntaxKind.LessThanLessThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
             or SyntaxKind.AmpersandEqualsToken
             or SyntaxKind.BarEqualsToken
             or SyntaxKind.CaretEqualsToken
