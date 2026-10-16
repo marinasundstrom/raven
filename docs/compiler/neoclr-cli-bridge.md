@@ -12890,3 +12890,17 @@ bundle `variance-argument-sequence-20261016`: interpreter/AOT/managed JIT return
 three source rejections, inherited member calls, reference identity, field mutation,
 native cleanup and AOT sanitizer checks pass. The SDK also tests missing/incomplete
 ancestry, reverse rejection, and emitted CLR conversion methods.
+
+### Generic dependency base validation (2026-10-16)
+
+The SDK DeclareClassBase contract now accepts generic definitions with base
+arguments scoped to the derived definition. It substitutes those arguments through
+transitive ancestry for ordinary reference and interface-variance conversions,
+following .NET constructed-class semantics. The existing registration call in the
+native emitter requires no new Runtime Contract switch or encoding.
+
+SDK and emitted CLR checks pass, including identity-preserving non-null upcasts.
+Native generic base-signature materialization and layout authoring remain gaps;
+this SDK slice alone does not establish Raven source/native support. No compiler
+semantic or emission change is included. Sliceable/Result variance and structural
+work remain deferred.
