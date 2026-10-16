@@ -12745,3 +12745,15 @@ Guest AssemblyInfo.GetTypes/ModuleInfo.GetTypes discovery is not yet connected t
 these handles; the original open-definition consumer is not native-qualified.
 Open member substitution/relationship queries and intrinsic String variance remain
 gaps. Structural work remains parked.
+
+The subsequent native discovery binder accepts `--reflection-roots` schema 6:
+`typeCatalogs` lists exact assembly identities alongside the required `types`,
+`moduleCatalogs` and `moduleFunctions` arrays. Module-name retention alone does not
+retain types. AssemblyTypes/ModuleTypes now use source TypeInfo snapshot recipes;
+open definitions/parameters receive descriptive handles and ordinary closed types
+keep ordinary token identity. No Raven emission, CLI representation or Runtime
+Contract change is needed. Ten focused runtime/backend catalog checks pass.
+The existing VarianceIntrospection image against bundle
+`variance-argument-sequence-20261016` (compiler `eef1ed456`) passes snapshot
+construction but stops later at `$aot_linked_65: unsupported value member contract`.
+Full native consumer execution remains unqualified; this is not a feature release.

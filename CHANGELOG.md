@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document explicit neoCLR native type-catalog retention and source TypeInfo snapshot binding. No compiler emission or Runtime Contract changes; the original open-definition consumer reaches a later unsupported native member contract and remains unqualified for AOT/JIT.
+
 - **2026-10-16:** Document neoCLR native open-definition descriptor handles and query validation. Source emission and Runtime Contract configuration are unchanged; guest assembly/module discovery, open relationships and intrinsic String variance remain unqualified.
 
 - **2026-10-16:** Record matching neoCLR class-library generic argument sequence qualification across interpreter/AOT/JIT and native API variance rendering. No compiler lowering or Runtime Contract change; native open-definition discovery and intrinsic String variance remain runtime gaps.
