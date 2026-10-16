@@ -13463,3 +13463,22 @@ Function-signature bounds (`where F: () -> T`), signature-based invocation/infer
 class-parameter forwarding into constrained generic methods and arbitrary combined
 method-bound imports remain separate gaps. No event or reflection invocation API
 is introduced. Broader structural work stays parked.
+
+
+### Provisional dynamic Function invocation (2026-10-16)
+
+On the function feature branches, neoCLR supplies the reserved InternalCall
+`neoCLR.Runtime.InvokeFunction(Object, Object?[]) -> Object?`. The retained Raven
+fixture declares it locally and wraps it in a sample-local FunctionReflection class;
+this does not introduce a permanent class-library API or change Runtime Contracts.
+Native structural function references use their existing Object view, retain bound
+receivers, and invoke through checked typed adapters. No CLI bridge encoding or
+ordinary .NET behavior changes are involved.
+
+The fixture `docs/validation/dynamic-function-invocation/raven` in neoCLR compiles
+against the retained `variance-argument-sequence-20261016` bundle and returns 42 in
+interpreter, AOT with UBSan/bounds, and managed JIT. Native negative fixtures verify
+count/type rejection and target-fault propagation. The initial boundary requires
+non-null argument arrays, exact boxed scalars and supported references; ref/out,
+numeric coercion and arbitrary value marshalling remain gaps. Source wrappers may
+evolve, while runtime function identity and checked invocation remain the basis.

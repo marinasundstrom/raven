@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document the native provisional dynamic-function primitive and source-local facade, qualified in interpreter/JIT/AOT. Existing structural function/Object mapping is reused; no permanent class-library API, CLI encoding or normal .NET behavior change is introduced.
+
 - **2026-10-16:** Separate native structural function symbols from nominal delegates behind the neoCLR runtime contract. Preserve signature equality, metadata identity, accessibility, generic substitution/inference and no-result ABI. Ordinary .NET function mapping remains unchanged. Qualify a separately compiled generic callback holder in interpreter/AOT/JIT; native generic-class function constraints are qualified separately.
 
 - **2026-10-16:** Preserve native function-kind constraints in Raven imports and reject invalid generic arguments instead of silently erasing the constraint. On `codex/function-kind-constraint`, enable standalone `where T: func` for native generic classes, with syntax/semantic diagnostics, owned/imported native metadata, structural-only arguments, constrained forwarding and documentation/code-fix rendering. .NET rejects the constraint; its normal mappings are unchanged. Enable native method-level function-kind emission and preserve imported requirements behind an explicit capability; qualify separate-provider forwarding and invalid-argument rejection in the import probe and interpreter/AOT/JIT consumer. Signature bounds remain gated. Record the author’s target distinction, deferred property-exposed observer-type direction, and proposed function-signature bounds.
