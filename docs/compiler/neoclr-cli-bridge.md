@@ -12904,3 +12904,17 @@ Native generic base-signature materialization and layout authoring remain gaps;
 this SDK slice alone does not establish Raven source/native support. No compiler
 semantic or emission change is included. Sliceable/Result variance and structural
 work remain deferred.
+
+### Native local constructed-base reader support (2026-10-16)
+
+The SDK now preserves local generic base signatures and exposes substituted
+BaseType metadata views, including class-inherited interfaces in GetInterfaces.
+The native symbol importer already maps the nominal view's BaseType; the SDK can
+now supply a constructed base rather than a bare definition. No compiler code,
+Runtime Contract setting or signature encoding changes in this slice.
+
+SDK reader/introspection and existing metadata-context/inheritance checks pass.
+Raven's remaining generic owner eligibility and layout/emission restrictions are
+still gaps; no Raven executable or guest JIT/AOT claim follows from host metadata
+inspection. External constructed bases and CLI inheritance projection remain
+unsupported. Sliceable/Result variance and structural work stay deferred.

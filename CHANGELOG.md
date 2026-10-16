@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document native SDK preservation and introspection of local constructed class bases and inherited interfaces. SDK checks pass; Raven owner/layout/emission support and executable qualification remain open. No compiler or Runtime Contract change.
+
 - **2026-10-16:** Document SDK generic dependency-base substitution, following .NET semantics. SDK/CLR checks pass; native generic base materialization, layout authoring and Raven/native qualification remain open. No compiler or Runtime Contract change.
 
 - **2026-10-16:** Document native SDK variance validation through imported class ancestors and its separately compiled interpreter/AOT/JIT qualification. Inherited interface calls preserve identity and mutation; three invalid conversions reject. Runtime Contracts and compiler emission are unchanged; Sliceable/Result variance stays deferred.
