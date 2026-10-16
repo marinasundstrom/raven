@@ -3027,6 +3027,12 @@ partial class BlockBinder : Binder
         if (operand is BoundErrorExpression)
             return operand;
 
+        var discarded = IsIncrementResultDiscarded(operandSyntax);
+        if ((!isPostfix || discarded) &&
+            TryBindInstanceCompoundAssignment(operand, null, operandSyntax, operatorToken.Kind,
+                discarded ? null : invocation => BindInstancePrefixResult(invocation, operandSyntax)) is { } instance)
+            return instance;
+
         return operand switch
         {
             BoundLocalAccess local => BindIncrementForLocal(local, operandSyntax, binaryOperatorKind, isPostfix),
@@ -3054,6 +3060,66 @@ partial class BlockBinder : Binder
                 => BindIncrementForProperty(propertyAccess, propertyAccess.Property, operandSyntax, binaryOperatorKind, isPostfix),
             _ => BindInvalidIncrementOperand(operatorToken)
         };
+    }
+
+    private bool IsIncrementResultDiscarded(ExpressionSyntax operand)
+    {
+        SyntaxNode? operation = operand.Parent;
+        while (operation?.Parent is ParenthesizedExpressionSyntax)
+            operation = operation.Parent;
+        if (operation?.Parent is not ExpressionStatementSyntax statement)
+            return false;
+        if (statement.Parent is BlockSyntax)
+            return false; // A block expression may supply its final value.
+        if (statement.Parent is BlockStatementSyntax block && IsImplicitReturnTarget(block, statement))
+            return _containingSymbol is IMethodSymbol method &&
+                GetReturnTargetType(method).SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
+        return true;
+    }
+
+    private BoundExpression BindInstancePrefixResult(BoundInvocationExpression invocation, ExpressionSyntax syntax)
+    {
+        var statements = new List<BoundStatement>();
+        BoundExpression Capture(BoundExpression value)
+        {
+            var local = CreateTempLocal("increment", value.Type!, syntax);
+            statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, value)]));
+            return new BoundLocalAccess(local);
+        }
+        BoundExpression Stable(BoundExpression storage) => storage switch
+        {
+            BoundFieldAccess field => new BoundFieldAccess(StableReceiver(field.Receiver), field.Field),
+            BoundMemberAccessExpression { Member: IFieldSymbol field } member =>
+                new BoundFieldAccess(StableReceiver(member.Receiver), field),
+            BoundArrayAccessExpression array => new BoundArrayAccessExpression(Capture(array.Receiver),
+                array.Indices.Select(Capture).ToArray(), array.ElementType),
+            _ => storage,
+        };
+        BoundExpression? StableReceiver(BoundExpression? receiver) => receiver is null ? null :
+            receiver.Type!.IsValueType ? Stable(receiver) : Capture(receiver);
+
+        var target = Stable(invocation.Receiver!);
+        var type = GetIncrementTargetType(target.Type!);
+        var value = Capture(ConvertValueForAssignment(target, type, syntax));
+        statements.Add(new BoundExpressionStatement(new BoundInvocationExpression(invocation.Method, [], value)));
+        if (!type.IsReferenceType)
+        {
+            BoundAssignmentExpression assignment = target switch
+            {
+                BoundLocalAccess local when local.Type is RefTypeSymbol reference =>
+                    BoundFactory.CreateByRefAssignmentExpression(local, reference.ElementType, value),
+                BoundLocalAccess local => BoundFactory.CreateLocalAssignmentExpression(local.Local, local, value),
+                BoundParameterAccess parameter when parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out =>
+                    BoundFactory.CreateByRefAssignmentExpression(parameter, type, value),
+                BoundParameterAccess parameter => BoundFactory.CreateParameterAssignmentExpression(parameter.Parameter, parameter, value),
+                BoundFieldAccess field => CreateFieldAssignmentExpression(field.Receiver, field.Field, value),
+                BoundArrayAccessExpression array => BoundFactory.CreateArrayAssignmentExpression(array, value),
+                _ => throw new InvalidOperationException("Expected addressable increment storage"),
+            };
+            statements.Add(new BoundExpressionStatement(assignment));
+        }
+        statements.Add(new BoundExpressionStatement(value));
+        return new BoundBlockExpression(statements, type);
     }
 
     private BoundExpression BindIncrementForLocal(
@@ -3311,12 +3377,15 @@ partial class BlockBinder : Binder
         if (convertedUpdatedValue is BoundErrorExpression)
             return convertedUpdatedValue;
 
-        var assignment = createAssignment(convertedUpdatedValue);
+        var updatedLocal = CreateTempLocal("incrementResult", targetType, operandSyntax);
+        statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(updatedLocal, convertedUpdatedValue)]));
+        var updatedAccess = new BoundLocalAccess(updatedLocal);
+        var assignment = createAssignment(updatedAccess);
         statements.Add(new BoundExpressionStatement(assignment));
 
         var resultExpression = isPostfix
             ? (BoundExpression)new BoundLocalAccess(tempLocal)
-            : convertedUpdatedValue;
+            : updatedAccess;
 
         statements.Add(new BoundExpressionStatement(resultExpression));
 
@@ -7225,9 +7294,10 @@ partial class BlockBinder : Binder
 
     private BoundExpression? TryBindInstanceCompoundAssignment(
         BoundExpression left,
-        ExpressionSyntax rightSyntax,
+        ExpressionSyntax? rightSyntax,
         SyntaxNode leftSyntax,
-        SyntaxKind operatorToken)
+        SyntaxKind operatorToken,
+        Func<BoundInvocationExpression, BoundExpression>? transform = null)
     {
         // Properties/indexers are accessor operations, not addressable variables.
         // They retain the binary operator plus setter lowering.
@@ -7235,7 +7305,10 @@ partial class BlockBinder : Binder
             left is not BoundMemberAccessExpression { Member: IFieldSymbol })
             return null;
 
-        var metadataName = OperatorFacts.GetCompoundAssignmentMetadataName(operatorToken);
+        var metadataName = rightSyntax is null
+            ? OperatorFacts.GetInstanceIncrementMetadataName(operatorToken)
+            : OperatorFacts.GetCompoundAssignmentMetadataName(operatorToken);
+        var parameterCount = rightSyntax is null ? 0 : 1;
         if (metadataName is null || left.Type is null)
             return null;
 
@@ -7243,18 +7316,18 @@ partial class BlockBinder : Binder
         var candidates = new SymbolQuery(metadataName, receiverType, IsStatic: false)
             .LookupMethods(this)
             .Where(method => !method.IsStatic && method.MethodKind == MethodKind.UserDefinedOperator &&
-                method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.None &&
+                method.Parameters.Length == parameterCount && method.Parameters.All(p => p.RefKind == RefKind.None) &&
                 method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
             .ToImmutableArray();
         if (candidates.IsDefaultOrEmpty)
             return null;
 
-        var right = BindExpression(rightSyntax);
-        if (IsErrorExpression(right))
+        var right = rightSyntax is null ? null : BindExpression(rightSyntax);
+        if (right is not null && IsErrorExpression(right))
             return right;
-        var arguments = new[] { new BoundArgument(right, RefKind.None, null, rightSyntax) };
+        BoundArgument[] arguments = right is null ? [] : [new BoundArgument(right, RefKind.None, null, rightSyntax!)];
         var resolution = OverloadResolver.ResolveOverload(candidates, arguments, Compilation,
-            binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax);
+            binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax ?? leftSyntax);
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous($"operator {OperatorFacts.GetDisplayText(operatorToken)}",
@@ -7279,7 +7352,9 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
         ReportObsoleteIfNeeded(method, leftSyntax.GetLocation());
         var invocation = new BoundInvocationExpression(method,
-            ConvertArguments(method.Parameters, arguments, rightSyntax), left);
+            ConvertArguments(method.Parameters, arguments, rightSyntax ?? leftSyntax), left);
+        if (transform is not null)
+            return transform(invocation);
         // Raven assignments yield unit, including when imported methods return CLI void.
         return new BoundBlockExpression([new BoundExpressionStatement(invocation)],
             Compilation.GetSpecialType(SpecialType.System_Unit));

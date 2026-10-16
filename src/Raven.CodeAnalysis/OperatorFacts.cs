@@ -7,6 +7,7 @@ internal enum OperatorArity
     Unary,
     Binary,
     CompoundAssignment,
+    InstanceIncrement,
 }
 
 internal readonly record struct UserDefinedOperatorInfo(string MetadataName, OperatorArity Arity);
@@ -49,6 +50,12 @@ internal static class OperatorFacts
             return true;
         }
 
+        if (parameterCount == 0 && GetInstanceIncrementMetadataName(operatorToken) is { } incrementName)
+        {
+            info = new UserDefinedOperatorInfo(incrementName, OperatorArity.InstanceIncrement);
+            return true;
+        }
+
         var arity = parameterCount switch
         {
             1 => OperatorArity.Unary,
@@ -78,7 +85,8 @@ internal static class OperatorFacts
         return operatorToken switch
         {
             SyntaxKind.PlusToken or SyntaxKind.MinusToken => "1 or 2",
-            SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken or SyntaxKind.ExclamationToken or SyntaxKind.TildeToken => "1",
+            SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken => "0 or 1",
+            SyntaxKind.ExclamationToken or SyntaxKind.TildeToken => "1",
             _ => "2",
         };
     }
@@ -96,6 +104,13 @@ internal static class OperatorFacts
         SyntaxKind.AmpersandEqualsToken => "op_BitwiseAndAssignment",
         SyntaxKind.BarEqualsToken => "op_BitwiseOrAssignment",
         SyntaxKind.CaretEqualsToken => "op_ExclusiveOrAssignment",
+        _ => null,
+    };
+
+    internal static string? GetInstanceIncrementMetadataName(SyntaxKind token) => token switch
+    {
+        SyntaxKind.PlusPlusToken => "op_IncrementAssignment",
+        SyntaxKind.MinusMinusToken => "op_DecrementAssignment",
         _ => null,
     };
 

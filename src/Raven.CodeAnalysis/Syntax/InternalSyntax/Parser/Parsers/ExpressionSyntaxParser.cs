@@ -1784,11 +1784,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.PlusPlusToken)) // Post-increment
             {
+                if (HasLeadingNewLine(token))
+                    return expr;
                 var operatorToken = ReadToken();
                 expr = PostfixOperatorExpression(SyntaxKind.PostIncrementExpression, expr, operatorToken);
             }
             else if (token.IsKind(SyntaxKind.MinusMinusToken)) // Post-decrement
             {
+                if (HasLeadingNewLine(token))
+                    return expr;
                 var operatorToken = ReadToken();
                 expr = PostfixOperatorExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken);
             }

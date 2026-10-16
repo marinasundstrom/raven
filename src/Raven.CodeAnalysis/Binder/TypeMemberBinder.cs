@@ -1414,7 +1414,9 @@ internal partial class TypeMemberBinder : Binder
         if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct and not TypeKind.Interface)
             _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
-        var isCompound = OperatorFacts.GetCompoundAssignmentMetadataName(operatorDecl.OperatorToken.Kind) is not null;
+        var isCompound = OperatorFacts.GetCompoundAssignmentMetadataName(operatorDecl.OperatorToken.Kind) is not null ||
+            (operatorDecl.ParameterList.Parameters.Count == 0 &&
+             OperatorFacts.GetInstanceIncrementMetadataName(operatorDecl.OperatorToken.Kind) is not null);
         if (isCompound && hasStaticModifier)
             _diagnostics.ReportModifierNotValidOnMember("static", "compound operator", operatorText, operatorDecl.FuncKeyword.GetLocation());
         if (isCompound && IsExtensionContainer)
