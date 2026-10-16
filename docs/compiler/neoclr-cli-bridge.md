@@ -13714,3 +13714,17 @@ method inside Arithmetic now compiles and executes in interpreter/JIT/AOT; the s
 top-level consumer also passes. The ordinary .NET GenericMathEmission regression
 passes unchanged. Imported constrained methods still need a complete authored SDK
 reference contract; that separate boundary is not bypassed by reader fallback.
+
+
+### Imported nominal method bounds (2026-10-16)
+
+Imported static class methods may carry nongeneric nominal interface bounds through
+the symbol-only emission contract. The metadata SDK's CreateMethodReference now
+accepts explicit interfaceBounds; Raven authors them from imported semantic symbols,
+not by reopening dependency reader definitions. Bounds retain parameter ordinals and
+output-owned interface identities; malformed or mismatched SDK contracts reject.
+The separate Complex provider/consumer runs in interpreter/JIT/AOT, and calling the
+imported Add with int reports RAV0320. Existing capability checks still gate other
+method categories. No Runtime Contract configuration or .NET behavior changes;
+no structural constraint support is added. The native dependency snapshot remains
+pinned by the existing hash contract. See neoCLR's numerics-interface qualification.

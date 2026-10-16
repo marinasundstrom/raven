@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-16:** Admit class-contained native generic methods with constraint clauses through the existing callable/signature capability checks. Validate a Complex static Self arithmetic consumer in interpreter/JIT/AOT and retain ordinary .NET generic math behavior. Imported constrained method contracts remain a separate SDK integration slice.
+- **2026-10-16:** Admit class-contained native generic methods with constraint clauses through the existing callable/signature capability checks. Validate a Complex static Self arithmetic consumer in interpreter/JIT/AOT and retain ordinary .NET generic math behavior. Carry imported static class method nominal interface bounds through the SDK symbol-only reference contract. Validate separate-provider Complex calls in interpreter/JIT/AOT and RAV0320 for an invalid imported type argument. No .NET behavior or Runtime Contract switch changes.
 
 - **2026-10-16:** Add Raven.Core `IDictionary<K,V>.Entry(key)` with reusable live MapEntry lookup, insertion and synchronous transformation helpers. Specify callback reentry, failure and non-atomic behavior. Add HashSet/SortedSet GetOrInsert preserving the stored equivalent value; arbitrary ISet lacks the canonical lookup contract. Validate focused .NET 10 binding/runtime tests. No compiler or Runtime Contract change; neoCLR's MutableMap/MutableSet extensions are maintained separately. Carry main 513b24eb6 deliberately onto codex/neoclr, preserving the newer checked-expression work.
 
