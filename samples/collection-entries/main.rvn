@@ -1,0 +1,19 @@
+import System.*
+import System.Collections.Generic.*
+
+func Main() -> int {
+    let map = Dictionary<string, int>()
+    let entry = map.Entry("test")
+    if entry.OrInsert(2) != 2 {
+        return 1
+    }
+    if entry.AndModify(value => value + 1).OrInsert(99) != 3 {
+        return 2
+    }
+    let set = HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    set.GetOrInsert("Test")
+    if set.GetOrInsert("TEST") != "Test" {
+        return 3
+    }
+    return 42
+}

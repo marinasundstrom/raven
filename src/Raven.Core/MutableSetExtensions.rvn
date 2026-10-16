@@ -1,0 +1,37 @@
+namespace System.Collections.Generic
+
+import System.*
+
+/// Returns canonical stored values using the hash set's own equality policy.
+public extension HashSetExtensions<T> for HashSet<T> {
+    /// Returns the stored equivalent value, or inserts and returns the candidate.
+    ///
+    /// @param value The eagerly evaluated candidate.
+    /// @returns The stored equivalent value, preserving its identity, or the candidate.
+    /// @remarks Not atomic or synchronized. Does not replace an equivalent element.
+    func GetOrInsert(value: T) -> T {
+        ArgumentNullException.ThrowIfNull(self)
+        if self.TryGetValue(value, out var stored) {
+            return stored
+        }
+        self.Add(value)
+        return value
+    }
+}
+
+/// Returns canonical stored values using the sorted set's own ordering policy.
+public extension SortedSetExtensions<T> for SortedSet<T> {
+    /// Returns the stored equivalent value, or inserts and returns the candidate.
+    ///
+    /// @param value The eagerly evaluated candidate.
+    /// @returns The stored equivalent value, preserving its identity, or the candidate.
+    /// @remarks Not atomic or synchronized. Does not replace an equivalent element.
+    func GetOrInsert(value: T) -> T {
+        ArgumentNullException.ThrowIfNull(self)
+        if self.TryGetValue(value, out var stored) {
+            return stored
+        }
+        self.Add(value)
+        return value
+    }
+}
