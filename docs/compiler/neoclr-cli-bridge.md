@@ -13324,3 +13324,49 @@ argument/result value carrier, count/type and ref/out validation, fault behavior
 and AOT-compatible dispatch adapters. This does not require event metadata or a
 nominal function superclass. The exact API and invocation semantics remain
 unimplemented and deferred; this proposal does not implicitly approve them.
+
+**Target boundary and later observer direction (author clarification, 2026-10-16):**
+ordinary Raven/.NET behavior remains the default. Native structural function
+categories are neoCLR capabilities, not a reinterpretation of .NET delegates.
+The author intends later event-like infrastructure to use ordinary types, exposed
+through reusable properties, for observer-style subscriptions involving function
+values. This does not introduce event-specific metadata or select subscription,
+unsubscription, invocation or fault policies; those API decisions remain deferred.
+
+**Native constraint import checkpoint (2026-10-16):** Raven now retains the native
+`FunctionType` flag as `TypeParameterConstraintKind.FunctionType`. Shared constraint
+checking rejects nominal delegates, ordinary values, Invoke-shaped objects and
+unconstrained type parameters; a function-constrained parameter can forward to the
+same category. The native metadata adapter owns the flag mapping. Ordinary CLI
+GenericParam flags and .NET function/delegate behavior are unchanged. No Runtime
+Contract setting or CLI transport encoding is added. Source `where T: func` and
+reliable concrete structural-function symbol identity remain pending; this is an
+import/semantic safeguard, not end-to-end source support. Native emission of these
+constrained owners remains gated. Invocation/event APIs remain deferred.
+
+Validation: Raven's `NeoClrMetadataProbe --function-constraint-import <Core.dll>`
+reproduced the erased flag before the change and passed after it, using SDK
+`9d1371aaa` and the retained `variance-argument-sequence-20261016/Core.dll` bootstrap.
+The focused existing .NET/function-transport and generic-constraint regression
+tests passed 12/12 on net11.0. This checkpoint exercises metadata and diagnostics, not a newly executable
+function-list API. Existing native interpreter/AOT/JIT evidence is unchanged.
+
+**Signature-bound direction (author examples, 2026-10-16):** neoCLR should also
+support function types as generic arguments and constraints describing a known
+signature, beyond the unconstrained function category. The author gave:
+
+```raven
+func Foo<T>(f: () -> T) -> T
+
+func Foo<T, T2>(f: T) -> T2
+    where T: () -> T2
+```
+
+These are signature sketches, not currently enabled constraint syntax. In the
+second form the proposed bound supplies a zero-argument signature returning `T2`,
+so a future compiler can type-check `f()` without reflective invocation. In
+contrast, `where T: func` supplies no parameter/result structure. Exact-signature
+versus safe variance matching, inference of `T2`, constraint entailment, native
+bound metadata and generic call lowering still need design and validation.
+This direction is neoCLR-specific; it does not change ordinary Raven/.NET
+function/delegate binding. It does not settle the deferred observer/invocation API.

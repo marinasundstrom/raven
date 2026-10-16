@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-16 (feature-branch direction):** Record `where T: func` as a proposed native structural-function category constraint for function lists/signals. Nominal delegates are excluded. Invocation/event APIs are postponed; syntax is not enabled pending distinct structural function symbols through the native bridge.
+- **2026-10-16:** Preserve native function-kind constraints in Raven imports and reject invalid generic arguments instead of silently erasing the constraint. The proposed `where T: func` syntax and concrete function identity remain pending on `codex/function-kind-constraint`; ordinary .NET semantics are unchanged. Record the author’s target distinction, deferred property-exposed observer-type direction, and proposed function-signature bounds.
 
 - **2026-10-16:** Document native AOT/JIT reference/value/default-constructor type-constraint qualification and source metadata retention. Native imports now retain reference/value/default-constructor flags and nongeneric nominal class bounds in semantic symbols and emit explicit SDK dependency contracts. Check abstractness and public parameterless constructors, preserve nominal subtype identity, and qualify a separate-provider consumer plus invalid-argument diagnostics. Other constraint profiles remain gated. Runtime Contract settings are unchanged; structural types stay parked.
 

@@ -730,3 +730,23 @@ VarianceConsumer.dll, preserving explicit native `in`/`out` annotations across t
 assembly boundary. It checks symbol flags, reverse/invariant/value-argument rejection
 and unsafe declaration emission. The consumer's success result is 42. Runtime/native
 backend qualification is separate from this emission probe.
+
+### Native function constraint import (feature branch, 2026-10-16)
+
+`--function-constraint-import <Core.dll>` builds a native SDK fixture with
+`Signal<T>` constrained to the structural function category, then imports it into
+Raven. It checks retained `TypeParameterConstraintKind.FunctionType`, constrained
+symbolic forwarding, rejection of unconstrained parameters, and RAV0320 for `int`,
+nominal `Func`/`Action`, and an object with `Invoke`. An unconstrained generic owner
+is the positive control. This does not qualify source `where T: func` or concrete
+structural-function identity through the bridge; those remain pending.
+
+Validated with neoCLR `9d1371aaa` and the retained
+`target/variance-argument-sequence-20261016/Core.dll` bootstrap:
+
+```sh
+dotnet run --project tools/NeoClrMetadataProbe \
+  -p:NeoClrMetadataProject=/path/to/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/NeoCLR.Metadata.Experimental.csproj \
+  --property WarningLevel=0 -- \
+  --function-constraint-import /path/to/Core.dll
+```

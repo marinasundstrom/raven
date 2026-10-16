@@ -1551,6 +1551,9 @@ internal abstract partial class Binder
                 return false;
             }
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+                return false;
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
                 !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
@@ -2162,6 +2165,12 @@ internal abstract partial class Binder
                 allSatisfied = false;
             }
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "func", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
@@ -2355,6 +2364,12 @@ internal abstract partial class Binder
                 (constraintKind & TypeParameterConstraintKind.AllowByRefLike) == 0)
             {
                 ReportConstraintViolation(typeArgument, "non-ref-like", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "func", typeParameter, displayName, getArgumentLocation(i));
                 allSatisfied = false;
             }
 

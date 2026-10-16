@@ -726,6 +726,8 @@ public enum TypeParameterConstraintKind
     NotNull = 1 << 3,
     Constructor = 1 << 4,
     AllowByRefLike = 1 << 5,
+    /// <summary>A native neoCLR structural function signature; nominal delegates do not satisfy this constraint.</summary>
+    FunctionType = 1 << 6,
 }
 
 public enum VarianceKind

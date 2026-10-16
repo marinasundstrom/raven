@@ -67,6 +67,10 @@ public static class SemanticFacts
         return false;
     }
 
+    internal static bool SatisfiesFunctionTypeConstraint(ITypeSymbol type) =>
+        type is SynthesizedDelegateTypeSymbol { IsNativeTransport: true } ||
+        type is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType);
+
     public static bool SatisfiesConstraints(
         this ITypeSymbol? typeArgument,
         ITypeParameterSymbol? typeParameter)
@@ -84,6 +88,9 @@ public static class SemanticFacts
         {
             return false;
         }
+
+        if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SatisfiesFunctionTypeConstraint(typeArgument))
+            return false;
 
         if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
             !SatisfiesReferenceTypeConstraint(typeArgument))

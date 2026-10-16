@@ -74,6 +74,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Contravariant => VarianceKind.In,
                 _ => VarianceKind.None
             }, specialConstraints:
+                (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.FunctionType) ? TypeParameterConstraintKind.FunctionType : TypeParameterConstraintKind.None) |
                 (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.ReferenceType) ? TypeParameterConstraintKind.ReferenceType : TypeParameterConstraintKind.None) |
                 (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.ValueType) ? TypeParameterConstraintKind.ValueType : TypeParameterConstraintKind.None) |
                 (parameter.SpecialConstraints.HasFlag(TypeParameterConstraints.DefaultConstructor) ? TypeParameterConstraintKind.Constructor : TypeParameterConstraintKind.None)))];

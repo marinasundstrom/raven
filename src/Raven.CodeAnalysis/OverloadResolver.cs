@@ -1484,6 +1484,12 @@ internal sealed class OverloadResolver
             var typeArgument = typeArguments[i];
             var constraintKind = typeParameter.ConstraintKind;
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                constraintFailure = CreateConstraintFailure(method, typeArgument, "func", typeParameter);
+                return false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
                 !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
