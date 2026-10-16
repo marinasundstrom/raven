@@ -66,3 +66,11 @@ loop {
 
 Continue with [data modeling](data-modeling.md) when values need domain types,
 or [patterns](patterns.md) when a decision depends on a value's shape.
+
+## In-place compound operators
+
+Development Raven supports `func +=(amount: int)` on a class or struct to mutate
+an existing value. Applicable explicit compound operators take precedence over
+binary-operator fallback for writable variables. See
+[compound operator declarations](../spec/parameters-overloading-and-operators.md#explicit-compound-operators)
+for supported tokens, examples and current boundaries.

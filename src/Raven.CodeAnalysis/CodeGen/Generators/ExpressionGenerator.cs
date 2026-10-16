@@ -7386,6 +7386,10 @@ internal partial class ExpressionGenerator : Generator
                     return true;
                 }
 
+            case BoundArrayAccessExpression arrayAccess:
+                EmitArrayElementAddress(arrayAccess);
+                return true;
+
             case BoundFieldAccess fieldAccess:
                 return TryEmitInvocationReceiverAddress(new BoundMemberAccessExpression(
                     fieldAccess.Receiver ?? new BoundSelfExpression(fieldAccess.Field.ContainingType!), fieldAccess.Field));

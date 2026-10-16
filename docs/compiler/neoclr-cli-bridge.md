@@ -13566,3 +13566,22 @@ Integration checks passed: 62 focused Raven syntax/semantic/runtime tests, the h
 SDK function-kind authoring/import/introspection checks, the reference fingerprint
 check and four native API snapshot checks. No code or public signature changed
 during integration, so the retained interpreter/JIT/AOT consumers were not rerun.
+
+
+## Compound operators (2026-10-16)
+
+Shared Raven main `7819e2fea` adds explicit instance compound assignment, carried
+deliberately to `codex/neoclr`. Native planning and call lowering use ordinary
+instance-method metadata, preserving `op_AdditionAssignment` and the other standard
+names. There is no temporary CLI carrier or new Runtime Contract switch. CLI output
+uses special-name instance methods returning void; native output uses native method
+signatures and normal calls. The SDK now exposes existing native `ldelema` so mutable
+struct array receivers can retain storage identity. This requires neoCLR metadata SDK
+`1b4561f3b` or later (selected with `NeoClrMetadataProject`).
+
+The local consumer passes interpreter/JIT/AOT for class/reference-array and struct
+local cases. Struct arrays pass the interpreter but AOT rejects allocation; that
+backend gap remains explicit. .NET's 70 focused tests include an imported library.
+Checked forms, extension/interface/virtual declarations and missing remainder/shift
+compound tokens remain future work. See [lowering and limits](compound-operators.md)
+and neoCLR's `docs/validation/compound-operators` for commands and evidence.

@@ -6,6 +6,13 @@ public static partial class SyntaxFacts
 {
     private static readonly HashSet<SyntaxKind> s_overloadableOperatorTokens = new()
     {
+        SyntaxKind.PlusEqualsToken,
+        SyntaxKind.MinusEqualsToken,
+        SyntaxKind.StarEqualsToken,
+        SyntaxKind.SlashEqualsToken,
+        SyntaxKind.AmpersandEqualsToken,
+        SyntaxKind.BarEqualsToken,
+        SyntaxKind.CaretEqualsToken,
         SyntaxKind.PlusToken,
         SyntaxKind.PlusPlusToken,
         SyntaxKind.MinusToken,

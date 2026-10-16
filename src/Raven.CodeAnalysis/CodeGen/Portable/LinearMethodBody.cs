@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1045,6 +1045,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 {
                     BoundParenthesizedExpression parenthesized => Receiver(parenthesized.Expression, owner, syntax),
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
+                    BoundArrayAccessExpression array => ArrayElementAddress(array),
                     BoundParameterAccess parameter => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess { Field.IsReadOnly: true } field => TemporaryReceiver(field, syntax),
@@ -1149,6 +1150,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             Add(InstanceCallKind(getOffset), Syntax(access), method: getOffset);
             return true;
         }
+        bool ArrayElementAddress(BoundArrayAccessExpression access)
+        {
+            if (capabilities?.AllowsManagedReferences != true ||
+                !capabilities.Allows(LinearInstructionKind.ElementAddress))
+                return Reject("target does not support array element addresses", Syntax(access));
+            if (!ArrayReceiverAndIndex(access)) return false;
+            instructions.Add(new(LinearInstructionKind.ElementAddress, Syntax(access), Type: access.ElementType));
+            return true;
+        }
+
         bool ArrayLiteral(IArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
         {
             var elements = values.ToArray();
@@ -1959,7 +1970,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
-                     call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && SupportedInstanceCall(call.Method)):
+                     call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.UserDefinedOperator) && SupportedInstanceCall(call.Method)):
                     if (!TrySignature(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
                         !SupportedTypeArguments(call.Method)))

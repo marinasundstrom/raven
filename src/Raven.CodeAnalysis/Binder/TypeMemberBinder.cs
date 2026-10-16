@@ -1414,7 +1414,22 @@ internal partial class TypeMemberBinder : Binder
         if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct and not TypeKind.Interface)
             _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
-        if (!hasStaticModifier)
+        var isCompound = OperatorFacts.GetCompoundAssignmentMetadataName(operatorDecl.OperatorToken.Kind) is not null;
+        if (isCompound && hasStaticModifier)
+            _diagnostics.ReportModifierNotValidOnMember("static", "compound operator", operatorText, operatorDecl.FuncKeyword.GetLocation());
+        if (isCompound && IsExtensionContainer)
+            _diagnostics.ReportOperatorNotSupportedInExtensions(operatorText, operatorDecl.FuncKeyword.GetLocation());
+        if (isCompound && _containingType.TypeKind == TypeKind.Interface)
+            _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.FuncKeyword.GetLocation());
+        if (isCompound && _containingType.IsStatic)
+            _diagnostics.ReportStaticClassCannotContainInstanceMember(_containingType.Name, operatorText, operatorDecl.FuncKeyword.GetLocation());
+        if (isCompound)
+        {
+            foreach (var modifier in operatorDecl.Modifiers.Where(m => m.Kind is SyntaxKind.OpenKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AbstractKeyword))
+                _diagnostics.ReportModifierNotValidOnMember(modifier.Text, "compound operator", operatorText, modifier.GetLocation());
+        }
+
+        if (!isCompound && !hasStaticModifier)
             _diagnostics.ReportOperatorMustBeStatic(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
         if (operatorAccessibility != Accessibility.Public)
@@ -1447,7 +1462,7 @@ internal partial class TypeMemberBinder : Binder
             CurrentNamespace!.AsSourceNamespace(),
             [operatorDecl.GetLocation()],
             [operatorDecl.GetReference()],
-            isStatic: true,
+            isStatic: !isCompound,
             methodKind: MethodKind.UserDefinedOperator,
             isAbstract: _containingType.TypeKind == TypeKind.Interface && operatorDecl.Body is null && operatorDecl.ExpressionBody is null,
             declaredAccessibility: operatorAccessibility);
@@ -1464,12 +1479,18 @@ internal partial class TypeMemberBinder : Binder
             ? defaultReturnType
             : ResolveTypeSyntaxForSignature(operatorBinder, operatorDecl.ReturnType.Type, RefKind.None);
 
+        if (isCompound && returnType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void)
+            _diagnostics.ReportCompoundOperatorMustReturnUnit(operatorText, operatorDecl.ReturnType!.GetLocation());
+
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in operatorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
+
+            if (isCompound && refKind != RefKind.None)
+                _diagnostics.ReportCompoundOperatorParameterMustBeValue(operatorText, p.GetLocation());
 
             var pType = ResolveParameterTypeSyntaxForSignature(operatorBinder, typeSyntax, refKind);
             pType = NormalizeVarParamsParameterType(

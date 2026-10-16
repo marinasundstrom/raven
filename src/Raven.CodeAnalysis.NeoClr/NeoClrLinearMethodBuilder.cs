@@ -49,6 +49,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.DefaultValue: method.LoadDefault(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.Duplicate: method.Duplicate(); break;
             case LinearInstructionKind.NewArray: method.NewArray(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
+            case LinearInstructionKind.ElementAddress: method.Emit(OpCode.Ldelema, NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.LoadElement: method.LoadArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.StoreElement: method.StoreArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.ArrayLength: method.LoadArrayLength(); break;

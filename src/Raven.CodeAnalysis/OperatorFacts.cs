@@ -6,6 +6,7 @@ internal enum OperatorArity
 {
     Unary,
     Binary,
+    CompoundAssignment,
 }
 
 internal readonly record struct UserDefinedOperatorInfo(string MetadataName, OperatorArity Arity);
@@ -40,6 +41,14 @@ internal static class OperatorFacts
     {
         info = default;
 
+        if (GetCompoundAssignmentMetadataName(operatorToken) is { } compoundName)
+        {
+            if (parameterCount != 1)
+                return false;
+            info = new UserDefinedOperatorInfo(compoundName, OperatorArity.CompoundAssignment);
+            return true;
+        }
+
         var arity = parameterCount switch
         {
             1 => OperatorArity.Unary,
@@ -63,6 +72,9 @@ internal static class OperatorFacts
 
     public static string GetExpectedParameterCountDescription(SyntaxKind operatorToken)
     {
+        if (GetCompoundAssignmentMetadataName(operatorToken) is not null)
+            return "1";
+
         return operatorToken switch
         {
             SyntaxKind.PlusToken or SyntaxKind.MinusToken => "1 or 2",
@@ -70,6 +82,18 @@ internal static class OperatorFacts
             _ => "2",
         };
     }
+
+    internal static string? GetCompoundAssignmentMetadataName(SyntaxKind operatorToken) => operatorToken switch
+    {
+        SyntaxKind.PlusEqualsToken => "op_AdditionAssignment",
+        SyntaxKind.MinusEqualsToken => "op_SubtractionAssignment",
+        SyntaxKind.StarEqualsToken => "op_MultiplicationAssignment",
+        SyntaxKind.SlashEqualsToken => "op_DivisionAssignment",
+        SyntaxKind.AmpersandEqualsToken => "op_BitwiseAndAssignment",
+        SyntaxKind.BarEqualsToken => "op_BitwiseOrAssignment",
+        SyntaxKind.CaretEqualsToken => "op_ExclusiveOrAssignment",
+        _ => null,
+    };
 
     private static string? GetUnaryMetadataName(SyntaxKind operatorToken) => operatorToken switch
     {

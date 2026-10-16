@@ -919,6 +919,13 @@ public static partial class SymbolExtensions
 
         var token = name switch
         {
+            "op_AdditionAssignment" => "+=",
+            "op_SubtractionAssignment" => "-=",
+            "op_MultiplicationAssignment" => "*=",
+            "op_DivisionAssignment" => "/=",
+            "op_BitwiseAndAssignment" => "&=",
+            "op_BitwiseOrAssignment" => "|=",
+            "op_ExclusiveOrAssignment" => "^=",
             "op_Addition" => "+",
             "op_Subtraction" => "-",
             "op_Multiply" => "*",

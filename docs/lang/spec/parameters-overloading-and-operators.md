@@ -121,6 +121,51 @@ conditional bindings and type patterns remain the preferred way to introduce a
 usable non-null binding. Pointer-like
 comparisons are excluded from that recommendation.
 
+## Explicit compound operators
+
+Classes and structs can customize in-place compound assignment:
+
+```raven
+class Counter {
+    public var Value: int = 0
+
+    func +=(amount: int) {
+        Value = Value + amount
+    }
+}
+
+var counter = Counter()
+let alias = counter
+counter += 42 // alias.Value is now 42; counter was not replaced
+```
+
+The initial implementation supports `+=`, `-=`, `*=`, `/=`, `&=`, `|=` and `^=`.
+These are public instance operators with exactly one by-value parameter and a
+unit return type (omit the arrow or write `-> ()`). `static` and non-unit results
+are errors. The RHS need not have the receiver's type. Normal implicit argument
+conversions and overload ambiguity rules apply.
+
+For a writable local, parameter, field or array element, an applicable explicit
+compound operator takes precedence over binary-operator fallback. The receiver
+and RHS are each evaluated once. Reference receivers preserve object identity;
+value receivers are mutated in their storage. Immutable bindings remain invalid
+assignment targets. If no explicit compound candidate is applicable, Raven uses
+its existing binary operator and assignment path. Ambiguity is an error, not a
+reason to fall back. Ordinary properties and indexers retain the binary-operation
+and setter path; a getter result is not an addressable variable.
+
+This follows the [C# 14 in-place compound operator model](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-14.0/user-defined-compound-assignment).
+Raven keeps its existing unit-valued assignment expressions; it does not introduce
+C#'s receiver-valued assignment result. Binary operators remain independent and
+need not be declared alongside compound operators.
+
+Current boundaries: extension and interface compound declarations, virtual/override
+compound operators, checked operator variants, and instance increment/decrement
+operators are not provided by this slice. Remainder and shift compound tokens need
+separate lexer/parser support. These are implementation gaps, not permanent target
+restrictions. No Runtime Contract switch is needed. See the
+[compiler lowering contract](../../compiler/compound-operators.md).
+
 ## Invocation operator
 
 An invocation operator makes an object callable. This is useful for objects

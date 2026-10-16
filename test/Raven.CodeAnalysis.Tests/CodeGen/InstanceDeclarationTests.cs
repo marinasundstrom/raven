@@ -7,6 +7,29 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class InstanceDeclarationTests
 {
+    [Fact]
+    public void CompoundOperator_UsesInstanceDeclarationCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Counter {
+                func +=(amount: int) {}
+            }
+            """);
+        var compilation = Compilation.Create("CompoundPlan", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<OperatorDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.Equal(EmissionDeclarationKind.InstanceMethod, plan!.DeclarationKind);
+        Assert.Equal(1, plan.Signature.ParameterCount);
+        Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure,
+            ReflectionEmitCapabilities.Shared), failure?.Detail);
+        var denied = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.StaticMethod], methodVisibilities: [Accessibility.Public]);
+        Assert.False(SourceCallablePlan.TryCreate(symbol, out _, denied));
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]

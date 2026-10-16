@@ -88,7 +88,7 @@ internal sealed record SourceCallablePlan(
         plan = null;
         if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } && !IsClassVirtualSlot(symbol, capabilities) ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
-        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
+        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.UserDefinedOperator) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
             (!(IsRootSlot(symbol) && capabilities?.Allows(EmissionDeclarationKind.ObjectRootSlot) == true) &&
              (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true)) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
@@ -157,7 +157,8 @@ internal sealed record SourceCallablePlan(
                 plan = new(symbol, syntax, (SyntaxNode?)conversion.Body ?? conversion.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
-            case OperatorDeclarationSyntax op when symbol.IsStatic && symbol.MethodKind == MethodKind.UserDefinedOperator:
+            case OperatorDeclarationSyntax op when symbol.MethodKind == MethodKind.UserDefinedOperator &&
+                (symbol.IsStatic || OperatorFacts.GetCompoundAssignmentMetadataName(op.OperatorToken.Kind) is not null):
                 plan = new(symbol, syntax, (SyntaxNode?)op.Body ?? op.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
