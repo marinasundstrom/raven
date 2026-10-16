@@ -738,8 +738,8 @@ backend qualification is separate from this emission probe.
 Raven. It checks retained `TypeParameterConstraintKind.FunctionType`, constrained
 symbolic forwarding, rejection of unconstrained parameters, and RAV0320 for `int`,
 nominal `Func`/`Action`, and an object with `Invoke`. An unconstrained generic owner
-is the positive control. This does not qualify source `where T: func` or concrete
-structural-function identity through the bridge; those remain pending.
+is the positive control. Source class/function constraints and concrete structural
+function identity are now separately qualified by the native consumer.
 
 Validated with neoCLR `9d1371aaa` and the retained
 `target/variance-argument-sequence-20261016/Core.dll` bootstrap:
@@ -751,8 +751,9 @@ dotnet run --project tools/NeoClrMetadataProbe \
   --function-constraint-import /path/to/Core.dll
 ```
 
-The function-constraint probe also accepts an imported structural function argument
-and checks that a semantically valid function-constrained method fails with
-NEOMETA001 and produces no native image. Method-level emission remains a separate
-gap; native generic-class constraints are qualified by neoCLR's retained Raven
-function-kind consumer.
+The function-constraint probe also emits a source function-constrained method,
+checks the native flag in its output, emits a forwarding call to a separately
+built native provider and rejects integer/unconstrained arguments. This extension
+uses neoCLR SDK `435c5fa54`; native execution uses backend `25a9bf3f7`.
+The matching retained Raven consumer is in neoCLR's
+`docs/validation/function-kind-constraint/raven`, including interpreter/AOT/JIT.

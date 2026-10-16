@@ -1374,6 +1374,8 @@ internal static class Int32Emitter
                     throw Unsupported("experimental callable requires its exact semantic snapshot");
                 var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
                     ?? throw Unsupported("native callable definition unavailable");
+                if (definition.SpecialConstraints.Count != 0)
+                    return assembly.ImportReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
                 if (definition.TypeConstraints.Any(c => NeoClrMetadataReference.ContainsComposition(c.Bound)))
                     return assembly.ImportExperimentalConstrainedReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
                 if (definition.TryGetSignature(out var raw) && raw!.ParameterTypes.Append(raw.ReturnType).Any(NeoClrMetadataReference.ContainsComposition))

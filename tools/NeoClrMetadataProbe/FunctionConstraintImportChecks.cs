@@ -17,6 +17,9 @@ internal static class FunctionConstraintImportChecks
         var builder = new AssemblyBuilder(new("FunctionConstraintImport", new(1, 0, 0, 0)), core);
         builder.AddGenericClass("Example", "Signal", ["T"]).SetSpecialConstraints(0, TypeParameterConstraints.FunctionType);
         builder.AddGenericClass("Example", "Unconstrained", ["T"]);
+        var keep = builder.AddFunction("Keep", new(SignatureType.MethodParameter(0), [SignatureType.MethodParameter(0)], ["F"]));
+        keep.SetSpecialConstraints(0, TypeParameterConstraints.FunctionType);
+        keep.LoadArgument(0); keep.Return();
         var reference = NeoClrMetadataReference.ReadAssembly(NativeModuleContainer.WriteLibraryBinary(builder), bootstrap);
         Compilation Create(string source) => Compilation.Create("Consumer", [SyntaxTree.ParseText(source)],
             [bootstrap.Reference, reference],
@@ -48,8 +51,18 @@ internal static class FunctionConstraintImportChecks
         using var methodImage = new MemoryStream();
         var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(method, methodImage,
             new(new("Consumer", new(1, 0, 0, 0)), core, [new(reference, core)]));
-        Check(!emitted.Success && methodImage.Length == 0 && emitted.Diagnostics.Any(d => d.Id == "NEOMETA001"),
-            "unsupported method constraint was silently erased or failed for unrelated configuration: " + string.Join("; ", emitted.Diagnostics));
+        Check(emitted.Success && methodImage.Length > 0,
+            "method constraint emission failed: " + string.Join("; ", emitted.Diagnostics));
+        var emittedDefinition = AssemblyDefinition.ReadNativeAssembly(methodImage.ToArray()).MainModule.Functions.Single(f => f.Name == "Keep");
+        Check(emittedDefinition.SpecialConstraints[0] == TypeParameterConstraints.FunctionType, "emitted method constraint erased");
+        var importedMethod = Create("func Forward<F>(f: F) -> F where F: func => Keep<F>(f)");
+        Check(!importedMethod.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "imported function constraint forwarding failed");
+        using var consumerImage = new MemoryStream();
+        var consumerEmit = NeoClrCompilationEmitter.EmitMetadataAssembly(importedMethod, consumerImage,
+            new(new("Consumer", new(1, 0, 0, 0)), core, [new(reference, core)]));
+        Check(consumerEmit.Success, "imported constrained method emission failed: " + string.Join("; ", consumerEmit.Diagnostics));
+        foreach (var source in new[] { "func Bad() -> int => Keep<int>(42)", "func Bad<F>(f: F) -> F => Keep<F>(f)" })
+            Check(Create(source).GetDiagnostics().Any(d => d.Id == "RAV0320"), "imported method constraint not enforced");
         var ordinary = Create("func Accept(value: Example.Unconstrained<int>) -> int => 42");
         Check(!ordinary.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "unconstrained import regressed: " + string.Join("; ", ordinary.GetDiagnostics()));
         Console.WriteLine("PASS native function constraint import, symbolic forwarding and invalid argument diagnostics");

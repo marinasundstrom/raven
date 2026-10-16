@@ -28,6 +28,8 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             : owner.AddInstanceMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility);
         foreach (var parameter in plan.Symbol.TypeParameters)
         {
+            if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
+                method.SetSpecialConstraints(parameter.Ordinal, TypeParameterConstraints.FunctionType);
             var constraints = parameter.ConstraintTypes;
             // Raven's source intersection constraints are represented as conjunctive bounds.
             if (structuralConstraints && constraints.Length > 1 && constraints.All(t => t is INamedTypeSymbol))

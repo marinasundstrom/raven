@@ -13437,3 +13437,29 @@ slot returns 42 in interpreter, AOT with UBSan/bounds, and managed JIT.
 The retained source bundle is `variance-argument-sequence-20261016`. No website
 build or guest API snapshot refresh was needed: this adds compiler syntax and
 native metadata mapping, not a new guest class-library API.
+
+
+### Native method function-category constraints (2026-10-16)
+
+The native adapter now enables `AllowsMethodFunctionTypeConstraints` explicitly;
+other targets keep the default disabled. A standalone `where F: func` emits native
+`FunctionType` on the method parameter. Native method import preserves that flag
+in semantic symbols and uses the exact dependency snapshot to create the SDK
+call contract. Concrete structural functions and constrained method-parameter
+forwarding are admitted; primitive, nominal delegate and unconstrained arguments
+reject. Runtime Contract configuration and ordinary .NET behavior are unchanged.
+There is no CLI encoding: the SDK rejects projection of this native requirement.
+
+Validated with host SDK `435c5fa54` and backend `25a9bf3f7`. The import probe verifies
+source emission, metadata retention, imported forwarding and negative diagnostics.
+The separately compiled Raven provider exports `Keep<F>`; the consumer forwards
+a bound `(int) -> int` callback through it, preserving the receiver state and
+returning 42 in interpreter, AOT with UBSan/bounds, and managed JIT. Three invalid
+class/method arguments reject with RAV0320. The retained bundle is
+`variance-argument-sequence-20261016`; evidence lives in neoCLR's
+`docs/validation/function-kind-constraint/raven/results.json`.
+
+Function-signature bounds (`where F: () -> T`), signature-based invocation/inference,
+class-parameter forwarding into constrained generic methods and arbitrary combined
+method-bound imports remain separate gaps. No event or reflection invocation API
+is introduced. Broader structural work stays parked.

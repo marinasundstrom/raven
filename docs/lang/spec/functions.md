@@ -616,7 +616,9 @@ emission by this feature. No reflection invocation or observer API is introduced
 The parser exposes `FunctionConstraintSyntax.FuncKeyword`; semantic symbols retain
 `TypeParameterConstraintKind.FunctionType`. Ordinary Raven/.NET rejects this
 constraint with RAV0365 instead of substituting a nominal Delegate bound. Native
-emission currently supports generic class type parameters; function-constrained
-methods bind semantically but remain rejected by native emission rather than
-losing their contract. This feature is on `codex/function-kind-constraint`, not the
+emission supports generic class parameters and generic function/method parameters.
+For example, `func Keep<F>(callback: F) -> F where F: func => callback`
+preserves the category through separate native providers. A caller may forward a
+method parameter carrying the same requirement; arbitrary class-parameter forwarding
+into a constrained generic method is not yet qualified. This feature is on `codex/function-kind-constraint`, not the
 normal Raven/.NET language profile. Existing .NET function mappings are unchanged.

@@ -158,6 +158,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             return TryType(type, result, out value, capabilities);
         }
         bool UnsupportedConstraint(ITypeParameterSymbol parameter) =>
+            !(capabilities?.AllowsMethodFunctionTypeConstraints == true && parameter.ConstraintKind == TypeParameterConstraintKind.FunctionType && parameter.ConstraintTypes.IsEmpty) &&
             (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
             (capabilities?.AllowsMethodInterfaceBounds != true ||
              (parameter.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) != 0 ||
