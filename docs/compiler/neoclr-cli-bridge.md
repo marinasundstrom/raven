@@ -12841,3 +12841,32 @@ Contract settings, native/CLI encoding and Raven lowering are unchanged. The
 bundle remains `variance-argument-sequence-20261016`; Result and Sliceable remain
 invariant. Retained commands and hashes are in neoCLR's imported-base validation
 folder. Intrinsic String variance remains a separate implementation gap.
+
+### Intrinsic String variance (2026-10-16)
+
+neoCLR `1d52a70fd` supports String as a reference argument in nominal interface
+variance. Producer<string> widens to Producer<Object> or Producer<Iterable<char>>;
+corresponding consumers narrow to Consumer<string>. The SDK follows explicitly
+registered String/interface relationships, including imported native declarations.
+There is no duck typing or value boxing. Result and Sliceable remain invariant.
+
+Runtime dispatch adapts String arguments and successful results at the contract
+boundary. The interpreter uses ordinary heap-budgeted view handles sharing the
+UTF-8 owner. AOT/JIT reuse the null-preserving tagged text pointer without a wrapper
+allocation or payload copy. Native specialization retains private String conformance;
+external serialized metadata cannot provide those facts. Native String iteration
+uses the existing UTF-8/character bindings and matching native text archive.
+
+Nullable reference cases exposed a general Raven conversion bug. Main correction
+`f8679d6f3` was carried independently as `e17fb32c4`; 51 focused conversion tests
+pass on each branch. Safe nullable widening is admitted and implicit loss of
+nullability rejects. Raven lowering, Runtime Contract settings and CLI/native
+metadata encodings remain unchanged; runtime generic arguments remain reified.
+
+The rebuilt compiler and unchanged `variance-argument-sequence-20261016` bundle
+pass one separately compiled consumer in interpreter, AOT and managed JIT. Ordinary
+and nullable calls preserve identity; nominal interface calls iterate UTF-8 text.
+Six reverse/unrelated/value-boxing/nullability conversions reject. Native cleanup
+and AOT sanitizer checks pass. The reproducible runner, sources and artifact hashes
+are retained in neoCLR's `docs/validation/interface-variance/strings/` directory.
+Structural work remains parked.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Qualify String interface variance against neoCLR 1d52a70fd in interpreter/AOT/JIT. Object and nominal Iterable<char> views preserve identity; nullable calls and six source rejections pass with native cleanup/sanitizer checks. Document interpreter view-handle costs and native pointer adaptation; Runtime Contract and metadata encoding are unchanged.
+
 - **2026-10-16:** Carry main f8679d6f3 nullable reference variance correction to the neoCLR compiler line. Accept safe covariant/contravariant nullable views and reject loss of nullability; value boxing stays excluded. Runtime Contract and emitted metadata are unchanged.
 
 - **2026-10-16:** Document neoCLR 08330946a retaining closed array conformance for native interface variance. Producer/consumer int[] and Iterable<int> views pass interpreter/AOT/JIT with identity, iterator calls and cleanup checks; no Raven lowering or encoding change.
