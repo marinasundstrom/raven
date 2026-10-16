@@ -56,13 +56,18 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.IsValueType) return plan.Symbol.Arity > 0
             ? assembly.AddGenericValueType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
             : assembly.AddValueType(plan.Namespace, plan.Name, visibility);
-        if (plan.Symbol.Arity > 0) return plan.IsStatic
+        if (plan.Symbol.Arity > 0)
+        {
+            var generic = plan.IsStatic
             ? assembly.AddGenericType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
             : plan.ClassBase is { } genericBase
                 ? genericBase.Arity == 0 && SymbolEqualityComparer.Default.Equals(genericBase.ContainingAssembly, plan.Symbol.ContainingAssembly)
                     ? assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), resolveOwner(genericBase), visibility)
                     : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
                 : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);
+            if (plan.Symbol.IsAbstract && !plan.IsStatic) generic.SetAbstractClass();
+            return generic;
+        }
         TypeBuilder DefineDerived(INamedTypeSymbol baseType)
         {
             if (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, plan.Symbol.ContainingAssembly))

@@ -1398,7 +1398,7 @@ internal static class Int32Emitter
                     return assembly.CreateObjectSlotReference(symbol.MetadataName, contract);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: HasNativePrimitiveStorage(owner.SpecialType) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
                     ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null, visibility: symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected ? MethodVisibility.Protected : MethodVisibility.Public,
-                    isVirtual: owner.TypeKind == TypeKind.Class && (owner.Arity == 0 || bodyCapabilities.AllowsGenericClassVirtualSlots && !symbol.IsAbstract) && (symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract),
+                    isVirtual: owner.TypeKind == TypeKind.Class && (owner.Arity == 0 || bodyCapabilities.AllowsGenericClassVirtualSlots && (!symbol.IsAbstract || bodyCapabilities.AllowsAbstractGenericClasses)) && (symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract),
                     isAbstract: owner.TypeKind == TypeKind.Class && symbol.IsAbstract);
             }
             // A native callable must carry a complete supported semantic contract.

@@ -13183,3 +13183,27 @@ sanitizers. The focused compiler tests verify that admission requires the explic
 capability. Generic virtual methods, abstract generic class authoring, generic
 Object overrides and broader constrained dependency imports remain separate gaps.
 Structural types and Sliceable/Result variance remain parked.
+
+### Raven and imported abstract generic bases (2026-10-16)
+
+The native adapter now opts into `AllowsAbstractGenericClasses`, a default-off
+shared planning capability. It marks generic class definitions abstract before
+attaching their bodyless slots. Imported native abstract methods preserve virtual
+and abstract flags on generic owner definitions; constructed call references retain
+exact owner arguments. SDK `CreateMethodReference` now accepts these abstract
+class contracts, while direct calls to them remain rejected. Explicit calls to
+concrete base methods remain direct. There is no erased generic information or
+new Runtime Contract configuration, metadata encoding or runtime ABI.
+
+This follows .NET nominal abstract-class semantics: concrete children must provide
+compatible implementations after base-argument substitution; abstract owners
+cannot be instantiated. SDK rejection checks and the focused Raven capability/CLR
+tests cover these boundaries. The retained `generic-class-virtual/raven` runner
+supports `--abstract`, both locally and with `--imported`; consumers exercise
+`Derived<Unused,T>` and a consumer-owned override over `Base<T>`, abstract calls,
+concrete base calls, integer/reference payloads and identity. Interpreter, AOT and
+managed JIT return 42, including native cleanup and AOT sanitizers on macOS ARM64.
+This is development support on Raven `codex/neoclr` with the matching NeoCLR main
+SDK/runtime, not a Raven-main merge. Generic virtual methods, generic closed
+hierarchies and broader constrained dependency imports remain separate work.
+Structural types and Sliceable/Result variance stay parked.

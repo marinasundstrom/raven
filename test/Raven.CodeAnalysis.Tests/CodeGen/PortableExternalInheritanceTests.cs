@@ -187,4 +187,43 @@ public class PortableExternalInheritanceTests
         }
     }
 
+    [Fact]
+    public void AbstractGenericClassRequiresExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public abstract class Parent<T> {
+                public abstract func Read() -> T
+            }
+            public class Child<Unused, T> : Parent<T> {
+                private var value: T
+                public init(value: T) { self.value = value }
+                public override func Read() -> T => value
+            }
+            func Main() -> int {
+                let value: Parent<int> = Child<bool, int>(42)
+                return value.Read()
+            }
+            """);
+        var compilation = Compilation.Create("AbstractGenericSlots", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var parent = compilation.GetTypeByMetadataName("Parent`1")!;
+        var slot = parent.GetMembers("Read").OfType<IMethodSymbol>().Single();
+        foreach (var admit in new[] { false, true })
+        {
+            var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+                allowsGenericClassOwners: true, allowsClassVirtualSlots: true, allowsLocalClassInheritance: true,
+                allowsGenericLocalClassInheritance: true, allowsConstructedClassBases: true,
+                allowsGenericClassVirtualSlots: true, allowsAbstractGenericClasses: admit);
+            Assert.Equal(admit, SourceTypePlan.TryCreate(parent, out _, capabilities));
+            Assert.Equal(admit, SourceCallablePlan.TryCreate(slot, out _, capabilities));
+        }
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
+    }
+
 }
