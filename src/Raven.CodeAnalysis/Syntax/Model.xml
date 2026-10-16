@@ -740,6 +740,12 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsAbstract="true" />
     <Slot Name="Modifiers" Type="TokenList" IsAbstract="true" />
   </Node>
+  <Node Name="CheckedExpression" Inherits="Expression">
+    <Slot Name="Keyword" Type="Token" />
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
   <Node Name="ParenthesizedExpression" Inherits="Expression">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="Expression" Type="Expression" />

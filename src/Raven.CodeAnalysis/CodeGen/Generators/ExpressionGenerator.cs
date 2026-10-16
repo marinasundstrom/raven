@@ -6529,12 +6529,13 @@ internal partial class ExpressionGenerator : Generator
         var unorderedComparison = unsignedOperand || op.LeftType.SpecialType is
             SpecialType.System_Single or SpecialType.System_Double;
 
+        var checkedInteger = (op.OperatorKind & BinaryOperatorKind.Checked) != 0;
         // Normal primitive path
         switch (operatorKind)
         {
-            case BinaryOperatorKind.Addition: ILGenerator.Emit(OpCodes.Add); break;
-            case BinaryOperatorKind.Subtraction: ILGenerator.Emit(OpCodes.Sub); break;
-            case BinaryOperatorKind.Multiplication: ILGenerator.Emit(OpCodes.Mul); break;
+            case BinaryOperatorKind.Addition: ILGenerator.Emit(checkedInteger ? (unsignedOperand ? OpCodes.Add_Ovf_Un : OpCodes.Add_Ovf) : OpCodes.Add); break;
+            case BinaryOperatorKind.Subtraction: ILGenerator.Emit(checkedInteger ? (unsignedOperand ? OpCodes.Sub_Ovf_Un : OpCodes.Sub_Ovf) : OpCodes.Sub); break;
+            case BinaryOperatorKind.Multiplication: ILGenerator.Emit(checkedInteger ? (unsignedOperand ? OpCodes.Mul_Ovf_Un : OpCodes.Mul_Ovf) : OpCodes.Mul); break;
             case BinaryOperatorKind.Division: ILGenerator.Emit(unsignedOperand ? OpCodes.Div_Un : OpCodes.Div); break;
             case BinaryOperatorKind.Modulo: ILGenerator.Emit(unsignedOperand ? OpCodes.Rem_Un : OpCodes.Rem); break;
             case BinaryOperatorKind.BitwiseAnd: ILGenerator.Emit(OpCodes.And); break;

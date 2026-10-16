@@ -1355,4 +1355,8 @@
   <Descriptor Id="RAV0372" Identifier="CheckedOperatorPairRequired"
     Title="Checked operator requires an ordinary counterpart" Message="Checked operator '{operatorToken}' requires an ordinary operator with the same parameter and return types."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0373" Identifier="CheckedExpressionOperationNotSupported"
+    Title="Checked operation is not implemented"
+    Message="Checked lowering for '{operation}' is not implemented yet. Use an explicit unchecked expression if unchecked behavior is intended."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

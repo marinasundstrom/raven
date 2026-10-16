@@ -2336,3 +2336,28 @@ generic method calls can use ad-hoc unions directly, including nested Result typ
 No Runtime Contract flag or metadata encoding changes. Regression execution constructs
 direct and nested generic values and invokes a generic method with both error
 alternatives. The fix belongs on main and is carried separately to the neoCLR line.
+
+
+## Checked expression lowering (development, 2026-10-16)
+
+Checked expressions require no Runtime Contract switch. The contextual keywords
+`checked` and `unchecked` introduce a parenthesized expression node whose keyword
+preserves the chosen context. Semantic operations expose the wrapper through
+`IParenthesizedOperation` and built-in arithmetic through `IBinaryOperation.IsChecked`.
+Binding derives context lexically and stops at nested function boundaries.
+
+On .NET, checked integer binary addition/subtraction/multiplication emit the
+standard signed or unsigned overflow-checking instructions. User-defined checked
+binary arithmetic selects standard `op_Checked*` methods, falling back to ordinary
+methods only when no checked candidate is applicable, not on ambiguity. Calls use
+normal metadata signatures. There is no alternate carrier representation.
+
+RAV0373 rejects currently unimplemented checked explicit conversions, unary minus,
+compound assignments, increments/decrements and lifted/pointer arithmetic. Checked blocks, constant arithmetic
+evaluation and checked expression trees remain follow-up work. These are compiler
+gaps, not new runtime semantics. `CheckedExpressionTests` exercises overflow,
+nested contexts, overload selection and rejection behavior; native qualification
+belongs to the separately validated neoCLR compiler line. Main validation passes
+73 focused checked-declaration/expression, ordinary operator, parser and operation
+contract tests plus a standalone .NET 11 consumer returning 42. The syntax-generator
+build also passes.
