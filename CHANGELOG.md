@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Record neoCLR 81701e5aa fixing native Object-root identity loss in variance lowering. Extended Raven producer/consumer Object views pass interpreter/AOT/JIT with identity and cleanup checks; no source lowering, Runtime Contract or metadata encoding change.
+
 - **2026-10-16:** Qualify the imported-base variance SDK fix through separately compiled Raven library/consumer calls in interpreter, AOT and managed JIT (neoCLR da49f4819). Identity/mutation and native cleanup checks pass; reverse/unrelated source conversions reject. No compiler source, Runtime Contract or encoding changes.
 
 - **2026-10-16:** Document neoCLR SDK 2c98cbd1b imported-base ancestry support in interface variance validation. No Raven lowering or Runtime Contract change; SDK metadata/CLR checks pass, with source/native consumer qualification tracked separately.

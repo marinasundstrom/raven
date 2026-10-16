@@ -12797,3 +12797,17 @@ fault/root/collection and AOT sanitizer checks pass. The runner and fingerprinte
 evidence are in neoCLR's `docs/validation/interface-variance/imported-base/`.
 No Raven source code, Runtime Contract configuration or metadata encoding changed.
 Generic class bases and intrinsic String materialization remain separate gaps.
+
+### Object-root variance preservation (2026-10-16)
+
+neoCLR `81701e5aa` fixes a native-only variance fault exposed by
+`Producer<Consumer<Base>>` to `Producer<Object>`. The backend now preserves Object's
+verified reference role through private nominal renaming as nonserializable compiler
+metadata. It does not change source lowering, Runtime Contract options, CLI/native
+encoding, Object identity or the accepted source conversion rule.
+
+The extended imported-base Raven consumer returns 42 in interpreter/AOT/managed JIT
+for both producer and consumer variance involving interface-valued arguments and
+Object. Receiver/payload identity, native cleanup and AOT sanitizer checks pass;
+three unsafe conversions still reject. Native proof tests reject serialized forgery
+and reverse/value-boxing conversions. No String widening or structural work is added.
