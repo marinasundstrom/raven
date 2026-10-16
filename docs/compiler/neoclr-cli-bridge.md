@@ -12757,3 +12757,22 @@ The existing VarianceIntrospection image against bundle
 `variance-argument-sequence-20261016` (compiler `eef1ed456`) passes snapshot
 construction but stops later at `$aot_linked_65: unsupported value member contract`.
 Full native consumer execution remains unqualified; this is not a feature release.
+
+neoCLR `5a209a40b` adds native TypeDisplayName/Namespace binding from source
+metadata, including open definitions and parameter descriptors. Eleven focused
+metadata tests pass interpreter/JIT execution and AOT emission. `5584aee4e` then
+separates supported static-owner tokens from instance/value validation: identity
+queries work while static local storage remains rejected, qualified in interpreter,
+JIT and AOT emission. These fix successive blockers in the discovery consumer;
+Raven source lowering, CLI encoding and Runtime Contract configuration are unchanged.
+
+neoCLR `e911b7a39` completes the retained consumer qualification: a freshly compiled
+Raven image returns 42 in interpreter, AOT and managed JIT for assembly/module
+open-definition discovery, all variance states, indexed/sequence parameter identity,
+namespace filtering and concrete closed arguments. The matching bundle is
+`variance-argument-sequence-20261016` (compiler `eef1ed456`); the native runner and
+artifact hashes are retained in neoCLR's
+`docs/validation/interface-variance/introspection/native-results.json`. Native fault,
+root/collection and AOT sanitizer checks pass. This supersedes the discovery blockers
+above. Explicit schema-6 catalogs remain required; open member/relationship queries,
+method generic-definition discovery and intrinsic String variance remain gaps.
