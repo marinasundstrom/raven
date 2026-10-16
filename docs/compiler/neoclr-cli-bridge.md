@@ -13860,3 +13860,24 @@ source readonly, explicit/generic and separate-provider consumers in neoCLR's
 `docs/validation/compound-operators/StaticInitialization*.rvn`. Runtime storage remains
 invocation-owned, with terminal Faults; intrinsic initializer admission and guest
 reflection integration are separate runtime responsibilities.
+
+### Field reflection identities and static mutation (2026-10-16)
+
+Main 289019055 / native carry 97f5252c9 skips type-name receiver capture for qualified
+static compound mutations. The native reflection consumer compiles this shared fix
+and observes initialization through actual static storage. No Runtime Contract switch
+or .NET emission policy changes. The matching neoCLR metadata SDK exports module-scoped
+field tokens for static fields and Int32 literals alongside instance fields; these are
+metadata identities, separate from opcode storage indices. Legacy missing static tokens
+remain absent. Validation lives in neoCLR `docs/validation/field-reflection`.
+
+The matching runtime reflection integration is neoCLR main `d5d95ac3a`, with SDK
+field-token revisions `5d3f6d6cf` and `40d40c854`. Guest FieldInfo now exposes readonly,
+literal and constant facts, and TypeInfo exposes initialization timing and a descriptive
+TypeInitializer. Public static field reflection uses ordinary initialization guards;
+readonly/literal writes and private access are denied. Native field/constructor metadata
+retention uses schema 7, with separate field execution permissions. The fresh native
+bundle consumer, reflected construction and initializer-overflow cases pass interpreter,
+managed JIT and sanitized AOT on macOS ARM64. Rebuild older RuntimeFieldInfo provider
+layouts with the matching class library; general closed-generic reflection execution and
+arbitrary boxed value payloads remain bounded. Structural work remains parked.
