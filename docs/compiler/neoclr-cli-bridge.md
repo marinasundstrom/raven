@@ -13728,3 +13728,26 @@ imported Add with int reports RAV0320. Existing capability checks still gate oth
 method categories. No Runtime Contract configuration or .NET behavior changes;
 no structural constraint support is added. The native dependency snapshot remains
 pinned by the existing hash contract. See neoCLR's numerics-interface qualification.
+
+
+### Imported nominal bounds on assembly-level functions (2026-10-16)
+
+Native emission now carries nongeneric nominal interface method bounds on imported
+top-level functions through the symbol-authored SDK CreateFunctionReference contract,
+matching imported static class methods. Raven supplies resolved nominal identities
+and bounds; the SDK validates ownership, parameter scope and conflicting contracts.
+Native metadata retains ordinary generic type constraints, and the existing runtime
+specializer checks nominal conformance before static Self dispatch. No new Runtime
+Contract switch, CLI encoding or opcode is introduced; ordinary .NET is unchanged.
+Constructed interface bounds and other unsupported constraint categories remain gaps.
+Qualification uses a separate NumericFunctions provider, four arithmetic operations
+on int/double, Number-bound forwarding and invalid string argument rejection.
+Primitive arguments retain their selected nominal owner for imported bound validation;
+this requires explicit interface membership and does not infer capabilities from
+arithmetic syntax. The SDK regression rejects a scalar before owner selection and
+before interface declaration, then accepts it after declared conformance.
+Validation pairs with neoCLR SDK `0cdfb228b`: the separate-provider consumer returns
+42 on interpreter, managed JIT and sanitized AOT; Add<string> rejects with RAV0320.
+The runtime repository retains reproducible sources and result fingerprints under
+`docs/validation/numerics-interfaces/function-results.json` and
+`function-negative-results.json`.

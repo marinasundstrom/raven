@@ -1386,7 +1386,8 @@ internal static class Int32Emitter
             if (symbol.IsStatic && symbol.ContainingType is null &&
                 symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
                 CallableSignature.TryCreate(symbol, out var callable, bodyCapabilities) &&
-                symbol.TypeParameters.All(p => p.ConstraintTypes.IsEmpty && p.ConstraintKind == TypeParameterConstraintKind.None) &&
+                symbol.TypeParameters.All(p => (p.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) == 0 &&
+                    p.ConstraintTypes.All(t => t is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } bound && IsSymbolOnlyOwnerDefinition(bound))) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
             {
                 if (artifact.Sha256 != binding.NativeArtifactSha256)
@@ -1395,7 +1396,9 @@ internal static class Int32Emitter
                 var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), callable.GenericParameterNames);
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
-                    symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
+                    symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract,
+                    interfaceBounds: symbol.TypeParameters.SelectMany(p => p.ConstraintTypes.Select(bound =>
+                        new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray());
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
