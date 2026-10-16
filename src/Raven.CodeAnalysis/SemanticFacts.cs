@@ -421,6 +421,17 @@ public static class SemanticFacts
         ITypeSymbol destination,
         SymbolEqualityComparer comparer)
     {
+        // Nullable references keep the same runtime representation, but variance
+        // must preserve the direction of Raven's nullability contract.
+        if (source is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableSource)
+        {
+            if (destination is not NullableTypeSymbol { UnderlyingType.IsReferenceType: true })
+                return false;
+            source = nullableSource.UnderlyingType;
+        }
+        if (destination is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableDestination)
+            destination = nullableDestination.UnderlyingType;
+
         if (source.MetadataIdentityEquals(destination))
             return true;
 

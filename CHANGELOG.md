@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Carry main f8679d6f3 nullable reference variance correction to the neoCLR compiler line. Accept safe covariant/contravariant nullable views and reject loss of nullability; value boxing stays excluded. Runtime Contract and emitted metadata are unchanged.
+
 - **2026-10-16:** Document neoCLR 08330946a retaining closed array conformance for native interface variance. Producer/consumer int[] and Iterable<int> views pass interpreter/AOT/JIT with identity, iterator calls and cleanup checks; no Raven lowering or encoding change.
 
 - **2026-10-16:** Record array-valued interface variance qualification (neoCLR bdb86ec82). Producer<int[]>/Producer<Object> and Consumer<Object>/Consumer<int[]> calls preserve array identity across interpreter/AOT/JIT with cleanup/sanitizer checks. No lowering or encoding changes; array element storage remains invariant.

@@ -358,6 +358,33 @@ class Foo : IDisposable {
         Assert.False(conversion.IsIdentity);
     }
 
+    [Theory]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, true, true, true)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(true, false, true, false)]
+    public void InterfaceVariance_PreservesNullableReferenceDirection(
+        bool contravariant, bool fromNullable, bool toNullable, bool expected)
+    {
+        var compilation = CreateCompilation();
+        var text = compilation.GetSpecialType(SpecialType.System_String);
+        var root = compilation.GetSpecialType(SpecialType.System_Object);
+        ITypeSymbol from = contravariant ? root : text;
+        ITypeSymbol to = contravariant ? text : root;
+        if (fromNullable) from = from.GetNullableType();
+        if (toNullable) to = to.GetNullableType();
+        var definition = (INamedTypeSymbol)compilation.GetTypeByMetadataName(contravariant
+            ? "System.Collections.Generic.IComparer`1"
+            : "System.Collections.Generic.IEnumerable`1")!;
+        var conversion = compilation.ClassifyConversion(definition.Construct(from), definition.Construct(to));
+        Assert.Equal(expected, conversion.IsImplicit);
+        if (expected) Assert.True(conversion.IsReference);
+    }
+
     [Fact]
     public void ReferenceConversion_HandlesInterfaceCovariance()
     {
