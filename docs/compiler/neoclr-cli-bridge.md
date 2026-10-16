@@ -13806,3 +13806,11 @@ targets report four RAV0374 diagnostics for the shared overflow fixture and emit
 no assembly. Exact commands and hashes are retained in neoCLR qualification.
 The shared local-constant consumer returns 42 on interpreter, managed JIT and
 sanitized AOT using bundle `numerics-public-libraries-20261016`.
+
+### Additional constant operators
+
+Carry main `84bdf63bf`: typed constant division/remainder, bitwise operations,
+complement and masked shifts share .NET semantics. RAV0375 rejects integer/decimal
+constant zero divisors. Native emission and Runtime Contract settings are unchanged.
+The 80 focused constant tests and native interpreter/JIT/AOT consumer pass.
+Native-width and enum constant arithmetic remain gaps; structural work stays parked.

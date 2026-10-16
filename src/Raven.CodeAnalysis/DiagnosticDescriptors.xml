@@ -1374,4 +1374,7 @@
   <Descriptor Id="RAV0374" Identifier="ConstantArithmeticOverflow"
     Title="Constant arithmetic overflow" Message="The constant operation overflows its result type. Use an explicit unchecked context if wrapping is intended."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0375" Identifier="ConstantDivisionByZero"
+    Title="Constant division by zero" Message="Division or remainder by constant zero is not valid for this type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

@@ -51,6 +51,11 @@ partial class BlockBinder
             return expression;
         var status = BoundNumericConstantEvaluator.Evaluate(expression,
             node => IsCheckedContext(SemanticModel.GetSyntax(node) ?? syntax, defaultValue: true), out _);
+        if (status == BoundNumericConstantEvaluator.Status.DivisionByZero)
+        {
+            _diagnostics.ReportConstantDivisionByZero(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
         if (status != BoundNumericConstantEvaluator.Status.Overflow)
             return expression;
         _diagnostics.ReportConstantArithmeticOverflow(syntax.GetLocation());
