@@ -13662,8 +13662,8 @@ checked semantics implicitly. If no checked binary candidate applies, ordinary
 lookup is used; ambiguity is diagnosed rather than hidden by fallback.
 
 Nullable/pointer conversions and mutations, and lifted/pointer arithmetic
-are diagnosed until their lowering is implemented. Checked blocks, constant
-arithmetic evaluation and checked expression trees remain gaps. This slice does
+are diagnosed until their lowering is implemented. Broader constant-expression
+coverage and checked binary expression trees remain gaps. This slice does
 not expand the backend's existing primitive/type admission profile or resume
 broader structural work. The Raven binder and backend adapter own the remaining
 compiler work; the runtime already provides checked arithmetic/conversion operations.
@@ -13692,8 +13692,8 @@ ordinary .NET uses OverflowException.
 `IUnaryOperation.IsChecked` exposes built-in checked integer semantics. The .NET
 expression-tree path uses `Expression.NegateChecked`; this does not add native
 expression-tree APIs. Existing unsigned/native-integer unary admission is unchanged.
-Nullable/pointer checked conversions and mutations, blocks, constant evaluation and checked binary
-expression trees remain compiler gaps. Broader structural work stays parked.
+Nullable/pointer checked conversions and mutations, broader constant-expression coverage
+and checked binary expression trees remain compiler gaps. Broader structural work stays parked.
 
 Validation: 73 focused compiler tests pass on each compiler line. The expanded
 consumer returns 42 on .NET and native interpreter/JIT/AOT. Separate int/long
@@ -13762,8 +13762,7 @@ assignments and discarded blocks; checking remains on the underlying operators.
 
 Native overflow remains a terminal ArithmeticOverflow fault; .NET uses
 OverflowException. Neither policy changes the scalar result type or implies a
-recoverable Result API. Nullable/pointer checked mutations, block contexts,
-constant arithmetic evaluation and mutation expression trees remain compiler gaps.
+recoverable Result API. Nullable/pointer checked mutations and mutation expression trees remain compiler gaps.
 Validation and exact bundle/tool fingerprints are retained in neoCLR's
 `docs/validation/compound-operators/checked-mutation-*-results.json`.
 
@@ -13785,3 +13784,25 @@ on .NET. Generator builds and 71 focused tests pass on both compiler lines.
 Executable qualification is retained in neoCLR's `docs/validation/compound-operators/`.
 The shared block consumer returns 42 on interpreter, managed JIT and sanitized AOT;
 the runtime overflow probe faults on each backend and preserves native result slots.
+
+### Constant numeric evaluation
+
+Deliberately carry main `489cc12a4`. Resolved built-in fixed-width arithmetic
+(addition, subtraction, multiplication and negation) and numeric conversions are
+evaluated before emission; RAV0374 rejects overflow in the default checked constant
+context. Explicit unchecked integer constants wrap. Const locals/fields retain typed
+values and dependencies. This is compiler-owned behavior shared with .NET; native
+metadata, bridge representation, Runtime Contract configuration and runtime
+instructions are unchanged. Runtime-dependent overflow still faults terminally.
+Parameter defaults, division/remainder, bitwise/shift composition and native-width
+or enum constant arithmetic are not widened by this slice. Structural work stays parked.
+
+Native emission still rejects class constant declarations; this slice validates
+local constant dependencies on native targets and field evaluation on .NET. This
+is an existing emitter gap, not a restriction on native constant semantics.
+
+Validation: generator build and 175 focused compiler tests pass. Both compiler
+targets report four RAV0374 diagnostics for the shared overflow fixture and emit
+no assembly. Exact commands and hashes are retained in neoCLR qualification.
+The shared local-constant consumer returns 42 on interpreter, managed JIT and
+sanitized AOT using bundle `numerics-public-libraries-20261016`.

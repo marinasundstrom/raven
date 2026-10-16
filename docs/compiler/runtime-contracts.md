@@ -4245,8 +4245,8 @@ methods only when no checked candidate is applicable, not on ambiguity. Calls us
 normal metadata signatures. There is no alternate carrier representation.
 
 RAV0373 rejects currently unimplemented checked nullable/pointer conversions,
-nullable/pointer mutations and lifted/pointer arithmetic. Checked blocks, constant arithmetic
-evaluation and checked binary expression trees remain follow-up work. These are compiler
+nullable/pointer mutations and lifted/pointer arithmetic. Broader constant-expression
+coverage and checked binary expression trees remain follow-up work. These are compiler
 gaps, not new runtime semantics. `CheckedExpressionTests` exercises overflow,
 nested contexts, overload selection and rejection behavior; native qualification
 belongs to the separately validated neoCLR compiler line. Main validation passes
@@ -4314,3 +4314,22 @@ highlighting applies. Nested functions do not inherit the outer context.
 
 Validation: generator build and 71 focused block/expression/mutation tests pass on
 .NET 11. Native execution is qualified separately on codex/neoclr.
+
+### Constant numeric evaluation
+
+BoundNumericConstantEvaluator interprets resolved built-in numeric nodes for
+fixed-width addition/subtraction/multiplication, negation and conversions. It uses
+arbitrary-precision intermediate integer values, then applies result-width bounds
+or explicit unchecked wrapping. Lexical context is read from the semantic model's
+bound-to-syntax mapping; the default constant context is checked. RAV0374 diagnoses
+overflow before emission without replacing the bound operation or executing user
+code. Const locals/fields consume the same typed evaluator. Existing syntax-only
+constant forms remain a fallback; parameter-default evaluation is not widened.
+
+No Runtime Contract, runtime metadata or opcode change is required. This corrects
+previously accepted overflowing constant expressions: wrap them explicitly in
+unchecked only when truncation is intended. This does not enable the parked
+structural work or expand native primitive admission.
+
+Validation: generator build, 175 focused constant/checked-context tests, the
+421-test overload-resolution suite and the shared .NET consumer (exit 42) pass.
