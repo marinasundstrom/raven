@@ -12776,3 +12776,13 @@ artifact hashes are retained in neoCLR's
 root/collection and AOT sanitizer checks pass. This supersedes the discovery blockers
 above. Explicit schema-6 catalogs remain required; open member/relationship queries,
 method generic-definition discovery and intrinsic String variance remain gaps.
+
+### Variance through imported class ancestry (2026-10-16)
+
+neoCLR SDK `2c98cbd1b` fixes variance admission when a local class explicitly derives
+from an imported base. The writer reuses its ordinary external-base ancestry proof
+for covariant/contravariant interface arguments, including transitive local classes
+and nested variance. Reverse and unrelated-class conversions still reject. Focused
+SDK native metadata and emitted CLR calls pass; this does not itself qualify a new
+Raven/AOT consumer. Raven lowering, Runtime Contract options and native/CLI encoding
+are unchanged. Generic class bases and intrinsic String variance remain unsupported.

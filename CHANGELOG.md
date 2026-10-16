@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document neoCLR SDK 2c98cbd1b imported-base ancestry support in interface variance validation. No Raven lowering or Runtime Contract change; SDK metadata/CLR checks pass, with source/native consumer qualification tracked separately.
+
 - **2026-10-16:** Record native source display-name/namespace binding and static-owner token validation fixes. Focused interpreter/JIT/AOT-emission checks pass, followed by end-to-end Raven assembly/module generic discovery in all three execution modes (neoCLR e911b7a39). Explicit catalog retention remains required; no Raven lowering or Runtime Contract change.
 
 - **2026-10-16:** Document explicit neoCLR native type-catalog retention and source TypeInfo snapshot binding. No compiler emission or Runtime Contract changes; the original open-definition consumer reaches a later unsupported native member contract and remains unqualified for AOT/JIT.
