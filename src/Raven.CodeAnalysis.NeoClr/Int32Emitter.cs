@@ -482,7 +482,14 @@ internal static class Int32Emitter
                 for (var index = 0; index < wrapper.TypeArguments.Length; index++)
                     RegisterComposition(wrapper.TypeArguments[index], imported.TypeArguments[index]);
         }
-        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type], type => ImportClassBase((INamedTypeSymbol)type));
+        var definingClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        NeoClrTypeDefinitionBuilder typeDefinitions = null!;
+        typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type], type => ImportClassBase((INamedTypeSymbol)type),
+            type => NeoClrTypeMapper.Map(type, owner =>
+            {
+                if (!nativeTypes.ContainsKey(owner) && declaredTypes.TryGetValue(owner, out var plan)) DefineClass(plan);
+                return nativeTypes[owner];
+            }, ImportExternalType));
         SignatureType ImportClassBase(INamedTypeSymbol type)
         {
             var reference = ImportExternalType(type);
@@ -660,7 +667,8 @@ internal static class Int32Emitter
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
-            if (type.ClassBase is { } parent && declaredTypes.TryGetValue(parent, out var basePlan)) DefineClass(basePlan);
+            if (!definingClasses.Add(type.Symbol)) throw Unsupported("recursive constructed base arguments require deferred base binding");
+            if (type.ClassBase is { } parent && declaredTypes.TryGetValue((INamedTypeSymbol)parent.OriginalDefinition, out var basePlan)) DefineClass(basePlan);
             if (type.MetadataOwner is { } container) DefineClass(declaredTypes[container]);
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
@@ -669,6 +677,7 @@ internal static class Int32Emitter
             if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
                 definition.SetSealedClass();
             nativeTypes.Add(type.Symbol, definition);
+            definingClasses.Remove(type.Symbol);
             var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
                 named => ScopedExternal(named, scope), p => ScopedParameter(p, scope), structuralConstraints: true, admitExternalConstraint: AdmitExternalConstraint));
@@ -1040,7 +1049,15 @@ internal static class Int32Emitter
                 diagnosticSyntax = instruction.Syntax;
                 if (instruction.Kind is LinearInstructionKind.BaseConstructorCall or LinearInstructionKind.DirectInstanceCall)
                 {
-                    if (definedMethods.TryGetValue(instruction.Method!.OriginalDefinition, out var directTarget)) output.Call(directTarget);
+                    if (definedMethods.TryGetValue(instruction.Method!.OriginalDefinition, out var directTarget))
+                    {
+                        var symbol = instruction.Method;
+                        SignatureType MapDirectType(ITypeSymbol type) => NeoClrTypeMapper.Map(type, owner => nativeTypes[owner],
+                            named => ScopedExternal(named, emissionScope), parameter => ScopedParameter(parameter, emissionScope));
+                        if (symbol.ContainingType is { } directOwner && NeoClrTypeMapper.OwnerArguments(directOwner) is { Length: > 0 } arguments)
+                            output.Call(directTarget.MakeConstructedReference(arguments.Select(MapDirectType), symbol.TypeArguments.Select(MapDirectType)));
+                        else output.Call(directTarget);
+                    }
                     else output.Emit(OpCode.Call, Import(instruction.Method));
                 }
                 else if (instruction.Kind == LinearInstructionKind.FunctionBind)

@@ -13034,3 +13034,26 @@ Existing generic class/Object-root and variance/reader regression checks pass.
 No Runtime Contract, encoding-version or ABI change. Raven constructed-base
 emission, external constructed layout authoring and generic class virtual slots
 remain separate gaps. Structural work and Sliceable/Result variance stay deferred.
+
+### Raven owned constructed bases (2026-10-16)
+
+The native adapter opts into `AllowsConstructedClassBases`. Source declarations
+such as `Derived<Unused, T> : Base<T>` and a nongeneric `Leaf : Derived<bool, int>`
+emit complete constructed base signatures. Definition scheduling follows the
+base's original definition, independent of source order; base constructor calls
+retain their declaring-type arguments. Ordinary .NET behavior and user Runtime
+Contract settings are unchanged, with no new bridge encoding or native ABI.
+
+The retained neoCLR docs/validation/constructed-class-base/raven fixture exercises
+reordered parameters, transitive storage, value/reference payloads, inherited
+interface calls and nominal identity. Invalid reverse/invariant conversions are
+rejected. Recursive base arguments require deferred binding and receive an
+explicit diagnostic. External constructed base authoring and imported constructed
+hierarchies remain separate integration gaps; generic class virtual slots remain
+unsupported. Structural work and Sliceable/Result variance stay deferred.
+
+Validation: the source consumer returns 42 in interpreter, AOT and managed JIT
+against `variance-argument-sequence-20261016`, including native cleanup and AOT
+sanitizers. All three focused Raven inheritance tests pass, including CLR
+execution. The source runner checks three conversion errors and the explicit
+recursive-base limitation; its report records exact artifact hashes.

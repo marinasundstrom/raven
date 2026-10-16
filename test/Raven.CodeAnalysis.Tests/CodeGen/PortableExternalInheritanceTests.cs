@@ -80,4 +80,44 @@ public class PortableExternalInheritanceTests
         using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
         Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
     }
+    [Fact]
+    public void ConstructedLocalBaseRequiresExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public class Leaf : Middle<bool, int> {
+                public init(value: int) : base(value) { }
+            }
+            public open class Middle<Unused, T> : Parent<T> {
+                public init(value: T) : base(value) { }
+            }
+            public open class Parent<T> {
+                private var value: T
+                public init(value: T) { self.value = value }
+                public func Get() -> T => value
+            }
+            func Main() -> int {
+                let leaf = Leaf(42)
+                let parent: Parent<int> = leaf
+                return parent.Get()
+            }
+            """);
+        var compilation = Compilation.Create("ConstructedLocalBase", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var admit in new[] { false, true })
+        {
+            var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+                allowsGenericClassOwners: true, allowsLocalClassInheritance: true, allowsGenericLocalClassInheritance: true,
+                allowsConstructedClassBases: admit);
+            Assert.Equal(admit, SourceTypePlan.TryCreate(compilation.GetTypeByMetadataName("Leaf")!, out _, capabilities));
+            Assert.Equal(admit, SourceTypePlan.TryCreate(compilation.GetTypeByMetadataName("Middle`2")!, out _, capabilities));
+        }
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
+        Assert.Equal(typeof(int), loaded.Assembly.GetType("Leaf")!.BaseType!.BaseType!.GenericTypeArguments.Single());
+    }
 }
