@@ -14,6 +14,34 @@ internal readonly record struct UserDefinedOperatorInfo(string MetadataName, Ope
 
 internal static class OperatorFacts
 {
+    public static bool TryGetUserDefinedOperatorInfo(OperatorDeclarationSyntax declaration, out UserDefinedOperatorInfo info)
+    {
+        if (!TryGetUserDefinedOperatorInfo(declaration.OperatorToken.Kind, declaration.ParameterList.Parameters.Count, out info))
+            return false;
+        if (declaration.CheckedKeyword.Kind == SyntaxKind.CheckedKeyword && GetCheckedMetadataName(info.MetadataName) is { } name)
+            info = info with { MetadataName = name };
+        return true;
+    }
+
+    public static bool TryGetConversionOperatorMetadataName(ConversionOperatorDeclarationSyntax declaration, out string name)
+    {
+        if (!TryGetConversionOperatorMetadataName(declaration.ConversionKindKeyword.Kind, out name))
+            return false;
+        if (declaration.CheckedKeyword.Kind == SyntaxKind.CheckedKeyword && GetCheckedMetadataName(name) is { } checkedName)
+            name = checkedName;
+        return true;
+    }
+
+    internal static string? GetCheckedMetadataName(string name) => name switch
+    {
+        "op_UnaryNegation" or "op_Increment" or "op_Decrement" or
+        "op_Addition" or "op_Subtraction" or "op_Multiply" or "op_Division" or
+        "op_Explicit" or "op_IncrementAssignment" or "op_DecrementAssignment" or
+        "op_AdditionAssignment" or "op_SubtractionAssignment" or
+        "op_MultiplicationAssignment" or "op_DivisionAssignment" => "op_Checked" + name[3..],
+        _ => null,
+    };
+
     public static string GetDisplayText(SyntaxKind operatorToken)
         => SyntaxFacts.GetSyntaxTokenText(operatorToken) ?? operatorToken.ToString();
 

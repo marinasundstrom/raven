@@ -15882,7 +15882,7 @@ public partial class SemanticModel
     private bool TryResolveOperatorMethodSymbolForDeclaration(OperatorDeclarationSyntax operatorDeclaration, out IMethodSymbol methodSymbol)
     {
         var parameterCount = operatorDeclaration.ParameterList.Parameters.Count;
-        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDeclaration.OperatorToken.Kind, parameterCount, out var operatorInfo))
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDeclaration, out var operatorInfo))
         {
             methodSymbol = null!;
             return false;
@@ -15898,7 +15898,7 @@ public partial class SemanticModel
 
     private bool TryResolveConversionMethodSymbolForDeclaration(ConversionOperatorDeclarationSyntax conversionDeclaration, out IMethodSymbol methodSymbol)
     {
-        if (!OperatorFacts.TryGetConversionOperatorMetadataName(conversionDeclaration.ConversionKindKeyword.Kind, out var metadataName))
+        if (!OperatorFacts.TryGetConversionOperatorMetadataName(conversionDeclaration, out var metadataName))
         {
             methodSymbol = null!;
             return false;

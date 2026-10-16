@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Tokens>
   <!-- Keywords -->
+  <TokenKind Name="CheckedKeyword" Text="checked" IsReservedWord="false" />
   <TokenKind Name="UnitKeyword" Text="unit" IsReservedWord="false" />
   <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
   <TokenKind Name="SByteKeyword" Text="sbyte" IsReservedWord="true" />

@@ -706,7 +706,7 @@
                 },
                 {
                     "name": "keyword.other.conversion.raven",
-                    "match": "\\b(implicit|explicit)\\b"
+                    "match": "\\b(implicit|explicit|checked)\\b"
                 },
                 {
                     "name": "storage.modifier.parameter.raven",

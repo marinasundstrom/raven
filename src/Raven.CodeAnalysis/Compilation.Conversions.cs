@@ -603,6 +603,7 @@ public partial class Compilation
             foreach (var method in candidateConversions)
             {
                 if (method.MethodKind is not MethodKind.Conversion ||
+                    method.Name is not ("op_Implicit" or "op_Explicit") ||
                     method.Parameters.Length != 1)
                 {
                     continue;

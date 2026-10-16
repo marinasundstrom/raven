@@ -571,6 +571,16 @@ internal class TypeDeclarationParser : SyntaxParser
         if (keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword))
         {
             var funcKeyword = ReadToken();
+            if (PeekToken().IsKind(SyntaxKind.CheckedKeyword) &&
+                (SyntaxFacts.IsOverloadableOperatorToken(PeekToken(1).Kind) ||
+                 PeekToken(1).Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword))
+            {
+                var checkedKeyword = ReadToken();
+                return PeekToken().Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword
+                    ? ParseConversionOperatorDeclarationFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword)
+                    : ParseOperatorDeclarationFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword);
+            }
+
             if ((PeekToken().IsKind(SyntaxKind.ImplicitKeyword) || PeekToken().IsKind(SyntaxKind.ExplicitKeyword)) &&
                 PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
                 return ParseConversionOperatorDeclarationFromFunc(attributeLists, modifiers, funcKeyword);
@@ -699,7 +709,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return terminatorToken;
     }
 
-    private MemberDeclarationSyntax ParseOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword)
+    private MemberDeclarationSyntax ParseOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword, SyntaxToken? checkedKeyword = null)
     {
         var operatorToken = ParseOverloadableOperatorToken();
 
@@ -728,6 +738,7 @@ internal class TypeDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             declarationKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
             operatorToken,
             parameterList,
             returnType,
@@ -736,7 +747,7 @@ internal class TypeDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseConversionOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
+    private MemberDeclarationSyntax ParseConversionOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword, SyntaxToken? checkedKeyword = null)
     {
         SyntaxToken conversionKindKeyword;
         if (ConsumeToken(SyntaxKind.ImplicitKeyword, out var implicitKeyword))
@@ -776,6 +787,7 @@ internal class TypeDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             funcKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
             conversionKindKeyword,
             parameterList,
             returnType,

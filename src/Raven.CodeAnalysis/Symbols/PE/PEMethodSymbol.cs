@@ -36,7 +36,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
 
         var name = _methodInfo.Name;
 
-        if (name.StartsWith("op_Implicit") || name.StartsWith("op_Explicit"))
+        if (name is "op_Implicit" or "op_Explicit" or "op_CheckedExplicit")
         {
             MethodKind = MethodKind.Conversion;
         }
@@ -89,7 +89,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
 
         var name = _methodInfo.Name;
 
-        if (name.StartsWith("op_Implicit") || name.StartsWith("op_Explicit"))
+        if (name is "op_Implicit" or "op_Explicit" or "op_CheckedExplicit")
         {
             MethodKind = MethodKind.Conversion;
         }

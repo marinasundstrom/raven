@@ -1698,17 +1698,14 @@ internal class TypeGenerator
 
         if (methodSymbol.MethodKind == MethodKind.Conversion &&
             declaration is ConversionOperatorDeclarationSyntax conversionDecl &&
-            OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var conversionMetadataName))
+            OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl, out var conversionMetadataName))
         {
             return conversionMetadataName;
         }
 
         if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
             declaration is OperatorDeclarationSyntax operatorDecl &&
-            OperatorFacts.TryGetUserDefinedOperatorInfo(
-                operatorDecl.OperatorToken.Kind,
-                operatorDecl.ParameterList.Parameters.Count,
-                out var operatorInfo))
+            OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl, out var operatorInfo))
         {
             return operatorInfo.MetadataName;
         }

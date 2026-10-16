@@ -342,8 +342,7 @@ internal partial class TypeMemberBinder : Binder
 
     private ISymbol? BindOperatorSymbol(OperatorDeclarationSyntax operatorDecl)
     {
-        var parameterCount = operatorDecl.ParameterList.Parameters.Count;
-        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl.OperatorToken.Kind, parameterCount, out var operatorInfo))
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl, out var operatorInfo))
             return null;
 
         var metadataName = operatorInfo.MetadataName;
@@ -357,7 +356,7 @@ internal partial class TypeMemberBinder : Binder
 
     private ISymbol? BindConversionOperatorSymbol(ConversionOperatorDeclarationSyntax conversionDecl)
     {
-        if (!OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var metadataName))
+        if (!OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl, out var metadataName))
             return null;
 
         return _containingType.GetMembers()
@@ -1442,7 +1441,7 @@ internal partial class TypeMemberBinder : Binder
 
         var parameterCount = operatorDecl.ParameterList.Parameters.Count;
 
-        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl.OperatorToken.Kind, parameterCount, out var operatorInfo))
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl, out var operatorInfo))
         {
             var expectedParameters = OperatorFacts.GetExpectedParameterCountDescription(operatorDecl.OperatorToken.Kind);
             _diagnostics.ReportOperatorParameterCountInvalid(operatorText, expectedParameters, operatorDecl.ParameterList.GetLocation());
@@ -1555,6 +1554,13 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.ReportTruthOperatorPairRequired(operatorText, OperatorFacts.GetDisplayText(partner), operatorDecl.GetLocation());
         }
 
+        if (operatorDecl.CheckedKeyword.Kind == SyntaxKind.CheckedKeyword)
+        {
+            OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl.OperatorToken.Kind, parameterCount, out var ordinaryInfo);
+            ValidateCheckedOperatorPair(operatorDecl, ordinaryInfo.MetadataName, operatorText, returnType,
+                resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray(), operatorBinder, isStatic: !isCompound);
+        }
+
         var signatureArray = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray();
         CheckForDuplicateSignature(operatorInfo.MetadataName, displayName, signatureArray, operatorDecl.OperatorToken.GetLocation(), operatorDecl);
 
@@ -1625,7 +1631,7 @@ internal partial class TypeMemberBinder : Binder
             _diagnostics.ReportOperatorParameterCountInvalid(operatorText, "1", conversionDecl.ParameterList.GetLocation());
 
         var defaultReturnType = Compilation.GetSpecialType(SpecialType.System_Unit);
-        var metadataName = OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var resolvedName)
+        var metadataName = OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl, out var resolvedName)
             ? resolvedName
             : operatorText;
 
@@ -1698,6 +1704,13 @@ internal partial class TypeMemberBinder : Binder
                 syntax.TypeAnnotation?.Type.GetLocation() ?? syntax.GetLocation());
         }
 
+        if (conversionDecl.CheckedKeyword.Kind == SyntaxKind.CheckedKeyword)
+        {
+            OperatorFacts.TryGetConversionOperatorMetadataName(conversionDecl.ConversionKindKeyword.Kind, out var ordinaryName);
+            ValidateCheckedOperatorPair(conversionDecl, ordinaryName, operatorText, returnType,
+                resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray(), conversionBinder, isStatic: true);
+        }
+
         var signatureArray = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray();
         CheckForDuplicateSignature(metadataName, operatorText, signatureArray, conversionDecl.ConversionKindKeyword.GetLocation(), conversionDecl);
 
@@ -1740,6 +1753,78 @@ internal partial class TypeMemberBinder : Binder
         conversionSymbol.SetParameters(parameters);
 
         return conversionBinder;
+    }
+
+    private void ValidateCheckedOperatorPair(
+        BaseMethodDeclarationSyntax declaration,
+        string ordinaryName,
+        string operatorText,
+        ITypeSymbol returnType,
+        (ITypeSymbol type, RefKind refKind)[] parameters,
+        MethodBinder binder,
+        bool isStatic)
+    {
+        if (OperatorFacts.GetCheckedMetadataName(ordinaryName) is null)
+        {
+            _diagnostics.ReportCheckedOperatorNotSupported(operatorText, declaration.GetLocation());
+            return;
+        }
+
+        // Resolve syntax signatures rather than binding sibling methods: declaration binding
+        // may be lazy, and asking for sibling symbols here would introduce recursion.
+        foreach (var candidate in _containingType.DeclaringSyntaxReferences
+            .SelectMany(reference => reference.GetSyntax().ChildNodes()))
+        {
+            ParameterListSyntax candidateParameters;
+            ArrowTypeClauseSyntax? candidateReturn;
+            SyntaxTokenList candidateModifiers;
+            switch (candidate)
+            {
+                case OperatorDeclarationSyntax op when declaration is OperatorDeclarationSyntax &&
+                    op.CheckedKeyword.Kind != SyntaxKind.CheckedKeyword &&
+                    OperatorFacts.TryGetUserDefinedOperatorInfo(op, out var info) && info.MetadataName == ordinaryName:
+                    candidateParameters = op.ParameterList;
+                    candidateReturn = op.ReturnType;
+                    candidateModifiers = op.Modifiers;
+                    break;
+                case ConversionOperatorDeclarationSyntax conversion when declaration is ConversionOperatorDeclarationSyntax &&
+                    conversion.CheckedKeyword.Kind != SyntaxKind.CheckedKeyword &&
+                    OperatorFacts.TryGetConversionOperatorMetadataName(conversion, out var name) && name == ordinaryName:
+                    candidateParameters = conversion.ParameterList;
+                    candidateReturn = conversion.ReturnType;
+                    candidateModifiers = conversion.Modifiers;
+                    break;
+                default:
+                    continue;
+            }
+
+            if (candidateModifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) != isStatic ||
+                candidateParameters.Parameters.Count != parameters.Length)
+                continue;
+
+            var candidateReturnType = candidateReturn is null
+                ? Compilation.GetSpecialType(SpecialType.System_Unit)
+                : ResolveTypeSyntaxForSignature(binder, candidateReturn.Type, RefKind.None);
+            if (!SymbolEqualityComparer.Default.Equals(returnType, candidateReturnType))
+                continue;
+
+            var matches = true;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameter = candidateParameters.Parameters[i];
+                if (parameter.TypeAnnotation is null || ParameterSyntaxUtilities.GetRefKind(parameter) != parameters[i].refKind ||
+                    !SymbolEqualityComparer.Default.Equals(parameters[i].type,
+                        ResolveParameterTypeSyntaxForSignature(binder, parameter.TypeAnnotation.Type, parameters[i].refKind)))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches)
+                return;
+        }
+
+        _diagnostics.ReportCheckedOperatorPairRequired(operatorText, declaration.GetLocation());
     }
 
     private bool ImplementsInterface(INamedTypeSymbol interfaceType)

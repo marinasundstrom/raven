@@ -1053,7 +1053,9 @@ internal partial class MethodBodyGenerator
             MethodDeclarationSyntax m when m.ExpressionBody is not null
                 => GetLoweredArrowExpressionBody(semanticModel, m.ExpressionBody),
             OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            OperatorDeclarationSyntax o when o.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, o.ExpressionBody),
             ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
+            ConversionOperatorDeclarationSyntax c when c.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, c.ExpressionBody),
             FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             FunctionStatementSyntax l when l.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, l.ExpressionBody),
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,

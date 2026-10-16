@@ -278,17 +278,20 @@ MethodDeclaration        ::= MemberModifiers?
 
 ConversionOperatorDeclaration
                          ::= MemberModifiers?
-                             'func' ( 'explicit' | 'implicit' )
+                             'func' 'checked'? ( 'explicit' | 'implicit' )
                              '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
 
 OperatorDeclaration      ::= MemberModifiers?
-                             'func' OverloadableOperator
+                             'func' 'checked'? OverloadableOperator
                              '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
 
+(* checked is permitted only for unary -/++/--, binary +/-/*//, explicit
+   conversions, instance ++/--, and +=/-=/*=//=. A matching ordinary declaration
+   is required. Checked expression contexts are not yet implemented. *)
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&'
                            | '|' | '==' | '!=' | '<' | '<=' | '>'
                            | '>=' | '!' | '~' | 'true' | 'false' | '++' | '--' | '<<' | '>>' | '>>>'
