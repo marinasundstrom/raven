@@ -2332,6 +2332,12 @@ partial class BlockBinder : Binder
         if (!skipCache && !useContextualCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
 
+        if (IsCheckedContext(syntax) && RequiresUnimplementedCheckedLowering(syntax))
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported(syntax.Kind.ToString(), syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
         var boundNode = syntax switch
         {
             LiteralExpressionSyntax literal => BindLiteralExpression(literal),
@@ -2350,6 +2356,7 @@ partial class BlockBinder : Binder
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ArrayExpressionSyntax arrayExpression => BindArrayExpression(arrayExpression),
             ObjectInitializerExpressionSyntax objectInitializer => BindObjectInitializerExpressionForSemanticQuery(objectInitializer),
+            CheckedExpressionSyntax checkedExpression => BindCheckedExpression(checkedExpression),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindConversionExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
@@ -2393,6 +2400,22 @@ partial class BlockBinder : Binder
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
+
+        if (IsCheckedContext(syntax) && boundNode is BoundBinaryExpression checkedBinary &&
+            (checkedBinary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)) is
+                BinaryOperatorKind.Addition or BinaryOperatorKind.Subtraction or BinaryOperatorKind.Multiplication &&
+            ((checkedBinary.Operator.OperatorKind & BinaryOperatorKind.Lifted) != 0 ||
+             checkedBinary.Operator.LeftType.TypeKind == TypeKind.Pointer || checkedBinary.Operator.RightType.TypeKind == TypeKind.Pointer))
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported("lifted or pointer arithmetic", syntax.GetLocation());
+            boundNode = ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        if (IsCheckedContext(syntax) && boundNode is BoundConversionExpression { IsExplicit: true })
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported("explicit conversion", syntax.GetLocation());
+            boundNode = ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
 
         if (useContextualCache)
             CacheBoundNode(syntax, boundNode, activeTargetType);
@@ -9335,7 +9358,7 @@ partial class BlockBinder : Binder
             rightScalarType.SpecialType != SpecialType.None &&
             BoundBinaryOperator.TryLookup(Compilation, opKind, left.Type, right.Type, out var predefinedOperator))
         {
-            return new BoundBinaryExpression(left, predefinedOperator, right);
+            return new BoundBinaryExpression(left, WithCheckedContext(predefinedOperator, callSyntax ?? leftSyntax), right);
         }
 
         if (opKind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.AndToken or SyntaxKind.BarBarToken or SyntaxKind.OrToken)
@@ -9349,7 +9372,7 @@ partial class BlockBinder : Binder
         // 3. Inbyggda operatorer
         if (BoundBinaryOperator.TryLookup(Compilation, opKind, left.Type, right.Type, out var op))
         {
-            return new BoundBinaryExpression(left, op, right);
+            return new BoundBinaryExpression(left, WithCheckedContext(op, callSyntax ?? leftSyntax), right);
         }
 
         // Metadata identity drift can produce distinct enum symbols for the same CLR enum type.
@@ -10143,13 +10166,18 @@ partial class BlockBinder : Binder
             new BoundArgument(right, RefKind.None, null, rightSyntax),
         };
 
+        var checkedCandidates = IsCheckedContext(callSyntax ?? leftSyntax) &&
+            OperatorFacts.GetCheckedMetadataName(operatorInfo.MetadataName) is { } checkedName
+                ? GetUserDefinedOperatorCandidates(checkedName, leftType, rightType, diagnosticLocation)
+                : ImmutableArray<IMethodSymbol>.Empty;
         var resolution = OverloadResolver.ResolveOverload(
-            candidates,
-            arguments,
-            Compilation,
-            binder: this,
-            canBindLambda: EnsureLambdaCompatible,
-            callSyntax: callSyntax);
+            checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates,
+            arguments, Compilation, binder: this,
+            canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+        if (!checkedCandidates.IsDefaultOrEmpty && !resolution.Success && !resolution.IsAmbiguous)
+            resolution = OverloadResolver.ResolveOverload(
+                candidates, arguments, Compilation, binder: this,
+                canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
 
         if (resolution.IsAmbiguous)
         {

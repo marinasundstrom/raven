@@ -160,7 +160,7 @@ C#'s receiver-valued assignment result. Binary operators remain independent and
 need not be declared alongside compound operators.
 
 Current boundaries: extension and interface compound declarations, virtual/override
-compound operators and checked-expression selection remain implementation gaps.
+compound operators and complete checked-context lowering remain implementation gaps.
 Instance increment/decrement, remainder and shift compounds are supported. These
 gaps are not permanent target restrictions. No Runtime Contract switch is needed. See the
 [compiler lowering contract](../../compiler/compound-operators.md).
@@ -236,8 +236,28 @@ Each checked declaration requires an ordinary declaration in the same type with
 matching parameter passing modes, parameter types, static/instance status and
 return type. It can appear later or in another partial declaration.
 
-This slice emits distinct standard .NET checked method names and preserves them in
-symbol import/display. It does **not** introduce checked expression/block contexts;
-ordinary Raven expressions still select ordinary operators. A checked declaration
-also does not implicitly make arithmetic in its body checked. Checked selection and
-built-in overflow checking are subsequent work, on both targets.
+Checked declarations emit distinct standard .NET method names and preserve them in
+symbol import/display. A checked declaration does not implicitly make arithmetic
+in its body checked.
+
+### Checked expressions (development)
+
+`checked(expression)` enables overflow checking for built-in integer binary `+`,
+`-` and `*`. `unchecked(expression)` restores ordinary arithmetic. The nearest
+context wins; context does not flow into nested function bodies or called methods.
+Floating-point arithmetic retains its ordinary behavior.
+
+For user-defined binary `+`, `-`, `*` and `/`, a checked context first resolves
+checked candidates. If none applies, ordinary candidates are used. Ambiguous
+checked candidates remain an error; fallback must not hide ambiguity. Unchecked
+expressions select ordinary operators. These rules also apply to imported methods.
+
+This first slice checks integer overflow at runtime. Checked blocks, constant
+arithmetic evaluation, checked explicit conversions, unary negation and mutation
+operators remain gaps. Checked casts/explicit conversions, unary `-`, compound
+assignments and increment/decrement are diagnosed with RAV0373, rather than lowered
+unchecked. This includes negative literal expressions and nonnumeric casts for
+now. Use an explicit inner `unchecked(...)` only when ordinary behavior is intended.
+Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
+Checked arithmetic in expression trees is not yet supported. Neither target needs
+a new Runtime Contract setting; native emission is qualified separately.

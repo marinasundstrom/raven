@@ -947,7 +947,8 @@ internal sealed class ParenthesizedOperation : Operation, IParenthesizedOperatio
     {
     }
 
-    public IOperation? Operand => _operation ??= SemanticModel.GetOperation(((ParenthesizedExpressionSyntax)Syntax).Expression);
+    public IOperation? Operand => _operation ??= SemanticModel.GetOperation(Syntax is CheckedExpressionSyntax checkedExpression
+        ? checkedExpression.Expression : ((ParenthesizedExpressionSyntax)Syntax).Expression);
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

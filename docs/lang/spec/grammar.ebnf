@@ -291,7 +291,7 @@ OperatorDeclaration      ::= MemberModifiers?
 
 (* checked is permitted only for unary -/++/--, binary +/-/*//, explicit
    conversions, instance ++/--, and +=/-=/*=//=. A matching ordinary declaration
-   is required. Checked expression contexts are not yet implemented. *)
+   is required. Checked block contexts are not yet implemented. *)
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&'
                            | '|' | '==' | '!=' | '<' | '<=' | '>'
                            | '>=' | '!' | '~' | 'true' | 'false' | '++' | '--' | '<<' | '>>' | '>>>'
@@ -737,6 +737,7 @@ PrimaryExpression        ::= Literal
                            | Identifier
                            | MemberBindingExpression
                            | TupleExpression
+                           | CheckedExpression
                            | ParenthesizedExpression
                            | TryExpression
                            | UnsafeExpression
@@ -809,6 +810,7 @@ CollectionComprehensionElement
 TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
 TupleElement             ::= [Identifier ':'] Expression ;
 
+CheckedExpression        ::= ( 'checked' | 'unchecked' ) '(' Expression ')' ;
 ParenthesizedExpression  ::= '(' Expression ')' ;
 
 Literal                  ::= NumericLiteral

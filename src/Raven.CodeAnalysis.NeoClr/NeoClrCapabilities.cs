@@ -11,6 +11,7 @@ internal static class NeoClrCapabilities
             LinearInstructionKind.NewTuple, LinearInstructionKind.LoadTupleElement, LinearInstructionKind.StoreTupleElement,
             LinearInstructionKind.LoadTypeToken, LinearInstructionKind.DirectInstanceCall, LinearInstructionKind.BaseConstructorCall, LinearInstructionKind.ConstrainedCall, LinearInstructionKind.EnumFromInt32, LinearInstructionKind.EnumToInt32, LinearInstructionKind.LoadCapture, LinearInstructionKind.UnboxAny, LinearInstructionKind.ReferenceIsNull, LinearInstructionKind.TypeTest, LinearInstructionKind.FieldAddress, LinearInstructionKind.BoxToObject, LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
+            LinearInstructionKind.CheckedAdd, LinearInstructionKind.UnsignedCheckedAdd, LinearInstructionKind.CheckedSubtract, LinearInstructionKind.UnsignedCheckedSubtract, LinearInstructionKind.CheckedMultiply, LinearInstructionKind.UnsignedCheckedMultiply,
             LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return, LinearInstructionKind.CompilerFailure,
             LinearInstructionKind.LoadLocal, LinearInstructionKind.StoreLocal, LinearInstructionKind.Boolean,
             LinearInstructionKind.Not, LinearInstructionKind.Equal, LinearInstructionKind.Less,

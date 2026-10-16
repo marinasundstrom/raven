@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1879,16 +1879,22 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                       binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality or
                           OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor)):
-                    if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or OperatorKind.Division or OperatorKind.Modulo or
+                    var binaryKind = binary.Operator.OperatorKind & ~OperatorKind.Checked;
+                    var checkedArithmetic = (binary.Operator.OperatorKind & OperatorKind.Checked) != 0;
+                    var unsignedArithmetic = IsUnsigned(binary.Operator.LeftType.SpecialType);
+                    if (binaryKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or OperatorKind.Division or OperatorKind.Modulo or
                         OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor or
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
                         OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
                     if (!LowerBinaryOperand(binary.Left, binary.Operator.LeftType, atStatementBoundary) || !LowerBinaryOperand(binary.Right, binary.Operator.RightType)) return false;
-                    Add(binary.Operator.OperatorKind switch
+                    Add(binaryKind switch
                     {
+                        OperatorKind.Addition when checkedArithmetic => unsignedArithmetic ? LinearInstructionKind.UnsignedCheckedAdd : LinearInstructionKind.CheckedAdd,
                         OperatorKind.Addition => LinearInstructionKind.Add,
+                        OperatorKind.Subtraction when checkedArithmetic => unsignedArithmetic ? LinearInstructionKind.UnsignedCheckedSubtract : LinearInstructionKind.CheckedSubtract,
                         OperatorKind.Subtraction => LinearInstructionKind.Subtract,
+                        OperatorKind.Multiplication when checkedArithmetic => unsignedArithmetic ? LinearInstructionKind.UnsignedCheckedMultiply : LinearInstructionKind.CheckedMultiply,
                         OperatorKind.Multiplication => LinearInstructionKind.Multiply,
                         OperatorKind.Division when IsUnsigned(binary.Operator.LeftType.SpecialType) => LinearInstructionKind.UnsignedDivide,
                         OperatorKind.Division => LinearInstructionKind.Divide,

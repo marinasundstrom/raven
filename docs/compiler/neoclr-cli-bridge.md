@@ -13644,3 +13644,36 @@ build and 98 focused tests pass. The checked-declaration consumer returns 42 on
 .NET 11 and native interpreter/macOS ARM64 JIT/AOT. See the NeoCLR repository's
 `checked-declarations-native-results.json` and `checked-declarations-dotnet-results.json`
 for commands and artifact fingerprints. No checked-expression support is implied.
+
+## Checked expressions and binary lookup (development, 2026-10-16)
+
+Deliberate carry of Raven main `935ab4af7`. `checked(...)` and `unchecked(...)`
+share lexical binding, nearest-context precedence and checked binary overload
+selection with the ordinary .NET target. A nested function body starts its own
+ordinary context. No Runtime Contract configuration changes.
+
+Native integer binary `+`, `-`, `*` use adapter-admitted checked signed/unsigned
+instructions and SDK `Add_Ovf`, `Sub_Ovf`, `Mul_Ovf` (and `_Un` forms). Build with
+`NeoClrMetadataProject` pointing to SDK `1876fb72b` or later. Native metadata retains
+ordinary operand types and operator method identities. There is no temporary CLI
+carrier or lost checked-context flag: overflow semantics live in the instructions.
+Checked operator overloads remain normal method calls; their bodies do not acquire
+checked semantics implicitly. If no checked binary candidate applies, ordinary
+lookup is used; ambiguity is diagnosed rather than hidden by fallback.
+
+Checked conversions, unary minus, mutation operations and lifted/pointer arithmetic
+are diagnosed until their lowering is implemented. Checked blocks, constant
+arithmetic evaluation and checked expression trees remain gaps. This slice does
+not expand the backend's existing primitive/type admission profile or resume
+broader structural work. The Raven binder and backend adapter own the remaining
+compiler work; the runtime already provides checked arithmetic/conversion operations.
+
+Validation is recorded with the native consumer in neoCLR's
+`docs/validation/compound-operators/README.md`. The matching bundle is
+`target/function-reflection-library-validated-20261016`; qualification is on macOS
+ARM64 for interpreter, managed JIT and AOT, separately from .NET 11 testing.
+
+The carry passes the same 73 focused compiler tests as main, the required generator
+build and the SDK-enabled driver build. The shared consumer returns 42 on all
+three native backends; six overflow consumers cover signed/unsigned addition,
+subtraction and multiplication, checking status 2 and untouched native result slots.

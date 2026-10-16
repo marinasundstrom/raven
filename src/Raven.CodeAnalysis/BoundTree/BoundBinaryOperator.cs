@@ -29,6 +29,9 @@ internal partial class BoundBinaryOperator
         MethodSymbol = methodSymbol;
     }
 
+    internal BoundBinaryOperator WithChecked()
+        => new(OperatorKind | BinaryOperatorKind.Checked, LeftType, RightType, ResultType, MethodSymbol);
+
     public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
     {
         if (left is LiteralTypeSymbol litLeft)

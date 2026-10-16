@@ -2327,6 +2327,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (IsFreestandingMacroExpressionStart())
             return ParseFreestandingMacroExpression();
 
+        if (token.Kind is SyntaxKind.CheckedKeyword or SyntaxKind.UncheckedKeyword &&
+            PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
+        {
+            var keyword = ReadToken();
+            var open = ReadToken();
+            var expression = new ExpressionSyntaxParser(this).ParseExpression();
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var close);
+            return CheckedExpression(keyword, open, expression, close);
+        }
+
         if (CanTokenBeIdentifier(token))
         {
             if (IsInMacro && IsMacroExpansionExpressionKeyword(token))

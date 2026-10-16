@@ -100,6 +100,12 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.Argument: method.Emit(OpCode.Ldarg, instruction.Integer); break;
             case LinearInstructionKind.LoadLocal: method.Emit(OpCode.Ldloc, instruction.Integer); break;
             case LinearInstructionKind.StoreLocal: method.Emit(OpCode.Stloc, instruction.Integer); break;
+            case LinearInstructionKind.CheckedAdd: method.Emit(OpCode.Add_Ovf); break;
+            case LinearInstructionKind.UnsignedCheckedAdd: method.Emit(OpCode.Add_Ovf_Un); break;
+            case LinearInstructionKind.CheckedSubtract: method.Emit(OpCode.Sub_Ovf); break;
+            case LinearInstructionKind.UnsignedCheckedSubtract: method.Emit(OpCode.Sub_Ovf_Un); break;
+            case LinearInstructionKind.CheckedMultiply: method.Emit(OpCode.Mul_Ovf); break;
+            case LinearInstructionKind.UnsignedCheckedMultiply: method.Emit(OpCode.Mul_Ovf_Un); break;
             case LinearInstructionKind.Add: method.Emit(OpCode.Add); break;
             case LinearInstructionKind.Subtract: method.Emit(OpCode.Sub); break;
             case LinearInstructionKind.Multiply: method.Emit(OpCode.Mul); break;
