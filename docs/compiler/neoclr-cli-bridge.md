@@ -13814,3 +13814,11 @@ complement and masked shifts share .NET semantics. RAV0375 rejects integer/decim
 constant zero divisors. Native emission and Runtime Contract settings are unchanged.
 The 80 focused constant tests and native interpreter/JIT/AOT consumer pass.
 Native-width and enum constant arithmetic remain gaps; structural work stays parked.
+
+### Arithmetic parameter defaults
+
+Carry main `49ca35b30` into the shared binder. The 77 focused constant/default tests
+pass and ordinary .NET parameter metadata retains evaluated values. Native callable
+admission still rejects optional parameter declarations with NEOMETA001, rather than
+dropping defaults from imported metadata. No native parameter-default encoding is
+added by this carry; native source/import support remains a separate gap.

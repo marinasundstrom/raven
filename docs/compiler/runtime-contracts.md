@@ -4339,3 +4339,12 @@ and shifts. Shift counts use .NET's 5/6-bit mask and discard shifted-out bits ev
 checked contexts. RAV0375 rejects integer/decimal constant zero divisors; floating
 division follows IEEE behavior. No Runtime Contract or emitted metadata changes.
 Validation: 80 focused constant-binding/conversion tests pass.
+
+Parameter-default completion now uses a scoped BlockBinder and the same typed
+evaluator; syntax-only skeleton declarations remain provisional until completion.
+Existing Option.None/enum/default special forms retain their handling. Unsupported
+nonconstant defaults retain the existing parameter diagnostic; arithmetic faults
+retain RAV0374/RAV0375. No Runtime Contract change; CLI parameter constants retain
+their standard encoding. Focused default and constant tests validate invocation and
+reflected defaults.
+Validation: 77 focused constant/default tests and 421 overload-resolution tests pass.

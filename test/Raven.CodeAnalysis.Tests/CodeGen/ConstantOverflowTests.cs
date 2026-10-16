@@ -99,6 +99,32 @@ public class ConstantOverflowTests
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0375");
     }
 
+    [Fact]
+    public void ArithmeticParameterDefaultIsEmittedAndInvoked()
+    {
+        var compilation = Create("""
+            class Runner {
+                static func Answer(value: int = (84 / 2) | 0) -> int => value
+                static func Run() -> int => Answer()
+            }
+            """);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        image.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        var type = loaded.Assembly.GetType("Runner")!;
+        Assert.Equal(42, type.GetMethod("Run")!.Invoke(null, null));
+        Assert.Equal(42, type.GetMethod("Answer")!.GetParameters()[0].DefaultValue);
+    }
+
+    [Fact]
+    public void OverflowingParameterDefaultIsDiagnosed()
+    {
+        var compilation = Create("class Runner { static func Run(value: int = 2147483647 + 1) {} }");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0374");
+    }
+
     private static Compilation Create(string source) => Compilation.Create("ConstantOverflow_" + Guid.NewGuid().ToString("N"),
         new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
         .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(TestMetadataReferences.Default);

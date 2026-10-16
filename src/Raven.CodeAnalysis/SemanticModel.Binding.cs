@@ -4947,7 +4947,7 @@ public partial class SemanticModel
                             parameterType,
                             parameterName,
                             unionBinder.Diagnostics,
-                            ref seenOptionalParameter);
+                            ref seenOptionalParameter, context: unionBinder);
 
                         var isMutable = refKind is RefKind.Ref or RefKind.Out;
                         rawParameters.Add((
@@ -4986,7 +4986,7 @@ public partial class SemanticModel
                             fieldSyntax.Identifier.GetLocation(),
                             unionBinder.Diagnostics,
                             ref seenOptionalParameter,
-                            requireTrailingOptional: false);
+                            requireTrailingOptional: false, context: unionBinder);
 
                         rawParameters.Add((
                             Syntax: fieldSyntax,
@@ -6656,7 +6656,7 @@ public partial class SemanticModel
                 parameterType,
                 parameterSyntax.Identifier.ValueText,
                 classBinder.Diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: classBinder);
             var bindingKeywordKind = parameterSyntax.BindingKeyword.Kind;
             var isMutable = bindingKeywordKind == SyntaxKind.VarKeyword;
             var accessibilityKeywordKind = parameterSyntax.AccessibilityKeyword.Kind;

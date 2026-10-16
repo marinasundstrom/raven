@@ -184,7 +184,7 @@ class FunctionBinder : Binder
                 type,
                 p.Identifier.ValueText,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
 
             type = TypeMemberBinder.NormalizeVarParamsParameterType(
                 Compilation,

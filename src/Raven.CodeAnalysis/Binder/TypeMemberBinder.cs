@@ -1148,7 +1148,7 @@ internal partial class TypeMemberBinder : Binder
                 effectiveParamType,
                 paramName,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 effectiveParamType,
@@ -1580,7 +1580,7 @@ internal partial class TypeMemberBinder : Binder
                 effectiveParamType,
                 paramName,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 effectiveParamType,
@@ -1730,7 +1730,7 @@ internal partial class TypeMemberBinder : Binder
                 effectiveParamType,
                 paramName,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 effectiveParamType,
@@ -2285,7 +2285,7 @@ internal partial class TypeMemberBinder : Binder
                 effectiveParamType,
                 paramName,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 effectiveParamType,
@@ -3548,7 +3548,7 @@ internal partial class TypeMemberBinder : Binder
                 type,
                 p.Identifier.ValueText,
                 _diagnostics,
-                ref seenOptionalParameter);
+                ref seenOptionalParameter, context: this);
 
             if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
             {
@@ -4417,9 +4417,9 @@ internal partial class TypeMemberBinder : Binder
         ITypeSymbol parameterType,
         string parameterName,
         DiagnosticBag diagnostics,
-        ref bool seenOptionalParameter)
+        ref bool seenOptionalParameter, Binder? context = null)
     {
-        var evaluation = EvaluateParameterDefaultValue(parameterSyntax.DefaultValue, parameterType);
+        var evaluation = EvaluateParameterDefaultValue(parameterSyntax.DefaultValue, parameterType, context, diagnostics);
 
         if (!evaluation.HasDefaultSyntax)
         {
@@ -4464,9 +4464,9 @@ internal partial class TypeMemberBinder : Binder
         Location parameterLocation,
         DiagnosticBag diagnostics,
         ref bool seenOptionalParameter,
-        bool requireTrailingOptional = true)
+        bool requireTrailingOptional = true, Binder? context = null)
     {
-        var evaluation = EvaluateParameterDefaultValue(defaultValue, parameterType);
+        var evaluation = EvaluateParameterDefaultValue(defaultValue, parameterType, context, diagnostics);
 
         if (!evaluation.HasDefaultSyntax)
         {
@@ -4662,7 +4662,7 @@ internal partial class TypeMemberBinder : Binder
 
     internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(
         EqualsValueClauseSyntax? defaultClause,
-        ITypeSymbol parameterType)
+        ITypeSymbol parameterType, Binder? context = null, DiagnosticBag? diagnostics = null)
     {
         if (defaultClause is null)
             return new ParameterDefaultEvaluationResult(false, success: false, value: null, ParameterDefaultEvaluationFailure.None);
@@ -4689,7 +4689,25 @@ internal partial class TypeMemberBinder : Binder
                 enumDefaultValue,
                 ParameterDefaultEvaluationFailure.None);
 
-        if (!ConstantValueEvaluator.TryEvaluate(defaultExpression, out var rawValue))
+        object? rawValue;
+        if (context is not null)
+        {
+            var binder = new BlockBinder(context.ContainingSymbol ?? parameterType, context);
+            var bound = binder.BindExpression(defaultExpression);
+            var arithmeticError = false;
+            foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
+                if (diagnostic.Id is "RAV0374" or "RAV0375")
+                {
+                    diagnostics?.Report(diagnostic);
+                    arithmeticError = true;
+                }
+            if (bound is BoundErrorExpression)
+                return new ParameterDefaultEvaluationResult(true, success: false, value: null,
+                    arithmeticError ? ParameterDefaultEvaluationFailure.None : ParameterDefaultEvaluationFailure.NotConstant);
+            if (!binder.TryEvaluateConstant(bound, defaultExpression, out rawValue))
+                return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConstant);
+        }
+        else if (!ConstantValueEvaluator.TryEvaluate(defaultExpression, out rawValue))
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConstant);
 
         if (!ConstantValueEvaluator.TryConvert(parameterType, rawValue, out var defaultValue))
