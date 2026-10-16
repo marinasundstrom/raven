@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-16:** Parse function types in type and capture patterns, including `if obj is () -> T { }` and function-signature match arms. Preserve positional patterns; ordinary .NET tests use standard delegates and scoped generic parameters. Native feature-branch consumer validation also passes interpreter/JIT/AOT, including generic captures and negative signature/null/object checks. No new Runtime Contract setting or conversion rule.
+- **2026-10-16:** Parse function types in type and capture patterns, including `if obj is () -> T { }` and function-signature match arms. Preserve positional patterns; ordinary .NET tests use standard delegates and scoped generic parameters. Native feature-branch consumer validation also passes interpreter/JIT/AOT, including generic captures and negative signature/null/object checks; the follow-up consumer compares these patterns with TypeInfo.IsInstanceOfType for concrete and generic signatures. No new Runtime Contract setting or conversion rule.
 
 - **2026-10-16:** Document the native provisional dynamic-function primitive and source-local facade, qualified in interpreter/JIT/AOT. Also qualify native structural typeof tokens, Object.GetType identity and dynamically forwarded function arguments/results; no permanent class-library API, CLI encoding or normal .NET behavior change is introduced.
 

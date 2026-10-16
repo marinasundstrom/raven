@@ -13512,3 +13512,10 @@ capture/invocation in a generic match arm, exact parameter/result mismatches, nu
 a nominal object, and a bound receiver. Its result is 42 in interpreter/JIT/AOT.
 The shared .NET parser/runtime checks pass 40 tests. Existing function type syntax
 nodes and semantic type classification are reused; TextMate already recognizes `->`.
+
+
+The function-pattern consumer additionally compares native reflection's
+`typeof(() -> T).IsInstanceOfType(obj)` with `obj is () -> T`, including matching
+and mismatching closed generic signatures and null. Concrete checks cover bound
+functions, nominal objects, and parameter/result mismatches. This exercises existing
+TypeInfo/runtime relationships with no compiler, Runtime Contract or API change.
