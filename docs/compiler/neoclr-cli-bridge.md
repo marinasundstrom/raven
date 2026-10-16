@@ -13701,3 +13701,16 @@ minimum-negation consumers report ArithmeticOverflow on all three native backend
 and preserve the native result slot. The bundle and runtime baseline above remain
 unchanged. Recoverable arithmetic methods returning Option/Result are a separate
 open design question; this slice does not implement them or change expression types.
+
+
+### Class-contained constrained generic methods (2026-10-16)
+
+Remove the native emitter's blanket syntax rejection of method constraint clauses.
+The existing source callable/signature capability checks still validate admitted
+bounds and emission; no new runtime contract switch, parser/binder rule or CLI
+encoding is introduced. Closed nongeneric nominal interface bounds and static Self
+calls require the matching native specialization support. A Complex constrained Add
+method inside Arithmetic now compiles and executes in interpreter/JIT/AOT; the same
+top-level consumer also passes. The ordinary .NET GenericMathEmission regression
+passes unchanged. Imported constrained methods still need a complete authored SDK
+reference contract; that separate boundary is not bypassed by reader fallback.

@@ -298,7 +298,7 @@ internal static class Int32Emitter
                             continue;
                         }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) ||
-                            method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
+                            method.ExplicitInterfaceSpecifier is not null ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.UnsafeKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
