@@ -1606,6 +1606,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumMember.GetConstantValue() is int enumMemberValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), enumMemberValue);
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumMember.Type)); return true;
+                case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intConstant } when intConstant.GetConstantValue() is int intValue:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), intValue); return true;
+                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intMember } when intMember.GetConstantValue() is int intMemberValue:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), intMemberValue); return true;
                 case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantField } when constantField.GetConstantValue() is double constantValue:
                     instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(constantValue))); return true;
                 case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantMember } when constantMember.GetConstantValue() is double memberValue:

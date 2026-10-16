@@ -28,6 +28,7 @@ internal static class Int32Emitter
         var properties = new List<SourcePropertySymbol>();
         var attributeProperties = new List<(IPropertySymbol Symbol, PropertyDefinition Definition)>();
         var storageFields = new List<IFieldSymbol>();
+        var literalFields = new List<IFieldSymbol>();
         var assemblyConstants = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
@@ -210,6 +211,18 @@ internal static class Int32Emitter
                     {
                         diagnosticSyntax = typeMember;
                         if (typeMember is ClassDeclarationSyntax or StructDeclarationSyntax) continue;
+                        if (typeMember is ConstDeclarationSyntax classConstant)
+                        {
+                            if (classConstant.AttributeLists.Count != 0 || classConstant.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
+                                throw Unsupported("class constants with public/internal/private visibility and no attributes");
+                            foreach (var variable in classConstant.Declaration.Declarators)
+                            {
+                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } literal || literal.GetConstantValue() is not int)
+                                    throw Unsupported("Int32 class constants");
+                                literalFields.Add(literal);
+                            }
+                            continue;
+                        }
                         if (typeMember is FieldDeclarationSyntax fieldSyntax)
                         {
                             if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ReadonlyKeyword or SyntaxKind.StaticKeyword)))
@@ -790,6 +803,10 @@ internal static class Int32Emitter
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)) flags |= TypeParameterConstraints.FunctionType;
                 nativeTypes[type.Symbol].SetSpecialConstraints(ordinal, flags);
             }
+        foreach (var literal in literalFields)
+            nativeTypes[literal.ContainingType!].Definition.Fields.Add(new FieldDefinition(literal.MetadataName,
+                (ushort)(0x8050 | (literal.DeclaredAccessibility switch { Accessibility.Public => 6, Accessibility.Internal => 3, _ => 1 })),
+                PrimitiveType.Int32, (int)literal.GetConstantValue()!));
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)

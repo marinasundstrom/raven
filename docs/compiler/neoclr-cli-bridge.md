@@ -13822,3 +13822,17 @@ pass and ordinary .NET parameter metadata retains evaluated values. Native calla
 admission still rejects optional parameter declarations with NEOMETA001, rather than
 dropping defaults from imported metadata. No native parameter-default encoding is
 added by this carry; native source/import support remains a separate gap.
+
+### Int32 class constants
+
+Native class/struct constant declarations with evaluated Int32 values now emit
+storage-free literal field metadata. Source and imported accesses lower to typed
+constants; class identity, field name/access and value remain introspectable through
+the SDK. No type initializer or execution opcode is introduced. The additive
+literal_fields encoding requires neoCLR `e453a7bbf` or newer and matching metadata
+SDK; .NET retains standard Literal/Static/HasDefault field metadata. Other literal
+types, attributes and guest field-reflection enumeration remain gaps.
+
+The source and separate-provider consumers return 42 in interpreter, managed JIT
+and sanitized AOT with the existing numerics library bundle and freshly built hosts.
+Exact tool/source/provider hashes are retained in neoCLR's operator qualification.
