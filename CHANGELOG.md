@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Qualify the imported-base variance SDK fix through separately compiled Raven library/consumer calls in interpreter, AOT and managed JIT (neoCLR da49f4819). Identity/mutation and native cleanup checks pass; reverse/unrelated source conversions reject. No compiler source, Runtime Contract or encoding changes.
+
 - **2026-10-16:** Document neoCLR SDK 2c98cbd1b imported-base ancestry support in interface variance validation. No Raven lowering or Runtime Contract change; SDK metadata/CLR checks pass, with source/native consumer qualification tracked separately.
 
 - **2026-10-16:** Record native source display-name/namespace binding and static-owner token validation fixes. Focused interpreter/JIT/AOT-emission checks pass, followed by end-to-end Raven assembly/module generic discovery in all three execution modes (neoCLR e911b7a39). Explicit catalog retention remains required; no Raven lowering or Runtime Contract change.

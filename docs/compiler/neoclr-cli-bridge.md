@@ -12786,3 +12786,14 @@ and nested variance. Reverse and unrelated-class conversions still reject. Focus
 SDK native metadata and emitted CLR calls pass; this does not itself qualify a new
 Raven/AOT consumer. Raven lowering, Runtime Contract options and native/CLI encoding
 are unchanged. Generic class bases and intrinsic String variance remain unsupported.
+
+neoCLR qualification `da49f4819` closes the imported-base source/native gap above.
+Raven `9854031b8` was rebuilt against SDK `2c98cbd1b`; the unchanged
+`variance-argument-sequence-20261016` bundle supplies class-library contracts.
+A separately emitted library and consumer now pass interpreter, AOT and managed JIT
+with producer/consumer/nested variance, receiver/payload identity and inherited-field
+mutation. Three reverse/unrelated source conversions reject with RAV1503. Native
+fault/root/collection and AOT sanitizer checks pass. The runner and fingerprinted
+evidence are in neoCLR's `docs/validation/interface-variance/imported-base/`.
+No Raven source code, Runtime Contract configuration or metadata encoding changed.
+Generic class bases and intrinsic String materialization remain separate gaps.
