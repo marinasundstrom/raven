@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document native SDK variance validation through imported class ancestors and its separately compiled interpreter/AOT/JIT qualification. Inherited interface calls preserve identity and mutation; three invalid conversions reject. Runtime Contracts and compiler emission are unchanged; Sliceable/Result variance stays deferred.
+
 - **2026-10-16:** Qualify String interface variance against neoCLR 1d52a70fd in interpreter/AOT/JIT. Object and nominal Iterable<char> views preserve identity; nullable calls and six source rejections pass with native cleanup/sanitizer checks. Document interpreter view-handle costs and native pointer adaptation; Runtime Contract and metadata encoding are unchanged.
 
 - **2026-10-16:** Carry main f8679d6f3 nullable reference variance correction to the neoCLR compiler line. Accept safe covariant/contravariant nullable views and reject loss of nullability; value boxing stays excluded. Runtime Contract and emitted metadata are unchanged.

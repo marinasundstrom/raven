@@ -12870,3 +12870,23 @@ Six reverse/unrelated/value-boxing/nullability conversions reject. Native cleanu
 and AOT sanitizer checks pass. The reproducible runner, sources and artifact hashes
 are retained in neoCLR's `docs/validation/interface-variance/strings/` directory.
 Structural work remains parked.
+
+### Imported ancestors in native interface variance (2026-10-16)
+
+The native metadata SDK now follows explicitly declared imported class bases when
+checking reference-only interface variance. Given a dependency's `Leaf : Middle :
+Base : Readable`, a producer of Leaf can be used as a producer of Readable; the
+corresponding consumer conversion also works. The host must register the complete
+nominal ancestry, and loaded definitions remain verified by the runtime.
+
+This corrects SDK validation only. Runtime Contracts, Raven's semantic model and
+emission, CLI reference encoding, and native generic metadata are unchanged.
+Rebuild the native compiler against the matching SDK. Generic class bases remain
+outside the SDK contract; Sliceable/Result variance and structural work stay deferred.
+
+Raven revision `4a08a7848`, rebuilt with the SDK fix, passes the separately compiled
+`neoclr/docs/validation/interface-variance/inherited-interface` consumer against
+bundle `variance-argument-sequence-20261016`: interpreter/AOT/managed JIT return 42;
+three source rejections, inherited member calls, reference identity, field mutation,
+native cleanup and AOT sanitizer checks pass. The SDK also tests missing/incomplete
+ancestry, reverse rejection, and emitted CLR conversion methods.
