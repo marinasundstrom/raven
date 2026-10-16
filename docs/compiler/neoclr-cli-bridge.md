@@ -12811,3 +12811,18 @@ for both producer and consumer variance involving interface-valued arguments and
 Object. Receiver/payload identity, native cleanup and AOT sanitizer checks pass;
 three unsafe conversions still reject. Native proof tests reject serialized forgery
 and reverse/value-boxing conversions. No String widening or structural work is added.
+
+### Array-valued variant arguments (2026-10-16)
+
+neoCLR qualification `bdb86ec82` extends the imported-base consumer with
+`Producer<int[]>` to `Producer<Object>` and `Consumer<Object>` to `Consumer<int[]>`.
+The same emitted image returns 42 in interpreter, AOT and managed JIT with array
+identity, shared mutation, native cleanup and AOT sanitizer checks. The three
+existing reverse/unrelated conversions still reject. Array references qualify even
+when their elements are values; mutable array element types remain invariant.
+
+No Raven lowering, Runtime Contract option, bridge encoding or runtime conversion
+changed. This uses the compiler rebuilt against SDK `2c98cbd1b`, native Object-root
+fix `81701e5aa` and unchanged `variance-argument-sequence-20261016` bundle. Retained
+commands and hashes are in neoCLR's imported-base validation directory. Intrinsic
+String widening remains unsupported, and structural work stays parked.
