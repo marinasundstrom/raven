@@ -187,7 +187,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ? 0 : method.ContainingType?.Arity ?? 0, method.ContainingType is { } physicalOwner && SourceTypePlan.IsStaticContainer(physicalOwner), method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),
-            method.ContainingType is { } constrained && ((INamedTypeSymbol)constrained.OriginalDefinition).TypeParameters.Any(p => (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0), method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray());
+            method.ContainingType is { } constrained && ((INamedTypeSymbol)constrained.OriginalDefinition).TypeParameters.Any(p => (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.FunctionType)) != 0), method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray());
         return true;
     }
 }

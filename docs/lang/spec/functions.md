@@ -597,3 +597,26 @@ highest-priority candidates before applying normal overload comparison.
 Delegate bridges use the emitted return signature when adapting Unit and explicit
 `System.Void` returns. A source function returning Unit can emit a CLI no-result
 method; invoking it must not discard a stack value that was never produced.
+
+## Native function category constraints (neoCLR feature branch)
+
+On the neoCLR target, `where T: func` restricts a type argument to a structural
+function signature. For example, the validated `FunctionSlot<T> where T: func`
+fixture stores `T` and returns it; a consumer constructs
+`FunctionSlot<(int) -> int>`, retrieves that concrete function and invokes it.
+`System.Func<int, int>`, `System.Action`, arbitrary objects with `Invoke`, and
+unconstrained type parameters do not satisfy this category. A parameter already
+constrained with `func` can be forwarded. `func` must be the sole constraint.
+
+The constraint does not describe the parameters/result of `T`, so a generic body
+cannot call `T` solely because it has this constraint. Function-signature bounds
+such as `where T: () -> T2` are a separate design and are not enabled for native
+emission by this feature. No reflection invocation or observer API is introduced.
+
+The parser exposes `FunctionConstraintSyntax.FuncKeyword`; semantic symbols retain
+`TypeParameterConstraintKind.FunctionType`. Ordinary Raven/.NET rejects this
+constraint with RAV0365 instead of substituting a nominal Delegate bound. Native
+emission currently supports generic class type parameters; function-constrained
+methods bind semantically but remain rejected by native emission rather than
+losing their contract. This feature is on `codex/function-kind-constraint`, not the
+normal Raven/.NET language profile. Existing .NET function mappings are unchanged.

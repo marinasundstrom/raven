@@ -750,3 +750,9 @@ dotnet run --project tools/NeoClrMetadataProbe \
   --property WarningLevel=0 -- \
   --function-constraint-import /path/to/Core.dll
 ```
+
+The function-constraint probe also accepts an imported structural function argument
+and checks that a semantically valid function-constrained method fails with
+NEOMETA001 and produces no native image. Method-level emission remains a separate
+gap; native generic-class constraints are qualified by neoCLR's retained Raven
+function-kind consumer.

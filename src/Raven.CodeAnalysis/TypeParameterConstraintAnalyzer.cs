@@ -39,6 +39,10 @@ internal static class TypeParameterConstraintAnalyzer
         {
             switch (constraint)
             {
+                case FunctionConstraintSyntax:
+                    kind |= TypeParameterConstraintKind.FunctionType;
+                    break;
+
                 case ClassConstraintSyntax:
                     kind |= TypeParameterConstraintKind.ReferenceType;
                     break;
@@ -94,8 +98,13 @@ internal static class TypeParameterConstraintAnalyzer
         }
     }
 
-    internal static void ValidateIntersectionBounds(SourceTypeParameterSymbol parameter, DiagnosticBag diagnostics)
+    internal static void ValidateStructuralConstraints(SourceTypeParameterSymbol parameter, DiagnosticBag diagnostics)
     {
+        if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) &&
+            (parameter.ContainingSymbol?.ContainingAssembly is not SourceAssemblySymbol assembly || !assembly.Compilation.UsesStructuralFunctions ||
+             parameter.ConstraintKind != TypeParameterConstraintKind.FunctionType))
+            diagnostics.ReportInvalidFunctionConstraint(parameter.Locations.FirstOrDefault() ?? Location.None);
+
         if (!parameter.ConstraintTypeReferences.Any(reference =>
                 reference.GetSyntax().Ancestors().Any(node => node is IntersectionTypeSyntax)))
             return;

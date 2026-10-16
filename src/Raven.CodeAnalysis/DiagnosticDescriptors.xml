@@ -1340,4 +1340,8 @@
     Title="Unsupported intersection constraint bound"
     Message="Intersection constraints currently require interfaces and at most one distinct class bound, without a struct constraint"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0365" Identifier="InvalidFunctionConstraint"
+    Title="Unsupported function-kind constraint"
+    Message="The 'func' constraint requires the neoCLR target and cannot be combined with other constraints"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

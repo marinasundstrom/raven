@@ -2202,6 +2202,8 @@ public static partial class DocumentationGenerator
     {
         var constraints = new List<string>();
         var kind = parameter.ConstraintKind;
+        if (kind.HasFlag(TypeParameterConstraintKind.FunctionType))
+            constraints.Add("func");
         if (kind.HasFlag(TypeParameterConstraintKind.ReferenceType))
             constraints.Add("class");
         if (kind.HasFlag(TypeParameterConstraintKind.ValueType))

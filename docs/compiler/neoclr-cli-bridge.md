@@ -13387,7 +13387,9 @@ Normal Raven/.NET still selects nominal Func/Action or synthesized delegates.
 Legacy core Func/Action remain an explicit native-emitter transport allowance,
 but are unequal to structural function signatures and do not satisfy `func`.
 Runtime Contract configuration and native function metadata/ABI are unchanged;
-no implicit nominal-to-structural delegate conversion is introduced.
+no implicit nominal-to-structural delegate conversion is introduced. Function
+conversion in this slice uses exact structural identity; callable parameter/result
+variance is not added.
 
 The retained `docs/validation/native-function-symbols/raven` fixture in neoCLR
 compiles a generic callback holder separately, imports its function-valued getter,
@@ -13400,3 +13402,38 @@ Nineteen focused compiler regressions pass, covering structural identity,
 substitution/inference, accessibility, no-result/unit distinction and existing .NET
 function/constraint behavior. Category constraint syntax and signature bounds remain the next compiler slices;
 this checkpoint does not introduce observer or dynamic invocation APIs.
+
+### Raven function-category constraint checkpoint (2026-10-16)
+
+On `codex/function-kind-constraint`, Raven now parses `where T: func` as
+`FunctionConstraintSyntax` with a `FuncKeyword` slot. The native runtime contract
+owns admission; .NET targets reject it with RAV0365. The category is standalone:
+duplicates and combinations with class/struct/new/nominal bounds are rejected.
+A structural function signature or another function-constrained type parameter
+satisfies it; nominal delegates and Invoke-shaped objects do not. The constraint
+supplies no callable signature to the generic body.
+
+Native generic-class emission is explicitly enabled through
+`AllowsFunctionTypeConstraints`. Raven writes `TypeParameterConstraints.FunctionType`
+for owned and imported class definitions, retaining the native constraint across
+separate libraries. No CLI GenericParam encoding, Delegate substitution or Runtime
+Contract configuration change is introduced. The existing .NET mapping is unchanged.
+RavenDoc and interface implementation code fixes retain the `func` annotation;
+TextMate already recognizes the reserved `func` keyword.
+
+The SDK/import probe qualifies structural arguments and invalid nominal arguments,
+plus rejection of method constraint emission without writing an image. Native
+method-level category constraint emission remains a gap: semantic binding is
+supported, but emission is gated, not erased. Signature constraints such as
+`where T: () -> T2`, inference through such bounds, and generic invocation using
+those bounds remain separate work. Function-list/event and reflection-invocation
+APIs are still deferred. The native consumer fixture is
+`docs/validation/function-kind-constraint/raven` in neoCLR.
+
+Validation: the required syntax-generator/build script completed; 32 focused
+compiler tests pass on net11.0, including .NET rejection before image emission.
+The native SDK/import probe passes, and the separately compiled bound-function
+slot returns 42 in interpreter, AOT with UBSan/bounds, and managed JIT.
+The retained source bundle is `variance-argument-sequence-20261016`. No website
+build or guest API snapshot refresh was needed: this adds compiler syntax and
+native metadata mapping, not a new guest class-library API.

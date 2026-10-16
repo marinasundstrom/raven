@@ -605,6 +605,7 @@ internal static class Int32Emitter
                     if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
                     if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
                     if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
+                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)) flags |= TypeParameterConstraints.FunctionType;
                     if (flags != TypeParameterConstraints.None) assembly.SetSpecialConstraints(imported, parameter.Ordinal, flags);
                     foreach (var bound in parameter.ConstraintTypes)
                         assembly.AddBaseTypeConstraint(imported, parameter.Ordinal, ImportExternalType((INamedTypeSymbol)bound).ImportedType!);
@@ -786,6 +787,7 @@ internal static class Int32Emitter
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
                 if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
+                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)) flags |= TypeParameterConstraints.FunctionType;
                 nativeTypes[type.Symbol].SetSpecialConstraints(ordinal, flags);
             }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
@@ -1470,7 +1472,7 @@ internal static class Int32Emitter
                 original.TypeKind == TypeKind.Class && original.BaseType is { ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)parentClass.OriginalDefinition, depth + 1)) &&
             original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind == TypeKind.Class && original.ContainingType is null &&
-                (p.ConstraintKind & ~(TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.TypeConstraint)) == 0) &&
+                (p.ConstraintKind & ~(TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.FunctionType)) == 0) &&
                 p.ConstraintTypes.All(bound => bound is INamedTypeSymbol { TypeKind: TypeKind.Class, Arity: 0, ContainingType: null } nominal && IsSymbolOnlyReferenceDefinition(nominal, depth + 1)) && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&

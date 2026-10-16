@@ -345,7 +345,8 @@ WhereClause              ::= 'where' Identifier ':' TypeParameterConstraintList 
 TypeParameterConstraintList
                          ::= TypeParameterConstraint {',' TypeParameterConstraint} ;
 
-TypeParameterConstraint  ::= 'class'            (* reference type constraint *)
+TypeParameterConstraint  ::= 'func'             (* neoCLR structural function category *)
+                           | 'class'            (* reference type constraint *)
                            | 'struct'           (* value type constraint *)
                            | 'notnull'          (* non-null constraint *)
                            | 'unmanaged'        (* unmanaged constraint *)

@@ -2356,6 +2356,8 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
+    internal bool UsesStructuralFunctions => _target.RuntimeContract.UsesStructuralFunctions;
+
     internal bool UsesStructuralTuples => _target.RuntimeContract.UsesStructuralTuples;
 
     internal bool UsesStructuralCompositions => _target.RuntimeContract.UsesStructuralCompositions;

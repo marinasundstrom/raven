@@ -41,6 +41,15 @@ internal static class FunctionConstraintImportChecks
             Check(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && d.Id != "RAV0320"),
                 "unrelated failure for " + argument + ": " + string.Join("; ", diagnostics));
         }
+        var valid = Create("func Accept(value: Example.Signal<(int) -> int>) -> int => 42");
+        Check(!valid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "structural function argument rejected");
+        var method = Create("func Keep<F>(callback: F) -> F where F: func => callback");
+        Check(!method.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "function-constrained method binding failed");
+        using var methodImage = new MemoryStream();
+        var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(method, methodImage,
+            new(new("Consumer", new(1, 0, 0, 0)), core, [new(reference, core)]));
+        Check(!emitted.Success && methodImage.Length == 0 && emitted.Diagnostics.Any(d => d.Id == "NEOMETA001"),
+            "unsupported method constraint was silently erased or failed for unrelated configuration: " + string.Join("; ", emitted.Diagnostics));
         var ordinary = Create("func Accept(value: Example.Unconstrained<int>) -> int => 42");
         Check(!ordinary.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "unconstrained import regressed: " + string.Join("; ", ordinary.GetDiagnostics()));
         Console.WriteLine("PASS native function constraint import, symbolic forwarding and invalid argument diagnostics");

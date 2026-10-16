@@ -316,6 +316,8 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         {
             var constraints = new List<string>();
             var kind = typeParameter.ConstraintKind;
+            if ((kind & TypeParameterConstraintKind.FunctionType) != 0)
+                constraints.Add("func");
             if ((kind & TypeParameterConstraintKind.ReferenceType) != 0)
                 constraints.Add("class");
             if ((kind & TypeParameterConstraintKind.ValueType) != 0)

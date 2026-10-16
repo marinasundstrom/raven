@@ -126,6 +126,7 @@ internal class ConstrainClauseListParser : SyntaxParser
     {
         var constraintCount = 0;
         var allowsCount = 0;
+        var functionCount = 0;
         var allowsOrdinal = -1;
         var hasClassConstraint = false;
 
@@ -133,6 +134,8 @@ internal class ConstrainClauseListParser : SyntaxParser
         {
             if (node is not TypeParameterConstraintSyntax constraint)
                 continue;
+
+            if (constraint is FunctionConstraintSyntax) functionCount++;
 
             if (constraint is AllowsRefStructConstraintSyntax)
             {
@@ -146,6 +149,9 @@ internal class ConstrainClauseListParser : SyntaxParser
 
             constraintCount++;
         }
+
+        if (functionCount > 0 && constraintCount != 1)
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidFunctionConstraint, GetSpanOfLastToken()));
 
         if (allowsCount == 0)
             return;
@@ -176,6 +182,9 @@ internal class ConstrainClauseListParser : SyntaxParser
     public TypeParameterConstraintSyntax ParseTypeParameterConstraint()
     {
         var token = PeekToken();
+
+        if (token.IsKind(SyntaxKind.FuncKeyword))
+            return FunctionConstraint(ReadToken());
 
         if (token.IsKind(SyntaxKind.ClassKeyword))
         {

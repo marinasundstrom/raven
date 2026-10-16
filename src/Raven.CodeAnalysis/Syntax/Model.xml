@@ -55,6 +55,9 @@
   <Node Name="ClassConstraint" Inherits="TypeParameterConstraint">
     <Slot Name="ClassKeyword" Type="Token" DefaultToken="ClassKeyword" />
   </Node>
+  <Node Name="FunctionConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
+  </Node>
   <Node Name="StructConstraint" Inherits="TypeParameterConstraint">
     <Slot Name="StructKeyword" Type="Token" DefaultToken="StructKeyword" />
   </Node>

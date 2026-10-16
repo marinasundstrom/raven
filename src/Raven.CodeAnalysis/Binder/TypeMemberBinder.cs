@@ -4485,7 +4485,7 @@ internal partial class TypeMemberBinder : Binder
     {
         foreach (var typeParameter in typeParameters.OfType<SourceTypeParameterSymbol>())
         {
-            TypeParameterConstraintAnalyzer.ValidateIntersectionBounds(typeParameter, diagnostics);
+            TypeParameterConstraintAnalyzer.ValidateStructuralConstraints(typeParameter, diagnostics);
             for (var i = 0; i < typeParameter.ConstraintTypes.Length; i++)
             {
                 var constraintType = typeParameter.ConstraintTypes[i];
