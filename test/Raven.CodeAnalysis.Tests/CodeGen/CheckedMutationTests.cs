@@ -10,6 +10,27 @@ namespace Raven.CodeAnalysis.Tests;
 public class CheckedMutationTests
 {
     [Theory]
+    [InlineData("field")]
+    [InlineData("var")]
+    public void QualifiedStaticMutationDoesNotEvaluateTypeReceiver(string storage)
+    {
+        using var loaded = Load($$"""
+            class Counter {
+                public static {{storage}} Count: int
+            }
+            class Runner {
+                static func Run() -> int {
+                    Counter.Count = 40
+                    checked(Counter.Count += 1)
+                    checked(Counter.Count += 1)
+                    return Counter.Count
+                }
+            }
+            """);
+        Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData("int", "x += 1", int.MaxValue)]
     [InlineData("int", "x -= 1", int.MinValue)]
     [InlineData("int", "x *= 2", int.MaxValue)]
