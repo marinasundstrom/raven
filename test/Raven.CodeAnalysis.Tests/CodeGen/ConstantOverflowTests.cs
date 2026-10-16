@@ -125,6 +125,20 @@ public class ConstantOverflowTests
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0374");
     }
 
+    [Theory]
+    [InlineData("unchecked(-2147483648 / -1)", int.MinValue)]
+    [InlineData("-2147483648 % -1", 0)]
+    public void ConstantDivisionIsMaterializedBeforeRuntime(string expression, int expected)
+    {
+        var compilation = Create($"class Runner {{ static func Run() -> int => {expression} }}");
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        image.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(expected, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source) => Compilation.Create("ConstantOverflow_" + Guid.NewGuid().ToString("N"),
         new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
         .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(TestMetadataReferences.Default);

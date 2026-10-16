@@ -13794,12 +13794,11 @@ context. Explicit unchecked integer constants wrap. Const locals/fields retain t
 values and dependencies. This is compiler-owned behavior shared with .NET; native
 metadata, bridge representation, Runtime Contract configuration and runtime
 instructions are unchanged. Runtime-dependent overflow still faults terminally.
-Parameter defaults, division/remainder, bitwise/shift composition and native-width
-or enum constant arithmetic are not widened by this slice. Structural work stays parked.
+Native optional-parameter declarations and native-width/enum constant arithmetic
+remain gaps. Structural work stays parked.
 
-Native emission still rejects class constant declarations; this slice validates
-local constant dependencies on native targets and field evaluation on .NET. This
-is an existing emitter gap, not a restriction on native constant semantics.
+Native Int32 class constants are now admitted and qualified below; wider payload
+types remain an emitter gap, not a restriction on native constant semantics.
 
 Validation: generator build and 175 focused compiler tests pass. Both compiler
 targets report four RAV0374 diagnostics for the shared overflow fixture and emit
@@ -13836,3 +13835,12 @@ types, attributes and guest field-reflection enumeration remain gaps.
 The source and separate-provider consumers return 42 in interpreter, managed JIT
 and sanitized AOT with the existing numerics library bundle and freshly built hosts.
 Exact tool/source/provider hashes are retained in neoCLR's operator qualification.
+
+### Materialized numeric binary constants
+
+Carry main `e44a7ca96`: lower valid numeric binary constants to literal values after
+binding, preserving the original semantic operation tree. This prevents unchecked
+constant minimum/-1 division and minimum%-1 remainder from executing faulting
+runtime instructions. Nonconstant and user-defined operations retain their paths.
+The 150 focused tests pass on each compiler line; the native constant-division
+consumer returns 42 on interpreter, JIT and AOT. No metadata/Runtime Contract change.
