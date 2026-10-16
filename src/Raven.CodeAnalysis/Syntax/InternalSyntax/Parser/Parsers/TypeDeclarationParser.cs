@@ -458,7 +458,11 @@ internal class TypeDeclarationParser : SyntaxParser
         if (memberMacroParser.IsDeclarationInvocationStart())
             return memberMacroParser.ParseDeclaration(attributeLists, modifiers);
 
-        if (memberMacroParser.IsBangInvocationStart())
+        // In a member declaration, `func !(...)` is the logical-not operator.
+        // The keyword/operator prefix takes precedence over a bang macro name.
+        var isLogicalNotOperator = keywordOrIdentifier.IsKind(SyntaxKind.FuncKeyword) &&
+            PeekToken(1).IsKind(SyntaxKind.ExclamationToken) && PeekToken(2).IsKind(SyntaxKind.OpenParenToken);
+        if (!isLogicalNotOperator && memberMacroParser.IsBangInvocationStart())
             return memberMacroParser.ParseMember(attributeLists, modifiers);
 
         if (!IsPossibleTypeMemberStart(keywordOrIdentifier))

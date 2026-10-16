@@ -2524,6 +2524,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var closeParen = ReadToken();
             var next = PeekToken();
             if (CanFollowIntersectionCast(typeName, next) &&
+                !next.IsKind(SyntaxKind.DotToken) &&
                 !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&
                 !next.IsKind(SyntaxKind.SemicolonToken) &&

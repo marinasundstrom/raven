@@ -592,7 +592,10 @@ internal class NameSyntaxParser : SyntaxParser
                 if (depth <= 0)
                     return true;
             }
-            else if (token.IsKind(SyntaxKind.EndOfFileToken) ||
+            else if (token.Kind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.BarBarToken or
+                     SyntaxKind.AndToken or SyntaxKind.OrToken or SyntaxKind.EqualsEqualsToken or
+                     SyntaxKind.NotEqualsToken or SyntaxKind.LessThanOrEqualsToken ||
+                     token.IsKind(SyntaxKind.EndOfFileToken) ||
                      token.IsKind(SyntaxKind.SemicolonToken) ||
                      token.IsKind(SyntaxKind.OpenBraceToken) ||
                      token.IsKind(SyntaxKind.CloseBraceToken))

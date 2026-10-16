@@ -99,6 +99,40 @@ public class TruthOperatorTests
         Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Fact]
+    public void LogicalNotDeclarationIsNotParsedAsBangMacro()
+    {
+        Run(Truth.Replace("class Truth {", "class Truth {\n static func !(value: Truth) -> bool => value.State == 0\n") + "\n" + """
+            class Runner {
+                static func Run() -> int {
+                    let value = Truth()
+                    if !value { return 42 }
+                    return 1
+                }
+            }
+            """);
+    }
+
+    [Fact]
+    public void ParenthesizedBitwiseResultAndRelationalChainsParseAsExpressions()
+    {
+        Run(Truth + "\n" + """
+            class Runner {
+                static func Run() -> int {
+                    let a = Truth()
+                    let b = Truth()
+                    b.State = 42
+                    if (a | b).State != 42 { return 1 }
+                    if (a & b).State != 42 { return 2 }
+                    let x = 21
+                    let y = 2
+                    if x < y || x <= y || x > y && x >= y { return 42 }
+                    return 3
+                }
+            }
+            """);
+    }
+
     private static Compilation Create(string source) => Compilation.Create("TruthOperators",
         new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
         .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(TestMetadataReferences.Default);

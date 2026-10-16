@@ -158,3 +158,22 @@ operator, if/while and logical tests pass, including an emitted-library consumer
 Native truth/logical carry from main `7039b3e23`: 109 focused compiler tests
 pass; the consumer returns 42 in interpreter, macOS ARM64 JIT and AOT, including
 short-circuit side effects, neither-true-nor-false input and truth conditions.
+Member parsing gives `func !(...)` precedence over a bang macro invocation named
+`func`, restoring logical-not operator declarations. Declaration macros with an
+identifier after the bang keep their existing syntax.
+
+The broader operator consumer also checks member access on parenthesized `&`/`|`
+results and mixed relational/logical conditions. Cast lookahead excludes a following
+dot; type-argument lookahead rejects logical/comparison separators that cannot
+appear in a type argument, avoiding false cast/generic parses.
+
+Parser follow-up validation: 87 focused tests pass, including macro, cast and
+generic-name regressions. The expanded native-repository operator matrix also
+compiles and runs as an ordinary .NET 11 consumer.
+
+Native parser carry from main `75607f005` passes the same 87 focused tests.
+The full operator consumer returns 42 on .NET 11 and native interpreter, macOS
+ARM64 JIT and AOT. It covers arithmetic, bitwise, shifts, comparisons, unary
+operators, static/instance increments, conversions and truth-based short-circuiting.
+Checked contexts/forms and broader interface/virtual declarations are still open;
+this qualification does not claim those capabilities.

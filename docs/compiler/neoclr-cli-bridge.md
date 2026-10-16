@@ -13612,3 +13612,11 @@ calls; no native opcode, metadata version or Runtime Contract flag is added.
 109 focused tests and interpreter/JIT/AOT side-effect consumers pass. Direct
 logical declarations now require migration to bitwise operators plus a truth
 pair on both targets, following the author's .NET convention direction.
+
+Operator parser follow-up from Raven main `75607f005`: resolve `func !` versus
+bang macros, parenthesized bitwise/member expressions versus casts, and relational
+chains versus generic arguments. Keep native intersection-cast lookahead intact.
+87 focused tests and the expanded operator matrix pass on both compiler lines;
+the native consumer returns 42 in interpreter/JIT/AOT. Native metadata and Runtime
+Contract configuration are unchanged. Checked forms and wider operator modifiers
+remain open.
