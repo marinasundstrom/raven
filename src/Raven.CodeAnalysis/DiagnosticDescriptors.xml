@@ -1359,4 +1359,7 @@
     Title="Checked operation is not implemented"
     Message="Checked lowering for '{operation}' is not implemented yet. Use an explicit unchecked expression if unchecked behavior is intended."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0374" Identifier="ConstantArithmeticOverflow"
+    Title="Constant arithmetic overflow" Message="The constant operation overflows its result type. Use an explicit unchecked context if wrapping is intended."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

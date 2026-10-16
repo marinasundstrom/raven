@@ -262,7 +262,7 @@ only when none applies; ambiguity remains an error. Prefix returns the updated
 value, consumed postfix returns the old value, and discarded postfix may use an
 instance operator. Receivers and indices are evaluated once before read/modify/write;
 overflow prevents the built-in write-back. An inner context on the right operand
-does not change the compound operator's context. Constant arithmetic evaluation remains a gap.
+does not change the compound operator's context. Built-in constant arithmetic follows the rules below.
 Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
 Checked binary arithmetic in expression trees is not yet supported. Neither target needs
 a new Runtime Contract setting; native emission is qualified separately.
@@ -301,3 +301,23 @@ Mutation overload selection follows the [.NET instance compound operator rules](
 Raven assignments continue to yield unit. Nullable and pointer checked mutations
 remain explicitly unsupported. The context does not impose transactional behavior
 on user-defined operator bodies.
+
+### Constant overflow
+
+Resolved fixed-width integer `+`, `-`, `*`, unary negation and numeric casts are
+checked at compile time when their operands are constants. Overflow reports
+RAV0374, even outside an explicit checked context. `unchecked` expressions or
+blocks permit integral wrapping; the nearest context wins. A nested function
+starts with the default constant policy, even inside an unchecked block.
+
+Const locals and fields retain evaluated values of these expressions, including
+references to earlier constants. Evaluation uses resolved built-in types and never
+executes user-defined operators or conversions. Decimal overflow remains an error
+inside unchecked contexts; floating arithmetic keeps IEEE behavior. Out-of-range
+unchecked floating-to-integer conversions are left to the backend.
+
+This follows [.NET's constant overflow policy](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/checked-and-unchecked).
+This is not full C# constant-expression coverage: division/remainder, bitwise/shift
+composition, native-width/enum arithmetic and arithmetic in syntax-only default
+argument evaluation remain separate compiler gaps. Existing constant forms retain
+their behavior. Runtime-dependent operands still use runtime overflow policy.

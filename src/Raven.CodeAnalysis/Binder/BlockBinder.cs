@@ -922,7 +922,7 @@ partial class BlockBinder : Binder
             if (!IsAssignable(type, boundInitializer, out var conversion))
             {
                 if (initializer is not null &&
-                    ConstantValueEvaluator.TryEvaluate(initializer.Value, out var evaluated) &&
+                    TryEvaluateConstant(boundInitializer, initializer.Value, out var evaluated) &&
                     evaluated is not null &&
                     ConstantValueEvaluator.TryConvert(type, evaluated, out var converted))
                 {
@@ -968,7 +968,7 @@ partial class BlockBinder : Binder
             type.TypeKind != TypeKind.Error &&
             boundInitializer is not BoundErrorExpression)
         {
-            if (!ConstantValueEvaluator.TryEvaluate(initializer.Value, out var rawConstant))
+            if (!TryEvaluateConstant(boundInitializer!, initializer.Value, out var rawConstant))
             {
                 _diagnostics.ReportConstLocalMustBeConstant(name, initializer.Value.GetLocation());
             }
@@ -2376,6 +2376,8 @@ partial class BlockBinder : Binder
             _diagnostics.ReportCheckedExpressionOperationNotSupported("lifted or pointer arithmetic", syntax.GetLocation());
             boundNode = ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
+
+        boundNode = CheckConstantOverflow(boundNode, syntax);
 
         if (useContextualCache)
             CacheBoundNode(syntax, boundNode, activeTargetType);

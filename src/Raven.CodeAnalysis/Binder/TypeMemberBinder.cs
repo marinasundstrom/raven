@@ -547,7 +547,7 @@ internal partial class TypeMemberBinder : Binder
 
                 if (isConstDeclaration && initializer is not BoundErrorExpression)
                 {
-                    if (!ConstantValueEvaluator.TryEvaluate(decl.Initializer.Value, out var evaluated))
+                    if (!exprBinder.TryEvaluateConstant(initializer!, decl.Initializer.Value, out var evaluated))
                     {
                         _diagnostics.ReportConstFieldMustBeConstant(decl.Identifier.ValueText, decl.Initializer.Value.GetLocation());
                     }
