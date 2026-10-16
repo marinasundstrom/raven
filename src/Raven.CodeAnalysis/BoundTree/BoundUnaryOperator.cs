@@ -21,6 +21,9 @@ internal partial class BoundUnaryOperator
         ResultType = resultType;
     }
 
+    internal BoundUnaryOperator WithCheckedNegation()
+        => new(BoundUnaryOperatorKind.CheckedUnaryMinus, OperandType, ResultType);
+
     public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol operandType, out BoundUnaryOperator op)
     {
         operandType = operandType.UnwrapLiteralType() ?? operandType;
@@ -116,5 +119,6 @@ enum BoundUnaryOperatorKind
     LogicalNot,
     UnaryPlus,
     UnaryMinus,
-    BitwiseNot
+    BitwiseNot,
+    CheckedUnaryMinus
 }

@@ -194,6 +194,8 @@ internal sealed partial class Lowerer
 
         switch (expression)
         {
+            case BoundParenthesizedExpression parenthesized:
+                return TryLowerLambdaBody(parenthesized.Expression, parameterLocals, context, out lowered);
             case BoundParameterAccess parameterAccess:
                 if (!parameterLocals.TryGetValue(parameterAccess.Parameter, out var parameterLocal))
                 {
@@ -361,6 +363,7 @@ internal sealed partial class Lowerer
                     {
                         BoundUnaryOperatorKind.LogicalNot => "Not",
                         BoundUnaryOperatorKind.UnaryMinus => "Negate",
+                        BoundUnaryOperatorKind.CheckedUnaryMinus => "NegateChecked",
                         _ => null
                     };
                     if (methodName is null)

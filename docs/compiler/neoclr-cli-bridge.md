@@ -13677,3 +13677,27 @@ The carry passes the same 73 focused compiler tests as main, the required genera
 build and the SDK-enabled driver build. The shared consumer returns 42 on all
 three native backends; six overflow consumers cover signed/unsigned addition,
 subtraction and multiplication, checking status 2 and untouched native result slots.
+
+### Checked unary negation (2026-10-16)
+
+Deliberately carry main `307f3b55c`. Checked signed unary negation emits a zero of
+the promoted result width, evaluates the operand once, then uses the existing
+checked subtraction instruction. Small integer operands convert to the ordinary
+promoted int result before subtraction. Checked unary overload selection uses
+`op_CheckedUnaryNegation` and ordinary fallback; floating-point negation retains
+its existing IEEE behavior. No Runtime Contract switch, CLI bridge representation,
+SDK extension or runtime opcode is added. Native overflow uses ArithmeticOverflow;
+ordinary .NET uses OverflowException.
+
+`IUnaryOperation.IsChecked` exposes built-in checked integer semantics. The .NET
+expression-tree path uses `Expression.NegateChecked`; this does not add native
+expression-tree APIs. Existing unsigned/native-integer unary admission is unchanged.
+Checked conversions, mutation forms, blocks, constant evaluation and checked binary
+expression trees remain compiler gaps. Broader structural work stays parked.
+
+Validation: 73 focused compiler tests pass on each compiler line. The expanded
+consumer returns 42 on .NET and native interpreter/JIT/AOT. Separate int/long
+minimum-negation consumers report ArithmeticOverflow on all three native backends
+and preserve the native result slot. The bundle and runtime baseline above remain
+unchanged. Recoverable arithmetic methods returning Option/Result are a separate
+open design question; this slice does not implement them or change expression types.

@@ -22,7 +22,7 @@ partial class BlockBinder
         => syntax is CastExpressionSyntax ||
            syntax is AssignmentExpressionSyntax assignment && assignment.OperatorToken.Kind != SyntaxKind.EqualsToken ||
            syntax is PrefixOperatorExpressionSyntax prefix && prefix.OperatorToken.Kind is
-               SyntaxKind.MinusToken or SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken ||
+               SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken ||
            syntax is PostfixOperatorExpressionSyntax postfix && postfix.OperatorToken.Kind is
                SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
 

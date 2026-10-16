@@ -4244,12 +4244,30 @@ binary arithmetic selects standard `op_Checked*` methods, falling back to ordina
 methods only when no checked candidate is applicable, not on ambiguity. Calls use
 normal metadata signatures. There is no alternate carrier representation.
 
-RAV0373 rejects currently unimplemented checked explicit conversions, unary minus,
+RAV0373 rejects currently unimplemented checked explicit conversions,
 compound assignments, increments/decrements and lifted/pointer arithmetic. Checked blocks, constant arithmetic
-evaluation and checked expression trees remain follow-up work. These are compiler
+evaluation and checked binary expression trees remain follow-up work. These are compiler
 gaps, not new runtime semantics. `CheckedExpressionTests` exercises overflow,
 nested contexts, overload selection and rejection behavior; native qualification
 belongs to the separately validated neoCLR compiler line. Main validation passes
 73 focused checked-declaration/expression, ordinary operator, parser and operation
 contract tests plus a standalone .NET 11 consumer returning 42. The syntax-generator
 build also passes.
+
+
+Checked unary negation uses an explicit internal operator identity so that lowering
+cannot silently discard checking. .NET emits zero of the result width followed by
+the operand and checked signed subtraction; operand evaluation occurs once. The
+public `IUnaryOperation.IsChecked` reports built-in integer checking and defaults
+to false for other unary operation implementations. Source/imported unary overload
+lookup uses standard `op_CheckedUnaryNegation` with ordinary fallback only when no
+checked candidate applies. No Runtime Contract flag or metadata signature change
+is needed. Expression-tree lowering unwraps parenthesized expressions and maps checked unary
+negation to the standard .NET `Expression.NegateChecked` factory. A compiled tree
+preserves both normal results and overflow; checked binary tree lowering remains
+a separate gap.
+
+Unary follow-up validation: 73 checked/ordinary operator and expression-tree tests
+pass on .NET 11, including imported selection, minimum-value overflow, negative
+zero, small-integer promotion and compiled expression-tree behavior. No syntax or
+editor token changes are needed.

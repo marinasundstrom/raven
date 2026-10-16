@@ -1708,6 +1708,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
                     if (!LowerValue(unary.Operand)) return false;
                     Add(LinearInstructionKind.Not, Syntax(expression)); return true;
+                case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.CheckedUnaryMinus } unary
+                    when unary.Operator.ResultType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64:
+                    if (unary.Operator.ResultType.SpecialType == SpecialType.System_Int64)
+                        instructions.Add(new(LinearInstructionKind.Constant64, Syntax(expression), Long: 0));
+                    else
+                        Add(LinearInstructionKind.Constant, Syntax(expression), 0);
+                    if (!LowerBinaryOperand(unary.Operand, unary.Operator.ResultType)) return false;
+                    Add(LinearInstructionKind.CheckedSubtract, Syntax(expression));
+                    return true;
                 case BoundUnaryExpression unary when unary.Operator.OperandType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double &&
                     unary.Operator.OperatorKind is BoundUnaryOperatorKind.UnaryPlus or BoundUnaryOperatorKind.UnaryMinus or BoundUnaryOperatorKind.BitwiseNot:
                     if (!LowerValue(unary.Operand)) return false;

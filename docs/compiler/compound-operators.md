@@ -197,13 +197,13 @@ and the C# 14 compound specification above: `op_CheckedUnaryNegation`,
 `op_CheckedDivisionAssignment`. Both ordinary and checked members are special-name
 methods. No Runtime Contract setting changes.
 
-This is declaration/export support, not checked expression support. Raven calls
-still use ordinary operator lookup and conversions, and the declaration does not
-change overflow behavior inside its body. Checked expression/block contexts,
-selection/fallback, constant evaluation and primitive overflow semantics must be
-implemented and qualified together in a subsequent slice. CLI consumers with
-checked support may use the emitted methods today. The native compiler carries
-these identities as native callables; runtime execution is qualified separately.
+The declaration does not change overflow behavior inside its body. Subsequent
+expression slices support `checked(...)` / `unchecked(...)`, checked binary
+arithmetic and unary negation, plus checked unary/binary method selection with
+ordinary fallback when no checked candidate applies. See
+[checked expression lowering](runtime-contracts.md#checked-expression-lowering-development-2026-10-16).
+Checked conversions, mutation operators, blocks and constant evaluation remain
+separate gaps. Native execution is qualified on the deliberate compiler carry.
 
 Validation: required generated-syntax solution build and 98 focused declaration,
 compound, conversion, truth and parser tests pass on .NET 11. All 14 checked

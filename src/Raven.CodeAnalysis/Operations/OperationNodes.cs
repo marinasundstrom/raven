@@ -797,6 +797,8 @@ internal sealed class UnaryOperation : Operation, IUnaryOperation
 
     internal BoundUnaryOperator Operator => _bound.Operator;
 
+    public bool IsChecked => _bound.Operator.OperatorKind == BoundUnaryOperatorKind.CheckedUnaryMinus;
+
     public IOperation? Operand => _operand ??= SemanticModel.GetOperation(Syntax.ChildNodes().OfType<ExpressionSyntax>().FirstOrDefault());
 
     protected override ImmutableArray<IOperation> GetChildrenCore()

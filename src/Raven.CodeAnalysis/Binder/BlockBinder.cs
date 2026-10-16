@@ -2923,7 +2923,12 @@ partial class BlockBinder : Binder
                         return userDefined;
 
                     if (BoundUnaryOperator.TryLookup(Compilation, opKind, operandType, out var op))
+                    {
+                        if (IsCheckedContext(unaryExpression) && op.OperatorKind == BoundUnaryOperatorKind.UnaryMinus &&
+                            op.ResultType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64)
+                            op = op.WithCheckedNegation();
                         return new BoundUnaryExpression(op, operand);
+                    }
 
                     var operatorText = SyntaxFacts.GetSyntaxTokenText(opKind) ?? opKind.ToString();
                     _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
@@ -10400,13 +10405,18 @@ partial class BlockBinder : Binder
             new BoundArgument(operand, RefKind.None, null, operandSyntax),
         };
 
+        var checkedCandidates = opKind == SyntaxKind.MinusToken && IsCheckedContext(callSyntax ?? operandSyntax) &&
+            OperatorFacts.GetCheckedMetadataName(operatorInfo.MetadataName) is { } checkedName
+                ? GetUserDefinedOperatorCandidates(checkedName, operandType, diagnosticLocation)
+                : ImmutableArray<IMethodSymbol>.Empty;
         var resolution = OverloadResolver.ResolveOverload(
-            candidates,
-            arguments,
-            Compilation,
-            binder: this,
-            canBindLambda: EnsureLambdaCompatible,
-            callSyntax: callSyntax);
+            checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates,
+            arguments, Compilation, binder: this,
+            canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+        if (!checkedCandidates.IsDefaultOrEmpty && !resolution.Success && !resolution.IsAmbiguous)
+            resolution = OverloadResolver.ResolveOverload(
+                candidates, arguments, Compilation, binder: this,
+                canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
 
         if (resolution.IsAmbiguous)
         {

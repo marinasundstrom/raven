@@ -253,11 +253,20 @@ checked candidates remain an error; fallback must not hide ambiguity. Unchecked
 expressions select ordinary operators. These rules also apply to imported methods.
 
 This first slice checks integer overflow at runtime. Checked blocks, constant
-arithmetic evaluation, checked explicit conversions, unary negation and mutation
-operators remain gaps. Checked casts/explicit conversions, unary `-`, compound
-assignments and increment/decrement are diagnosed with RAV0373, rather than lowered
-unchecked. This includes negative literal expressions and nonnumeric casts for
-now. Use an explicit inner `unchecked(...)` only when ordinary behavior is intended.
+arithmetic evaluation, checked explicit conversions and mutation operators remain gaps.
+Checked casts/explicit conversions, compound assignments and increment/decrement are diagnosed with RAV0373, rather than lowered
+unchecked. This includes nonnumeric casts for now. Use an explicit inner
+`unchecked(...)` only when ordinary behavior is intended.
 Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
-Checked arithmetic in expression trees is not yet supported. Neither target needs
+Checked binary arithmetic in expression trees is not yet supported. Neither target needs
 a new Runtime Contract setting; native emission is qualified separately.
+
+
+Checked unary `-` selects `op_CheckedUnaryNegation` when applicable, otherwise the
+ordinary unary operator. Ambiguity is not a reason to fall back. For built-in
+signed `int`/`long` negation, the minimum value overflows; small integers retain
+normal promotion to `int`. Floating-point negation retains IEEE behavior, including
+negative zero. Existing unsigned/native-integer unary admission is unchanged.
+Nested `unchecked(...)` restores ordinary negation. On .NET, checked unary negation
+in expression trees lowers to `NegateChecked`. Compile-time arithmetic evaluation
+remains a separate gap.
