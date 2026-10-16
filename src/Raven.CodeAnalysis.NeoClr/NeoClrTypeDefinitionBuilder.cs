@@ -6,6 +6,13 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner, Func<ITypeSymbol, SignatureType> resolveExternal, Func<ITypeSymbol, SignatureType> resolveSignature) : ITypeDefinitionBuilder<TypeBuilder>
 {
+    public void BindBase(SourceTypePlan plan, TypeBuilder definition)
+    {
+        if (plan.ClassBase is { Arity: > 0 } parent &&
+            SymbolEqualityComparer.Default.Equals(parent.ContainingAssembly, plan.Symbol.ContainingAssembly))
+            definition.SetBaseType(resolveSignature(parent).GenericInstance!);
+    }
+
     public TypeBuilder DefineType(SourceTypePlan plan)
     {
         var visibility = plan.Visibility switch
@@ -52,14 +59,14 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             : plan.ClassBase is { } genericBase
                 ? genericBase.Arity == 0
                     ? assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), resolveOwner(genericBase), visibility)
-                    : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), resolveSignature(genericBase).GenericInstance!, visibility)
+                    : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
                 : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);
         TypeBuilder DefineDerived(INamedTypeSymbol baseType)
         {
             if (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, plan.Symbol.ContainingAssembly))
                 return baseType.Arity == 0
                     ? assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility)
-                    : assembly.AddClass(plan.Namespace, plan.Name, resolveSignature(baseType).GenericInstance!, visibility);
+                    : assembly.AddClass(plan.Namespace, plan.Name, visibility);
             var external = resolveExternal(baseType).ImportedType!;
             return assembly.AddClass(plan.Namespace, plan.Name, external, visibility);
         }

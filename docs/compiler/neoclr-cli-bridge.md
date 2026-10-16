@@ -13083,3 +13083,20 @@ Both consumers return 42 in interpreter, AOT and managed JIT against
 `variance-argument-sequence-20261016`; native cleanup, AOT sanitizers, conversion
 rejections and recursive-base diagnostics pass. The retained local/imported
 reports include compiler, adapter, SDK, dependency and runtime hashes.
+
+### Recursive native base arguments (2026-10-16)
+
+The native adapter now declares each class identity before resolving constructed
+base arguments, then binds its base through the SDK's one-time `SetBaseType`.
+Actual base definitions still schedule before derived definitions; recursion in
+arguments does not create an inheritance cycle. This follows ordinary CLR nominal
+generics; it introduces no structural feature or Runtime Contract setting.
+
+The retained neoCLR `docs/validation/constructed-class-base/raven` consumer checks
+`Recursive : RecursiveRoot<Recursive>` and
+`RecursiveGeneric<T> : RecursiveRoot<RecursiveGeneric<T>>`, inherited identity
+returns and derived payload access. The local and separate-library modes return
+42 in interpreter, AOT and managed JIT with cleanup/sanitizers. The three existing
+reverse/invariant conversion errors remain rejected. The focused inheritance
+capability baseline passes 3/3. External constructed base authoring and generic
+reference-class virtual slots remain separate gaps.

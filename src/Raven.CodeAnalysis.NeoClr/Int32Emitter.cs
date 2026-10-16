@@ -667,7 +667,7 @@ internal static class Int32Emitter
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
-            if (!definingClasses.Add(type.Symbol)) throw Unsupported("recursive constructed base arguments require deferred base binding");
+            if (!definingClasses.Add(type.Symbol)) throw Unsupported("cyclic class base definitions are unsupported");
             if (type.ClassBase is { } parent && declaredTypes.TryGetValue((INamedTypeSymbol)parent.OriginalDefinition, out var basePlan)) DefineClass(basePlan);
             if (type.MetadataOwner is { } container) DefineClass(declaredTypes[container]);
             var definition = type.Define(typeDefinitions);
@@ -677,6 +677,7 @@ internal static class Int32Emitter
             if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
                 definition.SetSealedClass();
             nativeTypes.Add(type.Symbol, definition);
+            typeDefinitions.BindBase(type, definition);
             definingClasses.Remove(type.Symbol);
             var scope = type.Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? NeoClrTypeMapper.OwnerParameters(type.Symbol) : [];
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type],
