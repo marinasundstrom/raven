@@ -2332,12 +2332,6 @@ partial class BlockBinder : Binder
         if (!skipCache && !useContextualCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
 
-        if (IsCheckedContext(syntax) && RequiresUnimplementedCheckedLowering(syntax))
-        {
-            _diagnostics.ReportCheckedExpressionOperationNotSupported(syntax.Kind.ToString(), syntax.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
-        }
-
         var boundNode = syntax switch
         {
             LiteralExpressionSyntax literal => BindLiteralExpression(literal),
@@ -2749,6 +2743,12 @@ partial class BlockBinder : Binder
         SyntaxKind binaryOperatorKind,
         ExpressionSyntax rightSyntax)
     {
+        if (IsCheckedContext(rightSyntax.Parent) && targetType is NullableTypeSymbol or IPointerTypeSymbol)
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported("compound assignment", rightSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
         var preparedRight = IsShiftOperator(binaryOperatorKind)
             ? rightValue
             : PrepareRightForAssignment(rightValue, targetType, rightSyntax);
@@ -2756,17 +2756,16 @@ partial class BlockBinder : Binder
         if (preparedRight is BoundErrorExpression)
             return preparedRight;
 
-        var binary = BindBinaryExpression(binaryOperatorKind, leftValue, preparedRight, rightSyntax.GetLocation());
+        var binary = BindBinaryExpression(binaryOperatorKind, leftValue, preparedRight, rightSyntax.GetLocation(), callSyntax: rightSyntax.Parent);
 
-        // Predefined shifts promote small integral operands to int; compound
+        // Predefined operators promote small integral operands to int; compound
         // assignment converts the result back to the storage type.
-        if (IsShiftOperator(binaryOperatorKind) &&
-            binary is BoundBinaryExpression { Operator.MethodSymbol: null } &&
+        if (binary is BoundBinaryExpression { Operator.MethodSymbol: null } &&
             targetType.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or
                 SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char)
         {
             var conversion = Compilation.ClassifyConversion(binary.Type!, targetType);
-            return ApplyConversion(binary, targetType, conversion, rightSyntax);
+            return new BoundConversionExpression(binary, targetType, conversion, isChecked: IsCheckedContext(rightSyntax.Parent));
         }
 
         return ConvertValueForAssignment(binary, targetType, rightSyntax);
@@ -3084,7 +3083,7 @@ partial class BlockBinder : Binder
                 discarded ? null : invocation => BindInstancePrefixResult(invocation, operandSyntax)) is { } instance)
             return instance;
 
-        return operand switch
+        var result = operand switch
         {
             BoundLocalAccess local => BindIncrementForLocal(local, operandSyntax, binaryOperatorKind, isPostfix),
             BoundParameterAccess parameter => BindIncrementForParameter(parameter, operandSyntax, binaryOperatorKind, isPostfix),
@@ -3111,12 +3110,13 @@ partial class BlockBinder : Binder
                 => BindIncrementForProperty(propertyAccess, propertyAccess.Property, operandSyntax, binaryOperatorKind, isPostfix),
             _ => BindInvalidIncrementOperand(operatorToken)
         };
+        return StabilizeMutation(result, operand, operandSyntax);
     }
 
     private bool IsIncrementResultDiscarded(ExpressionSyntax operand)
     {
         SyntaxNode? operation = operand.Parent;
-        while (operation?.Parent is ParenthesizedExpressionSyntax)
+        while (operation?.Parent is ParenthesizedExpressionSyntax or CheckedExpressionSyntax)
             operation = operation.Parent;
         if (operation?.Parent is not ExpressionStatementSyntax statement)
             return false;
@@ -3388,6 +3388,12 @@ partial class BlockBinder : Binder
         if (targetType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
+        if (IsCheckedContext(operandSyntax) && targetType is NullableTypeSymbol or IPointerTypeSymbol)
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported("increment or decrement", operandSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
         var initialValue = ConvertValueForAssignment(valueExpression, targetType, operandSyntax);
 
         if (initialValue is BoundErrorExpression)
@@ -3411,19 +3417,27 @@ partial class BlockBinder : Binder
         if (updatedValue is null)
         {
             var stepLiteral = CreateStepLiteral();
-            var preparedStep = PrepareRightForAssignment(stepLiteral, targetType, operandSyntax);
+            var preparedStep = targetType.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or
+                SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Char
+                ? new BoundConversionExpression(stepLiteral, targetType, Compilation.ClassifyConversion(stepLiteral.Type!, targetType))
+                : PrepareRightForAssignment(stepLiteral, targetType, operandSyntax);
 
             if (preparedStep is BoundErrorExpression)
                 return preparedStep;
 
-            updatedValue = BindBinaryExpression(binaryOperatorKind, tempAccess, preparedStep, operandSyntax.GetLocation());
+            updatedValue = BindBinaryExpression(binaryOperatorKind, tempAccess, preparedStep, operandSyntax.GetLocation(), callSyntax: operandSyntax.Parent);
         }
         else if (updatedValue is BoundErrorExpression)
         {
             return updatedValue;
         }
 
-        var convertedUpdatedValue = ConvertValueForAssignment(updatedValue, targetType, operandSyntax);
+        var convertedUpdatedValue = updatedValue is BoundBinaryExpression { Operator.MethodSymbol: null } &&
+            targetType.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or
+                SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char
+            ? new BoundConversionExpression(updatedValue, targetType,
+                Compilation.ClassifyConversion(updatedValue.Type!, targetType), isChecked: IsCheckedContext(operandSyntax))
+            : ConvertValueForAssignment(updatedValue, targetType, operandSyntax);
 
         if (convertedUpdatedValue is BoundErrorExpression)
             return convertedUpdatedValue;
@@ -7376,8 +7390,21 @@ partial class BlockBinder : Binder
         if (right is not null && IsErrorExpression(right))
             return right;
         BoundArgument[] arguments = right is null ? [] : [new BoundArgument(right, RefKind.None, null, rightSyntax!)];
-        var resolution = OverloadResolver.ResolveOverload(candidates, arguments, Compilation,
+        var checkedCandidates = IsCheckedContext(leftSyntax) &&
+            OperatorFacts.GetCheckedMetadataName(metadataName) is { } checkedName
+                ? new SymbolQuery(checkedName, receiverType, IsStatic: false)
+                    .LookupMethods(this)
+                    .Where(method => !method.IsStatic && method.MethodKind == MethodKind.UserDefinedOperator &&
+                        method.Parameters.Length == parameterCount && method.Parameters.All(p => p.RefKind == RefKind.None) &&
+                        method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+                    .ToImmutableArray()
+                : ImmutableArray<IMethodSymbol>.Empty;
+        var resolution = OverloadResolver.ResolveOverload(
+            checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates, arguments, Compilation,
             binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax ?? leftSyntax);
+        if (!checkedCandidates.IsDefaultOrEmpty && !resolution.Success && !resolution.IsAmbiguous)
+            resolution = OverloadResolver.ResolveOverload(candidates, arguments, Compilation,
+                binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax ?? leftSyntax);
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous($"operator {OperatorFacts.GetDisplayText(operatorToken)}",
@@ -7411,6 +7438,23 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindCompoundAssignment(
+        ExpressionSyntax leftSyntax,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode node,
+        SyntaxKind operatorTokenKind)
+    {
+        var result = BindCompoundAssignmentCore(leftSyntax, rightSyntax, node, operatorTokenKind);
+        var target = result switch
+        {
+            BoundFieldAssignmentExpression field => new BoundFieldAccess(field.Receiver, field.Field),
+            BoundPropertyAssignmentExpression property => new BoundMemberAccessExpression(property.Receiver, property.Property),
+            BoundAssignmentExpression assignment => assignment.Left,
+            _ => null,
+        };
+        return target is null ? result : StabilizeMutation(result, target, leftSyntax);
+    }
+
+    private BoundExpression BindCompoundAssignmentCore(
         ExpressionSyntax leftSyntax,
         ExpressionSyntax rightSyntax,
         SyntaxNode node,
@@ -10408,7 +10452,7 @@ partial class BlockBinder : Binder
             new BoundArgument(operand, RefKind.None, null, operandSyntax),
         };
 
-        var checkedCandidates = opKind == SyntaxKind.MinusToken && IsCheckedContext(callSyntax ?? operandSyntax) &&
+        var checkedCandidates = IsCheckedContext(callSyntax ?? operandSyntax) &&
             OperatorFacts.GetCheckedMetadataName(operatorInfo.MetadataName) is { } checkedName
                 ? GetUserDefinedOperatorCandidates(checkedName, operandType, diagnosticLocation)
                 : ImmutableArray<IMethodSymbol>.Empty;

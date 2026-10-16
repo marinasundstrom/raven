@@ -90,15 +90,6 @@ public class CheckedExpressionTests
         Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
     }
 
-    [Theory]
-    [InlineData("checked(a++)")]
-    [InlineData("checked(a += 1)")]
-    public void UnsupportedCheckedOperationsFailClosed(string expression)
-    {
-        var compilation = Create($"class Runner {{ static func Run(a: int) {{ let result = {expression} }} }}");
-        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0373");
-    }
-
     [Fact]
     public void CheckedAmbiguityDoesNotFallBackToBetterOrdinaryCandidate()
     {

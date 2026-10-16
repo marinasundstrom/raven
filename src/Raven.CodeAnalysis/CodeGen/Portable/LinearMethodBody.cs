@@ -219,8 +219,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (statement is BoundExpressionStatement expressionStatement)
             {
                 var expression = expressionStatement.Expression;
-                while (expression is BoundRequiredResultExpression required)
-                    expression = required.Operand;
+                while (expression is BoundRequiredResultExpression or BoundParenthesizedExpression)
+                    expression = expression is BoundRequiredResultExpression required ? required.Operand :
+                        ((BoundParenthesizedExpression)expression).Expression;
                 // A conversion around a terminal expression is unreachable. The
                 // return's own operand already carries the method return conversion.
                 var terminal = expression;

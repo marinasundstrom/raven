@@ -4,7 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Support checked compound assignments and increment/decrement, including checked overload selection, small-integer write-back and unchanged storage on built-in overflow. Preserve single evaluation of mutation locations and discarded checked-expression emission. Nullable/pointer checked mutations remain diagnosed; deliberately carry main 9dd7ea722. Normalize wrapped mutation statements in native lowering. Native checked arithmetic/conversion instructions retain terminal ArithmeticOverflow; no Runtime Contract switch.
+
 - **2026-10-16:** Support checked numeric casts and checked explicit conversion selection, including imported pairs, signed/unsigned range checks and floating-to-integer overflow. Preserve checked context through lowering and expose IConversionOperation.IsChecked; numeric expression trees use ConvertChecked. Nullable/pointer checked casts and checked user-defined conversion trees remain diagnosed. Correct floating/decimal-to-integral classification and distinguish conversion declarations by their return type while retaining duplicate rejection. Carry main 0c272f423 deliberately and map numeric casts to existing native checked conversion instructions. Correct native op_CheckedExplicit symbol classification and validate separate-provider selection. No Runtime Contract switch; checked failures remain terminal ArithmeticOverflow on NeoCLR.
+
 
 - **2026-10-16:** Consolidate native numerics integration documentation into the current source/import contract, removing superseded blocker and chronological follow-up notices while retaining matched validation revisions.
 

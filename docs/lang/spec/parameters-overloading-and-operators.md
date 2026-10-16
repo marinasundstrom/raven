@@ -252,10 +252,15 @@ checked candidates. If none applies, ordinary candidates are used. Ambiguous
 checked candidates remain an error; fallback must not hide ambiguity. Unchecked
 expressions select ordinary operators. These rules also apply to imported methods.
 
-Integer overflow is checked at runtime. Checked blocks, constant arithmetic evaluation
-and mutation operators remain gaps. Compound assignments and increment/decrement
-are diagnosed with RAV0373 rather than lowered unchecked. Use an explicit inner
-`unchecked(...)` only when ordinary behavior is intended.
+Integer overflow is checked at runtime. Compound assignments and increment/decrement
+use their enclosing context for arithmetic, overload selection and small-integer
+write-back conversions. Checked candidates are preferred, with ordinary fallback
+only when none applies; ambiguity remains an error. Prefix returns the updated
+value, consumed postfix returns the old value, and discarded postfix may use an
+instance operator. Receivers and indices are evaluated once before read/modify/write;
+overflow prevents the built-in write-back. An inner context on the right operand
+does not change the compound operator's context. Checked blocks and constant
+arithmetic evaluation remain gaps.
 Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
 Checked binary arithmetic in expression trees is not yet supported. Neither target needs
 a new Runtime Contract setting; native emission is qualified separately.
@@ -289,3 +294,8 @@ into the selected conversion's body. Imported conversions use the same rules.
 IConversionOperation.IsChecked reports the cast context. Built-in checked conversion
 expression trees use ConvertChecked. Checked user-defined conversion trees remain
 unsupported until their selected MethodInfo is carried into the tree.
+
+Mutation overload selection follows the [.NET instance compound operator rules](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-14.0/user-defined-compound-assignment).
+Raven assignments continue to yield unit. Nullable and pointer checked mutations
+remain explicitly unsupported. The context does not impose transactional behavior
+on user-defined operator bodies.

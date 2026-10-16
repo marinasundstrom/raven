@@ -13661,7 +13661,7 @@ Checked operator overloads remain normal method calls; their bodies do not acqui
 checked semantics implicitly. If no checked binary candidate applies, ordinary
 lookup is used; ambiguity is diagnosed rather than hidden by fallback.
 
-Checked conversions, unary minus, mutation operations and lifted/pointer arithmetic
+Nullable/pointer conversions and mutations, and lifted/pointer arithmetic
 are diagnosed until their lowering is implemented. Checked blocks, constant
 arithmetic evaluation and checked expression trees remain gaps. This slice does
 not expand the backend's existing primitive/type admission profile or resume
@@ -13692,7 +13692,7 @@ ordinary .NET uses OverflowException.
 `IUnaryOperation.IsChecked` exposes built-in checked integer semantics. The .NET
 expression-tree path uses `Expression.NegateChecked`; this does not add native
 expression-tree APIs. Existing unsigned/native-integer unary admission is unchanged.
-Checked conversions, mutation forms, blocks, constant evaluation and checked binary
+Nullable/pointer checked conversions and mutations, blocks, constant evaluation and checked binary
 expression trees remain compiler gaps. Broader structural work stays parked.
 
 Validation: 73 focused compiler tests pass on each compiler line. The expanded
@@ -13748,3 +13748,27 @@ consumers return 42 on interpreter, managed JIT and sanitized AOT. Three overflo
 consumers (signed narrowing, unsigned-source crossing and floating-to-integer) fault
 on all backends; native result slots remain untouched. Exact manifests are retained
 in neoCLR's docs/validation/compound-operators/checked-conversions-*-results.json.
+
+### Checked mutation
+
+Deliberately carry Raven main `9dd7ea722`. Checked compound assignments and
+increment/decrement use the existing bound arithmetic/conversion flags and normal
+selected operator calls. Portable emission reuses CheckedAdd/CheckedSubtract/
+CheckedMultiply/CheckedConvert and their signedness; no SDK opcode, native metadata
+format, reference projection or Runtime Contract switch is added. Binder-owned
+location temporaries preserve single evaluation through both emitters. Native
+statement normalization unwraps checked/parenthesized expressions before dispatching
+assignments and discarded blocks; checking remains on the underlying operators.
+
+Native overflow remains a terminal ArithmeticOverflow fault; .NET uses
+OverflowException. Neither policy changes the scalar result type or implies a
+recoverable Result API. Nullable/pointer checked mutations, block contexts,
+constant arithmetic evaluation and mutation expression trees remain compiler gaps.
+Validation and exact bundle/tool fingerprints are retained in neoCLR's
+`docs/validation/compound-operators/checked-mutation-*-results.json`.
+
+Validation: 159 focused compiler tests pass. The shared success consumer returns
+42 in interpreter, managed JIT and sanitized AOT. Compound int addition and byte
+increment overflow fault on all three backends, preserving native result slots.
+The matched bundle is `numerics-public-libraries-20261016`; native static
+nonconstant initialization remains outside this consumer.
