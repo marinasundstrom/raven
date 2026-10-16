@@ -245,6 +245,8 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             case LockStatementSyntax lockStatement:
                 var lockExpressionReachable = AnalyzeRequiredExpression(lockStatement.Expression, isReachable);
                 return AnalyzeStatement(lockStatement.Statement, lockExpressionReachable);
+            case CheckedStatementSyntax checkedStatement:
+                return AnalyzeStatement(checkedStatement.Block, isReachable);
             case UnsafeStatementSyntax unsafeStatement:
                 return AnalyzeStatement(unsafeStatement.Block, isReachable);
             case TryStatementSyntax tryStatement:

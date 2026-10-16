@@ -738,6 +738,10 @@
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
+  <Node Name="CheckedStatement" Inherits="Statement">
+    <Slot Name="Keyword" Type="Token" />
+    <Slot Name="Block" Type="BlockStatement" />
+  </Node>
   <Node Name="UnsafeStatement" Inherits="Statement">
     <Slot Name="UnsafeKeyword" Type="Token" DefaultToken="UnsafeKeyword" />
     <Slot Name="Block" Type="BlockStatement" />

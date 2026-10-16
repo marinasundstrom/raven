@@ -1974,6 +1974,7 @@ partial class BlockBinder : Binder
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             ThrowStatementSyntax throwStatement => BindThrowStatement(throwStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
+            CheckedStatementSyntax checkedStatement => BindBlockStatement(checkedStatement.Block),
             UnsafeStatementSyntax unsafeStatement => BindUnsafeStatement(unsafeStatement),
             ForStatementSyntax forStmt => BindForStatement(forStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),

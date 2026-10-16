@@ -12,7 +12,9 @@ partial class BlockBinder
         {
             if (current is CheckedExpressionSyntax context)
                 return context.Keyword.Kind == SyntaxKind.CheckedKeyword;
-            if (current is FunctionExpressionSyntax or FunctionStatementSyntax)
+            if (current is CheckedStatementSyntax statement)
+                return statement.Keyword.Kind == SyntaxKind.CheckedKeyword;
+            if (current is FunctionExpressionSyntax or FunctionStatementSyntax or MemberDeclarationSyntax)
                 return false;
         }
         return false;

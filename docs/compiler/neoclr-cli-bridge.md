@@ -13772,3 +13772,16 @@ Validation: 159 focused compiler tests pass. The shared success consumer returns
 increment overflow fault on all three backends, preserving native result slots.
 The matched bundle is `numerics-public-libraries-20261016`; native static
 nonconstant initialization remains outside this consumer.
+
+### Checked statement blocks
+
+Deliberately carry main `3fa828516`. CheckedStatementSyntax binds to an ordinary
+block; lexical context supplies existing checked arithmetic/conversion operations.
+Native emission needs no extra opcode, metadata format, reference projection or
+Runtime Contract switch. Nested functions and member bodies start fresh; ordinary
+block scope and return/control-flow behavior are preserved. Runtime-dependent
+overflow remains terminal ArithmeticOverflow on NeoCLR, versus OverflowException
+on .NET. Generator builds and 71 focused tests pass on both compiler lines.
+Executable qualification is retained in neoCLR's `docs/validation/compound-operators/`.
+The shared block consumer returns 42 on interpreter, managed JIT and sanitized AOT;
+the runtime overflow probe faults on each backend and preserves native result slots.
