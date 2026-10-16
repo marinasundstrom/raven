@@ -11,6 +11,28 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class PatternSyntaxParserTests
 {
     [Theory]
+    [InlineData("() -> T")]
+    [InlineData("(int) -> int")]
+    [InlineData("(int, string) -> bool")]
+    [InlineData("((int) -> int) -> () -> T")]
+    public void FunctionTypePattern_ParsesWithAndWithoutCapture(string type)
+    {
+        foreach (var suffix in new[] { "", " callback" })
+        {
+            var (pattern, tree) = ParsePattern(type + suffix);
+            AssertNoErrors(tree);
+            var declaration = Assert.IsType<DeclarationPatternSyntax>(pattern);
+            Assert.IsType<FunctionTypeSyntax>(declaration.Type);
+            Assert.Equal(type, declaration.Type.ToString());
+            Assert.Equal(suffix.Length == 0, declaration.Designation is null);
+        }
+
+        var ifTree = SyntaxTree.ParseText($"func Test<T>(obj: object) {{ if obj is {type} {{ }} }}");
+        AssertNoErrors(ifTree);
+        Assert.Single(ifTree.GetRoot().DescendantNodes().OfType<DeclarationPatternSyntax>());
+    }
+
+    [Theory]
     [InlineData("==")]
     [InlineData("!=")]
     [InlineData(">")]

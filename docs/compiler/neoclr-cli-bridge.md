@@ -13495,3 +13495,20 @@ exact equality with typeof((int) -> int), then dynamically passes/returns that c
 through a second function and invokes it. Interpreter/AOT/JIT return 42. No Runtime
 Contract setting, metadata schema or permanent class-library API changes. Detailed
 native MethodInfo snapshots and generic reflection coverage remain separate.
+
+
+### Function type patterns (2026-10-16)
+
+Raven accepts `if obj is () -> T { }`, typed captures such as
+`if obj is (int) -> int callback { ... }`, and function-type `match` arms.
+`T` refers to an in-scope generic parameter; it is not a new runtime-inferred
+binding. The shared parser fix was developed on Raven main, then carried to the
+native feature branch. .NET uses its existing standard delegate representation;
+neoCLR emits a native function signature in the ordinary type test. No new Runtime
+Contract switch, CLI encoding, runtime opcode or function variance rule is added.
+
+The source-local dynamic invocation consumer also tests generic `() -> T` patterns,
+capture/invocation in a generic match arm, exact parameter/result mismatches, null,
+a nominal object, and a bound receiver. Its result is 42 in interpreter/JIT/AOT.
+The shared .NET parser/runtime checks pass 40 tests. Existing function type syntax
+nodes and semantic type classification are reused; TextMate already recognizes `->`.

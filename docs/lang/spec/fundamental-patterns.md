@@ -42,6 +42,33 @@ also give the matched value a name for use in that branch.
   }
   ```
 
+Function types can be used directly as type or typed-binding patterns:
+
+```raven
+func IsFactory<T>(obj: object) -> bool {
+    if obj is () -> T {
+        return true
+    }
+    return false
+}
+
+func Read<T>(obj: object, fallback: T) -> T {
+    return obj match {
+        () -> T callback => callback()
+        _ => fallback
+    }
+}
+```
+
+The `->` after a parameter list distinguishes a function type from a positional
+pattern. This also supports signatures with parameters, such as
+`(int) -> int callback`, and nested function types. Generic parameters refer to
+those already in scope; matching does not infer a new type parameter at runtime.
+Null does not match. On .NET, the test uses the standard delegate representation
+of the function type and the platform's delegate compatibility rules. The neoCLR
+target uses its native structural function signature and runtime compatibility.
+The shared syntax does not add function variance or dynamic invocation semantics.
+
 * `let name` / `var name` / `val name` — **variable pattern**. Always matches and
   introduces a binding. `let`/`val` produce an immutable local; `var` produces a
   mutable one.

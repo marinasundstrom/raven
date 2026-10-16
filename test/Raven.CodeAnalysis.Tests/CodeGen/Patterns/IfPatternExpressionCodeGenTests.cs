@@ -36,6 +36,38 @@ func Main() {
         Assert.Equal(["42", "0"], CompileAndRun(code));
     }
 
+    [Fact]
+    public void FunctionPatterns_TestAndInvokeGenericStandardDelegates()
+    {
+        const string code = """
+            import System.*
+
+            func Read<T>(obj: object, fallback: T) -> T {
+                if obj is () -> T {
+                    if obj is () -> T callback {
+                        return callback()
+                    }
+                }
+                return fallback
+            }
+            func Match(obj: object) -> int {
+                return obj match {
+                    (int) -> int callback => callback(2)
+                    _ => 0
+                }
+            }
+            func Main() {
+                let get: () -> int = () => 42
+                let add: (int) -> int = value => value + 40
+                Console.WriteLine(Read<int>(get, 0))
+                Console.WriteLine(Read<string>(get, "mismatch"))
+                Console.WriteLine(Read<int>("not a function", 7))
+                Console.WriteLine(Match(add))
+            }
+            """;
+        Assert.Equal(["42", "mismatch", "7", "42"], CompileAndRun(code));
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var references = TestMetadataReferences.Default;
