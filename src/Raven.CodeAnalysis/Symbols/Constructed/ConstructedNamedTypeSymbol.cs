@@ -276,6 +276,13 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is StructuralFunctionTypeSymbol function)
+            {
+                result = function.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is IStructuralUnionTypeSymbol union)
             {
                 result = TypeSubstitution.SubstituteStructuralUnion(union,

@@ -13370,3 +13370,33 @@ versus safe variance matching, inference of `T2`, constraint entailment, native
 bound metadata and generic call lowering still need design and validation.
 This direction is neoCLR-specific; it does not change ordinary Raven/.NET
 function/delegate binding. It does not settle the deferred observer/invocation API.
+
+### Native function-symbol separation (2026-10-16, feature branch)
+
+The neoCLR runtime contract now selects `StructuralFunctionTypeSymbol` for source
+function signatures and imported native Function signatures. It carries parameter
+ref-kinds and a result type, has structural equality/hash/display, and has no
+nominal delegate base, constructor or declaration. Its base remains Object,
+matching native function-object behavior. The internal shared binder still uses
+`TypeKind.Delegate` for callable operations; this is not nominal Delegate ancestry.
+Generic class/method substitution and inference traverse the signature, including
+nested generic parameters. A no-result imported function retains its ABI rather
+than becoming an inhabited unit-returning function.
+
+Normal Raven/.NET still selects nominal Func/Action or synthesized delegates.
+Legacy core Func/Action remain an explicit native-emitter transport allowance,
+but are unequal to structural function signatures and do not satisfy `func`.
+Runtime Contract configuration and native function metadata/ABI are unchanged;
+no implicit nominal-to-structural delegate conversion is introduced.
+
+The retained `docs/validation/native-function-symbols/raven` fixture in neoCLR
+compiles a generic callback holder separately, imports its function-valued getter,
+and invokes the returned function through a local generic helper. It also compiles
+the selected bundle's RuntimeAwait/RuntimeGenerator providers. Interpreter,
+AOT (UBSan/bounds) and managed JIT return 42. SDK-authored external assembly-level
+function references containing function signatures are still gated; the fixture's
+generic helper is local. That existing SDK gap is separate from symbol identity.
+Nineteen focused compiler regressions pass, covering structural identity,
+substitution/inference, accessibility, no-result/unit distinction and existing .NET
+function/constraint behavior. Category constraint syntax and signature bounds remain the next compiler slices;
+this checkpoint does not introduce observer or dynamic invocation APIs.

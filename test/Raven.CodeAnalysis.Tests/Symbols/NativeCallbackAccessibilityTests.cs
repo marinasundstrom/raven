@@ -14,7 +14,9 @@ public sealed class NativeCallbackAccessibilityTests
         var compilation = Compilation.Create("Callbacks", [], TestMetadataReferences.Default, options);
         var component = new SourceNamedTypeSymbol("Item", null!, TypeKind.Class, compilation.Assembly,
             null, compilation.SourceGlobalNamespace, [], [], declaredAccessibility: hidden ? Accessibility.Internal : Accessibility.Public);
-        var callback = new SynthesizedDelegateTypeSymbol(compilation, "Callback", [component], [RefKind.None], component, compilation.SourceGlobalNamespace);
+        ITypeSymbol callback = native
+            ? new StructuralFunctionTypeSymbol([component], [RefKind.None], component, (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Object))
+            : new SynthesizedDelegateTypeSymbol(compilation, "Callback", [component], [RefKind.None], component, compilation.SourceGlobalNamespace);
         Assert.Equal(expected, AccessibilityUtilities.IsTypeLessAccessibleThan(callback, Accessibility.Public));
     }
 }

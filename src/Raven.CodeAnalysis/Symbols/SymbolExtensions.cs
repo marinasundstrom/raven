@@ -66,7 +66,7 @@ public static partial class SymbolExtensions
 
     private static bool ContainsStructuralComposition(ITypeSymbol type) => type switch
     {
-        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or StructuralTupleTypeSymbol => true,
+        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or StructuralTupleTypeSymbol or StructuralFunctionTypeSymbol => true,
         ITupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
         INamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
             named.ContainingType is { } owner && ContainsStructuralComposition(owner),
@@ -1273,6 +1273,12 @@ public static partial class SymbolExtensions
     {
         if (typeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
         {
+            if (named is StructuralFunctionTypeSymbol function)
+            {
+                display = FormatFunctionSignature(function.ParameterTypes, function.ParameterRefKinds, function.ReturnType, format, true);
+                return true;
+            }
+
             if (named is SynthesizedDelegateTypeSymbol synthesized)
             {
                 display = FormatFunctionSignature(
@@ -2030,6 +2036,8 @@ public static partial class SymbolExtensions
 
     private static string? GetTypeKeyword(INamedTypeSymbol typeSymbol)
     {
+        if (typeSymbol is StructuralFunctionTypeSymbol) return null;
+
         return typeSymbol.TypeKind switch
         {
             TypeKind.Struct when typeSymbol.IsUnion => "union struct",

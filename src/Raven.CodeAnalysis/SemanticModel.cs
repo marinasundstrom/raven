@@ -11261,6 +11261,9 @@ public partial class SemanticModel
                 : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
+        if (type is StructuralFunctionTypeSymbol function)
+            return function.Substitute(t => SubstituteTypeParameters(t, substitutions));
+
         if (type is ITupleTypeSymbol tupleType)
         {
             return TypeSubstitution.SubstituteTupleElements(

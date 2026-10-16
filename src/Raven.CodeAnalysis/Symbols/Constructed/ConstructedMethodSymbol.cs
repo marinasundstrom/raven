@@ -287,6 +287,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 }
             }
 
+            if (type is StructuralFunctionTypeSymbol function)
+            {
+                var result = function.Substitute(t => Substitute(t, visiting, cache).Type);
+                return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
+            }
+
             if (type is IStructuralUnionTypeSymbol union)
             {
                 var result = TypeSubstitution.SubstituteStructuralUnion(union,

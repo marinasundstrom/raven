@@ -212,6 +212,17 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
+        if (x is StructuralFunctionTypeSymbol || y is StructuralFunctionTypeSymbol)
+        {
+            if (x is not StructuralFunctionTypeSymbol left || y is not StructuralFunctionTypeSymbol right ||
+                left.ParameterTypes.Length != right.ParameterTypes.Length ||
+                !left.ParameterRefKinds.SequenceEqual(right.ParameterRefKinds) ||
+                !EqualsCore(left.ReturnType, right.ReturnType, visited)) return false;
+            for (var i = 0; i < left.ParameterTypes.Length; i++)
+                if (!EqualsCore(left.ParameterTypes[i], right.ParameterTypes[i], visited)) return false;
+            return true;
+        }
+
         if (x is IStructuralUnionTypeSymbol unionX && y is IStructuralUnionTypeSymbol unionY)
         {
             if (unionX.ConstituentTypes.Length != unionY.ConstituentTypes.Length)
@@ -484,6 +495,17 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is StructuralFunctionTypeSymbol function)
+        {
+            hash.Add(GetHashCodeCore(function.ReturnType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            for (var i = 0; i < function.ParameterTypes.Length; i++)
+            {
+                hash.Add(function.ParameterRefKinds[i]);
+                hash.Add(GetHashCodeCore(function.ParameterTypes[i], new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            }
+            return hash.ToHashCode();
         }
 
         if (obj is StructuralTupleTypeSymbol tuple)

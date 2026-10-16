@@ -68,7 +68,7 @@ public static class SemanticFacts
     }
 
     internal static bool SatisfiesFunctionTypeConstraint(ITypeSymbol type) =>
-        type is SynthesizedDelegateTypeSymbol { IsNativeTransport: true } ||
+        type is StructuralFunctionTypeSymbol ||
         type is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType);
 
     public static bool SatisfiesConstraints(

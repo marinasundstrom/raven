@@ -16,6 +16,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";
     internal virtual bool UsesStructuralCompositions => false;
     internal virtual bool UsesStructuralTuples => false;
+    internal virtual bool UsesStructuralFunctions => false;
 
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }

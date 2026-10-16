@@ -2329,6 +2329,11 @@ public partial class Compilation
             isAction = false;
         }
 
+        if (_target.RuntimeContract.UsesStructuralFunctions)
+            return new StructuralFunctionTypeSymbol(parameterTypes.ToImmutableArray(),
+                ImmutableArray.CreateRange(Enumerable.Repeat(RefKind.None, parameterTypes.Length)), returnType,
+                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object));
+
         if (!isAction)
             allTypes.Add(returnType);
 

@@ -140,6 +140,10 @@ public partial class Compilation
         ImmutableArray<RefKind> refKinds,
         ITypeSymbol returnType)
     {
+        if (_target.RuntimeContract.UsesStructuralFunctions)
+            return new StructuralFunctionTypeSymbol(parameterTypes, refKinds, returnType,
+                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object));
+
         var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
         if (_synthesizedDelegates.TryGetValue(signature, out var existing))
             return existing;

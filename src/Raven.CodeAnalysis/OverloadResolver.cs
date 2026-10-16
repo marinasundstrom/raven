@@ -968,6 +968,8 @@ internal sealed class OverloadResolver
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
+                case StructuralFunctionTypeSymbol function:
+                    return ContainsTypeParameter(function.ReturnType) || function.ParameterTypes.Any(ContainsTypeParameter);
                 case ITupleTypeSymbol tuple:
                     return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
                 case INamedTypeSymbol named:
@@ -1333,6 +1335,14 @@ internal sealed class OverloadResolver
 
             substitutions[typeParameter] = argumentType;
             return true;
+        }
+
+        if (parameterType is StructuralFunctionTypeSymbol parameterFunction && argumentType is StructuralFunctionTypeSymbol argumentFunction)
+        {
+            if (!parameterFunction.ParameterRefKinds.SequenceEqual(argumentFunction.ParameterRefKinds)) return false;
+            for (var i = 0; i < parameterFunction.ParameterTypes.Length; i++)
+                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod)) return false;
+            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod);
         }
 
         if (parameterType is INamedTypeSymbol paramNamed)
@@ -1720,6 +1730,9 @@ internal sealed class OverloadResolver
                         : new ArrayTypeSymbol(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
                 }
 
+            case StructuralFunctionTypeSymbol function:
+                return function.Substitute(t => SubstituteType(t, substitutions));
+
             case ITupleTypeSymbol tuple:
                 return TypeSubstitution.SubstituteTupleElements(
                     tuple,
@@ -1776,6 +1789,9 @@ internal sealed class OverloadResolver
                 }
 
                 return type;
+
+            case StructuralFunctionTypeSymbol function:
+                return function.Substitute(t => SubstituteType(t, substitutions));
 
             case INamedTypeSymbol named:
                 {

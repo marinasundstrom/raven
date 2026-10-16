@@ -248,9 +248,8 @@ internal static class AccessibilityUtilities
 
         try
         {
-            // Native Function signatures carry their component types, not the internal
-            // compiler-generated delegate declaration used during binding.
-            if (type is SynthesizedDelegateTypeSymbol { IsNativeTransport: true } function)
+            // Accessibility of a native function signature follows its component types.
+            if (type is StructuralFunctionTypeSymbol function)
             {
                 foreach (var component in function.ParameterTypes.Append(function.ReturnType))
                     AddLessAccessibleConstituentTypes(component, requiredAccessibility, visiting, reported, inaccessibleTypes);
