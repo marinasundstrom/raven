@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-16:** Enable native owned constructed-class-base emission with exact base signatures, declaration ordering and constructed constructor calls. Capability/CLR tests and the retained native consumer cover reordered parameters and inherited storage/interfaces. Recursive base arguments report the deferred-binding gap; Runtime Contract settings are unchanged.
+- **2026-10-16:** Enable native owned constructed-class-base emission with exact base signatures, declaration ordering and constructed constructor calls. Import complete constructed base chains and include inherited private instance fields in native field ordinals, fixing wrong-slot access from separate consumers. Capability/CLR tests and retained local/imported native consumers cover reordered parameters and inherited storage/interfaces. Recursive base arguments report the deferred-binding gap; Runtime Contract settings are unchanged.
 
 - **2026-10-16:** Enable native emission of top-level generic classes over local nongeneric bases through an explicit adapter capability. Preserve generic payload storage, base initialization and inherited-field access, including separately compiled native generic derived owners. Reverse/invariant conversions remain rejected; constructed/external generic base authoring remains unsupported.
 

@@ -12,12 +12,13 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
     private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<int> instanceStorageOrdinal;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
-    internal NativeFieldSymbol(FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
+    internal NativeFieldSymbol(FieldInfo view, NativeNamedTypeSymbol owner, Func<int> instanceStorageOrdinal)
         : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))
     {
-        InstanceStorageOrdinal = instanceStorageOrdinal;
+        this.instanceStorageOrdinal = new(instanceStorageOrdinal);
         IsConst = view.IsLiteral; constant = view.Constant;
         IsReadOnly = view.IsReadOnly;
         IsStatic = view.IsStatic;
@@ -31,7 +32,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     private readonly int? constant;
     public bool IsConst { get; }
     public bool IsReadOnly { get; }
-    public int InstanceStorageOrdinal { get; }
+    public int InstanceStorageOrdinal => instanceStorageOrdinal.Value;
     public bool IsRequired => false;
     public object? GetConstantValue() => constant;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitField(this);

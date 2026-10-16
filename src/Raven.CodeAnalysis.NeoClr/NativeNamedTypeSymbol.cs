@@ -95,8 +95,30 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         extensionMembers = new(() => BuildExtensionMembers(methods));
         // Accessors remain available through their property and the token map,
         // matching PE import; they are not directly invocable named members.
+        // Native instance slots are flattened across the complete base chain.
+        // Keep resolution lazy so merely importing a declaration does not force
+        // unrelated dependency layouts; static fields remain owner-local.
+        var fields = view.GetFields();
+        var inheritedFieldCount = new Lazy<int>(() =>
+        {
+            int count = 0, depth = 0;
+            for (var parent = view.BaseType; parent is not null;)
+            {
+                if (++depth > 64) throw new InvalidDataException("native field base chain exceeds limit");
+                var (parentFields, next) = parent switch
+                {
+                    NominalTypeInfo nominal => (nominal.GetFields(), nominal.BaseType),
+                    ConstructedTypeInfo constructed => (constructed.GetFields(), constructed.BaseType),
+                    _ => throw new InvalidDataException("native field base must be nominal")
+                };
+                count = checked(count + parentFields.Count(field => !field.IsStatic));
+                parent = next;
+            }
+            return count;
+        });
         members = [.. methods.Where(method => method.AssociatedSymbol is null),
-            .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, view.GetFields().Take(ordinal).Count(f => f.IsStatic == field.IsStatic))),
+            .. fields.Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this,
+                () => fields.Take(ordinal).Count(f => f.IsStatic == field.IsStatic) + (field.IsStatic ? 0 : inheritedFieldCount.Value))),
             .. properties];
     }
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;

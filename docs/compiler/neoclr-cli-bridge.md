@@ -13057,3 +13057,29 @@ against `variance-argument-sequence-20261016`, including native cleanup and AOT
 sanitizers. All three focused Raven inheritance tests pass, including CLR
 execution. The source runner checks three conversion errors and the explicit
 recursive-base limitation; its report records exact artifact hashes.
+
+### Imported constructed hierarchies and inherited field slots (2026-10-16)
+
+Native import now accepts complete constructed class-base chains. It follows
+original definitions for admission while preserving the exact argument-bearing
+base edge through the SDK's dependency contract. No generic arguments or
+dependency identities are erased. Runtime Contract settings and encodings do not
+change.
+
+The separate-library consumer exposed an independent layout bug: imported field
+ordinals counted only fields declared on the owner. Native instance storage
+includes all base fields, so accessing the intermediate class's public Count field
+used the private base payload's slot and faulted. Native symbols now lazily count
+all inherited instance fields (including private fields), then add the declaring
+field ordinal. Static field indices remain local to their declaring owner.
+
+The retained source fixture now writes Count, verifies the base payload remains
+40, and executes inherited generic interface dispatch. Local and imported modes
+also require the three reverse/invariant conversion errors and the explicit
+recursive-base binding diagnostic. External constructed base authoring,
+recursive source base binding and generic class virtual slots remain gaps.
+
+Both consumers return 42 in interpreter, AOT and managed JIT against
+`variance-argument-sequence-20261016`; native cleanup, AOT sanitizers, conversion
+rejections and recursive-base diagnostics pass. The retained local/imported
+reports include compiler, adapter, SDK, dependency and runtime hashes.
