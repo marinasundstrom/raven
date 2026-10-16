@@ -9,6 +9,51 @@ public sealed class NativeStructuralFunctionTests
         Compilation.Create("FunctionSymbols", [SyntaxTree.ParseText(source)], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
 
+    [Theory]
+    [InlineData(TargetPlatform.NeoCLR, true)]
+    [InlineData(TargetPlatform.DotNet, false)]
+    public void ReservedBootstrapCallbackTransportIsTargetSpecific(TargetPlatform target, bool structural)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-callback-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            const string source = """
+                namespace System.Runtime.CompilerServices {
+                    public static class RuntimeServices {
+                        public static int StartWorker(System.Func<string, string> callback) => 0;
+                        public static void ScheduleTask(System.Action callback) { }
+                    }
+                }
+                public static class Ordinary {
+                    public static int Call(System.Func<string, string> callback) => 0;
+                }
+                """;
+            var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net10.0"))
+                .Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path));
+            var metadata = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("BootstrapCallbacks",
+                [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)], references,
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+            var path = Path.Combine(directory, "BootstrapCallbacks.dll");
+            using (var output = File.Create(path))
+                Assert.True(metadata.Emit(output).Success);
+            var compilation = Compilation.Create("Test", [],
+                TestMetadataReferences.Default.Concat([MetadataReference.CreateFromFile(path)]).ToArray(),
+                new CompilationOptions().WithTargetPlatform(target));
+            var service = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeServices")!;
+            var parameter = service.GetMembers("StartWorker").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+            Assert.Equal(structural, parameter is StructuralFunctionTypeSymbol);
+            if (structural)
+            {
+                var action = service.GetMembers("ScheduleTask").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+                Assert.Equal(SpecialType.System_Void, Assert.IsType<StructuralFunctionTypeSymbol>(action).ReturnType.SpecialType);
+            }
+            var ordinary = compilation.GetTypeByMetadataName("Ordinary")!;
+            Assert.IsNotType<StructuralFunctionTypeSymbol>(ordinary.GetMembers("Call").OfType<IMethodSymbol>().Single().Parameters[0].Type);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     [Fact]
     public void NativeSignaturesHaveStructuralIdentityWithoutNominalDelegateAncestry()
     {

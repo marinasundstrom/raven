@@ -13519,3 +13519,23 @@ The function-pattern consumer additionally compares native reflection's
 and mismatching closed generic signatures and null. Concrete checks cover bound
 functions, nominal objects, and parameter/result mismatches. This exercises existing
 TypeInfo/runtime relationships with no compiler, Runtime Contract or API change.
+
+
+### Public FunctionReflection and bootstrap callback transport (2026-10-16)
+
+The native function feature branch now exposes provisional
+`System.Runtime.Reflection.FunctionReflection.Invoke(Object?, Object?[])`
+returning `Result<Object?, ReflectionError>`. Shared runtime validation reports
+InvalidReceiver, InvalidArguments or UnsupportedType before invocation; target faults
+still propagate. Generic overloads are deferred. The public consumer imports a fresh
+five-library bundle, rather than declaring a private primitive or facade.
+
+Rebuilding that bundle exposed bootstrap RuntimeServices callback parameters still
+using nominal CLI Func/Action symbols. Raven now projects those reserved service
+parameters to structural signatures only under the native function contract.
+Action preserves its native no-result convention, rather than becoming an inhabited
+unit result. Ordinary imported delegates and normal .NET behavior remain nominal;
+six focused compiler tests cover this boundary and existing function identity.
+This temporary mapping belongs to Raven's CLI bootstrap importer; native source
+service declarations and native metadata replace it as bootstrap ownership migrates.
+No new runtime configuration switch or general delegate conversion is introduced.

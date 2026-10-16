@@ -102,6 +102,24 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
     private ITypeSymbol ResolveParameterType()
     {
         var resolved = _reflectionTypeLoader.ResolveType(_parameterInfo);
+        // Reserved bootstrap services carry native function signatures through
+        // standard CLI Func/Action types. Ordinary imported delegates stay nominal.
+        if (_reflectionTypeLoader.Compilation.UsesStructuralFunctions &&
+            _parameterInfo.Member.DeclaringType?.FullName == "System.Runtime.CompilerServices.RuntimeServices" &&
+            resolved is INamedTypeSymbol { TypeKind: TypeKind.Delegate } transport &&
+            transport.ContainingNamespace?.ToDisplayString() == "System" &&
+            transport.Name is "Func" or "Action" &&
+            transport.GetDelegateInvokeMethod() is { } invoke)
+        {
+            return new StructuralFunctionTypeSymbol(
+                invoke.Parameters.Select(p => p.Type).ToImmutableArray(),
+                invoke.Parameters.Select(p => p.RefKind).ToImmutableArray(),
+                transport.Name == "Action"
+                    ? _reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Void)
+                    : invoke.ReturnType,
+                (INamedTypeSymbol)_reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Object));
+        }
+
         if (RefKind.IsByRef && resolved is RefTypeSymbol refType)
             return refType.ElementType;
 
