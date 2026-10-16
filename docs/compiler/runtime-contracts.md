@@ -2432,7 +2432,7 @@ or explicit unchecked wrapping. Lexical context is read from the semantic model'
 bound-to-syntax mapping; the default constant context is checked. RAV0374 diagnoses
 overflow before emission without replacing the bound operation or executing user
 code. Const locals/fields consume the same typed evaluator. Existing syntax-only
-constant forms remain a fallback; parameter-default evaluation is not widened.
+constant forms remain a fallback; completed parameter defaults use the typed evaluator.
 
 No Runtime Contract, runtime metadata or opcode change is required. This corrects
 previously accepted overflowing constant expressions: wrap them explicitly in
@@ -2456,3 +2456,10 @@ retain RAV0374/RAV0375. No Runtime Contract change; CLI parameter constants reta
 their standard encoding. Focused default and constant tests validate invocation and
 reflected defaults.
 Validation: 77 focused constant/default tests and 421 overload-resolution tests pass.
+
+Lowering materializes evaluated built-in numeric binary constants after binding.
+This preserves semantic operation queries while making unchecked constant minimum/-1
+division wrap and minimum%-1 evaluate to zero without a runtime division fault.
+User-defined operators and nonconstant operations retain their execution paths.
+Validation: 150 focused constant, checked-arithmetic/conversion/mutation and operation
+tests pass. No Runtime Contract or metadata change.
