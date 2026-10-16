@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Carry the validated main documentation-highlighting fix for `checked` and `unchecked`; restore the VS Code package synchronization check.
+
 - **2026-10-16:** Preserve qualified static field and property mutation without capturing a type name as a runtime receiver. Checked compound assignments retain normal storage and overflow semantics; no Runtime Contract change. Carry main 289019055 deliberately onto codex/neoclr. Document matching native SDK static/literal field identity and neoCLR d5d95ac3a field/initializer reflection qualification on interpreter/JIT/sanitized AOT, including schema-7 retention and provider-layout requirements.
 
 - **2026-10-16:** Emit Raven native static field initializers and explicit static constructors through canonical `.cctor` metadata, reusing bound initializer order and lowering. Preserve strict explicit-constructor timing and relaxed synthesized timing; import the static-constructor symbol. Qualify readonly fields, explicit initialization, distinct closed generic state and a separate-provider consumer on interpreter, JIT and sanitized AOT. Ordinary .NET behavior is unchanged; structural work remains parked.

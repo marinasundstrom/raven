@@ -6,7 +6,7 @@ export default (hljs) => ({
   keywords: {
     keyword: [
       'abstract', 'add', 'alias', 'and', 'as', 'assembly', 'async', 'await',
-      'base', 'break', 'by', 'case', 'catch', 'class', 'const', 'continue',
+      'base', 'break', 'by', 'case', 'catch', 'checked', 'class', 'const', 'continue',
       'default', 'delegate', 'do', 'else', 'enum', 'event', 'explicit',
       'extension', 'extern', 'field', 'fileprivate', 'final', 'finally', 'fixed',
       'for', 'func', 'get', 'global', 'goto', 'if', 'implicit', 'import', 'in',
@@ -16,7 +16,7 @@ export default (hljs) => ({
       'partial', 'permits', 'private', 'property', 'protected', 'public',
       'readonly', 'record', 'ref', 'remove', 'required', 'return', 'sealed',
       'scoped', 'self', 'set', 'sizeof', 'stackalloc', 'static', 'struct',
-      'throw', 'try', 'type', 'typeof', 'union', 'unsafe', 'unmanaged', 'use',
+      'throw', 'try', 'type', 'typeof', 'unchecked', 'union', 'unsafe', 'unmanaged', 'use',
       'val', 'var', 'lock',
       'virtual', 'when', 'where', 'while', 'with', 'yield',
       'expand', 'replace', 'introduce', 'fragment', 'token'
