@@ -13703,51 +13703,28 @@ unchanged. Recoverable arithmetic methods returning Option/Result are a separate
 open design question; this slice does not implement them or change expression types.
 
 
-### Class-contained constrained generic methods (2026-10-16)
+### Nominal numeric constraints
 
-Remove the native emitter's blanket syntax rejection of method constraint clauses.
-The existing source callable/signature capability checks still validate admitted
-bounds and emission; no new runtime contract switch, parser/binder rule or CLI
-encoding is introduced. Closed nongeneric nominal interface bounds and static Self
-calls require the matching native specialization support. A Complex constrained Add
-method inside Arithmetic now compiles and executes in interpreter/JIT/AOT; the same
-top-level consumer also passes. The ordinary .NET GenericMathEmission regression
-passes unchanged. Imported constrained methods still need a complete authored SDK
-reference contract; that separate boundary is not bypassed by reader fallback.
+Native generic methods may use closed nongeneric nominal interface bounds and
+static Self dispatch. The interpreter validates nominal conformance; JIT/AOT retain
+original conformance metadata through layout lowering, validate exact implementations,
+and resolve static Self calls before concrete body selection.
 
+Raven's native emitter supports source-local functions and static class methods,
+including imported versions of both. CreateMethodReference and CreateFunctionReference
+carry parameter ordinals and output-owned interface bounds from semantic symbols.
+The SDK checks scope, ownership, duplicate and conflicting contracts. Primitive
+arguments use their selected nominal owner's declared conformance. Operator shape
+alone never establishes membership.
 
-### Imported nominal method bounds (2026-10-16)
+System.Numerics provides four same-type operator interfaces; Number inherits them.
+Native metadata retains real Self and nominal constraints. The reference-only CLI
+projection uses the established Self marker and is not an executable replacement for
+native metadata. No new Runtime Contract switch or opcode is required; ordinary
+Raven/.NET behavior is unchanged. Constructed interface method bounds and
+instance/borrowed Self specialization remain outside this path.
 
-Imported static class methods may carry nongeneric nominal interface bounds through
-the symbol-only emission contract. The metadata SDK's CreateMethodReference now
-accepts explicit interfaceBounds; Raven authors them from imported semantic symbols,
-not by reopening dependency reader definitions. Bounds retain parameter ordinals and
-output-owned interface identities; malformed or mismatched SDK contracts reject.
-The separate Complex provider/consumer runs in interpreter/JIT/AOT, and calling the
-imported Add with int reports RAV0320. Existing capability checks still gate other
-method categories. No Runtime Contract configuration or .NET behavior changes;
-no structural constraint support is added. The native dependency snapshot remains
-pinned by the existing hash contract. See neoCLR's numerics-interface qualification.
-
-
-### Imported nominal bounds on assembly-level functions (2026-10-16)
-
-Native emission now carries nongeneric nominal interface method bounds on imported
-top-level functions through the symbol-authored SDK CreateFunctionReference contract,
-matching imported static class methods. Raven supplies resolved nominal identities
-and bounds; the SDK validates ownership, parameter scope and conflicting contracts.
-Native metadata retains ordinary generic type constraints, and the existing runtime
-specializer checks nominal conformance before static Self dispatch. No new Runtime
-Contract switch, CLI encoding or opcode is introduced; ordinary .NET is unchanged.
-Constructed interface bounds and other unsupported constraint categories remain gaps.
-Qualification uses a separate NumericFunctions provider, four arithmetic operations
-on int/double, Number-bound forwarding and invalid string argument rejection.
-Primitive arguments retain their selected nominal owner for imported bound validation;
-this requires explicit interface membership and does not infer capabilities from
-arithmetic syntax. The SDK regression rejects a scalar before owner selection and
-before interface declaration, then accepts it after declared conformance.
-Validation pairs with neoCLR SDK `0cdfb228b`: the separate-provider consumer returns
-42 on interpreter, managed JIT and sanitized AOT; Add<string> rejects with RAV0320.
-The runtime repository retains reproducible sources and result fingerprints under
-`docs/validation/numerics-interfaces/function-results.json` and
-`function-negative-results.json`.
+Qualification pairs Raven `ab010c687` with neoCLR SDK `0cdfb228b` for imported
+top-level functions. The separate-provider consumer returns 42 in interpreter,
+managed JIT and sanitized AOT; Add<string> rejects with RAV0320. Sources and exact
+result fingerprints live in neoCLR's `docs/validation/numerics-interfaces/`.
