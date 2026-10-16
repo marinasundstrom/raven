@@ -317,8 +317,9 @@ inside unchecked contexts; floating arithmetic keeps IEEE behavior. Out-of-range
 unchecked floating-to-integer conversions are left to the backend.
 
 This follows [.NET's constant overflow policy](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/checked-and-unchecked).
-This is not full C# constant-expression coverage: native-width/enum arithmetic and arithmetic in syntax-only default
-argument evaluation remain separate compiler gaps. Existing constant forms retain
+This is not full C# constant-expression coverage: native-width/enum arithmetic remain separate compiler gaps.
+Parameter defaults support these typed arithmetic forms and retain their evaluated
+values in parameter metadata. Existing constant forms retain
 their behavior. Runtime-dependent operands still use runtime overflow policy.
 
 Constant evaluation also supports division, remainder, integral bitwise operations
