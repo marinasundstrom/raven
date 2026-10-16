@@ -2513,7 +2513,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var closeParen = ReadToken();
             var next = PeekToken();
-            if (!next.IsKind(SyntaxKind.CommaToken) &&
+            if (!next.IsKind(SyntaxKind.DotToken) &&
+                !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&
                 !next.IsKind(SyntaxKind.SemicolonToken) &&
                 !next.IsKind(SyntaxKind.EndOfFileToken) &&

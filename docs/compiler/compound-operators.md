@@ -123,3 +123,16 @@ operators return false.
 
 Truth/logical validation on main: generated-syntax solution build and 107 focused
 operator, if/while and logical tests pass, including an emitted-library consumer.
+
+Member parsing gives `func !(...)` precedence over a bang macro invocation named
+`func`, restoring logical-not operator declarations. Declaration macros with an
+identifier after the bang keep their existing syntax.
+
+The broader operator consumer also checks member access on parenthesized `&`/`|`
+results and mixed relational/logical conditions. Cast lookahead excludes a following
+dot; type-argument lookahead rejects logical/comparison separators that cannot
+appear in a type argument, avoiding false cast/generic parses.
+
+Parser follow-up validation: 87 focused tests pass, including macro, cast and
+generic-name regressions. The expanded native-repository operator matrix also
+compiles and runs as an ordinary .NET 11 consumer.
