@@ -13539,3 +13539,30 @@ six focused compiler tests cover this boundary and existing function identity.
 This temporary mapping belongs to Raven's CLI bootstrap importer; native source
 service declarations and native metadata replace it as bootstrap ownership migrates.
 No new runtime configuration switch or general delegate conversion is introduced.
+
+
+### Function work integrated (2026-10-16)
+
+By explicit author direction, neoCLR main fast-forwarded from `971fbceec` to
+`8aa37b938`, and Raven codex/neoclr from `9302f2e4c` to `e4acca9cf`.
+All validated function-kind metadata/constraints, structural function symbols,
+function patterns, introspection and provisional Result-returning FunctionReflection
+commits are preserved. The general pattern parser fix is already on Raven main
+(`0c8cda8dc`); Raven main and the neoCLR line were not merged wholesale.
+
+The completed function-kind branches were deleted locally. Raven's older
+codex/consistent-ranges branch was also deleted after confirming it is an ancestor
+of main. Parked remote structural experiments are untouched. This is local integration,
+not a push, release or website publication. Earlier branch-only checkpoints describe
+historical state; current support is on the integration branches above.
+
+Runtime Contract configuration and behavior are unchanged by these fast-forwards.
+Retained interpreter/JIT/AOT success and target-fault evidence and the fresh five-library
+bundle remain applicable because the code trees are identical. FunctionReflection
+remains provisional; generic invocation overloads, signature bounds, ref/out and
+broader value marshalling remain open. Other structural work remains parked.
+
+Integration checks passed: 62 focused Raven syntax/semantic/runtime tests, the host
+SDK function-kind authoring/import/introspection checks, the reference fingerprint
+check and four native API snapshot checks. No code or public signature changed
+during integration, so the retained interpreter/JIT/AOT consumers were not rerun.

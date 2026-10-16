@@ -598,7 +598,7 @@ Delegate bridges use the emitted return signature when adapting Unit and explici
 `System.Void` returns. A source function returning Unit can emit a CLI no-result
 method; invoking it must not discard a stack value that was never produced.
 
-## Native function category constraints (neoCLR feature branch)
+## Native function category constraints (neoCLR target)
 
 On the neoCLR target, `where T: func` restricts a type argument to a structural
 function signature. For example, the validated `FunctionSlot<T> where T: func`
@@ -620,5 +620,5 @@ emission supports generic class parameters and generic function/method parameter
 For example, `func Keep<F>(callback: F) -> F where F: func => callback`
 preserves the category through separate native providers. A caller may forward a
 method parameter carrying the same requirement; arbitrary class-parameter forwarding
-into a constrained generic method is not yet qualified. This feature is on `codex/function-kind-constraint`, not the
+into a constrained generic method is not yet qualified. This feature is integrated on `codex/neoclr` with neoCLR main; it is not part of the
 normal Raven/.NET language profile. Existing .NET function mappings are unchanged.
