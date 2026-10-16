@@ -183,7 +183,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => allInterfaces.Value;
     public ImmutableArray<IMethodSymbol> Constructors => InstanceConstructors;
     public ImmutableArray<IMethodSymbol> InstanceConstructors => [.. members.OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)];
-    public IMethodSymbol? StaticConstructor => null;
+    public IMethodSymbol? StaticConstructor => members.OfType<IMethodSymbol>().SingleOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
     public INamedTypeSymbol? UnderlyingTupleType => null;
     public ImmutableArray<IFieldSymbol> TupleElements => [];
     public ImmutableArray<ISymbol> GetMembers() => IsExtensionContainer ? extensionMembers.Value : members;

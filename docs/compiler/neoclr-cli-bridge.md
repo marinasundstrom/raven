@@ -13844,3 +13844,19 @@ constant minimum/-1 division and minimum%-1 remainder from executing faulting
 runtime instructions. Nonconstant and user-defined operations retain their paths.
 The 150 focused tests pass on each compiler line; the native constant-division
 consumer returns 42 on interpreter, JIT and AOT. No metadata/Runtime Contract change.
+
+
+### Native static initialization (2026-10-16)
+
+The native emitter reuses bound field initializer expressions and declaration order,
+then lowers any explicit static constructor body. The SDK emits canonical private
+static parameterless `.cctor` with no result. Explicit constructors use strict runtime
+initialization; synthesized initializer-only bodies use `before_field_init`. Native
+imports expose `StaticConstructor`. This is native metadata, not a CLI carrier or
+new Runtime Contract switch; ordinary .NET emission and semantic binding are unchanged.
+Matching neoCLR main runtime/SDK support is required. Native readonly stores remain
+restricted to the exact owning initializer. Interpreter, JIT and sanitized AOT qualify
+source readonly, explicit/generic and separate-provider consumers in neoCLR's
+`docs/validation/compound-operators/StaticInitialization*.rvn`. Runtime storage remains
+invocation-owned, with terminal Faults; intrinsic initializer admission and guest
+reflection integration are separate runtime responsibilities.

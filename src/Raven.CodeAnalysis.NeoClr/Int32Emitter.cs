@@ -1,5 +1,6 @@
 using NeoCLR.Metadata.Experimental.Model;
 
+using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
@@ -234,8 +235,6 @@ internal static class Int32Emitter
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
                                     !CallableSignature.TryType(field.Type, false, out _, bodyCapabilities))
                                     throw Unsupported("only public/internal/private fields with target-supported storage types");
-                                if (field.IsStatic && variable.Initializer is not null)
-                                    throw Unsupported("static field initializers require runtime type initialization");
                                 storageFields.Add(field);
                             }
                             continue;
@@ -261,9 +260,8 @@ internal static class Int32Emitter
                         {
                             if (propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
-                                property.IsStatic && propertySyntax.Initializer is not null ||
                                 !CallableSignature.TryType(property.Type, false, out _, bodyCapabilities))
-                                throw Unsupported("only supported properties/storage without static initializers");
+                                throw Unsupported("only supported properties/storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration) ||
                                 (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
@@ -276,10 +274,10 @@ internal static class Int32Emitter
                             if (property.SetMethod is { } set) plans.Add(GetPlan(set));
                             continue;
                         }
-                        if (!typeSymbol.IsStatic && typeMember is ConstructorDeclarationSyntax constructor)
+                        if (typeMember is ConstructorDeclarationSyntax constructor)
                         {
                             if ((constructor.Body is null && constructor.ExpressionBody is null) ||
-                                constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword)))
+                                constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.StaticKeyword)))
                                 throw Unsupported("only explicit root constructors with a block or expression body");
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
                             continue;
@@ -380,6 +378,9 @@ internal static class Int32Emitter
                     if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not (ClassDeclarationSyntax or StructDeclarationSyntax)) throw Unsupported("constructor unavailable");
                     plans.Add(GetPlan(constructor));
                 }
+        foreach (var type in declaredTypes.Values)
+            if (type.Symbol.StaticConstructor is { } initializer && !plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, initializer)))
+                plans.Add(GetPlan(initializer));
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
@@ -778,6 +779,8 @@ internal static class Int32Emitter
                 attributeProperties.Add((property.Symbol, emitted.Definition));
             }
         }
+        foreach (var type in declaredTypes.Values)
+            nativeTypes[type.Symbol].SetBeforeFieldInit(type.Symbol.StaticConstructor?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ConstructorDeclarationSyntax);
         foreach (var type in declaredTypes.Values)
             foreach (var contract in type.Symbol.Interfaces)
             {
@@ -1570,6 +1573,24 @@ internal static class Int32Emitter
 
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
+            if (method.MethodKind == MethodKind.StaticConstructor)
+            {
+                if (!CallableSignature.TryCreate(method, out var signature, bodyCapabilities))
+                    throw Unsupported("type initializer signature");
+                var syntax = method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() ?? throw Unsupported("type initializer declaration");
+                var statements = FieldInitializationPlan.Create(compilation, method).Cast<BoundStatement>().ToList();
+                if (syntax is ConstructorDeclarationSyntax constructor)
+                {
+                    var bodySyntax = (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody;
+                    if (bodySyntax is null || compilation.GetSemanticModel(syntax.SyntaxTree).GetBoundNode(bodySyntax, BoundTreeView.Original) is not BoundBlockStatement body)
+                        throw Unsupported("type initializer body");
+                    statements.Add(body);
+                }
+                var bodyPlan = new SourceCallablePlan(method, syntax, syntax, method.ContainingType, method.MetadataName, signature,
+                    PreparedBody: Lowerer.LowerBlock(method, new BoundBlockStatement(statements.ToArray())));
+                if (!bodyPlan.IsSupportedBy(bodyCapabilities)) throw Unsupported("type initializer contract");
+                return bodyPlan;
+            }
             if (!SourceCallablePlan.TryCreate(method, out var plan, bodyCapabilities))
                 throw Unsupported("callable declaration: " + method.ToDisplayString());
             return plan!;
