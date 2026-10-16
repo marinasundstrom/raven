@@ -12932,3 +12932,23 @@ need completion and an executable consumer. This host metadata slice alone does
 not qualify Raven execution or guest reflection. CLI inheritance projection still
 rejects unsupported shapes. Sliceable/Result variance remains postponed and
 structural work stays parked.
+
+### SDK generic class authoring over ordinary bases (2026-10-16)
+
+The SDK now accepts generic derived classes over owned nonsealed nongeneric bases.
+It validates explicit base initialization and supports nominal base upcasts and
+variance. CLI generic field references retain their owner construction, fixing
+field access with inherited storage. Native named base encoding and Runtime
+Contract settings are unchanged. SDK/CLR checks pass for integer/reference fields
+and identity, plus existing generic and native Object-root checks.
+
+This is SDK capability; Raven owner eligibility/emission remains to be wired and
+validated. Constructed generic base authoring remains open. Native AOT currently
+requires forwarded base-constructor arguments; constant/computed arguments are a
+backend gap, not intended language semantics. Structural work and Sliceable/Result
+variance remain deferred.
+
+The retained SDK consumer in neoCLR docs/validation/generic-class-base returns 42
+in interpreter/AOT/managed JIT against variance-argument-sequence-20261016, including
+native cleanup and AOT sanitizer checks. This validates the forwarded-argument
+constructor path; it does not yet qualify Raven source hierarchy emission.
