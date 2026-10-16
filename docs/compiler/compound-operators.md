@@ -1,0 +1,63 @@
+# Explicit compound operator lowering
+
+Development implementation, 2026-10-16. This is shared Raven language behavior,
+with separate qualification on `main` (.NET) and `codex/neoclr` (native neoCLR).
+The author requested C# 14-style compound operator overloads after function-feature
+integration. Broader structural work remains parked.
+
+## Contract and representation
+
+`func +=(rhs: R)` is an instance `MethodKind.UserDefinedOperator` with one ordinary
+parameter and a unit result. The parser uses the existing operator declaration
+node and existing compound tokens. Source symbol creation checks arity, instance
+status, accessibility, result and parameter passing mode. Symbol display uses the
+source token for both source and imported metadata.
+
+| Raven | Metadata name |
+| --- | --- |
+| `+=` | `op_AdditionAssignment` |
+| `-=` | `op_SubtractionAssignment` |
+| `*=` | `op_MultiplicationAssignment` |
+| `/=` | `op_DivisionAssignment` |
+| `&=` | `op_BitwiseAndAssignment` |
+| `\|=` | `op_BitwiseOrAssignment` |
+| `^=` | `op_ExclusiveOrAssignment` |
+
+Binding considers instance operators on the receiver through ordinary member
+lookup and overload resolution. It only does so for variable storage, preserving
+property/indexer fallback and event subscription binding. An applicable operator
+becomes an ordinary instance invocation; there is no hidden allocation, replacement
+assignment or extra receiver evaluation. Existing receiver address emission handles
+value-type storage. Assignment expressions retain Raven's unit result, including
+calls to imported CLI-void methods.
+
+CLI emission uses public instance special-name methods and a void return. The
+metadata is compatible with the C# 14 compound names. The native compiler must
+emit the same operation as an ordinary instance call in native metadata; it needs
+no new runtime opcode or Runtime Contract capability flag. Qualification must use
+the native compiler and a matching library bundle, not just successful CLI emission.
+
+## Boundaries and verification
+
+`CompoundOperatorTests` covers source metadata, alias preservation, struct locals,
+array receiver evaluation, precedence/fallback, invalid declarations, readonly
+locals and an emitted-library consumer. Existing operator tests protect the static
+operator path. TextMate already recognizes the supported tokens; no new syntax
+node or language-service cache is introduced.
+
+Validation on Raven main: 70 focused operator/conversion/reference-field tests passed
+on .NET 11 (2026-10-16). Native evidence is recorded separately after carrying the
+shared change to `codex/neoclr`.
+
+The initial slice does not add checked forms, compound extension/interface members,
+virtual overrides, instance increment/decrement, or missing remainder/shift
+assignment tokens. These remain separate work. Performance follows ordinary instance
+calls; no benchmark claim is made.
+
+## Design sources
+
+The [C# 14 specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-14.0/user-defined-compound-assignment)
+defines in-place operators, variable eligibility, applicability-first fallback and
+metadata names. The [author-supplied article](https://www.damirscorner.com/blog/posts/20250919-UserDefinedCompoundOperatorsInCs14.html)
+illustrates the allocation/aliasing motivation. The former is the semantic model;
+the latter is context. Raven deliberately preserves its unit-valued assignments.

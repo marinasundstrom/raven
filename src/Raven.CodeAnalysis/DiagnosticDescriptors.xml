@@ -555,6 +555,14 @@
     Title="Type argument does not satisfy constraint"
     Message="The type '{typeArgument}' must satisfy the '{constraint}' constraint for type parameter '{typeParameter}' of '{genericName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0366" Identifier="CompoundOperatorMustReturnUnit"
+    Title="Compound operator must return unit"
+    Message="Compound operator '{operatorToken}' must return unit"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0367" Identifier="CompoundOperatorParameterMustBeValue"
+    Title="Compound operator parameter must be passed by value"
+    Message="Compound operator '{operatorToken}' requires a by-value parameter"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0321" Identifier="OperatorMustBeStatic" Title="Operator must be static"
     Message="Operator '{operatorToken}' must be declared static" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

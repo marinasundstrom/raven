@@ -291,7 +291,8 @@ OperatorDeclaration      ::= MemberModifiers?
 
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
                            | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
-                           | '>=' | '!' | '++' | '--' ;
+                           | '>=' | '!' | '++' | '--'
+                           | '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^=' ;
 
 ExplicitInterfaceSpecifier ::= Type '.' ;
 

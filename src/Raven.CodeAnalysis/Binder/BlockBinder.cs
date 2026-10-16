@@ -7200,6 +7200,68 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
+    private BoundExpression? TryBindInstanceCompoundAssignment(
+        BoundExpression left,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode leftSyntax,
+        SyntaxKind operatorToken)
+    {
+        // Properties/indexers are accessor operations, not addressable variables.
+        // They retain the binary operator plus setter lowering.
+        if (left is not (BoundLocalAccess or BoundParameterAccess or BoundArrayAccessExpression or BoundFieldAccess) &&
+            left is not BoundMemberAccessExpression { Member: IFieldSymbol })
+            return null;
+
+        var metadataName = OperatorFacts.GetCompoundAssignmentMetadataName(operatorToken);
+        if (metadataName is null || left.Type is null)
+            return null;
+
+        var receiverType = left.Type is RefTypeSymbol byRef ? byRef.ElementType : left.Type;
+        var candidates = new SymbolQuery(metadataName, receiverType, IsStatic: false)
+            .LookupMethods(this)
+            .Where(method => !method.IsStatic && method.MethodKind == MethodKind.UserDefinedOperator &&
+                method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.None &&
+                method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+            .ToImmutableArray();
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        var right = BindExpression(rightSyntax);
+        if (IsErrorExpression(right))
+            return right;
+        var arguments = new[] { new BoundArgument(right, RefKind.None, null, rightSyntax) };
+        var resolution = OverloadResolver.ResolveOverload(candidates, arguments, Compilation,
+            binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax);
+        if (resolution.IsAmbiguous)
+        {
+            _diagnostics.ReportCallIsAmbiguous($"operator {OperatorFacts.GetDisplayText(operatorToken)}",
+                resolution.AmbiguousCandidates, leftSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+        }
+        if (!resolution.Success)
+            return null;
+
+        if (left is BoundLocalAccess { Local.IsMutable: false } or
+            BoundParameterAccess { Parameter.IsMutable: false })
+        {
+            _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+        if (left.Symbol is IFieldSymbol field && !CanAssignToField(field, GetReceiver(left), leftSyntax))
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+        var method = resolution.Method!;
+        if (!EnsureMemberAccessible(method, leftSyntax.GetLocation(), GetSymbolKindForDiagnostic(method)))
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+        ReportObsoleteIfNeeded(method, leftSyntax.GetLocation());
+        var invocation = new BoundInvocationExpression(method,
+            ConvertArguments(method.Parameters, arguments, rightSyntax), left);
+        // Raven assignments yield unit, including when imported methods return CLI void.
+        return new BoundBlockExpression([new BoundExpressionStatement(invocation)],
+            Compilation.GetSpecialType(SpecialType.System_Unit));
+    }
+
     private BoundExpression BindCompoundAssignment(
         ExpressionSyntax leftSyntax,
         ExpressionSyntax rightSyntax,
@@ -7252,12 +7314,15 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
                 }
 
+                var arrayAccess = new BoundArrayAccessExpression(receiver, args, arrayType.ElementType);
+                if (TryBindInstanceCompoundAssignment(arrayAccess, rightSyntax, leftSyntax, operatorTokenKind) is { } compound)
+                    return compound;
+
                 var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
 
                 if (IsErrorExpression(arrayRightExpression))
                     return AsErrorExpression(arrayRightExpression);
 
-                var arrayAccess = new BoundArrayAccessExpression(receiver, args, arrayType.ElementType);
                 var arrayRight = BindCompoundAssignmentValue(arrayAccess, arrayRightExpression, arrayType.ElementType, binaryOperator.Value, rightSyntax);
                 return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
             }
@@ -7358,6 +7423,9 @@ partial class BlockBinder : Binder
         {
             return BindConditionalAccessAssignment(conditionalSyntax, conditionalAssignmentAccess, rightSyntax, node, operatorTokenKind);
         }
+
+        if (TryBindInstanceCompoundAssignment(left, rightSyntax, leftSyntax, operatorTokenKind) is { } instanceCompound)
+            return instanceCompound;
 
         if (left is BoundLocalAccess localAccess)
         {
@@ -7750,6 +7818,9 @@ partial class BlockBinder : Binder
         var binaryOperator = GetBinaryOperatorFromAssignment(operatorTokenKind);
         if (binaryOperator is null)
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        if (TryBindInstanceCompoundAssignment(left, rightSyntax, leftSyntax, operatorTokenKind) is { } instanceCompound)
+            return instanceCompound;
 
         if (left is BoundArrayAccessExpression arrayAccess)
         {
