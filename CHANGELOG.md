@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-16:** Parse function types in type and capture patterns, including `if obj is () -> T { }` and function-signature match arms. Preserve positional patterns; ordinary .NET tests use standard delegates and scoped generic parameters. No new Runtime Contract setting or conversion rule.
+
 - **2026-10-16:** Preserve nullable reference direction in interface variance. Accept safe covariant/contravariant nullable reference views and reject views that remove a possible null; value boxing stays excluded. No Runtime Contract or emitted metadata change.
 
 - **2026-10-16:** Render declared interface variance in RavenDoc signatures and honor IncludeVariance in named-type symbol display. Constructed type arguments remain unannotated; no Runtime Contract or emitted metadata change.

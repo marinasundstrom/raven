@@ -526,6 +526,9 @@ VariablePattern          ::= BindingKeyword VariableDesignation ;
 (* NOTE: A single Identifier can be parsed as either ConstantPatternOperand or as the `Type` in a
    DeclarationPattern. The binder resolves the ambiguity by preferring a value/constant pattern
    when the identifier resolves to a value symbol in scope; otherwise it is treated as a type. *)
+(* A parenthesized parameter list followed by '->' in a DeclarationPattern
+   is a function Type, not a PositionalPattern. The optional designation follows
+   the full function type, including its return type. *)
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
 PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' [PatternWholeDesignation] ;

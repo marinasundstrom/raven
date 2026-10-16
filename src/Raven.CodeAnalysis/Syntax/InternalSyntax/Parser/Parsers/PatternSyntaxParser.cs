@@ -91,6 +91,18 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
+            // An arrow after the parameter list makes this a type, not a
+            // positional pattern. Keep the following block for the enclosing if.
+            if (IsFunctionTypePatternStart())
+            {
+                var functionType = new NameSyntaxParser(this).ParseTypeName();
+                var functionDesignation =
+                    CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)
+                        ? ParseDesignation()
+                        : null;
+                return DeclarationPattern(functionType, functionDesignation);
+            }
+
             return ParsePositionalPattern();
         }
 
@@ -183,6 +195,29 @@ internal class PatternSyntaxParser : SyntaxParser
                 : null;
 
         return DeclarationPattern(type, designation);
+    }
+
+    private bool IsFunctionTypePatternStart()
+    {
+        var depth = 0;
+        for (var offset = 0; ; offset++)
+        {
+            switch (PeekToken(offset).Kind)
+            {
+                case SyntaxKind.OpenParenToken:
+                    depth++;
+                    break;
+                case SyntaxKind.CloseParenToken:
+                    if (--depth == 0)
+                        return PeekToken(offset + 1).IsKind(SyntaxKind.ArrowToken);
+                    break;
+                case SyntaxKind.EndOfFileToken:
+                case SyntaxKind.OpenBraceToken:
+                case SyntaxKind.CloseBraceToken:
+                case SyntaxKind.SemicolonToken:
+                    return false;
+            }
+        }
     }
 
     private PropertyPatternClauseSyntax ParsePropertyPatternClause()
