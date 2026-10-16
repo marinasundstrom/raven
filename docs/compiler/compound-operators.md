@@ -102,3 +102,24 @@ attaching to the preceding expression as postfix.
 Instance increment validation: 231 focused compound, increment and user-defined
 operator runtime tests pass on .NET 11, including class/struct results, array
 index side effects, readonly rejection and consumed-postfix static dispatch.
+
+## Truth and conditional logical operators
+
+Paired static truth declarations emit `op_True`/`op_False`. Signature validation
+requires a Boolean result and one by-value containing-type operand. `if`/`while`
+conditions use implicit Boolean conversion first, then `op_True`. Conditional
+logical expressions select the corresponding `op_BitwiseAnd`/`op_BitwiseOr` with
+equal parameter/result types, capture the left operand once, test `op_False` for
+AND or `op_True` for OR, and lower to an existing conditional expression so the
+right operand is evaluated only on the required path. No new runtime operation
+or Runtime Contract switch is needed. This is compiler lowering on both targets.
+
+Direct logical declarations now report RAV0370; migrate `&&`/`and` and `||`/`or`
+to `&` and `|` with a truth pair. RAV0368 diagnoses invalid truth signatures and
+RAV0369 diagnoses a missing matching declaration. These follow the .NET
+[truth operator](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/true-false-operators)
+and conditional logical conventions, including the possibility that both truth
+operators return false.
+
+Truth/logical validation on main: generated-syntax solution build and 107 focused
+operator, if/while and logical tests pass, including an emitted-library consumer.

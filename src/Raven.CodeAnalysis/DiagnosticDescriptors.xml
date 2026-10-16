@@ -1340,4 +1340,13 @@
     Title="Macro capability requires a token-tree macro"
     Message="Macro capability '{capability}' can only be declared by a token-tree macro."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0368" Identifier="TruthOperatorInvalidSignature"
+    Title="Invalid truth operator signature" Message="Operator '{operatorToken}' must return bool and take one by-value operand of the containing type."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0369" Identifier="TruthOperatorPairRequired"
+    Title="Truth operators must be paired" Message="Operator '{operatorToken}' requires a matching '{partner}' operator."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0370" Identifier="LogicalOperatorRequiresTruthOperators"
+    Title="Conditional logical operators are not declared directly" Message="Declare '&amp;' or '|' and paired true/false operators instead of '{operatorToken}'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

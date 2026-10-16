@@ -86,7 +86,7 @@ internal static class OperatorFacts
         {
             SyntaxKind.PlusToken or SyntaxKind.MinusToken => "1 or 2",
             SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken => "0 or 1",
-            SyntaxKind.ExclamationToken or SyntaxKind.TildeToken => "1",
+            SyntaxKind.ExclamationToken or SyntaxKind.TildeToken or SyntaxKind.TrueKeyword or SyntaxKind.FalseKeyword => "1",
             _ => "2",
         };
     }
@@ -122,6 +122,8 @@ internal static class OperatorFacts
         SyntaxKind.MinusMinusToken => "op_Decrement",
         SyntaxKind.ExclamationToken => "op_LogicalNot",
         SyntaxKind.TildeToken => "op_OnesComplement",
+        SyntaxKind.TrueKeyword => "op_True",
+        SyntaxKind.FalseKeyword => "op_False",
         _ => null,
     };
 

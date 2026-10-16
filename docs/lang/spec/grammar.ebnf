@@ -289,9 +289,9 @@ OperatorDeclaration      ::= MemberModifiers?
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
 
-OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
-                           | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
-                           | '>=' | '!' | '++' | '--' | '<<' | '>>' | '>>>'
+OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&'
+                           | '|' | '==' | '!=' | '<' | '<=' | '>'
+                           | '>=' | '!' | '~' | 'true' | 'false' | '++' | '--' | '<<' | '>>' | '>>>'
                            | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' ;
 
 ExplicitInterfaceSpecifier ::= Type '.' ;

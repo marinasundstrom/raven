@@ -1452,6 +1452,9 @@ internal partial class TypeMemberBinder : Binder
                 parameterCount == 1 ? OperatorArity.Unary : OperatorArity.Binary);
         }
 
+        if (operatorDecl.OperatorToken.Kind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.BarBarToken or SyntaxKind.AndToken or SyntaxKind.OrToken)
+            _diagnostics.ReportLogicalOperatorRequiresTruthOperators(operatorText, operatorDecl.OperatorToken.GetLocation());
+
         var displayName = $"operator {operatorText}";
         var defaultReturnType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
@@ -1531,6 +1534,25 @@ internal partial class TypeMemberBinder : Binder
                 GetMemberDisplayName(displayName),
                 $"parameter '{paramName}'",
                 syntax.TypeAnnotation!.Type.GetLocation());
+        }
+
+        if (operatorDecl.OperatorToken.Kind is SyntaxKind.TrueKeyword or SyntaxKind.FalseKeyword)
+        {
+            if (returnType.SpecialType != SpecialType.System_Boolean || resolvedParamInfos.Count != 1 ||
+                resolvedParamInfos[0].refKind != RefKind.None ||
+                !SymbolEqualityComparer.Default.Equals(resolvedParamInfos[0].type.GetNonNullableType(), _containingType))
+                _diagnostics.ReportTruthOperatorInvalidSignature(operatorText, operatorDecl.GetLocation());
+
+            var partner = operatorDecl.OperatorToken.Kind == SyntaxKind.TrueKeyword ? SyntaxKind.FalseKeyword : SyntaxKind.TrueKeyword;
+            var paired = _containingType.DeclaringSyntaxReferences
+                .SelectMany(reference => reference.GetSyntax().ChildNodes().OfType<OperatorDeclarationSyntax>())
+                .Any(declaration => declaration.OperatorToken.Kind == partner &&
+                    declaration.ParameterList.Parameters.Count == 1 && resolvedParamInfos.Count == 1 &&
+                    declaration.ParameterList.Parameters[0].TypeAnnotation is { } annotation &&
+                    SymbolEqualityComparer.Default.Equals(
+                        ResolveTypeSyntaxForSignature(operatorBinder, annotation.Type, RefKind.None), resolvedParamInfos[0].type));
+            if (!paired)
+                _diagnostics.ReportTruthOperatorPairRequired(operatorText, OperatorFacts.GetDisplayText(partner), operatorDecl.GetLocation());
         }
 
         var signatureArray = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray();

@@ -116,12 +116,7 @@ partial class BlockBinder
         var patternDepth = _scopeDepth + 1;
         var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
-        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
-        var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
-        if (!conversion.Exists || !conversion.IsImplicit)
-        {
-            ReportCannotConvertFromTypeToType(condition.Type, boolType, conditionSyntax.GetLocation());
-        }
+        condition = BindBooleanCondition(condition, conditionSyntax);
 
         ISymbol? narrowedSymbol = null;
         var narrowedSymbolWasAlreadyActive = false;
@@ -335,7 +330,7 @@ partial class BlockBinder
 
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
     {
-        var condition = BindExpression(whileStmt.Condition);
+        var condition = BindBooleanCondition(BindExpression(whileStmt.Condition), whileStmt.Condition);
         var body = BindStatementInLoop(whileStmt.Statement);
         return new BoundWhileStatement(condition, body);
     }
