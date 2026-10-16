@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Enable native emission of top-level generic classes over local nongeneric bases through an explicit adapter capability. Preserve generic payload storage, base initialization and inherited-field access; constructed/external generic base authoring remains unsupported.
+
 - **2026-10-16:** Document native support for constant/scalar arithmetic base-constructor arguments with receiver protection. No compiler or Runtime Contract change; helper calls/control flow and Raven generic hierarchy emission remain open.
 
 - **2026-10-16:** Document SDK generic class authoring over ordinary nongeneric bases and the CLI generic field-reference correction. SDK/CLR checks pass; Raven hierarchy emission and constructed generic bases remain open. Native computed base arguments remain a backend gap.

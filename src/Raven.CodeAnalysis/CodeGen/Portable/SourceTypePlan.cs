@@ -85,7 +85,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
             GetMetadataOwner(type) is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
             !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && type.Arity == 0 && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || (type.OriginalDefinition is not SourceNamedTypeSymbol sourceType || sourceType.IsRecord && !(isValue && capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true)) || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
-                !(capabilities?.AllowsLocalClassInheritance == true && !isValue && type.Arity == 0 && type.ContainingType is null &&
+                !(capabilities?.AllowsLocalClassInheritance == true && !isValue &&
+                  (type.Arity == 0 || capabilities.AllowsGenericLocalClassInheritance && SymbolEqualityComparer.Default.Equals(type.BaseType?.ContainingAssembly, type.ContainingAssembly)) && type.ContainingType is null &&
                   type.BaseType is { Arity: 0, ContainingType: null } baseType && (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) ? TryCreate(baseType, out _, capabilities) : (capabilities.AllowsExternalClassInheritance && IsSupportedExternalBase(baseType) || capabilities.AllowsExternalFieldlessClassInheritance && IsFieldlessExternalBase(baseType))))))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively

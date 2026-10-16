@@ -45,4 +45,39 @@ public class PortableExternalInheritanceTests
         var type = loaded.Assembly.GetType("Child")!;
         Assert.Equal(42, type.GetMethod("Read")!.Invoke(Activator.CreateInstance(type), null));
     }
+    [Fact]
+    public void GenericLocalDerivedClassRequiresExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public open class Parent {
+                public field Number: int
+                public init(number: int) { Number = number }
+            }
+            public class Child<T> : Parent {
+                private var value: T
+                public init(number: int, value: T) : base(number + 1) { self.value = value }
+                public func Get() -> T => value
+            }
+            func Main() -> int {
+                let child = Child<int>(1, 40)
+                let parent: Parent = child
+                return parent.Number + child.Get()
+            }
+            """);
+        var compilation = Compilation.Create("GenericLocalDerived", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var admit in new[] { false, true })
+        {
+            var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+                allowsGenericClassOwners: true, allowsLocalClassInheritance: true, allowsGenericLocalClassInheritance: admit);
+            Assert.Equal(admit, SourceTypePlan.TryCreate(compilation.GetTypeByMetadataName("Child`1")!, out _, capabilities));
+        }
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
+    }
 }
