@@ -8,12 +8,13 @@ internal abstract record NeoClrCallableReference
 {
     internal abstract void EmitCall(IILGenerator body);
 
-    internal static NeoClrCallableReference Create(ConstructedMethodReference method) => new Constructed(method);
-    private sealed record Constructed(ConstructedMethodReference Method) : NeoClrCallableReference
+    internal static NeoClrCallableReference Create(ConstructedMethodReference method, bool virtualDispatch = false) => new Constructed(method, virtualDispatch);
+    private sealed record Constructed(ConstructedMethodReference Method, bool VirtualDispatch) : NeoClrCallableReference
     {
         internal override void EmitCall(IILGenerator body)
         {
             if (Method.Definition.IsConstructor) body.NewObject(Method);
+            else if (VirtualDispatch) body.CallVirtual(Method);
             else body.Call(Method);
         }
     }

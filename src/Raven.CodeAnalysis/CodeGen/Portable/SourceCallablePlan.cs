@@ -55,8 +55,9 @@ internal sealed record SourceCallablePlan(
         method is
         {
             IsStatic: false, MethodKind: MethodKind.Ordinary, Arity: 0, DeclaredAccessibility: Accessibility.Public,
-            ContainingType: { IsReferenceType: true, Arity: 0, ContainingType: null } owner
+            ContainingType: { IsReferenceType: true, ContainingType: null } owner
         } &&
+        (owner.Arity == 0 || capabilities.AllowsGenericClassVirtualSlots && !method.IsAbstract && ClassifyOverride(method) == EmissionOverrideKind.None) &&
         (owner.OriginalDefinition is SourceNamedTypeSymbol || capabilities.AllowsExternalClassInheritance && owner.TypeKind == TypeKind.Class && CallableSignature.IsExternalReference(owner, allowInternal: capabilities.AllowsInternalExternalSymbols)) && (method.IsAbstract || method.IsVirtual || method.IsOverride);
 
     internal bool IsObjectRootSlot => IsRootSlot(Symbol);
@@ -85,7 +86,7 @@ internal sealed record SourceCallablePlan(
     internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null, SyntaxNode? synthesizedAnchor = null)
     {
         plan = null;
-        if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } ||
+        if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } && !IsClassVirtualSlot(symbol, capabilities) ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
         if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
             (!(IsRootSlot(symbol) && capabilities?.Allows(EmissionDeclarationKind.ObjectRootSlot) == true) &&

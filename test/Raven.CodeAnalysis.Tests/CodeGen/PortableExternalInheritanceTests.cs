@@ -158,4 +158,33 @@ public class PortableExternalInheritanceTests
         Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
     }
 
+    [Fact]
+    public void GenericClassVirtualSlotsRequireExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public open class Parent<T> {
+                public virtual func Echo(value: T) -> T => value
+            }
+            public class Child<Unused, T> : Parent<T> {
+                public override func Echo(value: T) -> T => base.Echo(value)
+            }
+            """);
+        var compilation = Compilation.Create("GenericVirtualSlots", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var admit in new[] { false, true })
+        {
+            var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+                allowsGenericClassOwners: true, allowsClassVirtualSlots: true, allowsLocalClassInheritance: true,
+                allowsGenericLocalClassInheritance: true, allowsConstructedClassBases: true, allowsGenericClassVirtualSlots: admit);
+            foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+                Assert.Equal(admit, SourceCallablePlan.IsClassVirtualSlot(method, capabilities));
+                Assert.Equal(admit, SourceCallablePlan.TryCreate(method, out _, capabilities));
+            }
+        }
+    }
+
 }

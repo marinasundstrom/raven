@@ -13157,3 +13157,29 @@ base; all 14 specialization tests pass. Native cleanup and AOT sanitizers pass.
 This is macOS ARM64 development qualification. Generic methods, abstract generic
 class authoring, generic Object override qualification and Raven emission/import
 of these virtual slots remain separate work; structural types remain parked.
+
+### Raven concrete generic virtual class integration (2026-10-16)
+
+The native adapter opts into `AllowsGenericClassVirtualSlots`; the shared planning
+capability defaults off. Raven emits public nongeneric virtual methods and exact
+overrides on concrete generic reference classes, preserving owner arguments on
+constructed calls. Ordinary calls use virtual dispatch; explicit `base` calls
+invoke the concrete body directly. Imported native symbols retain class-slot flags
+through symbol-only method references and exact dependency identities.
+
+The native Runtime Contract and metadata encodings are unchanged. This requires
+the NeoCLR SDK/runtime generic-slot implementation on main (including imported
+contracts from `ef652222c`) and Raven's `codex/neoclr` compiler; ordinary .NET
+behavior remains the default and Raven main is separate. CLI metadata uses normal
+class slots and constructed member references, while native output uses native
+constructed signatures and virtual calls; there is no attribute bridge or erased
+owner argument. Nominal interface conformance stays explicit and classes invariant.
+
+The retained NeoCLR `docs/validation/generic-class-virtual/raven` consumers cover
+local and separate-provider generic base/override declarations, reordered owner
+arguments, direct base calls, integer and reference payloads, and reference identity.
+Both return 42 in interpreter, AOT and managed JIT with native cleanup and AOT
+sanitizers. The focused compiler tests verify that admission requires the explicit
+capability. Generic virtual methods, abstract generic class authoring, generic
+Object overrides and broader constrained dependency imports remain separate gaps.
+Structural types and Sliceable/Result variance remain parked.

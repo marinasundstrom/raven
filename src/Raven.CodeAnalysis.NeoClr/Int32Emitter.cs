@@ -922,7 +922,7 @@ internal static class Int32Emitter
                             target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)))));
                     return NeoClrCallableReference.Create(definition.MakeConstructedReference(
                         NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope))),
-                        target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)))));
+                        target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)))), (target.IsVirtual || target.IsOverride) && owner.IsReferenceType);
                 }
                 if (target.IsGenericMethod)
                 {
@@ -1382,7 +1382,7 @@ internal static class Int32Emitter
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
-                (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner))) &&
+                (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
                 (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
                 symbol.TypeParameters.All(p => p.ConstraintTypes.IsEmpty && p.ConstraintKind == TypeParameterConstraintKind.None) &&
@@ -1398,7 +1398,7 @@ internal static class Int32Emitter
                     return assembly.CreateObjectSlotReference(symbol.MetadataName, contract);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: HasNativePrimitiveStorage(owner.SpecialType) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
                     ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null, visibility: symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected ? MethodVisibility.Protected : MethodVisibility.Public,
-                    isVirtual: owner.TypeKind == TypeKind.Class && owner.Arity == 0 && (symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract),
+                    isVirtual: owner.TypeKind == TypeKind.Class && (owner.Arity == 0 || bodyCapabilities.AllowsGenericClassVirtualSlots && !symbol.IsAbstract) && (symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract),
                     isAbstract: owner.TypeKind == TypeKind.Class && symbol.IsAbstract);
             }
             // A native callable must carry a complete supported semantic contract.
