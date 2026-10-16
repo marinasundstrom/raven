@@ -12826,3 +12826,18 @@ changed. This uses the compiler rebuilt against SDK `2c98cbd1b`, native Object-r
 fix `81701e5aa` and unchanged `variance-argument-sequence-20261016` bundle. Retained
 commands and hashes are in neoCLR's imported-base validation directory. Intrinsic
 String widening remains unsupported, and structural work stays parked.
+
+### Array-interface variance preservation (2026-10-16)
+
+neoCLR `08330946a` fixes a native-only fault converting Producer<int[]> to
+Producer<Iterable<int>> by retaining the verified closed array backing's nominal
+conformance through specialization and renaming. The private compiler fact is not
+serialized metadata and adds no element covariance, adapter or layout change.
+
+The imported Raven consumer qualifies producer and contravariant consumer calls
+between int[] and Iterable<int>, including reference identity and iterator calls,
+in interpreter/AOT/JIT with native cleanup and AOT sanitizer checks. Runtime
+Contract settings, native/CLI encoding and Raven lowering are unchanged. The
+bundle remains `variance-argument-sequence-20261016`; Result and Sliceable remain
+invariant. Retained commands and hashes are in neoCLR's imported-base validation
+folder. Intrinsic String variance remains a separate implementation gap.
