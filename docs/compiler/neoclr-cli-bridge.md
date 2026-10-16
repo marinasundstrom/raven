@@ -12952,3 +12952,22 @@ The retained SDK consumer in neoCLR docs/validation/generic-class-base returns 4
 in interpreter/AOT/managed JIT against variance-argument-sequence-20261016, including
 native cleanup and AOT sanitizer checks. This validates the forwarded-argument
 constructor path; it does not yet qualify Raven source hierarchy emission.
+
+### Native scalar base-constructor expressions (2026-10-16)
+
+The backend now admits independent scalar constants and arithmetic/conversions
+before an unconditional direct-base initializer, while protecting the uninitialized
+receiver. Runtime Contracts and native/CLI signatures are unchanged. The SDK
+consumer exercises both constant and computed argument constructors; Raven source
+generic hierarchy emission remains a separate gap.
+
+Helper calls, stores and control flow before initialization remain unsupported;
+receiver access and branches re-entering the prefix reject. These are backend
+coverage limits, not permanent differences from .NET semantics. Structural work
+and Sliceable/Result variance remain deferred.
+
+The refreshed generic-class-base consumer passes CLR, interpreter, AOT and managed
+JIT against bundle variance-argument-sequence-20261016, including native cleanup
+and AOT sanitizer checks. The pre-fix AOT run reproduced the forwarded-arguments
+diagnostic. Sources, commands and current backend hashes are retained with the
+consumer evidence.
