@@ -4355,3 +4355,5 @@ division wrap and minimum%-1 evaluate to zero without a runtime division fault.
 User-defined operators and nonconstant operations retain their execution paths.
 Validation: 150 focused constant, checked-arithmetic/conversion/mutation and operation
 tests pass. No Runtime Contract or metadata change.
+
+Qualified static mutations do not evaluate a type-name receiver. This shared binding rule applies to checked compound assignments without a Runtime Contract switch.

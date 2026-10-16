@@ -24,7 +24,7 @@ partial class BlockBinder
         }
         void Receiver(BoundExpression? receiver)
         {
-            if (receiver is null)
+            if (receiver is null or BoundTypeExpression)
                 return;
             if (receiver.Type!.IsReferenceType)
                 Capture(receiver);
