@@ -1428,7 +1428,7 @@ internal static class Int32Emitter
                 (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && CanImportVisibility(original) &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
-                original.TypeKind == TypeKind.Class && original.Arity == 0 && original.BaseType is { Arity: 0, ContainingType: null } parentClass &&
+                original.TypeKind == TypeKind.Class && original.BaseType is { Arity: 0, ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition(parentClass, depth + 1)) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 

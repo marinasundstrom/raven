@@ -12992,3 +12992,26 @@ Validation: the retained consumer returns 42 in interpreter, AOT and managed JIT
 against `variance-argument-sequence-20261016`, with native cleanup and AOT
 sanitizers passing. Both focused Raven inheritance tests pass, including CLR
 execution; the report records matching compiler, SDK and runtime hashes.
+
+### Imported generic derived owners (2026-10-16)
+
+Native Raven import now accepts a generic reference class whose recorded base is
+nongeneric. It preserves the exact dependency snapshot and generic arguments,
+and registers the declared nominal base edge for reference conversions. The
+previous nongeneric-derived-owner check incorrectly rejected `Box<T> : Base`
+even though the SDK and native runtime support this shape. The base's supported
+shape, accessibility and generic-parameter constraints remain checked. No Runtime
+Contract setting, bridge encoding or native ABI changes.
+
+The generic-class-base Raven runner now tests both local and separately compiled
+library ownership, including value/reference payloads, inherited storage,
+reference identity and mutation. Three invalid conversions reject: Base to
+Box<int>, Box<Base> to Box<Object>, and Box<int> to Box<bool>. This does not enable
+new generic classes deriving from an external base, or constructed generic base
+authoring. Structural types and Sliceable/Result variance remain deferred.
+
+Both local and imported consumers return 42 in interpreter, AOT and managed JIT,
+with native cleanup and AOT sanitizers passing against bundle
+`variance-argument-sequence-20261016`. Each mode rejects all three invalid
+conversions. Reports in neoCLR `docs/validation/generic-class-base/raven` retain
+compiler, SDK, runtime, bundle and library hashes.
