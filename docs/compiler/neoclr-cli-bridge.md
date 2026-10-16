@@ -13482,3 +13482,16 @@ count/type rejection and target-fault propagation. The initial boundary requires
 non-null argument arrays, exact boxed scalars and supported references; ref/out,
 numeric coercion and arbitrary value marshalling remain gaps. Source wrappers may
 evolve, while runtime function identity and checked invocation remain the basis.
+
+
+### Native function identity at the reflection boundary (2026-10-16)
+
+The host SDK now admits structural Function type tokens for native emission and
+rejects their CLI projection. Raven's existing typeof lowering uses that path;
+ordinary .NET delegate tokens remain unchanged. Native Object.GetType now maps a
+selected Function descriptor's checked target identity back to its structural shape.
+The dynamic invocation Raven fixture checks IsFunctionType, nonnominal identity and
+exact equality with typeof((int) -> int), then dynamically passes/returns that callback
+through a second function and invokes it. Interpreter/AOT/JIT return 42. No Runtime
+Contract setting, metadata schema or permanent class-library API changes. Detailed
+native MethodInfo snapshots and generic reflection coverage remain separate.
