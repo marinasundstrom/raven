@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-16:** Document native SDK constructed-class-base authoring and CLR/interpreter/AOT/JIT qualification. Raven constructed-base emission remains a separate integration step; no compiler or Runtime Contract change in this slice.
+
 - **2026-10-16:** Enable native emission of top-level generic classes over local nongeneric bases through an explicit adapter capability. Preserve generic payload storage, base initialization and inherited-field access, including separately compiled native generic derived owners. Reverse/invariant conversions remain rejected; constructed/external generic base authoring remains unsupported.
 
 - **2026-10-16:** Document native support for constant/scalar arithmetic base-constructor arguments with receiver protection. No compiler or Runtime Contract change; helper calls/control flow and Raven generic hierarchy emission remain open.

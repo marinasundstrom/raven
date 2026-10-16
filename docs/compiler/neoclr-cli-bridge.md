@@ -13015,3 +13015,22 @@ with native cleanup and AOT sanitizers passing against bundle
 `variance-argument-sequence-20261016`. Each mode rejects all three invalid
 conversions. Reports in neoCLR `docs/validation/generic-class-base/raven` retain
 compiler, SDK, runtime, bundle and library hashes.
+
+### SDK constructed class bases (2026-10-16)
+
+The SDK now authors owned constructed bases, including reordered open arguments
+and a nongeneric leaf over a closed generic base. It retains BaseTypeSignature,
+emits a CLI TypeSpec extends entry and the existing native constructed signature,
+and substitutes ancestry and inherited method/interface contracts. Constructor
+calls must match the exact direct base and initialize the receiver once. Open
+base arguments must prove required special/nominal constraints at declaration
+validation; deferring all checks to closed use would admit invalid CLR metadata.
+
+CLR, interpreter, AOT and managed JIT return 42 for the retained SDK consumer in
+neoCLR docs/validation/constructed-class-base. It covers transitive storage,
+integer/reference payloads and inherited interface dispatch, with negative
+scope/ownership/construction/conversion checks and native cleanup/sanitizers.
+Existing generic class/Object-root and variance/reader regression checks pass.
+No Runtime Contract, encoding-version or ABI change. Raven constructed-base
+emission, external constructed layout authoring and generic class virtual slots
+remain separate gaps. Structural work and Sliceable/Result variance stay deferred.
