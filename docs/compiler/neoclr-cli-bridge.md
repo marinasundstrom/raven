@@ -13585,3 +13585,15 @@ backend gap remains explicit. .NET's 70 focused tests include an imported librar
 Checked forms, extension/interface/virtual declarations and missing remainder/shift
 compound tokens remain future work. See [lowering and limits](compound-operators.md)
 and neoCLR's `docs/validation/compound-operators` for commands and evidence.
+
+### Remainder and shift operator follow-up (2026-10-16)
+
+Carry main `b5e6bb0d3` deliberately: `%=` / `<<=` / `>>=` / `>>>=` use the
+standard special-name instance operator names on CLI and ordinary native instance
+calls. Binary `>>>` maps to CLI unsigned shift and the existing native unsigned
+shift instruction. No temporary encoding, information loss, metadata version or
+Runtime Contract flag is added. Raven owns token disambiguation, overload binding
+and lowering; existing runtime operations own execution. The expanded neoCLR
+`docs/validation/compound-operators` consumer passes interpreter/JIT/AOT; 104
+focused compiler tests pass. No capability-interface semantics are inferred from
+operator spelling; purposeful nominal capability contracts remain separate work.

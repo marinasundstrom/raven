@@ -2732,15 +2732,34 @@ partial class BlockBinder : Binder
         SyntaxKind binaryOperatorKind,
         ExpressionSyntax rightSyntax)
     {
-        var preparedRight = PrepareRightForAssignment(rightValue, targetType, rightSyntax);
+        var preparedRight = IsShiftOperator(binaryOperatorKind)
+            ? rightValue
+            : PrepareRightForAssignment(rightValue, targetType, rightSyntax);
 
         if (preparedRight is BoundErrorExpression)
             return preparedRight;
 
         var binary = BindBinaryExpression(binaryOperatorKind, leftValue, preparedRight, rightSyntax.GetLocation());
 
+        // Predefined shifts promote small integral operands to int; compound
+        // assignment converts the result back to the storage type.
+        if (IsShiftOperator(binaryOperatorKind) &&
+            binary is BoundBinaryExpression { Operator.MethodSymbol: null } &&
+            targetType.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or
+                SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char)
+        {
+            var conversion = Compilation.ClassifyConversion(binary.Type!, targetType);
+            return ApplyConversion(binary, targetType, conversion, rightSyntax);
+        }
+
         return ConvertValueForAssignment(binary, targetType, rightSyntax);
     }
+
+    private static bool IsShiftOperator(SyntaxKind kind) => kind is
+        SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanToken;
+
+    private BoundExpression BindCompoundRight(ExpressionSyntax syntax, ITypeSymbol? targetType, SyntaxKind binaryOperator) =>
+        IsShiftOperator(binaryOperator) ? BindExpression(syntax) : BindExpressionWithTargetType(syntax, targetType);
 
     private BoundExpression PrepareRightForAssignment(BoundExpression right, ITypeSymbol targetType, SyntaxNode syntax)
     {
@@ -2766,6 +2785,10 @@ partial class BlockBinder : Binder
             SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
             SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
             SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+            SyntaxKind.PercentEqualsToken => SyntaxKind.PercentToken,
+            SyntaxKind.LessThanLessThanEqualsToken => SyntaxKind.LessThanLessThanToken,
+            SyntaxKind.GreaterThanGreaterThanEqualsToken => SyntaxKind.GreaterThanGreaterThanToken,
+            SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken => SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
             SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
             SyntaxKind.CaretEqualsToken => SyntaxKind.CaretToken,
@@ -7347,7 +7370,7 @@ partial class BlockBinder : Binder
                 if (TryBindInstanceCompoundAssignment(arrayAccess, rightSyntax, leftSyntax, operatorTokenKind) is { } compound)
                     return compound;
 
-                var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
+                var arrayRightExpression = BindCompoundRight(rightSyntax, arrayType.ElementType, binaryOperator.Value);
 
                 if (IsErrorExpression(arrayRightExpression))
                     return AsErrorExpression(arrayRightExpression);
@@ -7364,7 +7387,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
-            var indexerRightExpression = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+            var indexerRightExpression = BindCompoundRight(rightSyntax, indexer.Type, binaryOperator.Value);
 
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
@@ -7386,7 +7409,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var right = BindExpressionWithTargetType(rightSyntax, eventSymbol.Type);
+            var right = BindCompoundRight(rightSyntax, eventSymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7419,7 +7442,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var right = BindExpressionWithTargetType(rightSyntax, conditionalEventSymbol.Type);
+            var right = BindCompoundRight(rightSyntax, conditionalEventSymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7463,7 +7486,7 @@ partial class BlockBinder : Binder
             var rightTargetType = localType is RefTypeSymbol refTypeLocal
                 ? refTypeLocal.ElementType
                 : localType;
-            var right = BindExpressionWithTargetType(rightSyntax, rightTargetType);
+            var right = BindCompoundRight(rightSyntax, rightTargetType, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7493,7 +7516,7 @@ partial class BlockBinder : Binder
             var rightTargetType = parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
                 ? parameterSymbol.GetByRefElementType()
                 : parameterType;
-            var right = BindExpressionWithTargetType(rightSyntax, rightTargetType);
+            var right = BindCompoundRight(rightSyntax, rightTargetType, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7527,7 +7550,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            var right = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
+            var right = BindCompoundRight(rightSyntax, fieldSymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7558,7 +7581,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var right = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
+            var right = BindCompoundRight(rightSyntax, propertySymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7854,7 +7877,7 @@ partial class BlockBinder : Binder
         if (left is BoundArrayAccessExpression arrayAccess)
         {
             var arrayType = arrayAccess.Type;
-            var right = BindExpressionWithTargetType(rightSyntax, arrayType);
+            var right = BindCompoundRight(rightSyntax, arrayType, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7872,7 +7895,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
             }
 
-            var right = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+            var right = BindCompoundRight(rightSyntax, indexer.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7889,7 +7912,7 @@ partial class BlockBinder : Binder
             }
 
             var receiver = GetReceiver(left);
-            var right = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
+            var right = BindCompoundRight(rightSyntax, fieldSymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
@@ -7919,7 +7942,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var right = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
+            var right = BindCompoundRight(rightSyntax, propertySymbol.Type, binaryOperator.Value);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);

@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
+
+using Raven.CodeAnalysis.Operations;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
@@ -9,6 +12,10 @@ namespace Raven.CodeAnalysis.Tests;
 public class CompoundOperatorTests
 {
     [Theory]
+    [InlineData("%=", "op_ModulusAssignment")]
+    [InlineData("<<=", "op_LeftShiftAssignment")]
+    [InlineData(">>=", "op_RightShiftAssignment")]
+    [InlineData(">>>=", "op_UnsignedRightShiftAssignment")]
     [InlineData("+=", "op_AdditionAssignment")]
     [InlineData("-=", "op_SubtractionAssignment")]
     [InlineData("*=", "op_MultiplicationAssignment")]
@@ -259,6 +266,60 @@ public class CompoundOperatorTests
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
         Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData("var value: byte = 255; value <<= 1; return value", 254)]
+    [InlineData("var value: short = -84; value >>= 1; return value", -42)]
+    [InlineData("var value = 85; value %= 43; return value", 42)]
+    [InlineData("var value = 21; value <<= 1; return value", 42)]
+    [InlineData("var value = -84; value >>= 1; return value", -42)]
+    [InlineData("var value = -1; value >>>= 1; return value", 2147483647)]
+    [InlineData("return -1 >>> 32", -1)]
+    [InlineData("return -1 >>> -1", 1)]
+    [InlineData("var value: long = -1; value >>>= 63; return (int)value", 1)]
+    [InlineData("var value: long = 21; value <<= 1; return (int)value", 42)]
+    public void PredefinedRemainderAndShifts(string body, int expected)
+    {
+        Run($"class Runner {{ static func Run() -> int {{ {body} }} }}", expected);
+    }
+
+    [Fact]
+    public void UnsignedShift_BinaryOverloadFallback()
+    {
+        Run("""
+            class Counter {
+                public var Value: int = 42
+                static func >>>(left: Counter, count: int) -> Counter => left
+            }
+            class Runner {
+                static func Run() -> int {
+                    var counter = Counter()
+                    counter >>>= 1
+                    return counter.Value
+                }
+            }
+            """, 42, assembly => Assert.True(assembly.GetType("Counter")!
+                .GetMethod("op_UnsignedRightShift")!.IsSpecialName));
+    }
+
+    [Fact]
+    public void UnsignedShift_ExposesSemanticOperation()
+    {
+        var compilation = CreateCompilation("class Runner { static func Run() -> int => -1 >>> 1 }");
+        var tree = compilation.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
+        var operation = Assert.IsAssignableFrom<IBinaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax));
+        Assert.Equal(Raven.CodeAnalysis.Operations.BinaryOperatorKind.UnsignedRightShift, operation.OperatorKind);
+    }
+
+    [Theory]
+    [InlineData("class Box<T> {}\nclass Holder { var item: Box<Box<Box<int>>> }")]
+    [InlineData("class Box<T> {}\nclass Holder { var item: Box<Box<Box<int>>>=null }")]
+    public void NestedGenericClosersStillParse(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
     }
 
     private static Compilation CreateCompilation(string source) =>

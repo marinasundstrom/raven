@@ -562,6 +562,11 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         return new Token(SyntaxKind.StarToken, chStr);
 
                     case '%':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.PercentEqualsToken, "%=");
+                        }
                         return new Token(SyntaxKind.PercentToken, chStr);
 
                     case '.':
@@ -689,6 +694,11 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         else if (PeekChar(out ch2) && ch2 == '<')
                         {
                             ReadChar();
+                            if (PeekChar(out var leftShiftNext) && leftShiftNext == '=')
+                            {
+                                ReadChar();
+                                return new Token(SyntaxKind.LessThanLessThanEqualsToken, "<<=");
+                            }
                             return new Token(SyntaxKind.LessThanLessThanToken, "<<");
                         }
                         return new Token(SyntaxKind.LessThanToken, chStr);
@@ -702,6 +712,21 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         else if (PeekChar(out ch2) && ch2 == '>')
                         {
                             ReadChar();
+                            if (PeekChar(out var shiftNext) && shiftNext == '>')
+                            {
+                                ReadChar();
+                                if (PeekChar(out shiftNext) && shiftNext == '=')
+                                {
+                                    ReadChar();
+                                    return new Token(SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, ">>>=");
+                                }
+                                return new Token(SyntaxKind.GreaterThanGreaterThanGreaterThanToken, ">>>");
+                            }
+                            if (shiftNext == '=')
+                            {
+                                ReadChar();
+                                return new Token(SyntaxKind.GreaterThanGreaterThanEqualsToken, ">>=");
+                            }
                             return new Token(SyntaxKind.GreaterThanGreaterThanToken, ">>");
                         }
                         return new Token(SyntaxKind.GreaterThanToken, chStr);

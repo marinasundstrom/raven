@@ -20,7 +20,7 @@ multiplication binds more tightly than addition.
 From lowest to highest precedence:
 
 1. Pipeline: `|>`
-2. Assignment: `=  +=  -=  *=  /=  %=  &=  |=  ^=  ??=`
+2. Assignment: `=  +=  -=  *=  /=  %=  &=  |=  ^=  <<=  >>=  >>>=  ??=`
 3. Null-coalescing: `??`
 4. Logical OR: `or`, `||`
 5. Logical AND: `and`, `&&`
@@ -165,3 +165,12 @@ unsigned integers. For example, dividing the largest `uint` by two yields
 `2147483647`, and shifting it right by one yields the same value. Raven emits the
 corresponding signed or unsigned CLI instructions; this is ordinary CLR behavior,
 not a neoCLR-specific lowering rule. See [CLI arithmetic and shift rules](https://ecma-international.org/publications-and-standards/standards/ecma-335/).
+
+### Unsigned right shift and shift assignment
+
+`>>>` shifts in zero bits, including for signed operands; `>>` retains the sign
+for signed operands. Both preserve the promoted left operand type. Shift counts
+convert to `int` and are masked to five bits for 32-bit values or six for 64-bit
+values. `<<=`, `>>=` and `>>>=` evaluate the target once and convert predefined
+shift results back to its storage type. `%=` uses the remainder operator.
+User-defined `>>>` uses the standard `op_UnsignedRightShift` metadata name.

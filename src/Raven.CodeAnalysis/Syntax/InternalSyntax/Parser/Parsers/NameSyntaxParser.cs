@@ -351,8 +351,7 @@ internal class NameSyntaxParser : SyntaxParser
                         if (hadExplicitComma &&
                             _allowOmittedTypeArguments &&
                             (t.IsKind(SyntaxKind.CommaToken) ||
-                             t.IsKind(SyntaxKind.GreaterThanToken) ||
-                             t.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
+                             SyntaxFacts.LeadingGreaterThanCount(t.Kind) > 0 ||
                              t.IsKind(SyntaxKind.EndOfFileToken)))
                         {
                             argumentList.Add(TypeArgument(IdentifierName(MissingToken(SyntaxKind.IdentifierToken))));
@@ -360,8 +359,7 @@ internal class NameSyntaxParser : SyntaxParser
                             continue;
                         }
                     }
-                    else if (!PeekToken().IsKind(SyntaxKind.GreaterThanToken) &&
-                             !PeekToken().IsKind(SyntaxKind.GreaterThanGreaterThanToken) &&
+                    else if (SyntaxFacts.LeadingGreaterThanCount(PeekToken().Kind) == 0 &&
                              !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
                     {
                         argumentList.Add(MissingToken(SyntaxKind.CommaToken));
@@ -380,8 +378,7 @@ internal class NameSyntaxParser : SyntaxParser
                 }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.GreaterThanToken) ||
-                    t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+                    SyntaxFacts.LeadingGreaterThanCount(t.Kind) > 0)
                 {
                     break;
                 }
@@ -409,8 +406,7 @@ internal class NameSyntaxParser : SyntaxParser
                             GetSpanOfPeekedToken(),
                             tokenText));
 
-                    if (token.IsKind(SyntaxKind.GreaterThanToken) ||
-                        token.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
+                    if (SyntaxFacts.LeadingGreaterThanCount(token.Kind) > 0 ||
                         token.IsKind(SyntaxKind.EndOfFileToken))
                         break;
 
@@ -424,12 +420,18 @@ internal class NameSyntaxParser : SyntaxParser
 
             if (!ConsumeToken(SyntaxKind.GreaterThanToken, out greaterThanToken))
             {
-                if (TrySplitLeadingLookaheadToken(
-                    SyntaxKind.GreaterThanGreaterThanToken,
-                    SyntaxKind.GreaterThanToken,
-                    ">",
-                    SyntaxKind.GreaterThanToken,
-                    ">"))
+                var remainder = PeekToken().Kind switch
+                {
+                    SyntaxKind.GreaterThanOrEqualsToken => SyntaxKind.EqualsToken,
+                    SyntaxKind.GreaterThanGreaterThanToken => SyntaxKind.GreaterThanToken,
+                    SyntaxKind.GreaterThanGreaterThanEqualsToken => SyntaxKind.GreaterThanOrEqualsToken,
+                    SyntaxKind.GreaterThanGreaterThanGreaterThanToken => SyntaxKind.GreaterThanGreaterThanToken,
+                    SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken => SyntaxKind.GreaterThanGreaterThanEqualsToken,
+                    _ => SyntaxKind.None,
+                };
+                if (remainder != SyntaxKind.None && TrySplitLeadingLookaheadToken(
+                    PeekToken().Kind, SyntaxKind.GreaterThanToken, ">",
+                    remainder, SyntaxFacts.GetSyntaxTokenText(remainder)!))
                 {
                     ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out greaterThanToken);
                 }
@@ -482,8 +484,7 @@ internal class NameSyntaxParser : SyntaxParser
             return true;
         }
 
-        if (current.IsKind(SyntaxKind.GreaterThanToken) ||
-            current.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
+        if (SyntaxFacts.LeadingGreaterThanCount(current.Kind) > 0 ||
             current.IsKind(SyntaxKind.EndOfFileToken))
         {
             separatorToken = Token(SyntaxKind.None);
@@ -585,9 +586,9 @@ internal class NameSyntaxParser : SyntaxParser
                 if (depth == 0)
                     return true;
             }
-            else if (token.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+            else if (SyntaxFacts.LeadingGreaterThanCount(token.Kind) > 0)
             {
-                depth -= 2;
+                depth -= SyntaxFacts.LeadingGreaterThanCount(token.Kind);
                 if (depth <= 0)
                     return true;
             }

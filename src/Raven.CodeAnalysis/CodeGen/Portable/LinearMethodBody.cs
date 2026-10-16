@@ -1868,9 +1868,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundBinaryExpression shift when shift.Operator.MethodSymbol is null &&
                     shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_UInt32 or SpecialType.System_UInt64 &&
                     shift.Operator.RightType.SpecialType == SpecialType.System_Int32 &&
-                    shift.Operator.OperatorKind is OperatorKind.ShiftLeft or OperatorKind.ShiftRight:
+                    shift.Operator.OperatorKind is OperatorKind.ShiftLeft or OperatorKind.ShiftRight or OperatorKind.UnsignedShiftRight:
                     if (!LowerBinaryOperand(shift.Left, shift.Operator.LeftType) || !LowerBinaryOperand(shift.Right, shift.Operator.RightType)) return false;
-                    Add(shift.Operator.OperatorKind == OperatorKind.ShiftLeft ? LinearInstructionKind.ShiftLeft : IsUnsigned(shift.Operator.LeftType.SpecialType) ? LinearInstructionKind.UnsignedShiftRight : LinearInstructionKind.ShiftRight, Syntax(expression));
+                    Add(shift.Operator.OperatorKind == OperatorKind.ShiftLeft ? LinearInstructionKind.ShiftLeft : shift.Operator.OperatorKind == OperatorKind.UnsignedShiftRight || IsUnsigned(shift.Operator.LeftType.SpecialType) ? LinearInstructionKind.UnsignedShiftRight : LinearInstructionKind.ShiftRight, Syntax(expression));
                     return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
                     ((IsNumeric(binary.Operator.LeftType.SpecialType) &&

@@ -597,6 +597,7 @@ internal partial class BoundBinaryOperator
             SyntaxKind.BarBarToken => BinaryOperatorKind.LogicalOr,
             SyntaxKind.LessThanLessThanToken => BinaryOperatorKind.ShiftLeft,
             SyntaxKind.GreaterThanGreaterThanToken => BinaryOperatorKind.ShiftRight,
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken => BinaryOperatorKind.UnsignedShiftRight,
             _ => BinaryOperatorKind.None,
         };
 
@@ -659,6 +660,7 @@ internal partial class BoundBinaryOperator
             SyntaxKind.CaretToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseXor, out operatorKind),
             SyntaxKind.LessThanLessThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftLeft, out operatorKind),
             SyntaxKind.GreaterThanGreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftRight, out operatorKind),
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.UnsignedShiftRight, out operatorKind),
             _ => false,
         };
 
@@ -789,6 +791,10 @@ internal partial class BoundBinaryOperator
                 operatorKind = BinaryOperatorKind.ShiftLeft;
                 return true;
 
+            case SyntaxKind.GreaterThanGreaterThanGreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3):
+                operatorKind = BinaryOperatorKind.UnsignedShiftRight;
+                return true;
+
             case SyntaxKind.GreaterThanGreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3):
                 operatorKind = BinaryOperatorKind.ShiftRight;
                 return true;
@@ -885,7 +891,7 @@ internal partial class BoundBinaryOperator
         ITypeSymbol right,
         out BoundBinaryOperator op)
     {
-        if (kind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken))
+        if (kind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanToken))
         {
             op = default!;
             return false;
@@ -899,7 +905,8 @@ internal partial class BoundBinaryOperator
         }
 
         op = new BoundBinaryOperator(
-            kind == SyntaxKind.LessThanLessThanToken ? BinaryOperatorKind.ShiftLeft : BinaryOperatorKind.ShiftRight,
+            kind == SyntaxKind.LessThanLessThanToken ? BinaryOperatorKind.ShiftLeft :
+                kind == SyntaxKind.GreaterThanGreaterThanGreaterThanToken ? BinaryOperatorKind.UnsignedShiftRight : BinaryOperatorKind.ShiftRight,
             promotedLeft,
             promotedRight,
             promotedLeft);
@@ -1223,6 +1230,7 @@ internal partial class BoundBinaryOperator
             SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr,
             SyntaxKind.LessThanLessThanToken => operatorKind == BinaryOperatorKind.ShiftLeft,
             SyntaxKind.GreaterThanGreaterThanToken => operatorKind == BinaryOperatorKind.ShiftRight,
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken => operatorKind == BinaryOperatorKind.UnsignedShiftRight,
             _ => false,
         };
     }
@@ -1314,6 +1322,7 @@ internal enum BinaryOperatorKind
 
     ShiftLeft,
     ShiftRight,
+    UnsignedShiftRight,
 
 
     Lifted = 1 << 8,

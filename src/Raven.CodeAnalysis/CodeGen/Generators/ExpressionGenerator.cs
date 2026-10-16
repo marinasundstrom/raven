@@ -6550,6 +6550,7 @@ internal partial class ExpressionGenerator : Generator
             case BinaryOperatorKind.BitwiseXor: ILGenerator.Emit(OpCodes.Xor); break;
             case BinaryOperatorKind.ShiftLeft: ILGenerator.Emit(OpCodes.Shl); break;
             case BinaryOperatorKind.ShiftRight: ILGenerator.Emit(unsignedOperand ? OpCodes.Shr_Un : OpCodes.Shr); break;
+            case BinaryOperatorKind.UnsignedShiftRight: ILGenerator.Emit(OpCodes.Shr_Un); break;
             case BinaryOperatorKind.Equality: ILGenerator.Emit(OpCodes.Ceq); break;
             case BinaryOperatorKind.Inequality:
                 ILGenerator.Emit(OpCodes.Ceq);

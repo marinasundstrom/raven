@@ -43,4 +43,6 @@ public enum BinaryOperatorKind
     LeftShift,
     /// <summary>RightShift operation.</summary>
     RightShift,
+    /// <summary>Zero-filling right-shift operation.</summary>
+    UnsignedRightShift,
 }

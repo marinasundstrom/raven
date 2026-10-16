@@ -848,6 +848,7 @@ internal sealed class BinaryOperation : Operation, IBinaryOperation
         global::Raven.CodeAnalysis.BinaryOperatorKind.StringConcatenation => BinaryOperatorKind.Concatenate,
         global::Raven.CodeAnalysis.BinaryOperatorKind.ShiftLeft => BinaryOperatorKind.LeftShift,
         global::Raven.CodeAnalysis.BinaryOperatorKind.ShiftRight => BinaryOperatorKind.RightShift,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.UnsignedShiftRight => BinaryOperatorKind.UnsignedRightShift,
         _ => BinaryOperatorKind.None
     };
 

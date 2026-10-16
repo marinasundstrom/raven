@@ -139,6 +139,11 @@
   <TokenKind Name="StarEqualsToken" Text="*=" />
   <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="SlashEqualsToken" Text="/=" />
+  <TokenKind Name="PercentEqualsToken" Text="%=" />
+  <TokenKind Name="LessThanLessThanEqualsToken" Text="&lt;&lt;=" />
+  <TokenKind Name="GreaterThanGreaterThanEqualsToken" Text="&gt;&gt;=" />
+  <TokenKind Name="GreaterThanGreaterThanGreaterThanEqualsToken" Text="&gt;&gt;&gt;=" />
+  <TokenKind Name="GreaterThanGreaterThanGreaterThanToken" Text="&gt;&gt;&gt;" IsBinaryOperator="true" Precedence="4" />
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="CaretToken" Text="^" IsBinaryOperator="true" Precedence="2" />
   <TokenKind Name="CaretEqualsToken" Text="^=" />
