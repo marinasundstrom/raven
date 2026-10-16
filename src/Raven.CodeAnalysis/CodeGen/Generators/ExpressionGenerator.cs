@@ -2413,6 +2413,15 @@ internal partial class ExpressionGenerator : Generator
 
         switch (op.OperatorKind)
         {
+            case BoundUnaryOperatorKind.CheckedUnaryMinus:
+                if (op.ResultType.SpecialType == SpecialType.System_Int64)
+                    ILGenerator.Emit(OpCodes.Ldc_I8, 0L);
+                else
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                EmitExpression(operand);
+                ILGenerator.Emit(OpCodes.Sub_Ovf);
+                break;
+
             case BoundUnaryOperatorKind.UnaryMinus: // -x
                 EmitExpression(operand);
                 ILGenerator.Emit(OpCodes.Neg);

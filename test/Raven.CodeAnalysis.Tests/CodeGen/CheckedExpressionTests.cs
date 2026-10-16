@@ -91,7 +91,6 @@ public class CheckedExpressionTests
     }
 
     [Theory]
-    [InlineData("checked(-a)")]
     [InlineData("checked((byte)a)")]
     [InlineData("checked(a++)")]
     [InlineData("checked(a += 1)")]
@@ -156,6 +155,125 @@ public class CheckedExpressionTests
     {
         var compilation = Create("class Runner { static func Run(a: int?, b: int?) -> int? => checked(a + b) }");
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0373");
+    }
+
+    [Theory]
+    [InlineData("int", int.MinValue)]
+    [InlineData("long", long.MinValue)]
+    public void CheckedNegationRejectsMinimumValue(string type, object minimum)
+    {
+        var compilation = Create($"class Runner {{ static func Run(a: {type}) -> {type} => checked(-a) }}");
+        using var image = Emit(compilation);
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.IsType<OverflowException>(Assert.Throws<TargetInvocationException>(() =>
+            loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [minimum])).InnerException);
+        var tree = compilation.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
+        Assert.True(Assert.IsAssignableFrom<IUnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
+    }
+
+    [Theory]
+    [InlineData("checked(-a)", -42)]
+    [InlineData("checked(unchecked(-a))", -42)]
+    [InlineData("checked(-42)", -42)]
+    public void CheckedNegationProducesResult(string expression, int expected)
+    {
+        using var image = Emit(Create($"class Runner {{ static func Run(a: int) -> int => {expression} }}"));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(expected, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [42]));
+    }
+
+    [Theory]
+    [InlineData("checked(-a)", 42)]
+    [InlineData("unchecked(-a)", 1)]
+    [InlineData("checked(unchecked(-a))", 1)]
+    public void CheckedUnaryOverloadSelection(string expression, int expected)
+    {
+        using var image = Emit(Create($$"""
+            class Box {
+                static func -(a: Box) -> int => 1
+                static func checked -(a: Box) -> int => 42
+            }
+            class Runner { static func Run() -> int { let a = Box(); return {{expression}} } }
+            """));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(expected, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void CheckedUnaryFallsBackToOrdinaryOperator()
+    {
+        using var image = Emit(Create("""
+            class Box { static func -(a: Box) -> int => 42 }
+            class Runner { static func Run() -> int => checked(-Box()) }
+            """));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void ImportedCheckedUnaryOperatorIsSelected()
+    {
+        using var provider = Emit(Create("""
+            public class Box {
+                static func -(a: Box) -> int => 1
+                static func checked -(a: Box) -> int => 42
+            }
+            """));
+        var consumer = Create("class Runner { static func Run(a: Box) -> int => checked(-a) }")
+            .AddReferences(MetadataReference.CreateFromImage(provider.ToArray()));
+        var tree = consumer.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(consumer.GetSemanticModel(tree).GetSymbolInfo(syntax).Symbol);
+        Assert.Equal("op_CheckedUnaryNegation", method.MetadataName);
+        using var image = Emit(consumer);
+    }
+
+    [Fact]
+    public void UncheckedNegationWrapsMinimumValue()
+    {
+        using var image = Emit(Create("class Runner { static func Run(a: int) -> int => checked(unchecked(-a)) }"));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(int.MinValue, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [int.MinValue]));
+    }
+
+    [Fact]
+    public void CheckedNegationPromotesSmallIntegers()
+    {
+        using var image = Emit(Create("class Runner { static func Run(a: sbyte) -> int => checked(-a) }"));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        Assert.Equal(128, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [sbyte.MinValue]));
+    }
+
+    [Fact]
+    public void CheckedFloatingNegationPreservesNegativeZero()
+    {
+        var compilation = Create("class Runner { static func Run(a: double) -> double => checked(-a) }");
+        using var image = Emit(compilation);
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        var result = Assert.IsType<double>(loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [0d]));
+        Assert.Equal(long.MinValue, BitConverter.DoubleToInt64Bits(result));
+        var tree = compilation.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
+        Assert.False(Assert.IsAssignableFrom<IUnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
+    }
+
+    [Fact]
+    public void CheckedNegationInExpressionTreesPreservesOverflow()
+    {
+        var compilation = Create("""
+            import System.Linq.Expressions.*
+            class Runner {
+                static func Run() -> Expression<System.Func<int, int>> => (a: int) => checked(-a)
+            }
+            """);
+        using var image = Emit(compilation);
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        var tree = Assert.IsAssignableFrom<System.Linq.Expressions.Expression<Func<int, int>>>(
+            loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+        var function = tree.Compile();
+        Assert.Equal(-42, function(42));
+        Assert.Throws<OverflowException>(() => function(int.MinValue));
     }
 
     private static MemoryStream Emit(Compilation compilation)

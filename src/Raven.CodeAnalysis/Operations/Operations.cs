@@ -193,6 +193,9 @@ public interface IMemberReferenceOperation : ISymbolReferenceOperation<ISymbol>
 public interface IUnaryOperation : IOperation
 {
     IOperation? Operand { get; }
+
+    /// <summary>Gets whether the built-in unary operator checks integer overflow.</summary>
+    bool IsChecked => false;
 }
 
 public interface IBinaryOperation : IOperation
