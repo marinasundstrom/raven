@@ -114,6 +114,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseBlockStatementSyntax();
                     break;
 
+                case SyntaxKind.CheckedKeyword or SyntaxKind.UncheckedKeyword when PeekToken(1).Kind == SyntaxKind.OpenBraceToken:
+                    statement = CheckedStatement(ReadToken(), ParseBlockStatementSyntax());
+                    break;
+
                 case SyntaxKind.UnsafeKeyword:
                     statement = ParseUnsafeStatementSyntax();
                     break;

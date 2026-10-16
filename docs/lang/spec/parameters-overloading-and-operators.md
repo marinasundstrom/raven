@@ -251,6 +251,10 @@ checked candidates. If none applies, ordinary candidates are used. Ambiguous
 checked candidates remain an error; fallback must not hide ambiguity. Unchecked
 expressions select ordinary operators. These rules also apply to imported methods.
 
+`checked { ... }` and `unchecked { ... }` establish the same lexical context for
+a statement block. Their bodies retain ordinary block scope and control flow;
+the nearest expression or block context wins, and nested functions start fresh.
+
 Integer overflow is checked at runtime. Compound assignments and increment/decrement
 use their enclosing context for arithmetic, overload selection and small-integer
 write-back conversions. Checked candidates are preferred, with ordinary fallback
@@ -258,8 +262,7 @@ only when none applies; ambiguity remains an error. Prefix returns the updated
 value, consumed postfix returns the old value, and discarded postfix may use an
 instance operator. Receivers and indices are evaluated once before read/modify/write;
 overflow prevents the built-in write-back. An inner context on the right operand
-does not change the compound operator's context. Checked blocks and constant
-arithmetic evaluation remain gaps.
+does not change the compound operator's context. Constant arithmetic evaluation remains a gap.
 Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
 Checked binary arithmetic in expression trees is not yet supported. Neither target needs
 a new Runtime Contract setting; native emission is qualified separately.

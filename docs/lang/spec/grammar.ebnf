@@ -383,6 +383,7 @@ Statement                ::= LocalDeclaration
                            | ForStatement
                            | TryStatement
                            | LockStatement
+                           | CheckedStatement
                            | UnsafeStatement
                            | MacroContributionStatement
                            | AssignmentStatement
@@ -444,6 +445,7 @@ CatchClauseList          ::= CatchClause {CatchClause} ;
 CatchClause              ::= 'catch' CatchPattern? [WhenClause] Block ;
 CatchPattern             ::= Pattern | '(' Pattern ')' ;
 FinallyClause            ::= 'finally' Block ;
+CheckedStatement         ::= ( 'checked' | 'unchecked' ) Block ;
 UnsafeStatement          ::= 'unsafe' Block ;
 
 (* Keep statement assignments consistent with expression assignments:

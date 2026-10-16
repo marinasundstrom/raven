@@ -2410,3 +2410,15 @@ order; native execution is qualified on the neoCLR compiler line separately.
 
 Validation: 159 focused mutation/conversion/operator tests, the 421-test overload-resolution
 suite and the shared .NET 11 consumer (exit 42) pass.
+
+### Checked statement blocks
+
+CheckedStatementSyntax retains the keyword and ordinary BlockStatementSyntax.
+Binding reuses block scope and emits an ordinary bound block; checked context is
+resolved lexically on its contained arithmetic/conversions. Control-flow analysis
+visits the body, including terminal returns. No new bound operation, metadata,
+Runtime Contract switch or backend instruction is required. Existing keyword
+highlighting applies. Nested functions do not inherit the outer context.
+
+Validation: generator build and 71 focused block/expression/mutation tests pass on
+.NET 11. Native execution is qualified separately on codex/neoclr.
