@@ -13279,3 +13279,48 @@ the interpreter, AOT (UBSan/bounds), and JIT against the retained native bundle.
 SDK checks also cover native introspection, late registration, conflicting facts and
 CLR execution. Specialization tests verify rejection before closing and preservation
 of original metadata. See the retained `imported-special-constraints` qualification.
+
+## Function-kind constraint direction (2026-10-16; feature branch)
+
+The author requests `Signal<T> where T: func` for a library-owned function list
+with event-like subscriptions, without special event metadata. On neoCLR the
+constraint admits only structural function types, not nominal delegates or
+objects declaring `Invoke`. The concrete signature remains reified. A generic
+body with only this constraint has no known parameter/result signature to call.
+
+The author has postponed invocation decisions: `Emit`, dynamic invocation,
+multicast semantics, subscription policies and result/fault aggregation are not
+part of this slice. A typed visitor was discussed as an alternative, not selected
+as a public API. No reflection invocation bridge is introduced.
+
+Native groundwork lives on `codex/function-kind-constraint` in neoCLR. Native
+metadata uses the distinct `FunctionType` generic constraint; host SDK
+`TypeParameterConstraints.FunctionType` retains it through snapshots/introspection.
+This has no CLR GenericParam flag equivalent. CLI projection/export rejects it;
+no System.Delegate substitution or loss of the constraint is permitted. Runtime
+Contract settings and the existing function invocation ABI are unchanged.
+
+Raven `func` syntax is not enabled yet. Investigation found that current function
+syntax can use nominal Func/Action transport symbols. An attempted global switch
+to structural symbols broke existing RuntimeAwait/RuntimeGenerator bridge binding;
+the prototype was not integrated. The compiler must preserve the distinction
+through binding, inference and native imports before this spelling is admitted.
+Raven main and codex/neoclr remain unchanged; this note is on the feature branch.
+
+.NET's System.Delegate constraint is the comparison point, not an equivalent
+encoding: https://learn.microsoft.com/dotnet/csharp/programming-guide/generics/constraints-on-type-parameters
+It constrains nominal delegate ancestry, whereas this native category constrains
+a structural signature. This narrower semantics is explicit author direction.
+The additional cost is a native constraint kind and compiler/import support;
+there is no per-invocation dynamic checking implied by the constraint.
+
+
+**Subsequent author proposal (2026-10-16):** provide a reflection helper analogous
+to the array helper, conceptually `Reflection.InvokeFunction(functionObj, args)`.
+The assistant agrees this is a plausible explicit dynamic boundary. The function
+value retains its signature and bound receiver/closure; dispatch must use that
+value, not substitute a bare method descriptor. A future helper must define the
+argument/result value carrier, count/type and ref/out validation, fault behavior,
+and AOT-compatible dispatch adapters. This does not require event metadata or a
+nominal function superclass. The exact API and invocation semantics remain
+unimplemented and deferred; this proposal does not implicitly approve them.
