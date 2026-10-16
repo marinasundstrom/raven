@@ -1,0 +1,77 @@
+namespace System.Collections.Generic
+
+import System.*
+import System.Option.*
+
+/// <summary>A reusable live key locator, not a borrowed storage reference or snapshot.</summary>
+/// <remarks>Retains the map and key. Each operation resolves current state through the map's comparer. No atomicity, synchronization or rollback is provided. Keys must obey the map's stability requirements.</remarks>
+public class MapEntry<K, V> {
+    private val map: IDictionary<K, V>
+    private val key: K
+
+    /// <summary>Creates a live locator without reading or changing the map.</summary>
+    /// <param name="map">The mutable map retained by this locator.</param>
+    /// <param name="key">The key used for every operation.</param>
+    init(map: IDictionary<K, V>, key: K) {
+        ArgumentNullException.ThrowIfNull(map)
+        self.map = map
+        self.key = key
+    }
+
+    /// <summary>Gets the supplied lookup key, which need not be the stored canonical key.</summary>
+    val Key: K => key
+
+    /// <summary>Gets the current value; a missing key follows the dictionary's indexer exception contract.</summary>
+    val Value: V => map[key]
+
+    /// <summary>Looks up the current value, preserving the distinction between absence and a present null.</summary>
+    /// <returns>Some for a present key; otherwise None.</returns>
+    func Find() -> Option<V> {
+        if map.TryGetValue(key, out var value) {
+            return Some(value)
+        }
+        return None
+    }
+
+    /// <summary>Inserts or replaces the value and returns this locator.</summary>
+    /// <param name="value">The value to store.</param>
+    /// <returns>This reusable locator.</returns>
+    func Set(value: V) -> MapEntry<K, V> {
+        map[key] = value
+        return self
+    }
+
+    /// <summary>Inserts the supplied value only when the key is absent.</summary>
+    /// <param name="value">The eagerly evaluated fallback value.</param>
+    /// <returns>The existing or inserted value, not a reference to its storage slot.</returns>
+    func OrInsert(value: V) -> V {
+        if map.TryAdd(key, value) {
+            return value
+        }
+        return map[key]
+    }
+
+    /// <summary>Calls the factory once only when absent, then inserts if still absent.</summary>
+    /// <param name="factory">A synchronous factory; may reenter the map.</param>
+    /// <returns>The current value if present after the factory; otherwise its inserted result.</returns>
+    /// <remarks>Callback insertion wins. A callback exception propagates before this helper writes; callback side effects are not rolled back.</remarks>
+    func OrInsertWith(factory: () -> V) -> V {
+        if map.TryGetValue(key, out var value) {
+            return value
+        }
+        let candidate = factory()
+        return OrInsert(candidate)
+    }
+
+    /// <summary>Transforms a present value once and writes back the result.</summary>
+    /// <param name="transform">A synchronous replacement callback; skipped when absent.</param>
+    /// <returns>This reusable locator, including when absent.</returns>
+    /// <remarks>The returned value wins over callback writes, and recreates a key removed by the callback on maps supporting removal. A callback exception prevents this helper's write; reference mutations and other callback effects remain. Chained calls independently resolve current state.</remarks>
+    func AndModify(transform: (V) -> V) -> MapEntry<K, V> {
+        if map.TryGetValue(key, out var value) {
+            let replacement = transform(value)
+            map[key] = replacement
+        }
+        return self
+    }
+}

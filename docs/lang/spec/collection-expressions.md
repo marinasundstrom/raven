@@ -229,3 +229,10 @@ For an empty expression targeting an array or `IEnumerable<T>`, emission may use
 the target library's public, unconstrained `System.Array.Empty<T>()` factory. When
 that factory is unavailable, Raven allocates a zero-length array instead. The
 expression does not require the host framework's API or guarantee shared identity.
+
+## Related Raven.Core operations
+
+Collection construction syntax is independent of the
+[mutable collection extensions](../../collection-entries.md): dictionary `Entry`
+and set `GetOrInsert` are ordinary library methods with explicit lifetime and
+callback contracts, not changes to collection-expression lowering.

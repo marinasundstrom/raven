@@ -1,0 +1,13 @@
+namespace System.Collections.Generic
+
+/// <summary>Fluent operations using the public mutable map contract.</summary>
+public extension MutableMapExtensions<K, V> for IDictionary<K, V> {
+    /// <summary>Creates a reusable live locator without looking up or inserting the key.</summary>
+    /// <param name="self">The mutable map retained by the locator.</param>
+    /// <param name="key">The key to resolve on each operation.</param>
+    /// <returns>A managed MapEntry retaining the map and key.</returns>
+    /// <remarks>No storage references, lock, reservation or atomic transaction. The locator remains usable after growth and replacement.</remarks>
+    func Entry(key: K) -> MapEntry<K, V> {
+        return MapEntry<K, V>(self, key)
+    }
+}
