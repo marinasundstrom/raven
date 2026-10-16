@@ -2441,3 +2441,9 @@ structural work or expand native primitive admission.
 
 Validation: generator build, 175 focused constant/checked-context tests, the
 421-test overload-resolution suite and the shared .NET consumer (exit 42) pass.
+
+The typed evaluator also supports division/remainder and integral bitwise/complement
+and shifts. Shift counts use .NET's 5/6-bit mask and discard shifted-out bits even in
+checked contexts. RAV0375 rejects integer/decimal constant zero divisors; floating
+division follows IEEE behavior. No Runtime Contract or emitted metadata changes.
+Validation: 80 focused constant-binding/conversion tests pass.

@@ -22,6 +22,7 @@ public class ConstantOverflowTests
     [InlineData("(byte)256")]
     [InlineData("unchecked(79228162514264337593543950335m + 1m)")]
     [InlineData("checked((int)2147483648.0)")]
+    [InlineData("-2147483648 / -1")]
     public void ConstantOverflowIsADiagnostic(string expression)
     {
         var compilation = Create($"class Runner {{ static func Run() {{ let value = {expression} }} }}");
@@ -35,6 +36,20 @@ public class ConstantOverflowTests
     [InlineData("unchecked((byte)256)", (byte)0)]
     [InlineData("(byte)(40 + 2)", (byte)42)]
     [InlineData("40 + 2", 42)]
+    [InlineData("84 / 2", 42)]
+    [InlineData("unchecked(-2147483648 / -1)", int.MinValue)]
+    [InlineData("-85 % 43", -42)]
+    [InlineData("(40 | 3) ^ 1", 42)]
+    [InlineData("(127 & 63) - 21", 42)]
+    [InlineData("~(-43)", 42)]
+    [InlineData("checked(1 << 31)", int.MinValue)]
+    [InlineData("1 << 32", 1)]
+    [InlineData("1 << -1", int.MinValue)]
+    [InlineData("-1 >> 31", -1)]
+    [InlineData("-1 >>> 31", 1)]
+    [InlineData("1L << 64", 1L)]
+    [InlineData("-1L >>> 63", 1L)]
+    [InlineData("-2147483648 % -1", 0)]
     public void ConstantLocalsRetainTypedValues(string expression, object expected)
     {
         var compilation = Create($"class Runner {{ static func Run() {{ const answer = {expression} }} }}");
@@ -71,6 +86,17 @@ public class ConstantOverflowTests
     {
         var diagnostics = Create($"class Runner {{ static func Run() {{ {body} }} }}").GetDiagnostics();
         Assert.Equal(overflow, diagnostics.Any(d => d.Id == "RAV0374"));
+    }
+
+    [Theory]
+    [InlineData("1 / 0")]
+    [InlineData("1 % 0")]
+    [InlineData("unchecked(1 / 0)")]
+    [InlineData("1m / 0m")]
+    public void ConstantZeroDivisorIsDiagnosed(string expression)
+    {
+        var compilation = Create($"class Runner {{ static func Run() {{ let value = {expression} }} }}");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0375");
     }
 
     private static Compilation Create(string source) => Compilation.Create("ConstantOverflow_" + Guid.NewGuid().ToString("N"),

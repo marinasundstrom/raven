@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 // Evaluate resolved built-in operations only. Never execute user-defined operators.
 internal static class BoundNumericConstantEvaluator
 {
-    internal enum Status { NotConstant, Constant, Overflow }
+    internal enum Status { NotConstant, Constant, Overflow, DivisionByZero }
 
     internal static Status Evaluate(BoundExpression expression, Func<BoundExpression, bool> isChecked, out object? value)
     {
@@ -33,6 +33,9 @@ internal static class BoundNumericConstantEvaluator
             case BoundUnaryExpression unary:
                 var unaryStatus = Evaluate(unary.Operand, isChecked, out var unaryValue);
                 if (unaryStatus != Status.Constant) return unaryStatus;
+                if (unary.Operator.OperatorKind == BoundUnaryOperatorKind.UnaryPlus) { value = unaryValue; return Status.Constant; }
+                if (unary.Operator.OperatorKind == BoundUnaryOperatorKind.BitwiseNot && TryInteger(unaryValue, out var complemented))
+                    return IntegerResult(~complemented, unary.Type.SpecialType, false, out value);
                 if (unary.Operator.OperatorKind is not (BoundUnaryOperatorKind.UnaryMinus or BoundUnaryOperatorKind.CheckedUnaryMinus))
                     return Status.NotConstant;
                 if (TryInteger(unaryValue, out var integer))
@@ -43,19 +46,39 @@ internal static class BoundNumericConstantEvaluator
                 return Status.NotConstant;
             case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null:
                 var kind = binary.Operator.OperatorKind & ~BinaryOperatorKind.Checked;
-                if (kind is not (BinaryOperatorKind.Addition or BinaryOperatorKind.Subtraction or BinaryOperatorKind.Multiplication))
+                if (kind is not (BinaryOperatorKind.Addition or BinaryOperatorKind.Subtraction or BinaryOperatorKind.Multiplication or
+                    BinaryOperatorKind.Division or BinaryOperatorKind.Modulo or BinaryOperatorKind.BitwiseAnd or BinaryOperatorKind.BitwiseOr or BinaryOperatorKind.BitwiseXor or
+                    BinaryOperatorKind.ShiftLeft or BinaryOperatorKind.ShiftRight or BinaryOperatorKind.UnsignedShiftRight))
                     return Status.NotConstant;
                 var leftStatus = Evaluate(binary.Left, isChecked, out var left);
                 if (leftStatus != Status.Constant) return leftStatus;
                 var rightStatus = Evaluate(binary.Right, isChecked, out var right);
                 if (rightStatus != Status.Constant) return rightStatus;
                 if (TryInteger(left, out var a) && TryInteger(right, out var b) && IsIntegral(binary.Type.SpecialType))
-                    return IntegerResult(kind switch
+                {
+                    if (kind is BinaryOperatorKind.Division or BinaryOperatorKind.Modulo && b.IsZero)
+                        return Status.DivisionByZero;
+                    var bits = binary.Type.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64 ? 64 : 32;
+                    var shift = (int)(b & (bits - 1));
+                    var result = kind switch
                     {
                         BinaryOperatorKind.Addition => a + b,
                         BinaryOperatorKind.Subtraction => a - b,
-                        _ => a * b,
-                    }, binary.Type.SpecialType, isChecked(binary), out value);
+                        BinaryOperatorKind.Multiplication => a * b,
+                        BinaryOperatorKind.Division => a / b,
+                        BinaryOperatorKind.Modulo => a % b,
+                        BinaryOperatorKind.BitwiseAnd => a & b,
+                        BinaryOperatorKind.BitwiseOr => a | b,
+                        BinaryOperatorKind.BitwiseXor => a ^ b,
+                        BinaryOperatorKind.ShiftLeft => a << shift,
+                        BinaryOperatorKind.ShiftRight => a >> shift,
+                        _ => (a & ((BigInteger.One << bits) - 1)) >> shift,
+                    };
+                    // Shifts discard bits even in checked contexts.
+                    var check = kind is BinaryOperatorKind.ShiftLeft or BinaryOperatorKind.ShiftRight or BinaryOperatorKind.UnsignedShiftRight
+                        ? false : isChecked(binary);
+                    return IntegerResult(result, binary.Type.SpecialType, check, out value);
+                }
                 if (left is null || right is null) return Status.NotConstant;
                 try
                 {
@@ -67,7 +90,9 @@ internal static class BoundNumericConstantEvaluator
                         {
                             BinaryOperatorKind.Addition => aDecimal + bDecimal,
                             BinaryOperatorKind.Subtraction => aDecimal - bDecimal,
-                            _ => aDecimal * bDecimal,
+                            BinaryOperatorKind.Multiplication => aDecimal * bDecimal,
+                            BinaryOperatorKind.Division => aDecimal / bDecimal,
+                            _ => aDecimal % bDecimal,
                         };
                         return Status.Constant;
                     }
@@ -79,13 +104,16 @@ internal static class BoundNumericConstantEvaluator
                         {
                             BinaryOperatorKind.Addition => aDouble + bDouble,
                             BinaryOperatorKind.Subtraction => aDouble - bDouble,
-                            _ => aDouble * bDouble,
+                            BinaryOperatorKind.Multiplication => aDouble * bDouble,
+                            BinaryOperatorKind.Division => aDouble / bDouble,
+                            _ => aDouble % bDouble,
                         };
                         value = binary.Type.SpecialType == SpecialType.System_Single ? (object)(float)result : result;
                         return Status.Constant;
                     }
                 }
                 catch (OverflowException) { return Status.Overflow; }
+                catch (DivideByZeroException) { return Status.DivisionByZero; }
                 return Status.NotConstant;
             default:
                 return Status.NotConstant;
