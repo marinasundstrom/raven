@@ -1361,4 +1361,10 @@
   <Descriptor Id="RAV0370" Identifier="LogicalOperatorRequiresTruthOperators"
     Title="Conditional logical operators are not declared directly" Message="Declare '&amp;' or '|' and paired true/false operators instead of '{operatorToken}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0371" Identifier="CheckedOperatorNotSupported"
+    Title="Operator has no checked form" Message="Operator '{operatorToken}' does not support a checked declaration."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0372" Identifier="CheckedOperatorPairRequired"
+    Title="Checked operator requires an ordinary counterpart" Message="Checked operator '{operatorToken}' requires an ordinary operator with the same parameter and return types."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

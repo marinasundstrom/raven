@@ -13620,3 +13620,27 @@ chains versus generic arguments. Keep native intersection-cast lookahead intact.
 the native consumer returns 42 in interpreter/JIT/AOT. Native metadata and Runtime
 Contract configuration are unchanged. Checked forms and wider operator modifiers
 remain open.
+
+
+### Checked operator declaration metadata (2026-10-16)
+
+Carry Raven main `29a458e27`: the shared `func checked` syntax and pair diagnostics
+preserve distinct checked method identities in native callables. Both targets use
+standard .NET names, including `op_CheckedExplicit` and instance assignment forms.
+Raven owns declaration binding; the existing metadata emitter and native backends
+own ordinary static/instance calls. No temporary CLI encoding, erased information,
+new native opcode or Runtime Contract switch is introduced.
+
+This is metadata/export support. Raven has no checked-expression context yet;
+ordinary expressions continue to select ordinary methods. The explicit metadata-name
+calls in NeoCLR's `docs/validation/compound-operators/CheckedDeclarations.rvn` qualify
+the method representation and execution, not checked lookup or primitive overflow.
+The latter remain required subsequent compiler work on both targets. The matching
+bundle is `target/function-reflection-library-validated-20261016`; compiler and
+runtime fingerprints are retained with the consumer evidence.
+
+Native carry validation: generated-syntax build, explicit metadata-SDK compiler
+build and 98 focused tests pass. The checked-declaration consumer returns 42 on
+.NET 11 and native interpreter/macOS ARM64 JIT/AOT. See the NeoCLR repository's
+`checked-declarations-native-results.json` and `checked-declarations-dotnet-results.json`
+for commands and artifact fingerprints. No checked-expression support is implied.

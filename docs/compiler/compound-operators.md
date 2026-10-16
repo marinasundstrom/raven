@@ -177,3 +177,44 @@ ARM64 JIT and AOT. It covers arithmetic, bitwise, shifts, comparisons, unary
 operators, static/instance increments, conversions and truth-based short-circuiting.
 Checked contexts/forms and broader interface/virtual declarations are still open;
 this qualification does not claim those capabilities.
+## Checked declaration and metadata foundation
+
+Development slice: `func checked` parses an optional `CheckedKeyword` slot on
+operator and conversion declarations. The contextual keyword remains usable as an
+ordinary method name. RAV0371 rejects operators without checked forms; RAV0372
+requires a counterpart with matching parameter/ref and return types. Pairing uses
+source signatures across partial declarations without recursively binding siblings.
+Semantic declaration queries, CLI emission and metadata import preserve checked
+identity. Checked explicit conversions import as `MethodKind.Conversion`.
+
+Names follow the [C# checked operator specification](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-11.0/checked-user-defined-operators.md)
+and the C# 14 compound specification above: `op_CheckedUnaryNegation`,
+`op_CheckedIncrement`, `op_CheckedDecrement`, `op_CheckedAddition`,
+`op_CheckedSubtraction`, `op_CheckedMultiply`, `op_CheckedDivision`,
+`op_CheckedExplicit`, plus `op_CheckedIncrementAssignment`,
+`op_CheckedDecrementAssignment`, `op_CheckedAdditionAssignment`,
+`op_CheckedSubtractionAssignment`, `op_CheckedMultiplicationAssignment`, and
+`op_CheckedDivisionAssignment`. Both ordinary and checked members are special-name
+methods. No Runtime Contract setting changes.
+
+This is declaration/export support, not checked expression support. Raven calls
+still use ordinary operator lookup and conversions, and the declaration does not
+change overflow behavior inside its body. Checked expression/block contexts,
+selection/fallback, constant evaluation and primitive overflow semantics must be
+implemented and qualified together in a subsequent slice. CLI consumers with
+checked support may use the emitted methods today. The native compiler carries
+these identities as native callables; runtime execution is qualified separately.
+
+Validation: required generated-syntax solution build and 98 focused declaration,
+compound, conversion, truth and parser tests pass on .NET 11. All 14 checked
+metadata forms are invoked, with source/import symbol classification and ordinary
+lookup protected. A Roslyn 4.12 C# consumer selects exported checked arithmetic
+and explicit conversions; its older language version does not qualify C# 14
+instance syntax. Unit-valued arrow blocks now use normal method-body lowering,
+avoiding invalid IL in expression-bodied operators.
+
+Native carry validation: generated-syntax build, explicit metadata-SDK compiler
+build and 98 focused tests pass. The checked-declaration consumer returns 42 on
+.NET 11 and native interpreter/macOS ARM64 JIT/AOT. See the NeoCLR repository's
+`checked-declarations-native-results.json` and `checked-declarations-dotnet-results.json`
+for commands and artifact fingerprints. No checked-expression support is implied.

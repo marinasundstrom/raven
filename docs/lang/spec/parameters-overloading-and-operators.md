@@ -160,10 +160,9 @@ C#'s receiver-valued assignment result. Binary operators remain independent and
 need not be declared alongside compound operators.
 
 Current boundaries: extension and interface compound declarations, virtual/override
-compound operators, checked operator variants, and instance increment/decrement
-operators are not provided by this slice. Remainder and shift compound tokens need
-separate lexer/parser support. These are implementation gaps, not permanent target
-restrictions. No Runtime Contract switch is needed. See the
+compound operators and checked-expression selection remain implementation gaps.
+Instance increment/decrement, remainder and shift compounds are supported. These
+gaps are not permanent target restrictions. No Runtime Contract switch is needed. See the
 [compiler lowering contract](../../compiler/compound-operators.md).
 
 ## Invocation operator
@@ -226,3 +225,19 @@ identical parameter and result types. The left operand is evaluated once.
 Direct `func &&`, `func ||`, `func and` and `func or` declarations are rejected;
 migrate them to `&`/`|` plus the truth pair. This aligns both targets with .NET
 operator metadata and conditional evaluation conventions.
+
+## Checked operator declarations (development)
+
+Place contextual `checked` after `func`: `static func checked +(a: Number, b: Number) -> Number`,
+`static func checked explicit(value: Number) -> int`, or `func checked +=(rhs: Number)`.
+Checked forms exist for unary `-`, `++`, `--`; binary `+`, `-`, `*`, `/`; explicit
+conversion; and instance `++`, `--`, `+=`, `-=`, `*=`, `/=`. Other forms are rejected.
+Each checked declaration requires an ordinary declaration in the same type with
+matching parameter passing modes, parameter types, static/instance status and
+return type. It can appear later or in another partial declaration.
+
+This slice emits distinct standard .NET checked method names and preserves them in
+symbol import/display. It does **not** introduce checked expression/block contexts;
+ordinary Raven expressions still select ordinary operators. A checked declaration
+also does not implicitly make arithmetic in its body checked. Checked selection and
+built-in overflow checking are subsequent work, on both targets.

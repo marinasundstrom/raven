@@ -109,6 +109,16 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             funcKeyword = ReadToken();
         }
 
+        if (!funcKeyword.IsMissing && PeekToken().IsKind(SyntaxKind.CheckedKeyword) &&
+            (SyntaxFacts.IsOverloadableOperatorToken(PeekToken(1).Kind) ||
+             PeekToken(1).Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword))
+        {
+            var checkedKeyword = ReadToken();
+            return PeekToken().Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword
+                ? ParseConversionOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword)
+                : ParseOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword);
+        }
+
         if (!funcKeyword.IsMissing &&
             (PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword)) &&
             PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
@@ -192,7 +202,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword)
+    private MemberDeclarationSyntax ParseOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword, SyntaxToken? checkedKeyword = null)
     {
         var operatorToken = ParseOverloadableOperatorToken();
 
@@ -218,6 +228,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             declarationKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
             operatorToken,
             parameterList,
             returnType,
@@ -226,7 +237,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseConversionOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword)
+    private MemberDeclarationSyntax ParseConversionOperatorMemberFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken funcKeyword, SyntaxToken? checkedKeyword = null)
     {
         SyntaxToken conversionKindKeyword;
         if (ConsumeToken(SyntaxKind.ImplicitKeyword, out var implicitKeyword))
@@ -263,6 +274,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             funcKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
             conversionKindKeyword,
             parameterList,
             returnType,

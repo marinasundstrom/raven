@@ -897,6 +897,7 @@ public static partial class SymbolExtensions
         {
             "op_Implicit" => "func implicit",
             "op_Explicit" => "func explicit",
+            "op_CheckedExplicit" => "func checked explicit",
             _ => "func"
         };
     }
