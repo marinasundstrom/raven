@@ -277,8 +277,14 @@ internal sealed partial class Lowerer
                     if (!TryLowerLambdaBody(conversionExpression.Expression, parameterLocals, context, out var operand))
                         return false;
 
+                    if (conversionExpression.IsChecked && conversionExpression.IsUserDefined)
+                    {
+                        context.MarkUnsupported(expression, "checked user-defined conversion");
+                        return false;
+                    }
                     var targetTypeOf = new BoundTypeOfExpression(conversionExpression.Type, systemType);
-                    if (!TryCreateExpressionFactoryCall("Convert", [operand, targetTypeOf], expressionType, out var convert))
+                    var factory = conversionExpression.IsChecked ? "ConvertChecked" : "Convert";
+                    if (!TryCreateExpressionFactoryCall(factory, [operand, targetTypeOf], expressionType, out var convert))
                         return false;
 
                     lowered = convert;

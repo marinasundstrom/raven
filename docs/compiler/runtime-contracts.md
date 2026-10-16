@@ -2352,7 +2352,7 @@ binary arithmetic selects standard `op_Checked*` methods, falling back to ordina
 methods only when no checked candidate is applicable, not on ambiguity. Calls use
 normal metadata signatures. There is no alternate carrier representation.
 
-RAV0373 rejects currently unimplemented checked explicit conversions,
+RAV0373 rejects currently unimplemented checked nullable/pointer conversions,
 compound assignments, increments/decrements and lifted/pointer arithmetic. Checked blocks, constant arithmetic
 evaluation and checked binary expression trees remain follow-up work. These are compiler
 gaps, not new runtime semantics. `CheckedExpressionTests` exercises overflow,
@@ -2379,3 +2379,19 @@ Unary follow-up validation: 73 checked/ordinary operator and expression-tree tes
 pass on .NET 11, including imported selection, minimum-value overflow, negative
 zero, small-integer promotion and compiled expression-tree behavior. No syntax or
 editor token changes are needed.
+
+
+### Checked conversions
+
+Checked cast binding retains context on BoundConversionExpression through lowering
+and exposes IConversionOperation.IsChecked. .NET numeric emission uses conv.ovf
+instructions with source signedness, while decimal retains method-based conversions.
+Checked explicit user-defined operators replace their matching ordinary declarations
+in the candidate set; ordinary unpaired and implicit conversions remain eligible.
+This context-specific classification does not reuse the unchecked conversion cache.
+No Runtime Contract switch is added. Built-in conversion expression trees use
+ConvertChecked; checked user-defined conversion trees and nullable/pointer checked
+casts remain diagnosed. Native emission is validated independently on codex/neoclr.
+
+Validation: 106 focused checked conversion/operator tests and the 421-test
+overload-resolution suite pass on .NET 11. A standalone shared consumer returns 42.

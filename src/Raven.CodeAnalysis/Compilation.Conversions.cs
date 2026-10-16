@@ -32,7 +32,10 @@ public partial class Compilation
         return _conversionCache.GetOrAdd(key, conversion);
     }
 
-    private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
+    internal Conversion ClassifyCheckedConversion(ITypeSymbol source, ITypeSymbol destination)
+        => ClassifyConversionCore(source, destination, isChecked: true);
+
+    private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true, bool isChecked = false)
     {
         if (source is null || destination is null)
             return Conversion.None;
@@ -600,10 +603,18 @@ public partial class Compilation
             var applicableConversions = ImmutableArray.CreateBuilder<IMethodSymbol>();
             var seenConversions = new HashSet<IMethodSymbol>(ReferenceEqualityComparer.Instance);
 
-            foreach (var method in candidateConversions)
+            foreach (var candidate in candidateConversions)
             {
+                // Checked explicit conversions replace only their paired ordinary declaration.
+                // Other ordinary and implicit conversions still participate in best-candidate selection.
+                var method = isChecked && candidate.Name == "op_Explicit"
+                    ? candidate.ContainingType.GetMembers("op_CheckedExplicit").OfType<IMethodSymbol>().FirstOrDefault(m =>
+                        m.Parameters.Length == 1 && candidate.Parameters.Length == 1 &&
+                        SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, candidate.Parameters[0].Type) &&
+                        SymbolEqualityComparer.Default.Equals(m.ReturnType, candidate.ReturnType)) ?? candidate
+                    : candidate;
                 if (method.MethodKind is not MethodKind.Conversion ||
-                    method.Name is not ("op_Implicit" or "op_Explicit") ||
+                    (method.Name is not ("op_Implicit" or "op_Explicit") && !(isChecked && method.Name == "op_CheckedExplicit")) ||
                     method.Parameters.Length != 1)
                 {
                     continue;
@@ -1852,6 +1863,10 @@ public partial class Compilation
         // Every fixed-width integral pair has an explicit conversion when no
         // implicit conversion was selected above. Native integers are separate.
         if (IsIntegralType(source) && IsIntegralType(destination))
+            return true;
+
+        if (sourceType is SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal &&
+            IsIntegralType(destination))
             return true;
 
         return (sourceType, destType) switch

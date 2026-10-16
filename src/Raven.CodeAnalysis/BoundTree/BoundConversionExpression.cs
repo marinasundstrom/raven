@@ -5,17 +5,20 @@ internal partial class BoundConversionExpression : BoundExpression
     public BoundExpression Expression { get; }
     public Conversion Conversion { get; }
     public bool IsNullableSuppression { get; }
+    public bool IsChecked { get; }
 
     public BoundConversionExpression(
         BoundExpression expression,
         ITypeSymbol type,
         Conversion conversion,
-        bool isNullableSuppression = false)
+        bool isNullableSuppression = false,
+        bool isChecked = false)
         : base(type)
     {
         Expression = expression;
         Conversion = conversion;
         IsNullableSuppression = isNullableSuppression;
+        IsChecked = isChecked;
     }
 
     public bool IsExplicit => Conversion.IsExplicit;

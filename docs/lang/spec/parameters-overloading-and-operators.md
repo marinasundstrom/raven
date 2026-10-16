@@ -251,10 +251,9 @@ checked candidates. If none applies, ordinary candidates are used. Ambiguous
 checked candidates remain an error; fallback must not hide ambiguity. Unchecked
 expressions select ordinary operators. These rules also apply to imported methods.
 
-This first slice checks integer overflow at runtime. Checked blocks, constant
-arithmetic evaluation, checked explicit conversions and mutation operators remain gaps.
-Checked casts/explicit conversions, compound assignments and increment/decrement are diagnosed with RAV0373, rather than lowered
-unchecked. This includes nonnumeric casts for now. Use an explicit inner
+Integer overflow is checked at runtime. Checked blocks, constant arithmetic evaluation
+and mutation operators remain gaps. Compound assignments and increment/decrement
+are diagnosed with RAV0373 rather than lowered unchecked. Use an explicit inner
 `unchecked(...)` only when ordinary behavior is intended.
 Lifted nullable and pointer arithmetic in checked contexts are also diagnosed.
 Checked binary arithmetic in expression trees is not yet supported. Neither target needs
@@ -269,3 +268,23 @@ negative zero. Existing unsigned/native-integer unary admission is unchanged.
 Nested `unchecked(...)` restores ordinary negation. On .NET, checked unary negation
 in expression trees lowers to `NegateChecked`. Compile-time arithmetic evaluation
 remains a separate gap.
+
+
+Checked explicit numeric conversions validate the destination range, including
+signed/unsigned crossings and floating-point to integer conversions. The source
+signedness is preserved. Out-of-range values throw OverflowException on .NET;
+conversion to floating-point retains normal rounding. Decimal retains its existing
+conversion methods. Reference casts, identity conversions and unboxing keep their
+ordinary behavior. Nullable and pointer conversions remain diagnosed with RAV0373.
+
+In checked casts, each user-defined ordinary explicit conversion with a matching
+checked declaration is replaced by that declaration before best-candidate selection.
+Unpaired ordinary conversions and implicit conversions still compete. This follows
+the [.NET conversion rules](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/conversions#1055-user-defined-explicit-conversions),
+and differs from trying all checked arithmetic operators before ordinary operators.
+Nested unchecked contexts restore ordinary selection; the context does not flow
+into the selected conversion's body. Imported conversions use the same rules.
+
+IConversionOperation.IsChecked reports the cast context. Built-in checked conversion
+expression trees use ConvertChecked. Checked user-defined conversion trees remain
+unsupported until their selected MethodInfo is carried into the tree.

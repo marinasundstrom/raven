@@ -228,7 +228,7 @@ internal abstract class Generator
         return semanticModel;
     }
 
-    protected internal void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion)
+    protected internal void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion, bool isChecked = false)
     {
         if (conversion.IsIdentity && !RequiresNullableProjectionConversion(from, to))
             return;
@@ -243,7 +243,7 @@ internal abstract class Generator
         if (conversion.IsNumeric &&
             (from.TypeKind == TypeKind.Enum || to.TypeKind == TypeKind.Enum))
         {
-            EmitNumericConversion(from, to);
+            EmitNumericConversion(from, to, isChecked);
             return;
         }
 
@@ -387,7 +387,7 @@ internal abstract class Generator
 
         if (conversion.IsNumeric)
         {
-            EmitNumericConversion(from, to);
+            EmitNumericConversion(from, to, isChecked);
             return;
         }
 
@@ -403,7 +403,7 @@ internal abstract class Generator
 
                 if (conversion.IsNumeric)
                 {
-                    EmitNumericConversion(from, to);
+                    EmitNumericConversion(from, to, isChecked);
                     return;
                 }
             }
@@ -423,7 +423,7 @@ internal abstract class Generator
                         if (conversion.IsNumeric)
                         {
 
-                            EmitNumericConversion(from, to);
+                            EmitNumericConversion(from, to, isChecked);
                             return;
                         }
                     }
@@ -776,7 +776,7 @@ internal abstract class Generator
         ILGenerator.MarkLabel(doneLabel);
     }
 
-    protected void EmitNumericConversion(ITypeSymbol from, ITypeSymbol to)
+    protected void EmitNumericConversion(ITypeSymbol from, ITypeSymbol to, bool isChecked = false)
     {
         // If you have literal types (e.g. int literal) normalize them.
         from = from.UnwrapLiteralType() ?? from;
@@ -796,6 +796,31 @@ internal abstract class Generator
         {
             EmitDecimalNumericConversion(from, to);
             return;
+        }
+
+        if (isChecked)
+        {
+            var unsigned = from.SpecialType is SpecialType.System_Byte or SpecialType.System_UInt16
+                or SpecialType.System_Char or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
+            OpCode? checkedCode = to.SpecialType switch
+            {
+                SpecialType.System_SByte => unsigned ? OpCodes.Conv_Ovf_I1_Un : OpCodes.Conv_Ovf_I1,
+                SpecialType.System_Byte => unsigned ? OpCodes.Conv_Ovf_U1_Un : OpCodes.Conv_Ovf_U1,
+                SpecialType.System_Int16 => unsigned ? OpCodes.Conv_Ovf_I2_Un : OpCodes.Conv_Ovf_I2,
+                SpecialType.System_UInt16 or SpecialType.System_Char => unsigned ? OpCodes.Conv_Ovf_U2_Un : OpCodes.Conv_Ovf_U2,
+                SpecialType.System_Int32 => unsigned ? OpCodes.Conv_Ovf_I4_Un : OpCodes.Conv_Ovf_I4,
+                SpecialType.System_UInt32 => unsigned ? OpCodes.Conv_Ovf_U4_Un : OpCodes.Conv_Ovf_U4,
+                SpecialType.System_Int64 => unsigned ? OpCodes.Conv_Ovf_I8_Un : OpCodes.Conv_Ovf_I8,
+                SpecialType.System_UInt64 => unsigned ? OpCodes.Conv_Ovf_U8_Un : OpCodes.Conv_Ovf_U8,
+                SpecialType.System_IntPtr => unsigned ? OpCodes.Conv_Ovf_I_Un : OpCodes.Conv_Ovf_I,
+                SpecialType.System_UIntPtr => unsigned ? OpCodes.Conv_Ovf_U_Un : OpCodes.Conv_Ovf_U,
+                _ => null
+            };
+            if (checkedCode is { } code)
+            {
+                ILGenerator.Emit(code);
+                return;
+            }
         }
 
         // CLI widening uses the source signedness, independently of whether the

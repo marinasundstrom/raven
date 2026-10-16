@@ -33,7 +33,7 @@ internal sealed partial class Lowerer
         if (ReferenceEquals(rewrittenExpression, node.Expression))
             return node;
 
-        return new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+        return new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion, node.IsNullableSuppression, node.IsChecked);
     }
 
     private BoundExpression LowerDiscriminatedUnionConversion(BoundConversionExpression node, BoundExpression rewrittenExpression)
@@ -49,14 +49,14 @@ internal sealed partial class Lowerer
             {
                 return ReferenceEquals(rewrittenExpression, node.Expression)
                     ? node
-                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion, node.IsNullableSuppression, node.IsChecked);
             }
 
             if (unionCtor is null)
             {
                 return ReferenceEquals(rewrittenExpression, node.Expression)
                     ? node
-                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
+                    : new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion, node.IsNullableSuppression, node.IsChecked);
             }
 
             return new BoundObjectCreationExpression(

@@ -2382,12 +2382,6 @@ partial class BlockBinder : Binder
             boundNode = ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
-        if (IsCheckedContext(syntax) && boundNode is BoundConversionExpression { IsExplicit: true })
-        {
-            _diagnostics.ReportCheckedExpressionOperationNotSupported("explicit conversion", syntax.GetLocation());
-            boundNode = ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
-        }
-
         if (useContextualCache)
             CacheBoundNode(syntax, boundNode, activeTargetType);
         else if (!skipCache)
@@ -3889,7 +3883,16 @@ partial class BlockBinder : Binder
         if (targetType.ContainsErrorType())
             return ErrorExpression(targetType, reason: BoundExpressionReason.NotFound);
 
-        var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
+        var isChecked = IsCheckedContext(castExpression);
+        var conversion = isChecked
+            ? Compilation.ClassifyCheckedConversion(expression.Type!, targetType)
+            : Compilation.ClassifyConversion(expression.Type!, targetType);
+        if (isChecked && (conversion.IsLifted || conversion.IsPointer ||
+            expression.Type is NullableTypeSymbol || targetType is NullableTypeSymbol))
+        {
+            _diagnostics.ReportCheckedExpressionOperationNotSupported("nullable or pointer conversion", castExpression.GetLocation());
+            return ErrorExpression(targetType, reason: BoundExpressionReason.UnsupportedOperation);
+        }
         if (!conversion.Exists)
         {
             ReportCannotConvertFromTypeToType(expression.Type!, targetType, castExpression.GetLocation());
@@ -3904,7 +3907,7 @@ partial class BlockBinder : Binder
                 castExpression.GetLocation());
         }
 
-        return new BoundConversionExpression(expression, targetType, conversion);
+        return new BoundConversionExpression(expression, targetType, conversion, isChecked: isChecked);
     }
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
