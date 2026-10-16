@@ -55,7 +55,7 @@ on .NET 11 (2026-10-16). Native evidence is recorded separately after carrying t
 shared change to `codex/neoclr`.
 
 The initial slice does not add checked forms, compound extension/interface members,
-virtual overrides or instance increment/decrement. These remain separate work. Performance follows ordinary instance
+virtual overrides. These remain separate work. Performance follows ordinary instance
 calls; no benchmark claim is made.
 
 ## Design sources
@@ -106,3 +106,31 @@ shift operation; no new metadata encoding or runtime opcode is introduced.
 The generator build reached a stale RavenDoc reference-resolution failure; an
 explicit restore/build with `-p:NeoClrMetadataProject=<matching SDK project>`
 succeeded. Use the explicit MSBuild property for this native compiler build.
+## Instance increment and decrement
+
+`func ++()` and `func --()` declare public parameterless instance operators
+returning unit. CLI names are `op_IncrementAssignment` and
+`op_DecrementAssignment`; the existing static one-parameter declarations retain
+`op_Increment` / `op_Decrement`. Both forms may coexist.
+
+For writable variables, instance operators take priority for prefix expressions
+and discarded postfix expressions. Consumed postfix expressions retain static
+overload selection, preserving the old value. Properties/indexers retain static
+overload plus setter behavior. Consumed prefix expressions evaluate storage once,
+invoke on a captured value, write value types back and return the updated value;
+reference types preserve identity. Readonly targets are rejected. This follows
+the linked C# 14 rules and requires no Runtime Contract flag.
+
+Prefix fallback also stores its computed result, preventing double invocation of
+a static operator. Newline-prefixed increments begin a new statement instead of
+attaching to the preceding expression as postfix.
+
+Instance increment validation: 231 focused compound, increment and user-defined
+operator runtime tests pass on .NET 11, including class/struct results, array
+index side effects, readonly rejection and consumed-postfix static dispatch.
+
+Native increment carry from `94f133cab`: 233 focused compiler tests pass. The
+expanded native consumer returns 42 under interpreter, macOS ARM64 AOT and JIT,
+including class/struct prefix results and static consumed-postfix fallback.
+Callable planning admits parameterless instance increment methods; execution uses
+ordinary instance calls without new Runtime Contract settings or opcodes.

@@ -158,7 +158,8 @@ internal sealed record SourceCallablePlan(
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
             case OperatorDeclarationSyntax op when symbol.MethodKind == MethodKind.UserDefinedOperator &&
-                (symbol.IsStatic || OperatorFacts.GetCompoundAssignmentMetadataName(op.OperatorToken.Kind) is not null):
+                (symbol.IsStatic || OperatorFacts.GetCompoundAssignmentMetadataName(op.OperatorToken.Kind) is not null ||
+                 OperatorFacts.GetInstanceIncrementMetadataName(op.OperatorToken.Kind) is not null):
                 plan = new(symbol, syntax, (SyntaxNode?)op.Body ?? op.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;

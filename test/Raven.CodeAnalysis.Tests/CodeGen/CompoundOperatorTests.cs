@@ -322,6 +322,126 @@ public class CompoundOperatorTests
         Assert.Empty(tree.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("class", "++", "+", "op_IncrementAssignment")]
+    [InlineData("struct", "++", "+", "op_IncrementAssignment")]
+    [InlineData("class", "--", "-", "op_DecrementAssignment")]
+    [InlineData("struct", "--", "-", "op_DecrementAssignment")]
+    public void InstanceIncrement_PrefixAndDiscardedPostfix(string kind, string token, string binary, string metadataName)
+    {
+        Run($$"""
+            {{kind}} Counter {
+                public var Value: int = 42
+                func {{token}}() { Value = Value {{binary}} 1 }
+            }
+            class Runner {
+                static func Run() -> int {
+                    var counter = Counter()
+                    counter{{token}}
+                    {{token}}counter
+                    let result = {{token}}counter
+                    if result.Value != {{(token == "++" ? 45 : 39)}} || counter.Value != result.Value { return 1 }
+                    return 42
+                }
+            }
+            """, 42, assembly =>
+        {
+            var method = assembly.GetType("Counter")!.GetMethod(metadataName)!;
+            Assert.True(method.IsSpecialName);
+            Assert.False(method.IsStatic);
+            Assert.Empty(method.GetParameters());
+            Assert.Equal(typeof(void), method.ReturnType);
+        });
+    }
+
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void InstanceIncrement_ArrayPrefixEvaluatesIndexOnce(string kind)
+    {
+        Run($$"""
+            {{kind}} Counter {
+                public var Value: int = 40
+                func ++() { Value = Value + 1 }
+            }
+            class Runner {
+                static var Calls: int = 0
+                static func Index() -> int { Calls = Calls + 1; return 0 }
+                static func Run() -> int {
+                    let items: Counter[] = [Counter()]
+                    let result = ++items[Index()]
+                    if items[0].Value != 41 { return 1 }
+                    return result.Value + Calls
+                }
+            }
+            """, 42);
+    }
+
+    [Fact]
+    public void ConsumedPostfixUsesStaticOperator()
+    {
+        Run("""
+            class Counter {
+                public var Value: int = 40
+                func ++() { Value = 0 }
+                static func ++(value: Counter) -> Counter {
+                    let result = Counter()
+                    result.Value = value.Value + 2
+                    return result
+                }
+            }
+            class Runner {
+                static func Run() -> int {
+                    var counter = Counter()
+                    let previous = counter++
+                    if previous.Value != 40 { return 1 }
+                    return counter.Value
+                }
+            }
+            """, 42);
+    }
+
+    [Theory]
+    [InlineData("static func ++() {}", "RAV0332")]
+    [InlineData("func ++() -> int => 1", "RAV0366")]
+    public void InstanceIncrement_InvalidDeclaration(string declaration, string diagnostic)
+    {
+        Assert.Contains(CreateCompilation($"class Counter {{ {declaration} }}").GetDiagnostics(), d => d.Id == diagnostic);
+    }
+
+    [Fact]
+    public void ConsumedPrefixInvokesStaticFallbackOnce()
+    {
+        Run("""
+            class Counter {
+                public var Value: int = 40
+                static func ++(value: Counter) -> Counter {
+                    value.Value = value.Value + 1
+                    return value
+                }
+            }
+            class Runner {
+                static func Run() -> int {
+                    var counter = Counter()
+                    let result = ++counter
+                    return result.Value + 1
+                }
+            }
+            """, 42);
+    }
+
+    [Fact]
+    public void InstanceIncrement_ReadonlyLocalIsRejected()
+    {
+        var compilation = CreateCompilation("""
+            class Counter { func ++() {} }
+            class Runner {
+                static func Run() { let counter = Counter(); counter++ }
+            }
+            """);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV0027");
+    }
+
     private static Compilation CreateCompilation(string source) =>
         Compilation.Create("CompoundOperators", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(SyntaxTree.ParseText(source))

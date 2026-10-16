@@ -202,3 +202,12 @@ including `short` to `int`, `uint` to `long`, and `ulong` to floating-point or
 Integer-to-floating conversions can lose precision; accepting an implicit conversion
 does not promise exact integer representation in the floating-point result.
 See [C# numeric conversions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/conversions#1023-implicit-numeric-conversions).
+
+### Instance increment and decrement
+
+Classes and structs may declare `func ++()` and `func --()` with no parameters
+and unit result. These mutate writable variable storage. Prefix expressions
+return the updated value; discarded postfix expressions also prefer these
+instance operators. A consumed postfix expression uses the static one-parameter
+overload to preserve the previous value. Properties and indexers use the static
+overload and setter. Static and instance forms may coexist.

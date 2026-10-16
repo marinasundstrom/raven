@@ -949,6 +949,8 @@ public static partial class SymbolExtensions
             "op_UnaryPlus" => "+",
             "op_UnaryNegation" => "-",
 
+            "op_IncrementAssignment" => "++",
+            "op_DecrementAssignment" => "--",
             "op_Increment" => "++",
             "op_Decrement" => "--",
 

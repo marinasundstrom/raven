@@ -13597,3 +13597,10 @@ and lowering; existing runtime operations own execution. The expanded neoCLR
 `docs/validation/compound-operators` consumer passes interpreter/JIT/AOT; 104
 focused compiler tests pass. No capability-interface semantics are inferred from
 operator spelling; purposeful nominal capability contracts remain separate work.
+
+Instance increment carry (2026-10-16), from Raven main `94f133cab`: parameterless
+`++`/`--` use standard `op_IncrementAssignment`/`op_DecrementAssignment` names
+and ordinary native instance calls. No bridge encoding or metadata version is
+added. Raven owns prefix-value capture/writeback and consumed-postfix static
+fallback. Class/struct cases pass interpreter/JIT/AOT; 233 focused compiler
+tests pass. The existing nominal-value-array AOT allocation gap remains.
