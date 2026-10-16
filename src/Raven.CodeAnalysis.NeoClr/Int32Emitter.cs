@@ -493,6 +493,8 @@ internal static class Int32Emitter
         SignatureType ImportClassBase(INamedTypeSymbol type)
         {
             var reference = ImportExternalType(type);
+            type = (INamedTypeSymbol)type.OriginalDefinition;
+            var definition = importedTypes[type];
             if (type.BaseType is { SpecialType: not SpecialType.System_Object } parent) _ = ImportClassBase(parent);
             var members = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
             foreach (var member in type.GetMembers())
@@ -504,7 +506,7 @@ internal static class Int32Emitter
                     if (property.SetMethod is { } setter) members.Add(setter);
                 }
             }
-            assembly.CompleteClassBaseReference(reference.ImportedType!, members
+            assembly.CompleteClassBaseReference(definition, members
                 .Where(m => !m.IsStatic && m.MethodKind != MethodKind.Constructor && m.DeclaredAccessibility == Accessibility.Public)
                 .Select(Import), type.GetMembers().OfType<IFieldSymbol>().Count(f => !f.IsStatic));
             return reference;
@@ -1059,6 +1061,13 @@ internal static class Int32Emitter
                             output.Call(directTarget.MakeConstructedReference(arguments.Select(MapDirectType), symbol.TypeArguments.Select(MapDirectType)));
                         else output.Call(directTarget);
                     }
+                    else if (instruction.Method.ContainingType is { } importedOwner && NeoClrTypeMapper.OwnerArguments(importedOwner) is { Length: > 0 } importedArguments)
+                    {
+                        SignatureType MapImportedType(ITypeSymbol type) => NeoClrTypeMapper.Map(type, owner => nativeTypes[owner],
+                            named => ScopedExternal(named, emissionScope), parameter => ScopedParameter(parameter, emissionScope));
+                        output.Call(Import(instruction.Method.OriginalDefinition).MakeConstructedReference(
+                            importedArguments.Select(MapImportedType), instruction.Method.TypeArguments.Select(MapImportedType)));
+                    }
                     else output.Emit(OpCode.Call, Import(instruction.Method));
                 }
                 else if (instruction.Kind == LinearInstructionKind.FunctionBind)
@@ -1374,7 +1383,7 @@ internal static class Int32Emitter
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner))) &&
-                (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
+                (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
                 symbol.TypeParameters.All(p => p.ConstraintTypes.IsEmpty && p.ConstraintKind == TypeParameterConstraintKind.None) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))

@@ -86,8 +86,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
             !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && type.Arity == 0 && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || (type.OriginalDefinition is not SourceNamedTypeSymbol sourceType || sourceType.IsRecord && !(isValue && capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true)) || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
                 !(capabilities?.AllowsLocalClassInheritance == true && !isValue &&
-                  (type.Arity == 0 || capabilities.AllowsGenericLocalClassInheritance && SymbolEqualityComparer.Default.Equals(type.BaseType?.ContainingAssembly, type.ContainingAssembly)) && type.ContainingType is null &&
-                  type.BaseType is { ContainingType: null } baseType && (baseType.Arity == 0 || capabilities.AllowsConstructedClassBases) && (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) ? TryCreate(baseType, out _, capabilities) : (capabilities.AllowsExternalClassInheritance && IsSupportedExternalBase(baseType) || capabilities.AllowsExternalFieldlessClassInheritance && IsFieldlessExternalBase(baseType))))))
+                  (type.Arity == 0 || (SymbolEqualityComparer.Default.Equals(type.BaseType?.ContainingAssembly, type.ContainingAssembly) ? capabilities.AllowsGenericLocalClassInheritance : capabilities.AllowsGenericExternalClassInheritance)) && type.ContainingType is null &&
+                  type.BaseType is { ContainingType: null } baseType && (baseType.Arity == 0 || capabilities.AllowsConstructedClassBases) && (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) ? TryCreate(baseType, out _, capabilities) : (capabilities.AllowsExternalClassInheritance && IsSupportedExternalBase(baseType, capabilities.AllowsGenericExternalClassInheritance) || capabilities.AllowsExternalFieldlessClassInheritance && IsFieldlessExternalBase(baseType))))))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
         // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.
@@ -107,13 +107,13 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         return true;
     }
 
-    internal static bool IsSupportedExternalBase(INamedTypeSymbol type)
+    internal static bool IsSupportedExternalBase(INamedTypeSymbol type, bool allowsGeneric = false)
     {
         var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         for (var current = type; current.SpecialType != SpecialType.System_Object; current = current.BaseType!)
         {
             if (!visited.Add(current) || visited.Count > 64 || current.TypeKind != TypeKind.Class ||
-                current.IsClosed || current.IsSealedHierarchy || current.IsStatic || current.Arity != 0 ||
+                current.IsClosed || current.IsSealedHierarchy || current.IsStatic || current.Arity != 0 && !allowsGeneric ||
                 current.ContainingType is not null || current.DeclaredAccessibility != Accessibility.Public || current.BaseType is null)
                 return false;
         }

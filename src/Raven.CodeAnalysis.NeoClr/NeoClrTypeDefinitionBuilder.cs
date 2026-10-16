@@ -8,8 +8,10 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
-        if (plan.ClassBase is { Arity: > 0 } parent &&
-            SymbolEqualityComparer.Default.Equals(parent.ContainingAssembly, plan.Symbol.ContainingAssembly))
+        if (plan.ClassBase is not { } parent) return;
+        if (!SymbolEqualityComparer.Default.Equals(parent.ContainingAssembly, plan.Symbol.ContainingAssembly))
+            definition.SetBaseType(resolveExternal(parent).ImportedType!);
+        else if (parent.Arity > 0)
             definition.SetBaseType(resolveSignature(parent).GenericInstance!);
     }
 
@@ -57,7 +59,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.Symbol.Arity > 0) return plan.IsStatic
             ? assembly.AddGenericType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
             : plan.ClassBase is { } genericBase
-                ? genericBase.Arity == 0
+                ? genericBase.Arity == 0 && SymbolEqualityComparer.Default.Equals(genericBase.ContainingAssembly, plan.Symbol.ContainingAssembly)
                     ? assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), resolveOwner(genericBase), visibility)
                     : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
                 : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);
@@ -67,8 +69,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
                 return baseType.Arity == 0
                     ? assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility)
                     : assembly.AddClass(plan.Namespace, plan.Name, visibility);
-            var external = resolveExternal(baseType).ImportedType!;
-            return assembly.AddClass(plan.Namespace, plan.Name, external, visibility);
+            return assembly.AddClass(plan.Namespace, plan.Name, visibility);
         }
         var result = plan.ClassBase is { } baseType ? DefineDerived(baseType)
             : plan.IsStatic ? assembly.AddType(plan.Namespace, plan.Name, visibility) : assembly.AddClass(plan.Namespace, plan.Name, visibility);

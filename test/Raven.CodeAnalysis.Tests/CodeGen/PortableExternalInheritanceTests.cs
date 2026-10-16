@@ -120,4 +120,42 @@ public class PortableExternalInheritanceTests
         Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
         Assert.Equal(typeof(int), loaded.Assembly.GetType("Leaf")!.BaseType!.BaseType!.GenericTypeArguments.Single());
     }
+    [Fact]
+    public void ExternalGenericBaseRequiresExplicitCapability()
+    {
+        var provider = TestMetadataFactory.CreateFileReferenceFromSource("""
+            public open class Parent<T> {
+                private var value: T
+                protected init(value: T) { self.value = value }
+                public func Get() -> T => value
+            }
+            """, "GenericExternalProvider");
+        var tree = SyntaxTree.ParseText("""
+            public class Child<T> : Parent<T> {
+                public init(value: T) : base(value) { }
+            }
+            public class Leaf : Parent<int> {
+                public init() : base(42) { }
+            }
+            func Main() -> int => Child<int>(Leaf().Get()).Get()
+            """);
+        var compilation = Compilation.Create("GenericExternalConsumer", [tree], TestMetadataReferences.Default.Append(provider).ToArray(),
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var admit in new[] { false, true })
+        {
+            var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+                allowsGenericClassOwners: true, allowsLocalClassInheritance: true, allowsExternalClassInheritance: true,
+                allowsConstructedClassBases: true, allowsGenericExternalClassInheritance: admit);
+            Assert.Equal(admit, SourceTypePlan.TryCreate(compilation.GetTypeByMetadataName("Child`1")!, out _, capabilities));
+            Assert.Equal(admit, SourceTypePlan.TryCreate(compilation.GetTypeByMetadataName("Leaf")!, out _, capabilities));
+        }
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.EntryPoint!.Invoke(null, null));
+    }
+
 }
