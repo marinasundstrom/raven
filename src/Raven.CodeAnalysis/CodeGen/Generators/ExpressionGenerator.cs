@@ -75,6 +75,9 @@ internal partial class ExpressionGenerator : Generator
 
     public EmitInfo Emit2()
     {
+        if (_expression is BoundParenthesizedExpression parenthesized)
+            return new ExpressionGenerator(this, parenthesized.Expression, _rootContext).Emit2();
+
         if (!_preserveResult && _expression is BoundAssignmentExpression assignmentExpression)
         {
             EmitAssignmentExpression(assignmentExpression, preserveResult: false);

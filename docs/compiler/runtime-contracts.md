@@ -2353,7 +2353,7 @@ methods only when no checked candidate is applicable, not on ambiguity. Calls us
 normal metadata signatures. There is no alternate carrier representation.
 
 RAV0373 rejects currently unimplemented checked nullable/pointer conversions,
-compound assignments, increments/decrements and lifted/pointer arithmetic. Checked blocks, constant arithmetic
+nullable/pointer mutations and lifted/pointer arithmetic. Checked blocks, constant arithmetic
 evaluation and checked binary expression trees remain follow-up work. These are compiler
 gaps, not new runtime semantics. `CheckedExpressionTests` exercises overflow,
 nested contexts, overload selection and rejection behavior; native qualification
@@ -2395,3 +2395,18 @@ casts remain diagnosed. Native emission is validated independently on codex/neoc
 
 Validation: 106 focused checked conversion/operator tests and the 421-test
 overload-resolution suite pass on .NET 11. A standalone shared consumer returns 42.
+
+### Checked mutation
+
+Compound assignment and increment/decrement retain lexical checked context on the
+existing binary/conversion nodes and select standard checked operator metadata
+names. No Runtime Contract setting or metadata format change is required. Location
+temporaries preserve receiver/index evaluation and value-storage addresses; the
+store follows arithmetic/conversion so built-in overflow prevents write-back.
+Parenthesized/checked wrappers preserve discarded-expression emission context.
+Nullable/pointer checked mutation and mutation expression trees remain gaps.
+`CheckedMutationTests` covers overflow, storage, overload selection and evaluation
+order; native execution is qualified on the neoCLR compiler line separately.
+
+Validation: 159 focused mutation/conversion/operator tests, the 421-test overload-resolution
+suite and the shared .NET 11 consumer (exit 42) pass.

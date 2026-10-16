@@ -18,13 +18,6 @@ partial class BlockBinder
         return false;
     }
 
-    private static bool RequiresUnimplementedCheckedLowering(ExpressionSyntax syntax)
-        => syntax is AssignmentExpressionSyntax assignment && assignment.OperatorToken.Kind != SyntaxKind.EqualsToken ||
-           syntax is PrefixOperatorExpressionSyntax prefix && prefix.OperatorToken.Kind is
-               SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken ||
-           syntax is PostfixOperatorExpressionSyntax postfix && postfix.OperatorToken.Kind is
-               SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
-
     private BoundExpression BindCheckedExpression(CheckedExpressionSyntax syntax)
     {
         var targetType = GetScopedTargetType(syntax);

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-16:** Support checked compound assignments and increment/decrement, including checked overload selection, small-integer write-back and unchanged storage on built-in overflow. Preserve single evaluation of mutation locations and discarded checked-expression emission. Nullable/pointer checked mutations remain diagnosed; no Runtime Contract switch.
+
 - **2026-10-16:** Support checked numeric casts and checked explicit conversion selection, including imported pairs, signed/unsigned range checks and floating-to-integer overflow. Preserve checked context through lowering and expose IConversionOperation.IsChecked; numeric expression trees use ConvertChecked. Nullable/pointer checked casts and checked user-defined conversion trees remain diagnosed. Correct floating/decimal-to-integral classification and distinguish conversion declarations by their return type while retaining duplicate rejection. No Runtime Contract switch; native emission is validated separately.
 
 - **2026-10-16:** Add Raven.Core `IDictionary<K,V>.Entry(key)` with reusable live MapEntry lookup, insertion and synchronous transformation helpers. Specify callback reentry, failure and non-atomic behavior. Add HashSet/SortedSet GetOrInsert preserving the stored equivalent value; arbitrary ISet lacks the canonical lookup contract. Validate focused .NET 10 binding/runtime tests. No compiler or Runtime Contract change; neoCLR's MutableMap/MutableSet extensions are maintained separately.
