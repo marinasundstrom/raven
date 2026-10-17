@@ -14137,3 +14137,16 @@ JIT/AOT matrix is claimed. Structural work stays parked. Strings/parsing,
 scheduling and remaining compiler/core bootstrap contracts still need migration.
 See neoCLR docs/validation/native-core-removal/type-handle-results.json,
 type-handle-ownership.json and type-handle-completion.json.
+
+### Native direct text/parsing ownership (2026-10-17)
+
+neoCLR moves 33 direct text/parsing functions to internal native System.Runtime
+declarations. Prepared CLI/seed inputs remove their definitions and the obsolete
+Console facade; that facade otherwise calls internal Int32ToString across assembly
+boundaries. Compiler 70bf9be9c builds the five-library native-text-direct-library-v2
+bundle against native-text-bootstrap-v2. All scalar parsers, text/grapheme operations
+and valid/invalid UTF-8 consumers pass in the interpreter; Parse completion, native
+ownership and API fingerprint checks pass. No Runtime Contract switch or ordinary
+.NET compiler behavior changes. String equality and three managed-array helpers
+remain; provider implementations are unchanged, with no new JIT/AOT claim. Evidence:
+neoCLR docs/validation/native-core-removal/text-{results,ownership,completion}.json.
