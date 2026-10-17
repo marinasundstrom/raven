@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record native text-array and source equality migration with compiler 304e8675a: fresh library compilation, Unicode/empty-array/null-equality execution and string completion pass. No compiler or .NET behavior change.
+
 - **2026-10-17:** Record native ownership of 33 direct neoCLR text/parsing services with CLI/seed removal and obsolete Console facade cleanup. Compiler 70bf9be9c qualifies five-library compilation, scalar parsing/text/UTF-8 execution and Parse completion. Remaining managed text helpers and compiler bootstrap contracts stay open; ordinary .NET behavior is unchanged.
 
 - **2026-10-17:** Record native ownership of seven neoCLR type-handle primitives with CLI/seed definition removal. Compiler 3d233b07c qualifies five-library compilation, generic type introspection execution, native ownership and editor completion. No compiler/.NET behavior change; remaining core bootstrap migration stays open.

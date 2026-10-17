@@ -14150,3 +14150,12 @@ ownership and API fingerprint checks pass. No Runtime Contract switch or ordinar
 .NET compiler behavior changes. String equality and three managed-array helpers
 remain; provider implementations are unchanged, with no new JIT/AOT claim. Evidence:
 neoCLR docs/validation/native-core-removal/text-{results,ownership,completion}.json.
+
+### Native text arrays/equality (2026-10-17)
+
+neoCLR removes StringEquals/StringGraphemes/StringScalars/Utf8Encode from CLI/seed
+facades. Native managed-array results and source null-safe ordinal equality now
+supply the same public behavior. Compiler 304e8675a qualifies fresh five-library
+compilation, Unicode/empty-array/null-equality interpreter consumption and string
+completion. No Runtime Contract or .NET change; remaining services/compiler
+bootstrap work stays open. Evidence: neoCLR native-core-removal/text-array-results.json.
