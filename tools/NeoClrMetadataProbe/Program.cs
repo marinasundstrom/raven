@@ -70,6 +70,11 @@ if (args.Length == 2 && args[0] == "--native-source-core")
 {
     NativeSourceCoreChecks.Run(args[1]); return;
 }
+if (args.Length == 2 && args[0] == "--native-runtime-project")
+{
+    NativeRuntimeProjectChecks.Run(args[1]); return;
+}
+
 if (args.Length == 4 && args[0] == "--native-core-project")
 {
     NativeCoreProjectChecks.Run(args[1], args[2], args[3]); return;

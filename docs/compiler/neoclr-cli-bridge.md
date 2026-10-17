@@ -14245,3 +14245,24 @@ probe authors a static Self-valued interface property implemented by Int32.Zero,
 checks native reflection retains Self on the contract and Int32 on the concrete
 implementation, and compiles/completes a native consumer. The marker identity
 remains explicit; an arbitrary same-named source type is not a Self contract.
+
+### Native runtime contract manifest
+
+`RavenNeoClrRuntimeContracts` selects the explicit ownership/runtime contract
+manifest for `RavenNeoClrSourceCore` or `RavenNeoClrNativeCoreReference`. It applies
+primitive providers, Self, iteration, typeof, propagation, disposal and failure
+contracts without adding a CLI reference. Native async settings
+`RavenNeoClrAsyncLibrary` and optional `RavenNeoClrRuntimeAsyncHelper` require this
+manifest; a helper also requires its async library. Disposal and generator
+capabilities retain their existing explicit opt-in behavior. The manifest is an
+editor metadata input, so changes participate in workspace refresh.
+
+Native-reference mode continues to reject bootstrap ownership/intrinsics and
+source/imported Object overrides; the native core owns Object. Source-core mode
+also accepts the older `RavenNeoClrBootstrapOwnership` spelling, but supplying
+both manifests is rejected. Ordinary .NET import is unchanged. The
+`--native-runtime-project <project>` probe validates native-only references,
+compilation and System/Int32.Parse/introspection completion without Action/Func
+bootstrap entries. A consumer of the newly source-authored production System.Runtime
+parses 42 and returns it in the interpreter with an empty System seed. Production
+SDK wiring and the async entry-drain contract are separate remaining steps.

@@ -1,5 +1,6 @@
 using NeoCLR.Metadata.Experimental.Model;
 using NeoCLR.Metadata.Experimental.Introspection;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -63,19 +64,25 @@ internal static class NativeSourceCoreChecks
             }
             """;
         var ownershipPath = Path.Combine(directory, "ownership.json");
-        File.WriteAllText(ownershipPath, System.Text.Json.JsonSerializer.Serialize(new {
+        File.WriteAllText(ownershipPath, System.Text.Json.JsonSerializer.Serialize(new
+        {
             version = 1,
             libraries = new[] { new { assemblyName = name, sources = new[] { "Core.rvn" },
                 types = new[] { "System.Int32", "System.Int64", "System.Boolean", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
-            nativePrimitives = new Dictionary<string, string> { ["System.Int32"] = name, ["System.Int64"] = name,
-                ["System.Boolean"] = name, ["System.String"] = name },
+            nativePrimitives = new Dictionary<string, string>
+            {
+                ["System.Int32"] = name,
+                ["System.Int64"] = name,
+                ["System.Boolean"] = name,
+                ["System.String"] = name
+            },
             unit = new { assemblyName = name, typeName = "System.Void" },
             self = new { assemblyName = name, typeName = "System.Runtime.CompilerServices.Self" },
             iteration = new { assemblyName = name, iterableTypeName = "System.Sequence`1", iteratorTypeName = "System.Cursor`1", arrayShapeTypeName = "System.Array`1" }
         }));
         var provider = new NeoClrProjectMetadataProvider();
         var projectPath = Path.Combine(directory, "Core.rvnproj");
-        var properties = new Dictionary<string, string> { ["RavenNeoClrSourceCore"] = "true", ["RavenNeoClrBootstrapOwnership"] = ownershipPath };
+        var properties = new Dictionary<string, string> { ["RavenNeoClrSourceCore"] = "true", ["RavenNeoClrRuntimeContracts"] = ownershipPath };
         var configured = provider.Load(projectPath, name, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary), properties, []);
         if (configured.References.Length != 0 || provider.GetConfiguration(projectPath).Catalog.CoreReference is not null)
             throw new Exception("Source core acquired a reference core.");
@@ -133,11 +140,24 @@ internal static class NativeSourceCoreChecks
             throw new Exception("Source Self contract or concrete primitive implementation was erased.");
         File.WriteAllBytes(Path.Combine(directory, "SourceCore.dll"), image.ToArray());
         var corePath = Path.Combine(directory, "SourceCore.dll");
-        var catalog = NeoClrReferenceCatalog.ReadNative(corePath, []);
-        var consumerOptions = options.WithOutputKind(OutputKind.ConsoleApplication)
-            .WithMetadataImportOptions(new MetadataImportOptions(name).WithNativeMetadata().WithObjectAssemblyName(name));
+        var consumerProject = Path.Combine(directory, "Consumer.rvnproj");
+        var nativeProperties = new Dictionary<string, string>
+        {
+            ["RavenNeoClrNativeCoreReference"] = corePath,
+            ["RavenNeoClrRuntimeContracts"] = ownershipPath
+        };
+        var nativeConfiguration = provider.Load(consumerProject, "Consumer", CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication),
+            nativeProperties, []);
+        var nativeProject = provider.GetConfiguration(consumerProject);
+        var catalog = nativeProject.Catalog;
+        var consumerOptions = nativeConfiguration.Options;
+        if (consumerOptions.RuntimeSelfTypeContract?.AssemblyName != name ||
+            consumerOptions.RuntimeIterationContract?.AssemblyName != name ||
+            !provider.GetInputPaths(consumerProject, nativeProperties).Contains(ownershipPath))
+            throw new Exception("Native runtime contracts or editor inputs were lost.");
         var consumerSource = "func Main() -> int => System.Example.Answer() + System.Int32.Zero";
         var consumer = Compilation.Create("Consumer", [SyntaxTree.ParseText(consumerSource)], catalog.References.ToArray(), consumerOptions);
+        nativeProject.Validate(consumer);
         using var consumerImage = new MemoryStream();
         var consumerResult = consumer.Emit(consumerImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
             new(new("Consumer", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
@@ -162,7 +182,7 @@ internal static class NativeSourceCoreChecks
         var invalid = Compilation.Create("WrongIdentity", [tree], [], options);
         if (!invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
             throw new Exception("Mismatched source core identity was accepted.");
-        foreach (var property in new[] { "RavenNeoClrCoreReference", "RavenNeoClrNativeCoreReference", "RavenNeoClrObjectLibrary", "RavenNeoClrBootstrapIntrinsics", "RavenMetadataCoreAssemblyName" })
+        foreach (var property in new[] { "RavenNeoClrCoreReference", "RavenNeoClrNativeCoreReference", "RavenNeoClrObjectLibrary", "RavenNeoClrBootstrapIntrinsics", "RavenMetadataCoreAssemblyName", "RavenNeoClrBootstrapOwnership" })
         {
             var bad = new Dictionary<string, string>(properties) { [property] = "invalid" };
             try
