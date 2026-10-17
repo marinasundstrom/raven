@@ -1,4 +1,5 @@
 using NeoCLR.Metadata.Experimental.Model;
+using NeoCLR.Metadata.Experimental.Introspection;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -21,7 +22,11 @@ internal static class NativeSourceCoreChecks
             public abstract class ValueType {}
             public struct Void {}
             public struct Boolean { private var m_value: bool }
-            public struct Int32 { private var m_value: int }
+            public interface ZeroValue { static val Zero: Self { get; } }
+            public struct Int32 : ZeroValue {
+                private var m_value: int
+                static val Zero: int => 0
+            }
             public struct Int64 { private var m_value: long }
             public class String { private var m_value: string }
             public abstract class Attribute {}
@@ -65,6 +70,7 @@ internal static class NativeSourceCoreChecks
             nativePrimitives = new Dictionary<string, string> { ["System.Int32"] = name, ["System.Int64"] = name,
                 ["System.Boolean"] = name, ["System.String"] = name },
             unit = new { assemblyName = name, typeName = "System.Void" },
+            self = new { assemblyName = name, typeName = "System.Runtime.CompilerServices.Self" },
             iteration = new { assemblyName = name, iterableTypeName = "System.Sequence`1", iteratorTypeName = "System.Cursor`1", arrayShapeTypeName = "System.Array`1" }
         }));
         var provider = new NeoClrProjectMetadataProvider();
@@ -77,6 +83,7 @@ internal static class NativeSourceCoreChecks
         var tree = SyntaxTree.ParseText(source);
         var markers = SyntaxTree.ParseText("""
             namespace System.Runtime.CompilerServices
+            public struct Self {}
             public enum MethodImplOptions { InternalCall = 4096 }
             public class MethodImplAttribute : System.Attribute {
                 init(options: MethodImplOptions) {}
@@ -118,12 +125,18 @@ internal static class NativeSourceCoreChecks
         using var image = new MemoryStream();
         var emitted = compilation.Emit(image, null, new EmitOptions().WithBackend(provider.GetConfiguration(projectPath).CreateEmissionBackend(name)));
         if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+        var snapshot = AssemblyDefinition.ReadNativeAssembly(image.ToArray());
+        var views = new MetadataLoadContext([snapshot]).Resolve(snapshot.Identity).GetTypes();
+        var selfContract = views.Single(t => t.Name == "ZeroValue").GetMethods().Single(m => m.Name == "get_Zero");
+        var zeroImplementation = views.Single(t => t.Name == "Int32").GetMethods().Single(m => m.Name == "get_Zero");
+        if (selfContract.ReturnType is not SelfTypeInfo || zeroImplementation.ReturnType is not PrimitiveTypeInfo { Kind: PrimitiveType.Int32 })
+            throw new Exception("Source Self contract or concrete primitive implementation was erased.");
         File.WriteAllBytes(Path.Combine(directory, "SourceCore.dll"), image.ToArray());
         var corePath = Path.Combine(directory, "SourceCore.dll");
         var catalog = NeoClrReferenceCatalog.ReadNative(corePath, []);
         var consumerOptions = options.WithOutputKind(OutputKind.ConsoleApplication)
             .WithMetadataImportOptions(new MetadataImportOptions(name).WithNativeMetadata().WithObjectAssemblyName(name));
-        var consumerSource = "func Main() -> int => System.Example.Answer()";
+        var consumerSource = "func Main() -> int => System.Example.Answer() + System.Int32.Zero";
         var consumer = Compilation.Create("Consumer", [SyntaxTree.ParseText(consumerSource)], catalog.References.ToArray(), consumerOptions);
         using var consumerImage = new MemoryStream();
         var consumerResult = consumer.Emit(consumerImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(

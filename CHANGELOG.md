@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Preserve configured source-owned Self markers as native Self signatures during source-core construction. Validate numeric static-interface conformance, inspect native Self/primitive return descriptors, and compile a native consumer of Int32.Zero with editor completion.
+
 - **2026-10-17:** Lower native array iteration through the actual array type’s Length member contract, including source-owned Array<T> views. Validate a reference-free source-core loop in interpreter, JIT and AOT alongside allocation fault checks and consumer completion.
 
 - **2026-10-17:** Declare source-core type shells before namespace function signatures and defer provisional attribute data. Prevent false duplicate overloads and incomplete native-call markers during reference-free core construction; validate alternate file orders and native consumer completion. Ordinary .NET behavior is unchanged.

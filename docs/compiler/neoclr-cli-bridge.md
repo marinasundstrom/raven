@@ -14238,3 +14238,10 @@ including its configured source-owned `Array<T>` view. It does not require a
 placeholder property on the nongeneric Array base. The source-core loop and
 array-interface consumer returns 42 in interpreter, JIT and AOT; checked storage
 fault behavior and editor completion remain covered.
+
+Source-owned `RuntimeSelfTypeContract` markers map to the native Self signature
+kind before nominal storage mapping, just as imported markers do. The source-core
+probe authors a static Self-valued interface property implemented by Int32.Zero,
+checks native reflection retains Self on the contract and Int32 on the concrete
+implementation, and compiles/completes a native consumer. The marker identity
+remains explicit; an arbitrary same-named source type is not a Self contract.

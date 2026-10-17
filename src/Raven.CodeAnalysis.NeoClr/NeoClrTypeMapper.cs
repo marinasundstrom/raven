@@ -39,6 +39,10 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             return SignatureType.ArrayOf(Map(element, resolveClass, resolveExternal, mapParameter));
         }
         var named = type.Nominal!;
+        // The core may define its configured Self marker in this compilation.
+        // Preserve the native signature kind before treating it as nominal storage.
+        if (named.ContainingAssembly is SourceAssemblySymbol source && RuntimeSelfTypes.IsSelf(source.Compilation, named))
+            return SignatureType.Self;
         if (named is ITupleTypeSymbol && resolveExternal is not null) return resolveExternal(named);
         if (named.SpecialType == SpecialType.System_RuntimeTypeHandle) return PrimitiveType.RuntimeTypeHandle;
         // Planning applies the selected capability gate; mapping must preserve admitted structural elements.
