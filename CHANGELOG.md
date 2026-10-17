@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Observe native metadata dependencies from the project-load snapshot instead of reevaluating projects while filtering every file notification. Preserve old and newly discovered inputs through failed reloads so reference/configuration repair can retry. Unrelated generated-file events no longer populate evaluation caches; target contracts and emitted metadata are unchanged.
+
 - **2026-10-17:** Apply watched-file output-directory exclusions relative to the opened workspace. Projects opened beneath target/artifacts now reload their own configuration changes while generated descendants remain excluded. No Runtime Contract or metadata change.
 
 - **2026-10-17:** Preserve open-document membership when a failed project reload restores the last successful workspace. Subsequent successful reloads retain unsaved source text and refresh diagnostics for those documents. Validate failure/recovery and repeated imported-property edits; no Runtime Contract or emitted metadata change.

@@ -80,6 +80,7 @@ internal sealed class WorkspaceManager
     private readonly Dictionary<ProjectId, ImmutableDictionary<string, bool>> _editorConfigGeneratedCodeOptionsByProject = new();
     private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
+    private ImmutableHashSet<string> _metadataInputPaths = ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
     private ProjectId? _fallbackProjectId;
 
     public WorkspaceManager(RavenWorkspace workspace, ILogger<WorkspaceManager> logger)
@@ -124,6 +125,7 @@ internal sealed class WorkspaceManager
             _fallbackProjectId = null;
             _documents.Clear();
             _openDocumentUris.Clear();
+            _metadataInputPaths = _metadataInputPaths.Clear();
             var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in roots)
@@ -228,6 +230,7 @@ internal sealed class WorkspaceManager
             _editorConfigGeneratedCodeOptionsByProject.ToImmutableDictionary(),
             _documents.ToImmutableDictionary(),
             _openDocumentUris.Keys.ToImmutableHashSet(),
+            _metadataInputPaths,
             _fallbackProjectId);
 
     private bool ReloadDroppedExistingProject(Solution previousSolution)
@@ -275,6 +278,9 @@ internal sealed class WorkspaceManager
         foreach (var uri in snapshot.OpenDocumentUris)
             _openDocumentUris.TryAdd(uri, 0);
 
+        // Keep dependencies discovered during the failed attempt too: creating a
+        // newly selected missing reference must be able to trigger recovery.
+        _metadataInputPaths = _metadataInputPaths.Union(snapshot.MetadataInputPaths);
         _fallbackProjectId = snapshot.FallbackProjectId;
     }
 
@@ -301,14 +307,10 @@ internal sealed class WorkspaceManager
     }
 
     private bool IsObservedMetadataFilePath(string path)
-    {
-        var service = _workspace.Services.ProjectSystemService;
-        return service is not null && _workspace.CurrentSolution.Projects.Any(project =>
-            project.FilePath is { } projectPath && service.GetMetadataInputPaths(projectPath)
-                .Any(input => string.Equals(NormalizePath(input), path, StringComparison.OrdinalIgnoreCase) ||
-                    (input.EndsWith(".docs", StringComparison.OrdinalIgnoreCase) &&
-                     path.StartsWith(NormalizePath(input) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))));
-    }
+        => _metadataInputPaths.Any(input =>
+            string.Equals(input, path, StringComparison.OrdinalIgnoreCase) ||
+            (input.EndsWith(".docs", StringComparison.OrdinalIgnoreCase) &&
+             path.StartsWith(input + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)));
 
     private string GetWorkspaceRelativeWatchPath(string path)
     {
@@ -515,6 +517,8 @@ internal sealed class WorkspaceManager
             }
         }
 
+        _metadataInputPaths = _metadataInputPaths.Union(
+            projectSystem.GetMetadataInputPaths(normalizedProjectPath).Select(NormalizePath));
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
         EnsureCompilerPerformanceInstrumentation(projectId);
         ApplyInitialEditorConfigDiagnosticOptions(projectId);
@@ -2939,6 +2943,7 @@ internal sealed class WorkspaceManager
         ImmutableDictionary<ProjectId, ImmutableDictionary<string, bool>> EditorConfigGeneratedCodeOptionsByProject,
         ImmutableDictionary<DocumentUri, OwnedDocument> Documents,
         ImmutableHashSet<DocumentUri> OpenDocumentUris,
+        ImmutableHashSet<string> MetadataInputPaths,
         ProjectId? FallbackProjectId);
     private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType, string Message);
 }

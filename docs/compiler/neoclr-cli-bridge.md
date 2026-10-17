@@ -14327,3 +14327,15 @@ refreshes their diagnostics. This carries Raven main 24898a8d5 to the native lin
 it adds no Runtime Contract setting, bridge representation or emission change.
 The separate intermittent missing-core project-diagnostic failure remains under
 investigation; this correction alone does not qualify a replacement SDK/VSIX.
+
+### Native editor dependency observation (2026-10-17)
+
+Metadata inputs are collected while loading each project, before opening its
+metadata catalog. File-event filtering consults that immutable dependency set;
+it does not evaluate MSBuild projects. A failed reload preserves both prior and
+newly discovered dependencies so repairs to a selected missing artifact can
+retry. Workspace-relative exclusions also allow projects explicitly opened
+beneath `target`/`artifacts` to observe their own configuration. No Runtime
+Contract setting, native signature, CLI representation or runtime ABI changes.
+Focused tests cover unrelated events, configuration reload and dependency
+retention across failure/recovery; installed editor qualification is separate.
