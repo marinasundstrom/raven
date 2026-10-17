@@ -14227,3 +14227,8 @@ data until declarations complete, and attribute binding does not cache provision
 results. These rules are gated by the explicit source-core contract; ordinary
 .NET declaration behavior is unchanged. The source-core probe checks alternate
 file orders, native-call marker arguments, compilation and consumer completion.
+
+The source-core probe uses `System.Enum : System.ValueType`, with metadata SDK
+revision b68592c43 preserving Enum as an abstract reference class. Qualified
+generic union case patterns use the shared main compiler fix (8ee547f67);
+production source-core emission now proceeds beyond that binding failure.

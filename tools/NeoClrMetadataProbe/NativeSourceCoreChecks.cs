@@ -25,7 +25,7 @@ internal static class NativeSourceCoreChecks
             public struct Int64 { private var m_value: long }
             public class String { private var m_value: string }
             public abstract class Attribute {}
-            public abstract class Enum {}
+            public abstract class Enum : ValueType {}
             public interface Sequence<T> { val Count: int { get; } }
             public interface Cursor<T> {}
             public class Array<T> : Sequence<T> {
