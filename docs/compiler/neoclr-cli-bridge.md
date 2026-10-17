@@ -14009,3 +14009,19 @@ repeat JIT/AOT qualification or introduce new backend support.
 The production core still uses CLI input. Remaining facade/payload services and
 native source-core construction remain open; installed SDKs are unchanged. Ordinary
 Raven/.NET behavior and the parked structural work are unaffected.
+
+### Direct console and storage services (2026-10-17)
+
+neoCLR `a8e588b65` removes 12 RuntimeServices extension forwards for console, file
+text and storage. Public implementations now select existing native namespace
+declarations; signatures, runtime bindings and Runtime Contract settings are
+unchanged. IsValue/UnpackValue remain explicit bootstrap payload dependencies.
+This removes forwarding dependencies, not all CLI core inputs.
+
+Raven `d83ea51e7` builds the matching five-library bundle. The interpreter consumer
+returns 42 with piped input, exact console output, awaited writes/flush and isolated
+filesystem success/error checks. LSP completion resolves Console and FileText
+members. Evidence and commands are retained in neoCLR's
+`docs/validation/native-core-removal/console-storage-results.json`. JIT/AOT
+implementations are unchanged and their matrix is not repeated for these forwards.
+Ordinary Raven/.NET behavior is unchanged; structural work stays parked.

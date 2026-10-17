@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record neoCLR a8e588b65 removal of 12 console/storage forwards with native service calls. Fresh five-library compilation, interpreter console/filesystem consumer and Console/FileText editor completion pass with Raven d83ea51e7. No compiler switch or .NET behavior changes; payload helpers and production native-core construction remain open.
+
 - **2026-10-17:** Record neoCLR 88a718f94 removal of 13 time-zone/heap service forwards using native declarations. Qualify the fresh five-library bundle with Raven d83ea51e7, interpreter execution and TimeZone/GC editor completion. No compiler switch, public signature or .NET behavior changes; production core migration remains open.
 
 - **2026-10-17:** Treat native-integer/integral conversions as built-in numeric conversions, including platform-independent implicit widening. Preserve source signedness in CLI native-width conversion and widening; validate classification without user-defined operators and checked negative-to-nuint overflow. Target-typed native literals and floating-point/decimal native-integer conversion completeness remain outside this slice. Carry main babd5fad0 to neoCLR with native signed/unsigned conversion lowering and source-aware widening; imported comparisons and high-bit conversions return 42 in interpreter, JIT and sanitized AOT against the fresh native library bundle. Editor completion resolves CompareTo on a native cast, and checked negative-to-nuint conversion faults in all three native execution modes.
