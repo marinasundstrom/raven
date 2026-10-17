@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-17:** Preserve explicit typeof runtime contracts for native-only neoCLR projects instead of silently clearing them. Validate explicit disabling, missing-contract diagnostics, native-only compilation/emission and namespace completion without CLI delegates. Production core bootstrap removal remains incomplete; ordinary .NET behavior is unchanged.
+- **2026-10-17:** Preserve explicit typeof runtime contracts for native-only neoCLR projects instead of silently clearing them. Validate explicit disabling, missing-contract diagnostics, native-only compilation/emission and namespace completion without CLI delegates. Infer native metadata/emission core identity from the explicitly selected artifact when no metadata-name override is supplied; continue rejecting explicit mismatches. Production core bootstrap removal remains incomplete; ordinary .NET behavior is unchanged.
 
 - **2026-10-17:** Carry the validated main documentation-highlighting fix for `checked` and `unchecked`; restore the VS Code package synchronization check.
 

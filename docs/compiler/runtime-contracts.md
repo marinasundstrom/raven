@@ -4375,3 +4375,10 @@ the production System.Runtime bundle native-core independent: that artifact stil
 references NeoCLR.CoreProbe. Replace production core construction and its runtime
 service contracts before switching the installed SDK; do not hide transport symbols
 in completion as a substitute. Structural work remains parked.
+
+Native core identity follow-through: selecting `RavenNeoClrNativeCoreReference`
+now derives metadata/emission core identity from that artifact when
+`RavenMetadataCoreAssemblyName` is omitted. An explicitly different metadata or
+target core identity still rejects. The retained CLI path keeps its preset identity
+validation. Native project tests cover inferred identity through diagnostics and
+emission as well as the existing explicit mismatch checks.

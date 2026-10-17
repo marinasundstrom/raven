@@ -56,7 +56,9 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         var catalog = nativeCore is not null
             ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths)
             : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
-        if (options.MetadataImportOptions is { } imports && imports.CoreAssemblyName != catalog.CoreIdentity.Name)
+        var metadataCore = nativeCore is null ? options.MetadataImportOptions?.CoreAssemblyName
+            : properties.GetValueOrDefault("RavenMetadataCoreAssemblyName");
+        if (!string.IsNullOrWhiteSpace(metadataCore) && metadataCore != catalog.CoreIdentity.Name)
             throw new InvalidDataException("Native project core identity does not match RavenMetadataCoreAssemblyName.");
         if (properties.TryGetValue("RavenTargetCoreAssemblyName", out var targetCore) &&
             !string.IsNullOrWhiteSpace(targetCore) && targetCore != catalog.CoreIdentity.Name)

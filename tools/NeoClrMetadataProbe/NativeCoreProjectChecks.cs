@@ -59,6 +59,23 @@ internal static class NativeCoreProjectChecks
             throw new Exception("Native namespace completion omitted Int32 or leaked CLI delegates: " + string.Join(", ", names));
 
         var original = File.ReadAllText(projectFile);
+        var inferred = XDocument.Parse(original);
+        inferred.Root!.Element("PropertyGroup")!.Element("RavenMetadataCoreAssemblyName")!.Remove();
+        inferred.Save(projectFile);
+        var inferredWorkspace = Workspace();
+        var inferredId = inferredWorkspace.OpenProject(projectFile);
+        var inferredCompilation = inferredWorkspace.GetCompilation(inferredId);
+        if (inferredCompilation.Options.TargetCoreAssemblyName != definition.Name ||
+            inferredCompilation.Options.MetadataImportOptions?.CoreAssemblyName != definition.Name ||
+            inferredCompilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
+            throw new Exception("Native artifact identity did not replace the implicit CLI preset.");
+        using var inferredImage = new MemoryStream();
+        var inferredConfig = provider.GetConfiguration(projectFile);
+        if (!inferredCompilation.Emit(inferredImage, null, new EmitOptions().WithBackend(
+                inferredConfig.CreateEmissionBackend("App"))).Success)
+            throw new Exception("Implicit native core selection did not emit.");
+        File.WriteAllText(projectFile, original);
+
         // Explicit native contracts must survive the loader rather than silently
         // falling back to CLI reflection when their declarations are unavailable.
         var mapped = XDocument.Parse(original);
