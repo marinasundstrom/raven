@@ -14318,3 +14318,12 @@ The subsequent backend retention fix preserves union generic arguments through
 source/native token mapping, display names and shape queries. Unchanged HTTP
 server requests and the client/server pair pass in JIT and AOT. The isolated updated compiler/library is not a replacement
 SDK; full packaged editor, AOT and Windows qualification remain pending.
+
+### Editor reload recovery (2026-10-17)
+
+The shared workspace restores open-document membership after a failed project
+reload, so a later successful native-project reload retains unsaved buffers and
+refreshes their diagnostics. This carries Raven main 24898a8d5 to the native line;
+it adds no Runtime Contract setting, bridge representation or emission change.
+The separate intermittent missing-core project-diagnostic failure remains under
+investigation; this correction alone does not qualify a replacement SDK/VSIX.

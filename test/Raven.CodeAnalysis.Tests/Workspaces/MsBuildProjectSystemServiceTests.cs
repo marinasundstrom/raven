@@ -609,6 +609,39 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void EvaluationCache_RepeatedImportedEdits_UseCurrentPropertyValues()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var importPath = Path.Combine(root, "Options.props");
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <Import Project="Options.props" />
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: service);
+            for (var iteration = 0; iteration < 10; iteration++)
+            {
+                var expected = $"Revision{iteration}";
+                File.WriteAllText(importPath, $"<Project><PropertyGroup><AssemblyName>{expected}</AssemblyName></PropertyGroup></Project>");
+                service.GetProjectReferencePaths(projectPath);
+                workspace.OpenSolution(workspace.CreateSolution());
+                var id = service.OpenProject(workspace, projectPath);
+                Assert.Equal(expected, workspace.CurrentSolution.GetProject(id)!.AssemblyName);
+            }
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void EvaluationCache_SourceEdit_InvalidatesCachedDocumentText()
     {
         var root = CreateTempDirectory();
