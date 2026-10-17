@@ -767,7 +767,7 @@ internal static class Int32Emitter
                 {
                     pair.Value.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(pair.Key.Parameters[i].Type));
                     pair.Value.SetParameterName(i, pair.Key.Parameters[i].Name);
-                    if (pair.Key.Parameters[i].IsVarParams) pair.Value.SetParameterArray(i);
+                    if (pair.Key.Parameters[i].IsVarParams) SetParameterArray(pair.Value, i);
                 }
                 interfaceMethods.Add(pair.Key, pair.Value);
             }
@@ -904,7 +904,7 @@ internal static class Int32Emitter
             {
                 definition.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(plan.Symbol.Parameters[i].Type));
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
-                if (plan.Symbol.Parameters[i].IsVarParams) definition.SetParameterArray(i);
+                if (plan.Symbol.Parameters[i].IsVarParams) SetParameterArray(definition, i);
             }
             methods.Add((plan, definition, body));
         }
@@ -1227,6 +1227,22 @@ internal static class Int32Emitter
         if (metadataAssembly)
             return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly);
         return assembly.WriteNativeAssembly();
+
+        void SetParameterArray(MetadataMethod method, int position)
+        {
+            // Register the selected native declaration so SDK emission preserves its owner.
+            // Legacy CLI core binding remains handled by the metadata adapter.
+            if (compilation.GetTypeByMetadataName("System.ParamArrayAttribute") is { } marker &&
+                !SymbolEqualityComparer.Default.Equals(marker.ContainingAssembly, compilation.Assembly) &&
+                marker is NativeNamedTypeSymbol)
+            {
+                var constructor = marker.InstanceConstructors.SingleOrDefault(c => c.Parameters.IsEmpty &&
+                    c.DeclaredAccessibility == Accessibility.Public);
+                if (constructor is null) throw Unsupported("native parameter arrays require a public parameterless marker constructor");
+                method.Definition.GetParameterCustomAttributes(position).Add(new CustomAttributeDefinition(Import(constructor), []));
+            }
+            method.SetParameterArray(position);
+        }
 
         bool IsFlagsAttribute(AttributeData attribute) => attribute is
         { AttributeClass: { } owner, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } &&

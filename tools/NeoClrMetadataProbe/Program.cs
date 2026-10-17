@@ -56,6 +56,11 @@ if (args.Length == 3 && args[0] == "--native-doc-fixture")
     NativeDocFixture.Write(args[1], args[2]); return;
 }
 
+if (args is ["--native-parameter-arrays", var nativeParamsCore, var nativeParamsOutput])
+{
+    NativeParameterArrayChecks.Run(nativeParamsCore, nativeParamsOutput); return;
+}
+
 if (args.Length == 4 && args[0] == "--native-core-project")
 {
     NativeCoreProjectChecks.Run(args[1], args[2], args[3]); return;

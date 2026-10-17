@@ -13906,3 +13906,19 @@ now derives metadata/emission core identity from that artifact when
 target core identity still rejects. The retained CLI path keeps its preset identity
 validation. Native project tests cover inferred identity through diagnostics and
 emission as well as the existing explicit mismatch checks.
+
+### Native parameter-array marker selection (2026-10-17)
+
+For a selected native `System.ParamArrayAttribute`, the emitter authors parameter
+metadata using its public parameterless constructor and exact native owner through
+the symbol-only import contract. No CLI projection or metadata definition graph is
+required. Source-owned markers are synthesized by the native metadata SDK; legacy
+CLI bootstrap markers retain the existing binding path. Array storage and call-site
+expansion semantics are unchanged, following the .NET parameter-array model.
+No new Runtime Contract option is added. A missing constructor is a diagnostic.
+
+`NeoClrMetadataProbe --native-parameter-arrays <native-core> <output>` qualifies
+native-only provider and consumer emission, expanded calls, imported parameter-array
+metadata and System completion including the native marker without Action leakage.
+The core fixture is reduced: this is not full production bootstrap-removal evidence.
+Metadata SDK neoCLR `609fff182` or later is required. Structural expansion stays parked.

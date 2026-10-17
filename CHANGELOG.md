@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Emit parameter-array markers using the selected native constructor and exact assembly owner, without a CLI bootstrap or SDK definition import. Validate native-only provider/consumer compilation, expanded argument binding, metadata import and System completion. Ordinary .NET emission and legacy bootstrap selection are unchanged; production core migration remains in progress.
+
 - **2026-10-17:** Preserve explicit typeof runtime contracts for native-only neoCLR projects instead of silently clearing them. Validate explicit disabling, missing-contract diagnostics, native-only compilation/emission and namespace completion without CLI delegates. Infer native metadata/emission core identity from the explicitly selected artifact when no metadata-name override is supplied; continue rejecting explicit mismatches. Production core bootstrap removal remains incomplete; ordinary .NET behavior is unchanged.
 
 - **2026-10-17:** Carry the validated main documentation-highlighting fix for `checked` and `unchecked`; restore the VS Code package synchronization check.
