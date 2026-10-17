@@ -14104,3 +14104,19 @@ core construction stay open; broader structural work remains parked.
 
 Evidence lives in neoCLR `docs/validation/native-core-removal/network-direct-results.json`,
 `network-cancellation-results.json` and `network-direct-completion.json`.
+
+### Native introspection forwarding removal (2026-10-17)
+
+neoCLR removes 49 RuntimeServices introspection wrappers. Library callers bind to
+48 existing native InternalCalls and the source-owned RuntimeTypeInfo.FromHandle
+factory directly; public contracts, Result error mapping and providers are unchanged.
+Compiler 589c353e7 builds all five libraries in native-introspection-direct-library
+using the prepared payload bootstrap. Field, constructor/initializer and function
+reflection consumers return 42 in the interpreter, and typeof(int) editor completion
+exposes GetFields/TypeInitializer. API source fingerprints pass. No Runtime Contract
+switch, emitter/import change or ordinary .NET change is required. Existing native
+backend qualification is reused; this slice does not rerun JIT/AOT. Remaining type-
+handle primitives and other core services still require native ownership migration.
+Structural work remains parked and the installed SDK is unchanged. Evidence is in
+neoCLR docs/validation/native-core-removal/introspection-*-results.json and
+introspection-direct-completion.json.
