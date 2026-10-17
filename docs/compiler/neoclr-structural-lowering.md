@@ -418,5 +418,6 @@ rule changes. Ordinary .NET nominal-union coverage is unchanged. Validation on
 2026-10-17: 21 focused structural-symbol and nominal-pattern checks pass; the native
 packaged HTTP JSON server compiles. The HTTP client also compiles with the repaired NeoCLR metadata library, which
 recursively admits unions in authored method signatures. Interpreter client/server
-execution passes; JIT still rejects missing generic-union type metadata. Full editor
+execution passes. The corrected backend also preserves generic-union type metadata;
+the unchanged client/server workflow passes JIT and AOT. Full editor
 and release-package qualification remain separate from these semantic API checks.

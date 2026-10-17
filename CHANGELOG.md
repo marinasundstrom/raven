@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Qualify native HTTP client/server execution in JIT and AOT after the NeoCLR backend union generic-argument retention repair. Native signatures, compiler lowering and Runtime Contract selection are unchanged. Record the corrected backend requirement; archived/installed SDK and Windows/editor qualification remain separate.
+
 - **2026-10-17:** Document the NeoCLR metadata-library repair for authored imported union signatures. The unchanged HTTP client compiles and interpreter client/server execution passes with the updated library; JIT exposes a separate generic-union metadata-retention gap. Raven lowering and ordinary .NET behavior are unchanged; packaged SDK/editor qualification remains pending.
 
 - **2026-10-17:** Include native structural-union alternatives in match exhaustiveness analysis. Complete type-pattern matches, including generic nominal-union payloads, no longer require an artificial catch-all; missing alternatives and non-total guards remain diagnosed. Public semantic-model queries agree with diagnostics. Twenty-one focused native/.NET checks pass; the packaged native HTTP server compiles. The HTTP client reaches a separate native authored-signature encoding failure. Runtime Contract settings and emitted signatures are unchanged.

@@ -14314,6 +14314,7 @@ signatures, fixing imports such as `GetFromJson<T>` returning
 no compiler lowering, Runtime Contract switch, CLI transport or ABI changes are
 needed. Ownership, constituent support and generic-scope checks remain enforced.
 The unchanged HTTP client compiles and interpreter client/server execution passes.
-JIT serves the HTTP requests but the client exposes missing generic-union metadata
-retention in codegen. The isolated updated compiler/library is not a replacement
+The subsequent backend retention fix preserves union generic arguments through
+source/native token mapping, display names and shape queries. Unchanged HTTP
+server requests and the client/server pair pass in JIT and AOT. The isolated updated compiler/library is not a replacement
 SDK; full packaged editor, AOT and Windows qualification remain pending.
