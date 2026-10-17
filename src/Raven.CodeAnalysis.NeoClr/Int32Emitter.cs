@@ -1434,7 +1434,8 @@ internal static class Int32Emitter
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract,
                     interfaceBounds: symbol.TypeParameters.SelectMany(p => p.ConstraintTypes.Select(bound =>
-                        new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray());
+                        new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray(),
+                    isInternalCall: symbol.OriginalDefinition is NativeMethodSymbol { IsRuntimeInternalCall: true });
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&

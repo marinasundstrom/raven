@@ -13922,3 +13922,22 @@ native-only provider and consumer emission, expanded calls, imported parameter-a
 metadata and System completion including the native marker without Action leakage.
 The core fixture is reduced: this is not full production bootstrap-removal evidence.
 Metadata SDK neoCLR `609fff182` or later is required. Structural expansion stays parked.
+
+### Generic native runtime-service contracts (2026-10-17)
+
+Native assembly-function symbols retain InternalCall independently of P/Invoke.
+Symbol-only emission forwards that flag to `CreateFunctionReference`, preserving the
+exact service name and generic arguments. The existing internal `neoCLR.Runtime`
+extern declaration contract now admits generic signatures. MethodImplAttribute must
+still belong to the selected core and carry exactly InternalCall; public declarations,
+bodies and unsupported attributes remain rejected. No new Runtime Contract switch
+or ordinary .NET semantic change is introduced. Runtime binding separately rejects
+unknown services and mismatched signatures/type arguments.
+
+Metadata SDK neoCLR `bdbe3298d` supports this boundary. The native core fixture now
+supplies MethodImplAttribute for `NeoClrMetadataProbe --native-runtime-services`.
+That probe covers declaration/import, invalid flags/visibility and namespace
+completion. The emitted generic consumer passes runtime linking verification against
+its explicit native provider; SDK consumers using production TaskQueue return 42
+through both definition and symbol-authored imports. Production facade/core ownership
+and SDK distribution remain separate migration work. Structural work stays parked.

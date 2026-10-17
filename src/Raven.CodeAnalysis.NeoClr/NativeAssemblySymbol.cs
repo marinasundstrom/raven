@@ -313,8 +313,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsDefinition => true;
     public bool IsExtensionMethod => IsStatic && (MethodKind == MethodKind.Ordinary || property is { IsExtensionProperty: true }) &&
         ContainingType is NativeNamedTypeSymbol { IsExtensionContainer: true } && !Parameters.IsEmpty;
-    public bool IsExtern => view.NativeImport is not null ||
-        (view.GetMethodImplementationFlags() & System.Reflection.MethodImplAttributes.InternalCall) != 0;
+    internal bool IsRuntimeInternalCall => (view.GetMethodImplementationFlags() & System.Reflection.MethodImplAttributes.InternalCall) != 0;
+    public bool IsExtern => view.NativeImport is not null || IsRuntimeInternalCall;
     public bool IsUnsafe => false;
     public bool IsGenericMethod => !TypeParameters.IsEmpty;
     public bool IsOverride => view.IsVirtual && !view.IsNewSlot;

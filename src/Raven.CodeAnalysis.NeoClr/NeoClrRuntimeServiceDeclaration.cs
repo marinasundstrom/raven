@@ -14,7 +14,7 @@ internal static class NeoClrRuntimeServiceDeclaration
         FunctionStatementSyntax syntax, out SourceCallablePlan? plan)
     {
         plan = null;
-        if (!symbol.IsExtern || !symbol.IsStatic || symbol.Arity != 0 ||
+        if (!symbol.IsExtern || !symbol.IsStatic ||
             symbol.DeclaredAccessibility != Accessibility.Internal ||
             syntax.Body is not null || syntax.ExpressionBody is not null ||
             syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.InternalKeyword or SyntaxKind.ExternKeyword or SyntaxKind.UnsafeKeyword)))

@@ -56,6 +56,11 @@ if (args.Length == 3 && args[0] == "--native-doc-fixture")
     NativeDocFixture.Write(args[1], args[2]); return;
 }
 
+if (args is ["--native-runtime-services", var serviceCore, var serviceOutput])
+{
+    NativeRuntimeServiceChecks.Run(serviceCore, serviceOutput); return;
+}
+
 if (args is ["--native-parameter-arrays", var nativeParamsCore, var nativeParamsOutput])
 {
     NativeParameterArrayChecks.Run(nativeParamsCore, nativeParamsOutput); return;
