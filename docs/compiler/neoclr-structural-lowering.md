@@ -416,6 +416,7 @@ This uses the existing alternative-coverage rules without reconstructing a nomin
 carrier. No Runtime Contract setting, syntax, metadata signature or native emission
 rule changes. Ordinary .NET nominal-union coverage is unchanged. Validation on
 2026-10-17: 21 focused structural-symbol and nominal-pattern checks pass; the native
-packaged HTTP JSON server compiles. The HTTP client passes this analysis but still
-fails authored-method signature encoding, a separate release blocker. Full editor
+packaged HTTP JSON server compiles. The HTTP client also compiles with the repaired NeoCLR metadata library, which
+recursively admits unions in authored method signatures. Interpreter client/server
+execution passes; JIT still rejects missing generic-union type metadata. Full editor
 and release-package qualification remain separate from these semantic API checks.

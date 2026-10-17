@@ -14305,3 +14305,15 @@ Runtime Contract selection and emission remain unchanged. Complete and guarded
 matches and generic case payloads have focused diagnostic/semantic API coverage;
 ordinary .NET checks pass. See [structural lowering](neoclr-structural-lowering.md#exhaustive-alternative-matches)
 for validation and the separate HTTP client metadata-encoding limitation.
+
+### Authored imported union signatures (2026-10-17)
+
+The NeoCLR metadata library admits native unions recursively in authored method
+signatures, fixing imports such as `GetFromJson<T>` returning
+`Task<Result<T, HttpError | JsonError>>`. Raven already supplies the native signature;
+no compiler lowering, Runtime Contract switch, CLI transport or ABI changes are
+needed. Ownership, constituent support and generic-scope checks remain enforced.
+The unchanged HTTP client compiles and interpreter client/server execution passes.
+JIT serves the HTTP requests but the client exposes missing generic-union metadata
+retention in codegen. The isolated updated compiler/library is not a replacement
+SDK; full packaged editor, AOT and Windows qualification remain pending.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Document the NeoCLR metadata-library repair for authored imported union signatures. The unchanged HTTP client compiles and interpreter client/server execution passes with the updated library; JIT exposes a separate generic-union metadata-retention gap. Raven lowering and ordinary .NET behavior are unchanged; packaged SDK/editor qualification remains pending.
+
 - **2026-10-17:** Include native structural-union alternatives in match exhaustiveness analysis. Complete type-pattern matches, including generic nominal-union payloads, no longer require an artificial catch-all; missing alternatives and non-total guards remain diagnosed. Public semantic-model queries agree with diagnostics. Twenty-one focused native/.NET checks pass; the packaged native HTTP server compiles. The HTTP client reaches a separate native authored-signature encoding failure. Runtime Contract settings and emitted signatures are unchanged.
 
 - **2026-10-17:** Native project execution passes the selected core exactly once and emits Console calls through native metadata rather than the legacy CLI shortcut. Validate duplicate-core execution paths, nine rejected configurations, and an installed SDK sample that parses/awaits/prints 42 through `neoclr --project --run`; ordinary .NET behavior is unchanged.
