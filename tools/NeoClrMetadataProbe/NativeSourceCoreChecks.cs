@@ -43,7 +43,11 @@ internal static class NativeSourceCoreChecks
                     let items = neoCLR.Runtime.ReserveArray<int>(2)
                     items[0] = 40
                     items[1] = 2
-                    return Read(items) + items[0]
+                    var sum = 0
+                    for item in items {
+                        sum += item
+                    }
+                    return sum + Read(items) - 2
                 }
                 static func ReadUninitialized() -> int => neoCLR.Runtime.ReserveArray<int>(1)[0]
                 static func NegativeLength() -> int => neoCLR.Runtime.ReserveArray<int>(-1).Length

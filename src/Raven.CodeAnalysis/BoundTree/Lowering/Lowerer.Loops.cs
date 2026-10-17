@@ -81,7 +81,7 @@ internal sealed partial class Lowerer
                 throw new InvalidOperationException("Missing built-in vector-loop operator");
             return new BoundBinaryExpression(left, op, right);
         }
-        var length = compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Length").OfType<IPropertySymbol>().Single();
+        var length = arrayType.GetMembers("Length").OfType<IPropertySymbol>().Single();
         return new BoundBlockStatement([
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(array, collection)]),
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(index, Number(0))]),
