@@ -285,7 +285,7 @@ internal sealed class WorkspaceManager
             return false;
 
         var normalizedPath = NormalizePath(path);
-        if (!IsRelevantWatchedFileChangePath(normalizedPath) &&
+        if (!IsRelevantWatchedFileChangePath(GetWorkspaceRelativeWatchPath(normalizedPath)) &&
             !IsObservedMacroFilePath(normalizedPath))
             return false;
 
@@ -299,9 +299,22 @@ internal sealed class WorkspaceManager
         return true;
     }
 
+    private string GetWorkspaceRelativeWatchPath(string path)
+    {
+        foreach (var root in _workspaceRoots.OrderByDescending(static root => root.Length))
+        {
+            var relativePath = Path.GetRelativePath(root, path);
+            if (!Path.IsPathRooted(relativePath) && relativePath != ".." &&
+                !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                return relativePath;
+        }
+
+        return path;
+    }
+
     private bool IsObservedMacroFilePath(string path)
     {
-        if (IsWatchedFilePathExcluded(path))
+        if (IsWatchedFilePathExcluded(GetWorkspaceRelativeWatchPath(path)))
             return false;
 
         foreach (var project in _workspace.CurrentSolution.Projects)
@@ -1168,7 +1181,7 @@ internal sealed class WorkspaceManager
 
     private static IEnumerable<string> EnumeratePathSegments(string path)
     {
-        var normalizedPath = NormalizePath(path);
+        var normalizedPath = Path.IsPathRooted(path) ? NormalizePath(path) : path;
         foreach (var segment in normalizedPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
         {
             if (!string.IsNullOrWhiteSpace(segment))

@@ -1512,11 +1512,15 @@ func Main() -> unit { }
                    StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public async Task ReloadForWatchedFiles_DirectoryBuildPropsChangeRefreshesEvaluatedProjectOptionsAsync()
+    [Theory]
+    [InlineData("workspace")]
+    [InlineData("target/workspace")]
+    [InlineData("artifacts/workspace")]
+    public async Task ReloadForWatchedFiles_DirectoryBuildPropsChangeRefreshesEvaluatedProjectOptionsAsync(string relativeRoot)
     {
-        Directory.CreateDirectory(_tempRoot);
-        _ = WriteProject(_tempRoot, "App", """
+        var root = Path.Combine(_tempRoot, relativeRoot);
+        Directory.CreateDirectory(root);
+        _ = WriteProject(root, "App", """
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -1526,8 +1530,8 @@ func Main() -> unit { }
   </ItemGroup>
 </Project>
 """);
-        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), "func Main() -> unit { }");
-        var propsPath = Path.Combine(_tempRoot, "Directory.Build.props");
+        WriteRavenFile(Path.Combine(root, "src", "main.rvn"), "func Main() -> unit { }");
+        var propsPath = Path.Combine(root, "Directory.Build.props");
         File.WriteAllText(propsPath, """
 <Project>
   <PropertyGroup>
@@ -1543,7 +1547,7 @@ func Main() -> unit { }
             WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
             {
                 Name = "temp",
-                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+                Uri = DocumentUri.FromFileSystemPath(root)
             })
         });
 
@@ -1557,6 +1561,16 @@ func Main() -> unit { }
   </PropertyGroup>
 </Project>
 """);
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(Path.Combine(root, "target", "generated.props")),
+                Type = FileChangeType.Changed
+            }
+        ]);
+        manager.GetProjectsSnapshot().Single().CompilationOptions!.OutputKind
+            .ShouldBe(OutputKind.DynamicallyLinkedLibrary);
 
         await manager.ReloadForWatchedFilesAsync([
             new FileEvent

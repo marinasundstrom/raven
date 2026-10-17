@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-17:** Apply watched-file output-directory exclusions relative to the opened workspace. Projects opened beneath target/artifacts now reload their own configuration changes while generated descendants remain excluded. No Runtime Contract or metadata change.
+
 - **2026-10-17:** Preserve open-document membership when a failed project reload restores the last successful workspace. Subsequent successful reloads retain unsaved source text and refresh diagnostics for those documents. Validate failure/recovery and repeated imported-property edits; no Runtime Contract or emitted metadata change.
 
 - **2026-10-17:** Match source metadata type names by exact generic arity, including nested types. A nongeneric lookup no longer selects a same-named generic declaration or falls back to one when the nongeneric type is absent. Qualified expression binding separately resolves a unique open generic definition so contextual union cases such as `Example.Maybe.None()` retain argument inference. Qualified type expressions used by case patterns share that lookup, preventing silently unresolved generic union case patterns.
