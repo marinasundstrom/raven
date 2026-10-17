@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1293,10 +1293,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        static bool IsUnsigned(SpecialType type) => type is SpecialType.System_UInt32 or SpecialType.System_UInt64;
+        static bool IsUnsigned(SpecialType type) => type is SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
         static bool IsNumeric(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
             SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
-            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double;
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Single or SpecialType.System_Double;
 
         void ConvertNumeric(SpecialType source, SpecialType target, SyntaxNode syntax, bool isChecked = false)
         {
@@ -1312,16 +1312,24 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (target == SpecialType.System_Single) Add(LinearInstructionKind.ConvertSingle, syntax);
                 return;
             }
+            // Native integer storage has a distinct signed/unsigned category. Widen
+            // the source first when its interpretation differs from the target opcode.
+            if (target == SpecialType.System_IntPtr && source == SpecialType.System_UInt32)
+                Add(LinearInstructionKind.ConvertUInt64, syntax);
+            else if (target == SpecialType.System_UIntPtr && source is SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_Int32)
+                Add(LinearInstructionKind.Convert64, syntax);
             Add(target switch
             {
+                SpecialType.System_IntPtr => LinearInstructionKind.ConvertNativeInt,
+                SpecialType.System_UIntPtr => LinearInstructionKind.ConvertNativeUInt,
                 SpecialType.System_SByte => LinearInstructionKind.ConvertSByte,
                 SpecialType.System_Byte => LinearInstructionKind.ConvertByte,
                 SpecialType.System_Int16 => LinearInstructionKind.ConvertInt16,
                 SpecialType.System_UInt16 => LinearInstructionKind.ConvertUInt16,
                 SpecialType.System_UInt32 => LinearInstructionKind.ConvertUInt32,
-                SpecialType.System_UInt64 when source is SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_Int32 => LinearInstructionKind.Convert64,
+                SpecialType.System_UInt64 when source is SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_Int32 or SpecialType.System_IntPtr => LinearInstructionKind.Convert64,
                 SpecialType.System_UInt64 => LinearInstructionKind.ConvertUInt64,
-                SpecialType.System_Int64 when source == SpecialType.System_UInt32 => LinearInstructionKind.ConvertUInt64,
+                SpecialType.System_Int64 when source is SpecialType.System_UInt32 or SpecialType.System_UIntPtr => LinearInstructionKind.ConvertUInt64,
                 SpecialType.System_Int64 => LinearInstructionKind.Convert64,
                 SpecialType.System_Single => LinearInstructionKind.ConvertSingle,
                 SpecialType.System_Double => LinearInstructionKind.ConvertDouble,

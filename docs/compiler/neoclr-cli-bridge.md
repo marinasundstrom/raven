@@ -13968,3 +13968,29 @@ editor completion exposes Reserve<T>. Existing bootstrap-only intrinsic recognit
 remains for the old production inputs. The eventual production native core must own
 these methods; the fixture's Object implementation is not a production substitute.
 Ordinary Raven/.NET behavior is unchanged, and structural work stays parked.
+
+### Native integer ownership and integral conversions (2026-10-17)
+
+neoCLR `95203deb4` assigns IntPtr/UIntPtr source declarations and native primitives
+to System.Runtime and removes their forwarding adapters. Native imported members
+now expose CompareTo. The general integral conversion fix is carried deliberately
+from Raven main `babd5fad0`; see [conversion rules](native-integer-conversions.md).
+The native emitter uses signed/unsigned native conversion instructions and preserves
+source signedness when widening. Checked failures remain ArithmeticOverflow faults.
+No new Runtime Contract switch is required. These conversions do not require CLI
+nominal IntPtr conversion operators, but the production project still has CLI core
+input; this does not establish bridge-free production construction.
+
+The matching runtime adds IntPtr/UIntPtr to its verified primitive instance receiver
+projection, retaining its ordinary public nonvirtual borrowed-receiver restrictions.
+Target-typed native literals and complete floating-point/decimal conversions remain
+open. Broader structural work remains parked.
+
+Validation uses neoCLR's `docs/validation/native-core-removal/NativeIntegerConsumer.rvn`
+against `target/native-integer-library`: compilation succeeds, interpreter/JIT and
+sanitized AOT return 42, and LSP completion on `((nint)42).` includes CompareTo.
+Raven main's focused conversion and checked-conversion suite passes 104 tests.
+Execution is qualified on macOS ARM64; no 32-bit execution claim is made.
+The separate NativeIntegerOverflow consumer reports ArithmeticOverflow in all three
+execution modes. Full commands and binary hashes are retained in neoCLR's
+`docs/validation/native-core-removal/native-integer-conversion-results.json`.

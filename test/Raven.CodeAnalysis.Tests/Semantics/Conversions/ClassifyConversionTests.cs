@@ -11,6 +11,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ClassifyConversionTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(SpecialType.System_Int32, SpecialType.System_IntPtr, true)]
+    [InlineData(SpecialType.System_UInt32, SpecialType.System_IntPtr, false)]
+    [InlineData(SpecialType.System_UInt32, SpecialType.System_UIntPtr, true)]
+    [InlineData(SpecialType.System_Int32, SpecialType.System_UIntPtr, false)]
+    [InlineData(SpecialType.System_IntPtr, SpecialType.System_Int64, true)]
+    [InlineData(SpecialType.System_UIntPtr, SpecialType.System_UInt64, true)]
+    [InlineData(SpecialType.System_UIntPtr, SpecialType.System_Int64, false)]
+    [InlineData(SpecialType.System_Int64, SpecialType.System_IntPtr, false)]
+    [InlineData(SpecialType.System_IntPtr, SpecialType.System_UIntPtr, false)]
+    public void NativeIntegralConversionsAreBuiltIn(SpecialType from, SpecialType to, bool implicitConversion)
+    {
+        var compilation = CreateCompilation();
+        var conversion = compilation.ClassifyConversion(compilation.GetSpecialType(from), compilation.GetSpecialType(to), includeUserDefined: false);
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsNumeric);
+        Assert.Equal(implicitConversion, conversion.IsImplicit);
+    }
+
     [Fact]
     public void FixedWidthNumericConversions_MatchCSharpRangeRules()
     {

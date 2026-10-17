@@ -834,6 +834,22 @@ internal abstract class Generator
             return;
         }
 
+        // Preserve signedness when widening native integers or changing native
+        // storage category; conv.i sign-extends a 32-bit signed stack value.
+        if (to.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64 &&
+            from.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
+        {
+            ILGenerator.Emit(from.SpecialType == SpecialType.System_UIntPtr ? OpCodes.Conv_U8 : OpCodes.Conv_I8);
+            return;
+        }
+        if (to.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
+        {
+            ILGenerator.Emit(from.SpecialType == SpecialType.System_UInt32 ? OpCodes.Conv_U :
+                to.SpecialType == SpecialType.System_UIntPtr && from.SpecialType is SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_Int32
+                    ? OpCodes.Conv_I : to.SpecialType == SpecialType.System_UIntPtr ? OpCodes.Conv_U : OpCodes.Conv_I);
+            return;
+        }
+
         // CLI integer stack values have no unsigned tag. Preserve high bits
         // before rounding to the requested floating storage width.
         if (from.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64

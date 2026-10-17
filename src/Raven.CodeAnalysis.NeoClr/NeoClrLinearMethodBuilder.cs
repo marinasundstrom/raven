@@ -76,6 +76,8 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.ConvertUInt16: method.Emit(OpCode.Conv_U2); break;
             case LinearInstructionKind.ConvertUInt32: method.Emit(OpCode.Conv_U4); break;
             case LinearInstructionKind.ConvertUInt64: method.Emit(OpCode.Conv_U8); break;
+            case LinearInstructionKind.ConvertNativeInt: method.Emit(OpCode.Conv_I); break;
+            case LinearInstructionKind.ConvertNativeUInt: method.Emit(OpCode.Conv_U); break;
             case LinearInstructionKind.UnsignedDivide: method.Emit(OpCode.Div_Un); break;
             case LinearInstructionKind.UnsignedRemainder: method.Emit(OpCode.Rem_Un); break;
             case LinearInstructionKind.UnsignedShiftRight: method.Emit(OpCode.Shr_Un); break;
@@ -130,7 +132,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
     private static OpCode CheckedConversionCode(SpecialType source, SpecialType target)
     {
         var unsigned = source is SpecialType.System_Byte or SpecialType.System_UInt16
-            or SpecialType.System_UInt32 or SpecialType.System_UInt64;
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
         return target switch
         {
             SpecialType.System_SByte => unsigned ? OpCode.Conv_Ovf_I1_Un : OpCode.Conv_Ovf_I1,
@@ -141,6 +143,8 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             SpecialType.System_UInt32 => unsigned ? OpCode.Conv_Ovf_U4_Un : OpCode.Conv_Ovf_U4,
             SpecialType.System_Int64 => unsigned ? OpCode.Conv_Ovf_I8_Un : OpCode.Conv_Ovf_I8,
             SpecialType.System_UInt64 => unsigned ? OpCode.Conv_Ovf_U8_Un : OpCode.Conv_Ovf_U8,
+            SpecialType.System_IntPtr => unsigned ? OpCode.Conv_Ovf_I_Un : OpCode.Conv_Ovf_I,
+            SpecialType.System_UIntPtr => unsigned ? OpCode.Conv_Ovf_U_Un : OpCode.Conv_Ovf_U,
             _ => throw new InvalidOperationException("unsupported checked numeric conversion")
         };
     }

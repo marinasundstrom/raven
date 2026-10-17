@@ -1777,8 +1777,18 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        // Fixed-width numeric conversions follow C# 10.2.3. Native-sized
-        // integers remain separate; floating/decimal conversions require casts.
+        // Native integer conversions use platform-independent ranges: native storage
+        // is at least 32 bits, but is not assumed to be 64 bits.
+        if (destType == SpecialType.System_IntPtr)
+            return sourceType is SpecialType.System_SByte or SpecialType.System_Byte
+                or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_Char;
+        if (destType == SpecialType.System_UIntPtr)
+            return sourceType is SpecialType.System_Byte or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_Char;
+        if (sourceType == SpecialType.System_IntPtr && destType == SpecialType.System_Int64 ||
+            sourceType == SpecialType.System_UIntPtr && destType == SpecialType.System_UInt64)
+            return true;
+
+        // Fixed-width numeric conversions follow C# 10.2.3.
         return sourceType switch
         {
             SpecialType.System_SByte => destType is
@@ -1863,8 +1873,15 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
+        // Native integer casts are built-in for integral operands; this also works
+        // with target libraries that do not declare nominal conversion operators.
+        if ((sourceType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr &&
+                (IsIntegralType(destination) || destType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)) ||
+            (destType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr && IsIntegralType(source)))
+            return true;
+
         // Every fixed-width integral pair has an explicit conversion when no
-        // implicit conversion was selected above. Native integers are separate.
+        // implicit conversion was selected above.
         if (IsIntegralType(source) && IsIntegralType(destination))
             return true;
 
