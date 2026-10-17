@@ -14025,3 +14025,23 @@ members. Evidence and commands are retained in neoCLR's
 `docs/validation/native-core-removal/console-storage-results.json`. JIT/AOT
 implementations are unchanged and their matrix is not repeated for these forwards.
 Ordinary Raven/.NET behavior is unchanged; structural work stays parked.
+
+### Native object/join forwards and payload helpers (2026-10-17)
+
+neoCLR `9f46a0bb8` removes four object-identity and string-join forwards; native
+namespace calls preserve public signatures and service bindings. Raven `d83ea51e7`
+builds a fresh five-library bundle, an interpreter consumer returns 42 for identity,
+null equality, stable hash and UTF-8/empty joins, and String.Join completion passes.
+
+neoCLR `4f142b9e5` qualifies SDK-authored native IsValue<T>/UnpackValue<T> bodies
+using ValueIs/ValueUnpack, with explicitly owned System.Value signatures. Ordinary
+Raven native import/emission compiles these without BootstrapReference or CLI input.
+Interpreter checks cover byte/int membership, byte extraction, EOF unit membership
+and incompatible extraction rejection; native-only LSP completion exposes both
+helpers. Source, commands and hashes are in neoCLR's
+`docs/validation/native-core-removal/`. No new Runtime Contract switch or compiler
+interception is needed; ordinary .NET behavior is unchanged.
+
+The native-core fixture remains test-only. Production owner migration, JIT/AOT
+payload qualification and remaining network/introspection forwards are still open.
+Structural work remains parked; the installed SDK is unchanged.

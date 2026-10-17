@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record neoCLR object/join forwarding removal (9f46a0bb8) and native-owned payload helper qualification (4f142b9e5). Production library compilation, interpreter consumers and editor completion pass; native IsValue/UnpackValue bodies need no bootstrap interception. Production core migration and JIT/AOT payload qualification remain open; no .NET behavior change.
+
 - **2026-10-17:** Record neoCLR a8e588b65 removal of 12 console/storage forwards with native service calls. Fresh five-library compilation, interpreter console/filesystem consumer and Console/FileText editor completion pass with Raven d83ea51e7. No compiler switch or .NET behavior changes; payload helpers and production native-core construction remain open.
 
 - **2026-10-17:** Record neoCLR 88a718f94 removal of 13 time-zone/heap service forwards using native declarations. Qualify the fresh five-library bundle with Raven d83ea51e7, interpreter execution and TimeZone/GC editor completion. No compiler switch, public signature or .NET behavior changes; production core migration remains open.
