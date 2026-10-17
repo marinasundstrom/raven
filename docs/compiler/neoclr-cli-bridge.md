@@ -13994,3 +13994,18 @@ Execution is qualified on macOS ARM64; no 32-bit execution claim is made.
 The separate NativeIntegerOverflow consumer reports ArithmeticOverflow in all three
 execution modes. Full commands and binary hashes are retained in neoCLR's
 `docs/validation/native-core-removal/native-integer-conversion-results.json`.
+
+### Direct time-zone and heap services (2026-10-17)
+
+neoCLR `88a718f94` removes 13 RuntimeServices extension forwards. TimeZone and GC
+public members now bind existing native namespace declarations directly. Raven
+`d83ea51e7` builds the matching five-library bundle; the interpreter consumer returns
+42 and LSP completion resolves TimeZone.Find/DatabaseVersion and GC.Collect/KeepAlive.
+The runtime repository retains source, execution commands and artifact hashes in
+`docs/validation/native-core-removal/`. Public signatures, runtime implementations
+and Runtime Contract settings are unchanged. The forwarding-only change does not
+repeat JIT/AOT qualification or introduce new backend support.
+
+The production core still uses CLI input. Remaining facade/payload services and
+native source-core construction remain open; installed SDKs are unchanged. Ordinary
+Raven/.NET behavior and the parked structural work are unaffected.
