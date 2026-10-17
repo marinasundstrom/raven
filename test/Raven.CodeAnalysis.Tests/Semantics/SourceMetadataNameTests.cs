@@ -26,4 +26,22 @@ public sealed class SourceMetadataNameTests : CompilationTestBase
         Assert.Null(compilation.GetTypeByMetadataName(name));
         Assert.NotNull(compilation.GetTypeByMetadataName(name + "`1"));
     }
+    [Fact]
+    public void QualifiedGenericUnionCaseStillInfersArguments()
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Example
+            union Maybe<T> {
+                case Some(value: T)
+                case None
+            }
+            class Consumer {
+                static func Empty() -> Maybe<int> => Example.Maybe.None()
+                static func Present() -> Maybe<int> => Example.Maybe.Some(42)
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Null(compilation.GetTypeByMetadataName("Example.Maybe"));
+        Assert.NotNull(compilation.GetTypeByMetadataName("Example.Maybe`1"));
+    }
 }

@@ -17,7 +17,18 @@ internal abstract partial class Binder
         var metadataName = (string.IsNullOrEmpty(namespaceName) ? "" : namespaceName + ".") + name;
         if (arity > 0)
             metadataName += "`" + arity;
-        return Compilation.GetTypeByMetadataName(metadataName);
+        var exact = Compilation.GetTypeByMetadataName(metadataName);
+        if (exact is not null || arity != 0)
+            return exact;
+
+        // Expression receivers may name an open generic definition before the
+        // enclosing invocation infers its arguments (for example Option.None()).
+        // Keep metadata lookup exact and avoid choosing between distinct arities.
+        var genericArities = owner.GetMembers(name).OfType<INamedTypeSymbol>()
+            .Select(type => type.Arity).Where(candidate => candidate > 0).Distinct().Take(2).ToArray();
+        return genericArities.Length == 1
+            ? Compilation.GetTypeByMetadataName(metadataName + "`" + genericArities[0])
+            : null;
     }
 
     // ---------------------------------
