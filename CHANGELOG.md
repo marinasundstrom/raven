@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record native local-time service ownership and fresh compilation/interpreter/completion validation. Production neoCLR source has no RuntimeServices calls; compiler source-core contracts remain open.
+
 - **2026-10-17:** Record native file/time/worker/task service migration and no-result ScheduleTask runtime qualification. Compiler 66c31932a builds the fresh bundle; async task/worker/file consumption and completion pass. Local-time conversion and native source-core contracts remain open; no ordinary .NET behavior changes.
 
 - **2026-10-17:** Record native text-array and source equality migration with compiler 304e8675a: fresh library compilation, Unicode/empty-array/null-equality execution and string completion pass. No compiler or .NET behavior change.

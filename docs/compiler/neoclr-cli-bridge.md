@@ -14170,3 +14170,11 @@ and stream completion. No compiler or .NET behavior change. The sample binds
 await results to locals because nested awaited conditionals hit the existing native
 value-block exit restriction. UnixTimeToLocal and native source-core contracts
 remain open. Evidence: neoCLR native-core-removal/core-services-results.json.
+
+### Native local-time ownership (2026-10-17)
+
+neoCLR removes the final production RuntimeServices call by declaring local-time
+conversion natively with Int32 array results. Compiler 85660156b qualifies fresh
+five-library compilation, UTC epoch/negative timestamp interpreter consumption
+and completion. No Runtime Contract or .NET change. Native source-core construction
+remains open. Evidence: neoCLR native-core-removal/local-time-results.json.
