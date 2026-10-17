@@ -67,6 +67,8 @@ internal abstract class SourceSymbol : Symbol
     public override ImmutableArray<AttributeData> GetAttributes()
     {
         RefreshSourceCoreAttributes();
+        if (_provisionalSourceCoreAttributes)
+            return ImmutableArray<AttributeData>.Empty;
         if (_lazyCustomAttributes.IsDefault)
             _lazyCustomAttributes = ComputeAttributes();
 
@@ -81,6 +83,8 @@ internal abstract class SourceSymbol : Symbol
     private ImmutableArray<BoundAttributeEntry> GetBoundAttributes()
     {
         RefreshSourceCoreAttributes();
+        if (_provisionalSourceCoreAttributes)
+            return ImmutableArray<BoundAttributeEntry>.Empty;
         if (_lazyBoundAttributes.IsDefault)
             _lazyBoundAttributes = BindAttributes();
         return _lazyBoundAttributes;

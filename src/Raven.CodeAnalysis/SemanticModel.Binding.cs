@@ -261,10 +261,43 @@ public partial class SemanticModel
             }
         }
 
+        if (Compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+            DeclareNamespaceValueMembers(containerNode, parentNamespace);
+
+        static IEnumerable<AttributeListSyntax> GetNamespaceContainerAttributeLists(SyntaxNode declaration)
+            => declaration switch
+            {
+                FunctionStatementSyntax function => function.AttributeLists,
+                MemberDeclarationSyntax member => member.AttributeLists,
+                _ => []
+            };
+    }
+
+    private bool _sourceCoreNamespaceValuesDeclared;
+    internal void EnsureSourceCoreNamespaceValuesDeclared()
+    {
+        if (_sourceCoreNamespaceValuesDeclared || Compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+            return;
+        _sourceCoreNamespaceValuesDeclared = true;
+        var root = (CompilationUnitSyntax)SyntaxTree.GetRoot();
+        var fileNamespace = root.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
+        var owner = fileNamespace is null ? Compilation.GlobalNamespace
+            : Compilation.GetOrCreateNamespaceSymbol(fileNamespace.Name.ToString())!;
+        DeclareNamespaceValueMembers(root, owner);
+    }
+
+    private void DeclareNamespaceValueMembers(SyntaxNode containerNode, INamespaceSymbol parentNamespace)
+    {
         foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
+                case BaseNamespaceDeclarationSyntax nsDecl when Compilation.Options.MetadataImportOptions?.UseSourceCore == true:
+                    var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
+                        ? nsDecl.Name.ToString()
+                        : parentNamespace.QualifyName(nsDecl.Name.ToString());
+                    DeclareNamespaceValueMembers(nsDecl, Compilation.GetOrCreateNamespaceSymbol(namespaceName)!);
+                    break;
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
                          !Compilation.IsFileScopeLocalFunction(globalStatement) &&
@@ -288,14 +321,6 @@ public partial class SemanticModel
                     }
             }
         }
-
-        static IEnumerable<AttributeListSyntax> GetNamespaceContainerAttributeLists(SyntaxNode declaration)
-            => declaration switch
-            {
-                FunctionStatementSyntax function => function.AttributeLists,
-                MemberDeclarationSyntax member => member.AttributeLists,
-                _ => []
-            };
     }
 
     private void DeclareMacroSymbol(

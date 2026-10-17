@@ -14217,3 +14217,13 @@ does not introduce .NET-style zero initialization. The source-core probe emits
 success, uninitialized-read and negative-length consumers; interpreter, JIT and
 AOT validation covers all three. This is compiler infrastructure, not a new
 public class-library allocation API.
+
+### Source-core declaration ordering
+
+Source-core construction declares type shells across the compilation before
+namespace function signatures. This prevents unresolved primitive placeholders
+from making valid overloads look identical. Attribute queries defer source-core
+data until declarations complete, and attribute binding does not cache provisional
+results. These rules are gated by the explicit source-core contract; ordinary
+.NET declaration behavior is unchanged. The source-core probe checks alternate
+file orders, native-call marker arguments, compilation and consumer completion.

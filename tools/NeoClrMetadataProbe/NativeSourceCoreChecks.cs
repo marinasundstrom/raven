@@ -85,7 +85,25 @@ internal static class NativeSourceCoreChecks
             internal extern func GCCollectionCount() -> long;
             internal extern func ReserveArray<T>(count: int) -> T[];
             """);
-        var compilation = Compilation.Create(name, [native, tree, markers], [], options);
+        var overloads = SyntaxTree.ParseText("""
+            namespace Example
+            public func Choose(value: int) -> int => value
+            public func Choose(value: long) -> long => value
+            """);
+        foreach (var trees in new[] {
+            new[] { overloads, native, markers, tree },
+            new[] { tree, markers, native, overloads },
+            new[] { native, overloads, tree, markers } })
+        {
+            var ordered = Compilation.Create(name, trees, [], options);
+            var orderingErrors = ordered.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (orderingErrors.Length != 0) throw new Exception(string.Join("\n", orderingErrors.Select(d => d.ToString())));
+            var service = ordered.GetSemanticModel(native).GetDeclaredSymbol(native.GetRoot()
+                .DescendantNodes().OfType<FunctionStatementSyntax>().First()) as IMethodSymbol;
+            if (service?.GetAttributes().SingleOrDefault()?.ConstructorArguments.SingleOrDefault().Value is not int flags || flags != 4096)
+                throw new Exception("Source native-call marker depended on declaration order.");
+        }
+        var compilation = Compilation.Create(name, [overloads, native, tree, markers], [], options);
         provider.GetConfiguration(projectPath).Validate(compilation);
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(d => d.ToString())));
