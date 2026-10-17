@@ -151,3 +151,8 @@ symbol-display coverage.
 including generic arity. `Box` selects only a nongeneric declaration; ``Box`1``
 selects `Box<T>`. Nested names use `+` and apply the same rule
 to each type segment. Missing nongeneric declarations do not fall back to generics.
+
+Expression binding is a separate operation: a qualified generic union receiver
+such as `Example.Maybe.None()` can name its open definition before the invocation
+infers type arguments. That does not make `GetTypeByMetadataName("Example.Maybe")`
+return the generic declaration.
