@@ -42,6 +42,8 @@ internal static class NativeCoreProjectChecks
         var config = provider.GetConfiguration(projectFile);
         if (!config.Catalog.UsesNativeMetadata || config.ObjectRootPath != core || !config.ReferencePaths.Contains(core))
             throw new Exception("Native execution core selection was lost.");
+        if (config.ReferencePaths.Count(path => string.Equals(path, core, StringComparison.OrdinalIgnoreCase)) != 1)
+            throw new Exception("Native execution catalog must contain exactly one core path.");
         var compilation = workspace.GetCompilation(id);
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(d => d.ToString())));

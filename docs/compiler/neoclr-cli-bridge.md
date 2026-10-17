@@ -14283,3 +14283,14 @@ assembly identities. The project fixture explicitly references its selected core
 compilation/emission/completion and nine malformed configuration checks pass.
 A fresh five-library native bundle and its async consumer compile; editor
 completion contains native Int32/Parse/TypeInfo without Action/Func transport types.
+
+### Installed native project execution (2026-10-17)
+
+Native project execution coalesces the selected core path as well as semantic
+references, so `--run` supplies exactly one `--module` for its Object owner. Native
+projects no longer authorize the CLI Console.WriteLine shortcut: calls import the
+actual System.Runtime method, whose body owns native I/O. The explicit legacy CLI
+path retains that shortcut. A packaged SDK sample parses and awaits 42, writes it
+to the console and exits successfully through `neoclr --project --run`. The native
+project regression also checks one execution core path and retains nine rejected
+configurations. No new project property or ordinary .NET behavior change.

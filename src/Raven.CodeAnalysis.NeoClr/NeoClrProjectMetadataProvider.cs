@@ -112,7 +112,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 throw new InvalidDataException("RavenNeoClrRuntimeAsyncHelper requires RavenNeoClrAsyncLibrary.");
             if (contracts is not null) options = contracts.Apply(options, assemblyName, catalog.CoreIdentity.Name);
             var seed = PathProperty("RavenNeoClrRuntimeSeed");
-            var executionPaths = new[] { nativeCore }.Concat(referencePaths).ToArray();
+            var executionPaths = new[] { nativeCore }.Concat(referencePaths).Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             if (seed is not null && (executionPaths.Contains(seed, StringComparer.OrdinalIgnoreCase) || !File.Exists(seed)))
                 throw new InvalidDataException("Native runtime seed must exist and differ from semantic references.");
             options = options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
@@ -207,7 +208,7 @@ public sealed class NeoClrProjectConfiguration
     /// <summary>Creates the native adapter from explicit artifacts, never from importer symbols.</summary>
     public NeoClrEmissionBackend CreateEmissionBackend(string assemblyName) => new(new(
         new(assemblyName, new Version(1, 0, 0, 0)), Catalog.CoreIdentity, Catalog.Dependencies,
-        Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
+        Catalog.UsesNativeMetadata ? null : Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
             .Where(p => p.Value == assemblyName && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
         implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == assemblyName,
         runtimeAsyncHelperTypeName: runtimeAsyncHelper));
