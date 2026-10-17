@@ -193,7 +193,7 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
 public sealed class NeoClrProjectConfiguration
 {
     internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath, string? runtimeAsyncHelper = null)
-    { this.runtimeAsyncHelper = runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
+    { this.runtimeAsyncHelper = string.IsNullOrWhiteSpace(runtimeAsyncHelper) ? null : runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
     private readonly BootstrapOwnershipManifest? ownership;
     private readonly bool bootstrapIntrinsics;
     private readonly string? runtimeAsyncHelper;

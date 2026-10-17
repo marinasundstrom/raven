@@ -14360,3 +14360,19 @@ work remains parked. Validation: 15 existing checks pass before the change,
 `docs/validation/range-iteration/Main.rvn` passes interpreter, JIT and AOT on
 macOS ARM64. The neoCLR qualification record tracks isolated benchmark evidence
 and the separate need to rebuild and qualify a complete SDK/library package.
+
+
+### Empty runtime-async helper settings in native projects
+
+Native project snapshots normalize an absent, empty or whitespace-only
+`RavenNeoClrRuntimeAsyncHelper` to no runtime helper, matching the legacy project
+configuration. Explicitly clearing the imported default therefore selects existing
+heap state-machine lowering rather than looking up a type with an empty name.
+A configured nonempty helper retains runtime-owned await/generator lowering.
+
+The project metadata provider owns this configuration normalization. It changes
+neither native metadata encoding nor runtime ABI and does not introduce a CLI
+bootstrap dependency. Ordinary Raven/.NET async behavior is unchanged. The neoCLR
+SDK validator exercises explicit empty/whitespace settings and a configured
+runtime generator across interpreter, JIT and AOT; rebuilt SDK/editor acceptance
+remains a separate release gate.
