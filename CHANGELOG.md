@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Preserve unresolved generic overload candidates in available invocation return-type queries. Cold local/type queries now defer to authoritative binding instead of choosing a unit-returning overload merely because its return type is already concrete. This keeps callback results such as `Task.Run(() => 41)` consistent across query order and editor inlays. Native carry of main `752d240b4`; regression fixtures construct non-null boxes for this branch’s nullable rules, and the native metadata probe checks `Task<int>` plus its awaited `int`. Validation: 66 focused compiler checks and the native metadata probe pass. No Runtime Contract or metadata change.
+
 - **2026-10-17:** Avoid redundant overflow guards in native portable signed int/long exclusive loops whose bound step is the literal one. The existing upper-bound comparison proves the increment representable; inclusive and other-step loops retain guards. Boundary, evaluation-order and loop-control consumers pass interpreter, JIT and AOT, with 23 focused compiler checks. No Runtime Contract, metadata or ordinary .NET behavior changes.
 
 - **2026-10-17:** Observe native metadata dependencies from the project-load snapshot instead of reevaluating projects while filtering every file notification. Preserve old and newly discovered inputs through failed reloads so reference/configuration repair can retry. Unrelated generated-file events no longer populate evaluation caches; target contracts and emitted metadata are unchanged.

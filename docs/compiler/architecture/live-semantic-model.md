@@ -357,3 +357,24 @@ identity mismatch without a native backend, then checks repeated binding, canoni
 member enumeration and ordinary .NET constructor/property execution. This is a
 shared compiler fix, suitable for the shared line independently of native object
 support; it must not be treated as permanently target-specific.
+
+
+### Unresolved overload return types
+
+An overload with an unresolved generic return type remains a candidate. Available
+return-type queries must not discard it and then report a concrete return type
+from a different overload. For example, the unit-returning callback overload of
+`Run` cannot determine the type of `Run(() => 41)` while the generic callback
+candidate still awaits inference. Both the best-candidate and common-return-type
+shortcuts decline that answer and allow authoritative binding to resolve it.
+
+Cold `GetDeclaredSymbol` and `GetTypeInfo` must agree with queries after diagnostics,
+including when an available-type query ran first. Language services present those
+compiler answers; no client-side task-name or callback-result substitution is
+needed. This changes no Runtime Contract option, metadata signature or ordinary
+.NET runtime convention.
+
+The native line carries main `752d240b4`. Its `NeoClrMetadataProbe
+--native-function-inference <project>` check loads the project’s native references
+and verifies a cold `Task.Run(() => 41)` local and its awaited value. The compiler
+answer must be `Task<int>` and `int`, independently of editor rendering.

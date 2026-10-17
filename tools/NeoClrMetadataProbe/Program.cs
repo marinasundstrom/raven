@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--native-function-inference", var inferenceProject]) { NativeFunctionInferenceChecks.Run(inferenceProject); return; }
+
 if (args is ["--function-constraint-import", var functionCore]) { FunctionConstraintImportChecks.Run(functionCore); return; }
 
 if (args is ["--interface-variance", var varianceCore, var varianceOutput]) { NativeVarianceChecks.Run(varianceCore, varianceOutput); return; }
