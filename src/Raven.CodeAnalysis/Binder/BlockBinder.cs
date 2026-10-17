@@ -7312,16 +7312,9 @@ partial class BlockBinder : Binder
 
             if (member is null && left is BoundNamespaceExpression namespaceExpression && typeArgs.IsEmpty)
             {
-                var metadataName = namespaceExpression.Namespace.QualifyName(name);
-                if (!string.IsNullOrEmpty(metadataName))
-                {
-                    if (requestedArity > 0)
-                        metadataName = string.Concat(metadataName, "`", requestedArity);
-
-                    var metadataType = Compilation.GetTypeByMetadataName(metadataName);
-                    if (metadataType is not null && metadataType.TypeKind != TypeKind.Error)
-                        return new BoundTypeExpression(metadataType);
-                }
+                var metadataType = LookupCanonicalNamespaceType(namespaceExpression.Namespace, name, requestedArity);
+                if (metadataType is not null && metadataType.TypeKind != TypeKind.Error)
+                    return new BoundTypeExpression(metadataType);
             }
 
             return ErrorExpression(reason: BoundExpressionReason.NotFound);

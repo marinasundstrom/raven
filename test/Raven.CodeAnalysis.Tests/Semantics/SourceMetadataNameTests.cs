@@ -38,10 +38,23 @@ public sealed class SourceMetadataNameTests : CompilationTestBase
             class Consumer {
                 static func Empty() -> Maybe<int> => Example.Maybe.None()
                 static func Present() -> Maybe<int> => Example.Maybe.Some(42)
+                static func IsEmpty(value: Maybe<int>) -> bool {
+                    if let Example.Maybe.None = value { return true }
+                    return false
+                }
             }
             """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Null(compilation.GetTypeByMetadataName("Example.Maybe"));
         Assert.NotNull(compilation.GetTypeByMetadataName("Example.Maybe`1"));
+        var tree = compilation.SyntaxTrees.Single();
+        var statement = tree.GetRoot().DescendantNodes().OfType<Raven.CodeAnalysis.Syntax.IfPatternStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundIfStatement>(compilation.GetSemanticModel(tree).GetBoundNode(statement));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundDeclarationPattern>(condition.Pattern);
+        Assert.NotEqual(TypeKind.Error, pattern.DeclaredType.TypeKind);
+        using var output = new System.IO.MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
     }
 }

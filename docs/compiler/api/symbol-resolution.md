@@ -156,3 +156,7 @@ Expression binding is a separate operation: a qualified generic union receiver
 such as `Example.Maybe.None()` can name its open definition before the invocation
 infers type arguments. That does not make `GetTypeByMetadataName("Example.Maybe")`
 return the generic declaration.
+
+Qualified case-pattern type expressions use the same open-definition lookup;
+`if let Example.Maybe.None = value` must bind a case type rather than silently
+retaining an error type. Metadata-name lookup remains exact.
