@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-17:** Treat native-integer/integral conversions as built-in numeric conversions, including platform-independent implicit widening. Preserve source signedness in CLI native-width conversion and widening; validate classification without user-defined operators and checked negative-to-nuint overflow. Target-typed native literals and floating-point/decimal native-integer conversion completeness remain outside this slice.
+
 - **2026-10-17:** Align documentation syntax highlighting with the editor grammar for `checked` and `unchecked`; restore the VS Code package synchronization check.
 
 - **2026-10-16:** Preserve qualified static field and property mutation without capturing a type name as a runtime receiver. Checked compound assignments retain normal storage and overflow semantics; no Runtime Contract change.

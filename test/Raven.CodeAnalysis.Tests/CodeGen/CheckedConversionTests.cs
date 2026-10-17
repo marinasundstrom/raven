@@ -10,6 +10,22 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class CheckedConversionTests
 {
+    [Fact]
+    public void NativeIntegerConversionsPreserveSignednessAndCheckedBounds()
+    {
+        using var loaded = Load("""
+            class Runner {
+                static func Signed(value: int) -> ulong => unchecked((ulong)(nint)value)
+                static func Unsigned(value: uint) -> long => (long)(nint)value
+                static func Checked(value: int) -> nuint => checked((nuint)value)
+            }
+            """);
+        var type = loaded.Assembly.GetType("Runner")!;
+        Assert.Equal(ulong.MaxValue, type.GetMethod("Signed")!.Invoke(null, [-1]));
+        Assert.Equal(IntPtr.Size == 8 ? 4294967295L : -1L, type.GetMethod("Unsigned")!.Invoke(null, [uint.MaxValue]));
+        Assert.IsType<OverflowException>(Assert.Throws<TargetInvocationException>(() => type.GetMethod("Checked")!.Invoke(null, [-1])).InnerException);
+    }
+
     [Theory]
     [InlineData("int", "byte", 256)]
     [InlineData("int", "sbyte", 128)]
