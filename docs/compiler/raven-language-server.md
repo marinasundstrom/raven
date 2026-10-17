@@ -31,6 +31,11 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 
 ## Project reload recovery
 
+Watched-file output-directory exclusions apply within each opened workspace,
+not to its parent directories. A workspace located beneath `target` or
+`artifacts` still observes its own source and configuration changes; generated
+subdirectories inside it remain excluded.
+
 When a configuration reload cannot reopen an existing project, the server retains
 the last successful workspace, including which documents are open. A later
 successful reload reapplies their unsaved editor text and requests fresh

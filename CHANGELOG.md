@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Apply watched-file output-directory exclusions relative to the opened workspace. Projects opened beneath target/artifacts now reload their own configuration changes while generated descendants remain excluded. No Runtime Contract or metadata change.
+
 - **2026-10-17:** Preserve open-document membership when a failed project reload restores the last successful workspace. Subsequent successful reloads retain unsaved source text and refresh diagnostics for those documents. Validate failure/recovery and repeated imported-property edits; no Runtime Contract or emitted metadata change.
 
 - **2026-10-17:** Qualify native HTTP client/server execution in JIT and AOT after the NeoCLR backend union generic-argument retention repair. Native signatures, compiler lowering and Runtime Contract selection are unchanged. Record the corrected backend requirement; archived/installed SDK and Windows/editor qualification remain separate.
