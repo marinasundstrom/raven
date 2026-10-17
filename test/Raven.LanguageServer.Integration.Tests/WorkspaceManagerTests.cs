@@ -1414,7 +1414,8 @@ func Main() -> unit { }
         });
 
         var uri = DocumentUri.FromFileSystemPath(sourcePath);
-        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+        const string unsavedSource = "func Main() -> int => 99";
+        _ = await manager.UpsertDocumentAsync(uri, unsavedSource);
 
         var firstRefresh = await manager.ReloadForWatchedFilesAsync([
             new FileEvent
@@ -1432,7 +1433,7 @@ func Main() -> unit { }
             .GetDiagnostics()
             .ShouldNotContain(diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error);
 
-        await manager.ReloadForWatchedFilesAsync([
+        var recoveredRefresh = await manager.ReloadForWatchedFilesAsync([
             new FileEvent
             {
                 Uri = DocumentUri.FromFileSystemPath(projectPath),
@@ -1441,8 +1442,10 @@ func Main() -> unit { }
         ]);
 
         projectSystem.OpenAttempts.ShouldBe(3);
+        recoveredRefresh.ShouldContain(uri);
         manager.TryGetDocument(uri, out var recoveredDocument).ShouldBeTrue();
         recoveredDocument!.Project.FilePath.ShouldBe(projectPath);
+        (await recoveredDocument.GetTextAsync()).ToString().ShouldBe(unsavedSource);
     }
 
     [Fact]

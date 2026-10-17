@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-17:** Preserve open-document membership when a failed project reload restores the last successful workspace. Subsequent successful reloads retain unsaved source text and refresh diagnostics for those documents. Validate failure/recovery and repeated imported-property edits; no Runtime Contract or emitted metadata change.
+
 - **2026-10-17:** Match source metadata type names by exact generic arity, including nested types. A nongeneric lookup no longer selects a same-named generic declaration or falls back to one when the nongeneric type is absent. Qualified expression binding separately resolves a unique open generic definition so contextual union cases such as `Example.Maybe.None()` retain argument inference. Qualified type expressions used by case patterns share that lookup, preventing silently unresolved generic union case patterns.
 
 - **2026-10-17:** Treat native-integer/integral conversions as built-in numeric conversions, including platform-independent implicit widening. Preserve source signedness in CLI native-width conversion and widening; validate classification without user-defined operators and checked negative-to-nuint overflow. Target-typed native literals and floating-point/decimal native-integer conversion completeness remain outside this slice.

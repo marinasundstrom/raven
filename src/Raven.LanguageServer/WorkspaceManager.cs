@@ -227,6 +227,7 @@ internal sealed class WorkspaceManager
             _editorConfigDiagnosticOptionsByProject.ToImmutableDictionary(),
             _editorConfigGeneratedCodeOptionsByProject.ToImmutableDictionary(),
             _documents.ToImmutableDictionary(),
+            _openDocumentUris.Keys.ToImmutableHashSet(),
             _fallbackProjectId);
 
     private bool ReloadDroppedExistingProject(Solution previousSolution)
@@ -269,6 +270,10 @@ internal sealed class WorkspaceManager
         _documents.Clear();
         foreach (var pair in snapshot.Documents)
             _documents.TryAdd(pair.Key, pair.Value);
+
+        _openDocumentUris.Clear();
+        foreach (var uri in snapshot.OpenDocumentUris)
+            _openDocumentUris.TryAdd(uri, 0);
 
         _fallbackProjectId = snapshot.FallbackProjectId;
     }
@@ -2904,6 +2909,7 @@ internal sealed class WorkspaceManager
         ImmutableDictionary<ProjectId, ImmutableDictionary<string, ReportDiagnostic>> EditorConfigDiagnosticOptionsByProject,
         ImmutableDictionary<ProjectId, ImmutableDictionary<string, bool>> EditorConfigGeneratedCodeOptionsByProject,
         ImmutableDictionary<DocumentUri, OwnedDocument> Documents,
+        ImmutableHashSet<DocumentUri> OpenDocumentUris,
         ProjectId? FallbackProjectId);
     private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
 }

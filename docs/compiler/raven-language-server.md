@@ -29,6 +29,15 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 - `CompletionHandler`: Uses the compiler `CompletionService` to answer LSP completion requests.
 - `PositionHelper`: Converts between LSP positions/ranges and Raven text spans.
 
+## Project reload recovery
+
+When a configuration reload cannot reopen an existing project, the server retains
+the last successful workspace, including which documents are open. A later
+successful reload reapplies their unsaved editor text and requests fresh
+diagnostics. Source text on disk does not replace an open buffer during recovery.
+This behavior is shared by target providers and does not change Runtime Contract
+settings or emitted metadata.
+
 ## Project and file-application contexts
 
 The language server uses evaluated `.rvnproj` membership when an opened source
