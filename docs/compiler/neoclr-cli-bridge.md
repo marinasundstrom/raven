@@ -14045,3 +14045,21 @@ interception is needed; ordinary .NET behavior is unchanged.
 The native-core fixture remains test-only. Production owner migration, JIT/AOT
 payload qualification and remaining network/introspection forwards are still open.
 Structural work remains parked; the installed SDK is unchanged.
+
+### Payload JIT/AOT qualification and production ownership (2026-10-17)
+
+neoCLR `7185d1340` qualifies the native-owned generic payload helpers with the
+existing compiler: byte/Int32 membership, byte extraction, unit EOF and incompatible
+extraction checks pass interpreter, managed JIT and sanitized AOT. Native-only rvnc
+project compilation and fresh LSP completion pass. The runtime repository includes
+a reusable runner and command/hash evidence under `docs/validation/native-core-removal/`.
+This is macOS ARM64 scalar/unit qualification, not arbitrary payload-shape coverage.
+
+Production construction is still separate: native System.Runtime owns System.Value,
+but CLI RuntimeServices supplies helper declarations and the retained seed supplies
+managed bodies. The production build must provide native definitions/bodies before
+removing those inputs. Existing native InternalCall declarations are not substitutes
+for these managed opcode bodies. SDK authoring and ordinary native symbol import
+already work; no new Runtime Contract switch or .NET behavior change is introduced.
+The fixture Object remains test-only, installed SDKs are unchanged, and structural
+work stays parked.
