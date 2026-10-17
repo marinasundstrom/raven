@@ -13950,3 +13950,21 @@ exact nominal TaskQueue validation. The fresh four-library consumer qualifies de
 queue identity and async completion in interpreter/JIT/sanitized AOT, with
 TaskQueue.Default language-server completion. No compiler switch or .NET behavior
 changes. Remaining facade/core contracts and the installed SDK remain unmigrated.
+
+### Native wrapper removal and intrinsic ownership (2026-10-17)
+
+The matching neoCLR System.Runtime sources now call native math/environment functions
+directly, removing 18 RuntimeServices extension forwards without changing their public
+contracts. Raven `290de084b` compiles the fresh four-library bundle and its consumer;
+interpreter execution returns 42 and LSP completion resolves Math functions. Native
+integer adapters remain pending separate IntPtr/UIntPtr conversion/member binding.
+
+The reduced native-core probe also owns CheckedStorage.Reserve<T> and TypeHandle<T>
+as real native methods using SDK ReserveArray and LoadTypeToken bodies. Ordinary native
+symbol import/call emission suffices: no BootstrapReference, CLI reference, compiler
+interception or new Runtime Contract switch is required. Generic value/reference calls
+return 42 in interpreter/JIT/sanitized AOT; negative reservation faults, and native-only
+editor completion exposes Reserve<T>. Existing bootstrap-only intrinsic recognition
+remains for the old production inputs. The eventual production native core must own
+these methods; the fixture's Object implementation is not a production substitute.
+Ordinary Raven/.NET behavior is unchanged, and structural work stays parked.

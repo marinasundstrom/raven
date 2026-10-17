@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record matching neoCLR native math/environment wrapper removal and qualify native metadata-owned checked reservation/type-handle methods through ordinary native symbols. Native-only intrinsic calls compile and execute in interpreter/JIT/AOT without BootstrapReference, with negative reservation rejection and editor completion. No compiler default or .NET behavior change; production native-core ownership and native-integer binding remain open.
+
 - **2026-10-17:** Preserve InternalCall identity when importing native assembly functions through compiler symbols, including generic signatures. Admit generic native runtime-service declarations under the existing exact MethodImpl owner, flag, namespace and visibility checks; runtime service signature validation remains authoritative. Validate native-only declarations, separate-provider calls, rejected flags/visibility, completion and runtime linking. Requires matching metadata SDK support; ordinary .NET behavior is unchanged. Qualify the production native queue-service migration with matching runtime no-result registration support: interpreter/JIT/sanitized AOT return 42 and editor completion resolves TaskQueue.Default. Remaining bootstrap services and core ownership stay open.
 
 - **2026-10-17:** Emit parameter-array markers using the selected native constructor and exact assembly owner, without a CLI bootstrap or SDK definition import. Validate native-only provider/consumer compilation, expanded argument binding, metadata import and System completion. Ordinary .NET emission and legacy bootstrap selection are unchanged; production core migration remains in progress.
