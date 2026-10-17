@@ -14159,3 +14159,14 @@ supply the same public behavior. Compiler 304e8675a qualifies fresh five-library
 compilation, Unicode/empty-array/null-equality interpreter consumption and string
 completion. No Runtime Contract or .NET change; remaining services/compiler
 bootstrap work stays open. Evidence: neoCLR native-core-removal/text-array-results.json.
+
+### Native file/time/worker/task services (2026-10-17)
+
+neoCLR removes fourteen direct service facades from prepared CLI/seed inputs.
+ScheduleTask now accepts Raven's no-result declaration without leaving an extra
+unit on the interpreter stack; native binding generation matches. Compiler
+66c31932a builds five libraries and qualifies async task/worker/file consumption
+and stream completion. No compiler or .NET behavior change. The sample binds
+await results to locals because nested awaited conditionals hit the existing native
+value-block exit restriction. UnixTimeToLocal and native source-core contracts
+remain open. Evidence: neoCLR native-core-removal/core-services-results.json.
