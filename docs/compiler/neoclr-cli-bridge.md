@@ -14088,3 +14088,19 @@ its four dependent libraries compile; the public consumer returns 42 in interpre
 managed JIT and sanitized AOT for byte/unit, integer parsing and string payloads.
 Production Console completion passes. Other core/bootstrap
 services remain; source-owned payloads do not establish a fully native production core.
+
+### Native networking forwarding removal (2026-10-17)
+
+neoCLR System.Networking now binds its 21 DNS/socket service calls directly to
+native InternalCall declarations, removing the bootstrap RuntimeServices extension.
+Compiler eeb6ef0d1 builds the fresh five-library `native-network-direct-library`
+bundle against the prepared payload bootstrap. Interpreter loopback/deadline and
+DNS/socket cancellation consumers pass; Socket.Listen/Connect completion resolves
+the native public members. API source fingerprints are current. No compiler or
+Runtime Contract switch changes, public signature changes or ordinary .NET changes
+are required. Native provider bindings are unchanged, and this slice makes no new
+network JIT/AOT qualification claim. Remaining introspection wrappers and native
+core construction stay open; broader structural work remains parked.
+
+Evidence lives in neoCLR `docs/validation/native-core-removal/network-direct-results.json`,
+`network-cancellation-results.json` and `network-direct-completion.json`.

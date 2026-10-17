@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Record neoCLR native networking forwarding removal qualified with compiler eeb6ef0d1: fresh five-library compilation, interpreter loopback/deadline and cancellation execution, and Socket editor completion pass. Compiler and .NET behavior are unchanged; remaining native-core bootstrap migration stays open.
+
 - **2026-10-17:** Emit exact source-owned native payload helper declarations as managed ValueIs/ValueUnpack bodies only for the explicit System.Value implementation owner. Reject unowned, malformed and constrained declarations; ordinary extern admission and .NET emission are unchanged. Qualify native source admission, five-library production compilation, interpreter/JIT/sanitized AOT payload consumption and editor completion with neoCLR 2f34d9763.
 
 - **2026-10-17:** Record neoCLR 7185d1340 scalar/unit payload helper qualification in interpreter/JIT/sanitized AOT, native-only project compilation and editor completion. Production native helper construction/ownership remains open; no compiler or .NET behavior changes.
