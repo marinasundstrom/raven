@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Native async entry points use RuntimeHelpers.DrainEntryTasks from the explicitly selected async runtime assembly. Legacy CLI targets retain RuntimeServices. A source-owned System.Runtime consumer compiles, awaits and returns 42 without a bootstrap reference.
+
 - **2026-10-17:** Add explicit RavenNeoClrRuntimeContracts for source-core and native-core-reference projects, including primitive, Self, iteration, reflection and async provider settings. Track the manifest as an editor input and reject mixed legacy manifests. Validate native-only production core consumption, parsing execution, editor completion and existing invalid native-project configurations.
 
 - **2026-10-17:** Preserve configured source-owned Self markers as native Self signatures during source-core construction. Validate numeric static-interface conformance, inspect native Self/primitive return descriptors, and compile a native consumer of Int32.Zero with editor completion.

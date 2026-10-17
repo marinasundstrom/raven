@@ -1059,11 +1059,16 @@ internal static class Int32Emitter
                     !m.IsStatic && m.Arity == 0 && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public &&
                     SymbolEqualityComparer.Default.Equals(m.ReturnType, result))
                     ?? throw Unsupported("native async entry GetResult contract unavailable");
-                var drain = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeServices")?
+                var drainOwner = compilation.Options.MetadataImportOptions?.UseNativeMetadata == true
+                    ? "System.Runtime.CompilerServices.RuntimeHelpers" : "System.Runtime.CompilerServices.RuntimeServices";
+                var drain = compilation.GetTypeByMetadataName(drainOwner)?
                     .GetMembers("DrainEntryTasks").OfType<IMethodSymbol>().SingleOrDefault(m =>
                         m.IsStatic && m.Arity == 0 && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public &&
                         m.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
                     ?? throw Unsupported("native async entry requires explicit DrainEntryTasks runtime binding");
+                if (compilation.Options.MetadataImportOptions?.UseNativeMetadata == true &&
+                    drain.ContainingAssembly?.Name != compilation.Options.MetadataImportOptions.AsyncAssemblyName)
+                    throw Unsupported("native entry drain must belong to the selected async runtime library");
                 var adapter = assembly.AddFunction("Raven.Generated", "<AsyncEntry>",
                     new MethodSignature(PrimitiveType.Int32, implementation.Signature.ParameterTypes), MethodVisibility.Internal);
                 var body = adapter.GetILGenerator();

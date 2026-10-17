@@ -14266,3 +14266,13 @@ compilation and System/Int32.Parse/introspection completion without Action/Func
 bootstrap entries. A consumer of the newly source-authored production System.Runtime
 parses 42 and returns it in the interpreter with an empty System seed. Production
 SDK wiring and the async entry-drain contract are separate remaining steps.
+
+### Native async entry ownership (2026-10-17)
+
+With native metadata and explicit runtime contracts, async startup selects
+`System.Runtime.CompilerServices.RuntimeHelpers.DrainEntryTasks` from
+`RavenNeoClrAsyncLibrary`. A public parameterless static unit/no-result method is
+required; missing or differently owned contracts fail emission. Ordinary .NET and
+explicit legacy CLI targets retain existing behavior. Production source-owned
+System.Runtime plus the runtime await provider compiles and returns 42 in the
+interpreter, removing the startup dependency on bootstrap RuntimeServices.
