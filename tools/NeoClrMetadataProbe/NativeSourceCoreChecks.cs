@@ -39,7 +39,14 @@ internal static class NativeSourceCoreChecks
                 func GetCount() -> int => self.Count
             }
             public class Example {
-                static func Answer() -> int => Read([40, 2]) + 40
+                static func Answer() -> int {
+                    let items = neoCLR.Runtime.ReserveArray<int>(2)
+                    items[0] = 40
+                    items[1] = 2
+                    return Read(items) + items[0]
+                }
+                static func ReadUninitialized() -> int => neoCLR.Runtime.ReserveArray<int>(1)[0]
+                static func NegativeLength() -> int => neoCLR.Runtime.ReserveArray<int>(-1).Length
                 static func Read(items: int[]) -> int {
                     let view: Sequence<int> = items
                     return view.GetCount()
@@ -76,6 +83,7 @@ internal static class NativeSourceCoreChecks
             module neoCLR.Runtime
             [MethodImpl(MethodImplOptions.InternalCall)]
             internal extern func GCCollectionCount() -> long;
+            internal extern func ReserveArray<T>(count: int) -> T[];
             """);
         var compilation = Compilation.Create(name, [native, tree, markers], [], options);
         provider.GetConfiguration(projectPath).Validate(compilation);
@@ -100,6 +108,15 @@ internal static class NativeSourceCoreChecks
             new(new("Consumer", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
         if (!consumerResult.Success) throw new Exception(string.Join("\n", consumerResult.Diagnostics));
         File.WriteAllBytes(Path.Combine(directory, "Consumer.dll"), consumerImage.ToArray());
+        foreach (var operation in new[] { "ReadUninitialized", "NegativeLength" })
+        {
+            var faultConsumer = Compilation.Create(operation, [SyntaxTree.ParseText("func Main() -> int => System.Example." + operation + "()")], catalog.References.ToArray(), consumerOptions);
+            using var faultImage = new MemoryStream();
+            var faultResult = faultConsumer.Emit(faultImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+                new(new(operation, new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+            if (!faultResult.Success) throw new Exception(string.Join("\n", faultResult.Diagnostics));
+            File.WriteAllBytes(Path.Combine(directory, operation + ".dll"), faultImage.ToArray());
+        }
         var completionSource = "func Main() -> int { System. }";
         var completionTree = SyntaxTree.ParseText(completionSource);
         var completion = Compilation.Create("Completion", [completionTree], catalog.References.ToArray(), consumerOptions);
@@ -124,6 +141,15 @@ internal static class NativeSourceCoreChecks
         using var rejectedImage = new MemoryStream();
         if (rejected.Emit(rejectedImage, null, new EmitOptions().WithBackend(provider.GetConfiguration(projectPath).CreateEmissionBackend(name))).Success || rejectedImage.Length != 0)
             throw new Exception("Invalid native-call flags were admitted.");
-        Console.WriteLine("PASS reference-free source core, source native-call markers, array views, consumer emission/completion and configuration/signature rejection");
+        foreach (var invalidDeclaration in new[] {
+            native.GetText().ToString().Replace("count: int", "count: long", StringComparison.Ordinal),
+            native.GetText().ToString().Replace("-> T[]", "-> T[2]", StringComparison.Ordinal) })
+        {
+            var invalidStorage = Compilation.Create(name, [SyntaxTree.ParseText(invalidDeclaration), tree, markers], [], options);
+            using var invalidStorageImage = new MemoryStream();
+            if (invalidStorage.Emit(invalidStorageImage, null, new EmitOptions().WithBackend(provider.GetConfiguration(projectPath).CreateEmissionBackend(name))).Success || invalidStorageImage.Length != 0)
+                throw new Exception("Invalid source storage signature was admitted.");
+        }
+        Console.WriteLine("PASS reference-free source core, source native-call markers, managed array reservation, array views, consumer emission/completion and configuration/signature rejection");
     }
 }

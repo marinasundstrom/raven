@@ -14202,3 +14202,18 @@ configuration/flags. The emitted consumer returns 42 in the interpreter against
 an empty System seed and the new core. Its small Object implementation is a test
 fixture, not a production replacement. Production class-library migration still
 requires foundational declarations and the remaining managed compiler services.
+
+### Source-core array reservation
+
+Only native source-core construction admits the exact internal namespace function
+`neoCLR.Runtime.ReserveArray<T>(count: int) -> T[]` as a managed intrinsic. It must
+be an unannotated extern with an unconstrained invariant parameter and a variable-
+length rank-one result. The emitted method has a managed checked-reservation body;
+callers use ordinary native method references, not a bootstrap-reference match.
+
+Reservation preserves existing runtime semantics: slots are uninitialized until
+written, reads before initialization fault, and negative sizes/limits fault. It
+does not introduce .NET-style zero initialization. The source-core probe emits
+success, uninitialized-read and negative-length consumers; interpreter, JIT and
+AOT validation covers all three. This is compiler infrastructure, not a new
+public class-library allocation API.
