@@ -8,6 +8,47 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class PortableRangeTests
 {
     [Theory]
+    [InlineData("2147483646..2147483647", 1)]
+    [InlineData("2147483647..2147483647", 0)]
+    [InlineData("2147483647..2147483646 by 1", 0)]
+    [InlineData("-2147483648..-2147483646 by 1", 2)]
+    [InlineData("9223372036854775806L..9223372036854775807L", 1)]
+    [InlineData("9223372036854775807L..9223372036854775807L", 0)]
+    [InlineData("9223372036854775807L..9223372036854775806L by 1L", 0)]
+    [InlineData("-9223372036854775808L..-9223372036854775806L by 1L", 2)]
+    public void ExclusiveUnitRangesPreserveSignedBoundaries(string range, int expected)
+    {
+        var source = $$"""
+            public static class Ranges {
+                public static func Run() -> int {
+                    var count = 0
+                    for value in {{range}} {
+                        count += 1
+                        if count > 2 { return -1 }
+                        continue
+                    }
+                    return count
+                }
+            }
+            """;
+        var compilation = Compilation.Create("PortableUnitRanges" + Guid.NewGuid().ToString("N"),
+            [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsRangeEnumeration: true);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities), failure?.Detail);
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        Assert.Equal(expected, Assembly.Load(stream.ToArray()).GetType("Ranges")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData("int", "1..3", 0, false)]
     [InlineData("int", "1..3", 1, true)]
     [InlineData("int", "1..3", 3, false)]

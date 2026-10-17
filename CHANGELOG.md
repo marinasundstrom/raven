@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Avoid redundant overflow guards in native portable signed int/long exclusive loops whose bound step is the literal one. The existing upper-bound comparison proves the increment representable; inclusive and other-step loops retain guards. Boundary, evaluation-order and loop-control consumers pass interpreter, JIT and AOT, with 23 focused compiler checks. No Runtime Contract, metadata or ordinary .NET behavior changes.
+
 - **2026-10-17:** Observe native metadata dependencies from the project-load snapshot instead of reevaluating projects while filtering every file notification. Preserve old and newly discovered inputs through failed reloads so reference/configuration repair can retry. Unrelated generated-file events no longer populate evaluation caches; target contracts and emitted metadata are unchanged.
 
 - **2026-10-17:** Apply watched-file output-directory exclusions relative to the opened workspace. Projects opened beneath target/artifacts now reload their own configuration changes while generated descendants remain excluded. No Runtime Contract or metadata change.

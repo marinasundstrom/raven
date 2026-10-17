@@ -14339,3 +14339,24 @@ beneath `target`/`artifacts` to observe their own configuration. No Runtime
 Contract setting, native signature, CLI representation or runtime ABI changes.
 Focused tests cover unrelated events, configuration reload and dependency
 retention across failure/recovery; installed editor qualification is separate.
+
+
+## Exclusive unit-step range advancement (2026-10-17)
+
+The native portable lowerer omits its redundant signed overflow guard only when
+`RangeUpperExclusive` is true and the bound step is an Int32/Int64 literal one.
+At entry and every continue site, `current < limit <= MaxValue` implies that
+`current + 1` is representable. The generated current local is independent of
+the user binding. Bounds and step still evaluate once in source order; empty
+and reversed ranges remain empty. Inclusive, descending, larger and dynamic
+steps retain the existing domain guard, including minimum-valued steps.
+
+This is a native portable emission optimization, not a new iteration contract.
+No Runtime Contract configuration, semantic symbol, metadata, opcode, temporary
+CLI encoding or public API changes. Ordinary .NET emission is unchanged; its
+observable boundary behavior is the comparison baseline. Broader structural
+work remains parked. Validation: 15 existing checks pass before the change,
+23 focused portable range tests pass afterward, and the expanded neoCLR
+`docs/validation/range-iteration/Main.rvn` passes interpreter, JIT and AOT on
+macOS ARM64. The neoCLR qualification record tracks isolated benchmark evidence
+and the separate need to rebuild and qualify a complete SDK/library package.

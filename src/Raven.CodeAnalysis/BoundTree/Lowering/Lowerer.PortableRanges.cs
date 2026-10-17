@@ -55,17 +55,24 @@ internal sealed partial class Lowerer
         };
         if (node.Local is { } local)
             statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, Read(current))]));
-        statements.AddRange([
-            body,
-            CreateLabelStatement(continueLabel),
-            new BoundConditionalGotoStatement(end, new BoundIfExpression(
+        statements.Add(body);
+        statements.Add(CreateLabelStatement(continueLabel));
+        // With an exclusive signed bound, current < limit implies current < MaxValue.
+        // Advancing by one is therefore representable, including at continue sites.
+        var safeUnitAdvance = node.Iteration.RangeUpperExclusive &&
+            node.Iteration.RangeStep is BoundLiteralExpression { Value: 1 or 1L };
+        if (!safeUnitAdvance)
+        {
+            statements.Add(new BoundConditionalGotoStatement(end, new BoundIfExpression(
                 Binary(Read(step), SyntaxKind.LessThanToken, Zero()),
                 Binary(Read(current), SyntaxKind.LessThanToken,
                     Binary(new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral,
                         type.SpecialType == SpecialType.System_Int64 ? (object)long.MinValue : int.MinValue, type), SyntaxKind.MinusToken, Read(step))),
                 Binary(Read(current), SyntaxKind.GreaterThanToken,
                     Binary(new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral,
-                        type.SpecialType == SpecialType.System_Int64 ? (object)long.MaxValue : int.MaxValue, type), SyntaxKind.MinusToken, Read(step)))), jumpIfTrue: true),
+                        type.SpecialType == SpecialType.System_Int64 ? (object)long.MaxValue : int.MaxValue, type), SyntaxKind.MinusToken, Read(step)))), jumpIfTrue: true));
+        }
+        statements.AddRange([
             new BoundAssignmentStatement(new BoundLocalAssignmentExpression(current, Read(current),
                 Binary(Read(current), SyntaxKind.PlusToken, Read(step)), unit)),
             new BoundGotoStatement(begin, isBackward: true),
