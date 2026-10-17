@@ -113,6 +113,9 @@ internal sealed class MatchExhaustivenessEvaluator
                 pattern => PatternCoversNull(scrutineeType, pattern));
         }
 
+        if (scrutineeType is IStructuralUnionTypeSymbol structuralUnion)
+            return GetMissingUnionMemberCases(scrutineeType, arms, structuralUnion.ConstituentTypes, options);
+
         var discriminatedUnion = scrutineeType.TryGetUnion()
             ?? scrutineeType.TryGetUnionCase()?.Union;
 
@@ -589,7 +592,15 @@ internal sealed class MatchExhaustivenessEvaluator
         MatchExhaustivenessOptions options)
     {
         var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, _compilation.NullTypeSymbol);
+        return GetMissingUnionMemberCases(scrutineeType, arms, memberTypes, options);
+    }
 
+    private ImmutableArray<string> GetMissingUnionMemberCases(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        ImmutableArray<ITypeSymbol> memberTypes,
+        MatchExhaustivenessOptions options)
+    {
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
 

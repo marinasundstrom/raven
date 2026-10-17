@@ -402,3 +402,20 @@ AOT and managed JIT with eager/paced collection against carrier-free libraries.
 [Runtime qualification and remaining gaps](https://github.com/marinasundstrom/neoCLR/blob/main/docs/validation/structural-integration-20261015.md)
 record the bounded support: bare generic alternatives and tuple alternatives inside
 unions are still unsupported, and broader combinations/platforms are not qualified.
+
+## Exhaustive alternative matches
+
+Native structural unions expose their constituent types directly to match coverage
+analysis. An unguarded type pattern for each alternative is exhaustive, including
+when the value is extracted from a generic nominal case such as
+`Result<T, HttpError | JsonError>.Error`. A guard that can fail does not establish
+full coverage. Missing alternatives remain diagnostics, and public
+`SemanticModel.GetMatchExhaustiveness` queries use the same evaluator.
+
+This uses the existing alternative-coverage rules without reconstructing a nominal
+carrier. No Runtime Contract setting, syntax, metadata signature or native emission
+rule changes. Ordinary .NET nominal-union coverage is unchanged. Validation on
+2026-10-17: 21 focused structural-symbol and nominal-pattern checks pass; the native
+packaged HTTP JSON server compiles. The HTTP client passes this analysis but still
+fails authored-method signature encoding, a separate release blocker. Full editor
+and release-package qualification remain separate from these semantic API checks.

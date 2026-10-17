@@ -14294,3 +14294,14 @@ path retains that shortcut. A packaged SDK sample parses and awaits 42, writes i
 to the console and exits successfully through `neoclr --project --run`. The native
 project regression also checks one execution core path and retains nine rejected
 configurations. No new project property or ordinary .NET behavior change.
+
+
+## Native union exhaustiveness (2026-10-17)
+
+The shared match evaluator now consumes `IStructuralUnionTypeSymbol.ConstituentTypes`
+for native targets, reusing nominal alternative coverage without a CLI carrier.
+The compiler owns this analysis; no bridge encoding or information loss is added.
+Runtime Contract selection and emission remain unchanged. Complete and guarded
+matches and generic case payloads have focused diagnostic/semantic API coverage;
+ordinary .NET checks pass. See [structural lowering](neoclr-structural-lowering.md#exhaustive-alternative-matches)
+for validation and the separate HTTP client metadata-encoding limitation.
