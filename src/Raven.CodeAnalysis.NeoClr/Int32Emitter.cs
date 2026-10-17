@@ -21,6 +21,7 @@ internal static class Int32Emitter
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
+        var payloadHelpers = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var foreignImports = new Dictionary<IMethodSymbol, NativeImportDefinition>(SymbolEqualityComparer.Default);
         var interfaces = new List<SourceInterfacePlan>();
@@ -48,6 +49,12 @@ internal static class Int32Emitter
                     if (symbol.IsAsync && compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null) throw Unsupported("explicit native async provider required");
                     if (symbol.IsExtern)
                     {
+                        if (NeoClrPayloadDeclaration.TryCreate(options, symbol, declaration, out var payloadHelper))
+                        {
+                            payloadHelpers.Add(symbol);
+                            plans.Add(payloadHelper!);
+                            continue;
+                        }
                         if (NeoClrForeignDeclaration.TryCreate(options, symbol, declaration, out var foreign, out var import))
                         {
                             foreignImports.Add(symbol, import!);
@@ -384,7 +391,7 @@ internal static class Int32Emitter
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
-            if (runtimeServices.Contains(plan.Symbol) || foreignImports.ContainsKey(plan.Symbol) || plan.Symbol.IsAbstract)
+            if (payloadHelpers.Contains(plan.Symbol) || runtimeServices.Contains(plan.Symbol) || foreignImports.ContainsKey(plan.Symbol) || plan.Symbol.IsAbstract)
             {
                 prepared.Add((plan, null));
                 continue;
@@ -896,6 +903,13 @@ internal static class Int32Emitter
             {
                 var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
                 definition = plan.Define(owner);
+            }
+            if (payloadHelpers.Contains(plan.Symbol))
+            {
+                var il = definition.GetILGenerator();
+                il.LoadArgument(0);
+                il.Emit(plan.Symbol.Name == "IsValue" ? OpCode.ValueIs : OpCode.ValueUnpack, SignatureType.MethodParameter(0));
+                il.Return();
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
             if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) definition.SetNativeImport(foreignImport);

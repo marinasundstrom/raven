@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Emit exact source-owned native payload helper declarations as managed ValueIs/ValueUnpack bodies only for the explicit System.Value implementation owner. Reject unowned, malformed and constrained declarations; ordinary extern admission and .NET emission are unchanged. Qualify native source admission, five-library production compilation, interpreter payload consumption and editor completion with the matching neoCLR migration.
+
 - **2026-10-17:** Record neoCLR 7185d1340 scalar/unit payload helper qualification in interpreter/JIT/sanitized AOT, native-only project compilation and editor completion. Production native helper construction/ownership remains open; no compiler or .NET behavior changes.
 
 - **2026-10-17:** Record neoCLR object/join forwarding removal (9f46a0bb8) and native-owned payload helper qualification (4f142b9e5). Production library compilation, interpreter consumers and editor completion pass; native IsValue/UnpackValue bodies need no bootstrap interception. Production core migration and JIT/AOT payload qualification remain open; no .NET behavior change.

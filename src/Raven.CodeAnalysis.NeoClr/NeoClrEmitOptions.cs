@@ -81,8 +81,8 @@ public sealed class NeoClrEmitOptions
     /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
     /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>
     public MetadataReference? BootstrapReference { get; }
-    /// <summary>Gets host-selected canonical numeric or String declarations implemented by this output.</summary>
-    /// <remarks>The native emitter validates exact System names and sole private primitive m_value storage.</remarks>
+    /// <summary>Gets host-selected canonical primitive declarations implemented by this output.</summary>
+    /// <remarks>The native emitter validates exact System names and primitive storage. Selecting Value also authorizes the exact internal source payload helpers with managed ValueIs/ValueUnpack bodies.</remarks>
     public ImmutableHashSet<PrimitiveType> PrimitiveImplementations { get; }
     /// <summary>Whether this output implements canonical System.Char using runtime grapheme storage.</summary>
     public bool ImplementsGrapheme { get; }

@@ -14063,3 +14063,26 @@ for these managed opcode bodies. SDK authoring and ordinary native symbol import
 already work; no new Runtime Contract switch or .NET behavior change is introduced.
 The fixture Object remains test-only, installed SDKs are unchanged, and structural
 work stays parked.
+
+### Source-owned payload construction (2026-10-17)
+
+The explicit native `System.Value` implementation contract now authorizes two exact
+internal, bodyless assembly functions in `neoCLR.Runtime`: `IsValue<T>(Value) -> bool`
+and `UnpackValue<T>(Value) -> T`. They must have one unconstrained invariant generic
+parameter, one by-value argument, no method attributes and no source body. Their
+Value parameter must belong to the output assembly. Other extern declarations retain
+the existing import/InternalCall admission rules. This is a native primitive library
+construction contract, not general `Value` casts or a change to .NET behavior.
+
+The backend emits managed `value.is`/`value.unpack` bodies using the metadata SDK;
+it does not mark these methods InternalCall. The existing ownership manifest's
+`nativePrimitives["System.Value"]` selection supplies authorization, with no new
+project switch. Missing ownership, wrong results and constrained helpers are rejected.
+The source admission probe lives in neoCLR's native-core-bootstrap experiment.
+
+Production sources now call these native functions, and staged preparation removes
+the old CLI helper declarations and retained-seed bodies. Networking alone receives
+a friend grant to decode its private DNS/socket payloads; the helpers remain internal.
+System.Runtime and its four dependent libraries compile, the public consumer returns
+42 in the interpreter, and production Console completion passes. Other core/bootstrap
+services remain; source-owned payloads do not establish a fully native production core.
