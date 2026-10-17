@@ -2,6 +2,7 @@ using System.Xml.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
+using Raven.CodeAnalysis.Syntax;
 
 namespace NeoClrMetadataProbe;
 
@@ -47,7 +48,46 @@ internal static class NativeCoreProjectChecks
         if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
         File.WriteAllBytes(Path.Combine(directory, "Consumer.dll"), image.ToArray());
 
+        var completionSource = "func Main() -> int { System. }";
+        var completionTree = SyntaxTree.ParseText(completionSource);
+        var completionCompilation = Compilation.Create("Completion", [completionTree],
+            project.MetadataReferences.ToArray(), compilation.Options);
+        var names = new CompletionService().GetCompletions(completionCompilation, completionTree,
+            completionSource.IndexOf("System.", StringComparison.Ordinal) + "System.".Length)
+            .Select(item => item.DisplayText).ToArray();
+        if (!names.Contains("Int32") || names.Any(name => name.StartsWith("Action", StringComparison.Ordinal) || name.StartsWith("Func<", StringComparison.Ordinal)))
+            throw new Exception("Native namespace completion omitted Int32 or leaked CLI delegates: " + string.Join(", ", names));
+
         var original = File.ReadAllText(projectFile);
+        // Explicit native contracts must survive the loader rather than silently
+        // falling back to CLI reflection when their declarations are unavailable.
+        var mapped = XDocument.Parse(original);
+        var mappedProperties = mapped.Root!.Element("PropertyGroup")!;
+        mappedProperties.SetElementValue("RavenTypeOfAssemblyName", definition.Name);
+        mappedProperties.SetElementValue("RavenTypeOfInfoType", "Example.MissingTypeInfo");
+        mappedProperties.SetElementValue("RavenTypeOfContextType", "Example.MissingContext");
+        mapped.Save(projectFile);
+        var mappedWorkspace = Workspace();
+        var mappedId = mappedWorkspace.OpenProject(projectFile);
+        var mappedCompilation = mappedWorkspace.GetCompilation(mappedId);
+        if (mappedCompilation.Options.RuntimeTypeOfContract != new RuntimeTypeOfContract(
+                definition.Name, "Example.MissingTypeInfo", "Example.MissingContext"))
+            throw new Exception("Explicit native typeof contract was discarded.");
+        if (!mappedCompilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
+            throw new Exception("Missing native typeof declarations silently fell back.");
+        foreach (var name in new[] { "RavenTypeOfAssemblyName", "RavenTypeOfInfoType", "RavenTypeOfContextType" })
+            mappedProperties.SetElementValue(name, "");
+        mapped.Save(projectFile);
+        var clearedWorkspace = Workspace();
+        var clearedId = clearedWorkspace.OpenProject(projectFile);
+        if (clearedWorkspace.GetCompilation(clearedId).Options.RuntimeTypeOfContract is not null)
+            throw new Exception("Explicitly cleared native typeof contract was restored.");
+        File.WriteAllText(projectFile, original);
+        // Restore the provider's successful snapshot used by the rejection checks.
+        workspace = Workspace();
+        workspace.OpenProject(projectFile);
+        config = provider.GetConfiguration(projectFile);
+
         foreach (var (property, value) in new[] {
             ("RavenNeoClrCoreReference", core),
             ("RavenNeoClrBootstrapOwnership", "missing.json"),
@@ -69,6 +109,6 @@ internal static class NativeCoreProjectChecks
                 throw new Exception("Failed reload replaced the successful snapshot.");
         }
         File.WriteAllText(projectFile, original);
-        Console.WriteLine("PASS native-only project references, module binding, watched core, emission, execution paths and nine rejected configurations");
+        Console.WriteLine("PASS native-only references, compilation/emission, System completion, explicit typeof retention/clearing/rejection, execution paths and nine rejected configurations");
     }
 }

@@ -68,7 +68,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
             if (seed is not null && (executionPaths.Contains(seed, StringComparer.OrdinalIgnoreCase) || !File.Exists(seed)))
                 throw new InvalidDataException("Native runtime seed must exist and differ from semantic references.");
             options = options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
-                .WithRuntimeTypeOfContract(null)
+                .WithRuntimeTypeOfContract(new[] { "RavenTypeOfAssemblyName", "RavenTypeOfInfoType", "RavenTypeOfContextType" }
+                    .Any(properties.ContainsKey) ? options.RuntimeTypeOfContract : null)
                 .WithRuntimeUnitContract(new(catalog.CoreIdentity.Name, "System.Void"))
                 .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name)
                     .WithObjectAssemblyName(catalog.CoreIdentity.Name).WithNativeMetadata());

@@ -13881,3 +13881,21 @@ bundle consumer, reflected construction and initializer-overflow cases pass inte
 managed JIT and sanitized AOT on macOS ARM64. Rebuild older RuntimeFieldInfo provider
 layouts with the matching class library; general closed-generic reflection execution and
 arbitrary boxed value payloads remain bounded. Structural work remains parked.
+
+## Native-only project contracts and completion (2026-10-17)
+
+Native-only projects now preserve an explicitly selected `RavenTypeOfAssemblyName`,
+`RavenTypeOfInfoType` and `RavenTypeOfContextType` mapping. Previously the native
+project provider unconditionally removed it. Clearing all three properties still
+disables the mapping; omitting them keeps the reduced core mode without reflection.
+Missing configured declarations produce normal contract diagnostics, without a CLI
+reflection fallback. This is target-specific; normal .NET behavior is unchanged.
+
+The native-core project probe validates native references only, compilation and
+emission, namespace completion without host Action/Func types, explicit mapping
+retention/clearing and rejection of missing contract declarations. The language-server
+completion probe in neoCLR confirms the same namespace results. This does not make
+the production System.Runtime bundle native-core independent: that artifact still
+references NeoCLR.CoreProbe. Replace production core construction and its runtime
+service contracts before switching the installed SDK; do not hide transport symbols
+in completion as a substitute. Structural work remains parked.

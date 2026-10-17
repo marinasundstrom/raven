@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Preserve explicit typeof runtime contracts for native-only neoCLR projects instead of silently clearing them. Validate explicit disabling, missing-contract diagnostics, native-only compilation/emission and namespace completion without CLI delegates. Production core bootstrap removal remains incomplete; ordinary .NET behavior is unchanged.
+
 - **2026-10-17:** Carry the validated main documentation-highlighting fix for `checked` and `unchecked`; restore the VS Code package synchronization check.
 
 - **2026-10-16:** Preserve qualified static field and property mutation without capturing a type name as a runtime receiver. Checked compound assignments retain normal storage and overflow semantics; no Runtime Contract change. Carry main 289019055 deliberately onto codex/neoclr. Document matching native SDK static/literal field identity and neoCLR d5d95ac3a field/initializer reflection qualification on interpreter/JIT/sanitized AOT, including schema-7 retention and provider-layout requirements.
