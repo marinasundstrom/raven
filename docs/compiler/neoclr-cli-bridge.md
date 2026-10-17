@@ -13941,3 +13941,12 @@ completion. The emitted generic consumer passes runtime linking verification aga
 its explicit native provider; SDK consumers using production TaskQueue return 42
 through both definition and symbol-authored imports. Production facade/core ownership
 and SDK distribution remain separate migration work. Structural work stays parked.
+
+The matching production queue slice moves GetDefaultTaskQueue, GetCurrentTaskQueue
+and RegisterTaskQueue from CLI/retained seed declarations into native System.Runtime
+source. Raven unit-returning declarations lower to no-result metadata; the matching
+runtime accepts that registration signature while retaining legacy unit returns and
+exact nominal TaskQueue validation. The fresh four-library consumer qualifies default
+queue identity and async completion in interpreter/JIT/sanitized AOT, with
+TaskQueue.Default language-server completion. No compiler switch or .NET behavior
+changes. Remaining facade/core contracts and the installed SDK remain unmigrated.
