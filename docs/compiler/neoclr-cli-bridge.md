@@ -14083,6 +14083,8 @@ The source admission probe lives in neoCLR's native-core-bootstrap experiment.
 Production sources now call these native functions, and staged preparation removes
 the old CLI helper declarations and retained-seed bodies. Networking alone receives
 a friend grant to decode its private DNS/socket payloads; the helpers remain internal.
-System.Runtime and its four dependent libraries compile, the public consumer returns
-42 in the interpreter, and production Console completion passes. Other core/bootstrap
+neoCLR `2f34d9763` implements the matching production migration. System.Runtime and
+its four dependent libraries compile; the public consumer returns 42 in interpreter,
+managed JIT and sanitized AOT for byte/unit, integer parsing and string payloads.
+Production Console completion passes. Other core/bootstrap
 services remain; source-owned payloads do not establish a fully native production core.
