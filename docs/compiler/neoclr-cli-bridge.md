@@ -14120,3 +14120,20 @@ handle primitives and other core services still require native ownership migrati
 Structural work remains parked and the installed SDK is unchanged. Evidence is in
 neoCLR docs/validation/native-core-removal/introspection-*-results.json and
 introspection-direct-completion.json.
+
+### Native type-handle ownership (2026-10-17)
+
+neoCLR System.Runtime now owns TypeName, TypeDisplayName, TypeShape,
+TypeMetadataToken, TypeEquals, TypeArgumentCount and TypeArgument as native
+InternalCalls. Descriptor callers bind directly; prepared CLI/seed inputs remove
+the seven old facade methods and retained native definitions. No compiler or
+Runtime Contract configuration change is needed, and ordinary .NET behavior is
+unchanged. Compiler 3d233b07c builds all five native libraries against the newly
+prepared native-handle-bootstrap. The fresh consumer returns 42 for generic and
+nested argument identity, flags, names and metadata tokens; editor completion
+exposes GenericArgumentCount/GetGenericArgument/DisplayName. Native ownership and
+API fingerprint checks pass. Provider implementations remain unchanged; no new
+JIT/AOT matrix is claimed. Structural work stays parked. Strings/parsing,
+scheduling and remaining compiler/core bootstrap contracts still need migration.
+See neoCLR docs/validation/native-core-removal/type-handle-results.json,
+type-handle-ownership.json and type-handle-completion.json.
