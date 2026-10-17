@@ -144,3 +144,10 @@ This changes presentation only. Runtime Contract configuration, semantic type
 identity, metadata encoding and emitted code are unchanged. Source and imported
 nominal alternatives, generic nesting and declaration formats have focused
 symbol-display coverage.
+
+### Metadata type names
+
+`Compilation.GetTypeByMetadataName` matches source declarations by metadata name,
+including generic arity. `Box` selects only a nongeneric declaration; ``Box`1``
+selects `Box<T>`. Nested names use `+` and apply the same rule
+to each type segment. Missing nongeneric declarations do not fall back to generics.

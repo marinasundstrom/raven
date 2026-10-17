@@ -97,7 +97,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         static ITypeSymbol? ResolveTypeInNamespace(INamespaceSymbol ns, string segment)
         {
             // First try exact match (works for PE metadata names like List`1)
-            var exact = ns.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault();
+            var exact = ns.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
             if (exact is not null)
                 return exact;
 
@@ -116,7 +116,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         static ITypeSymbol? ResolveNestedTypeInType(ITypeSymbol container, string segment)
         {
             // First try exact match (works for PE metadata names)
-            var exact = container.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault();
+            var exact = container.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
             if (exact is not null)
                 return exact;
 
