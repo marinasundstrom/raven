@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
+internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, Raven.CodeAnalysis.Metadata.IArrayTypeProvider
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private readonly object _membersGate = new();
@@ -163,6 +163,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         get
         {
             var compilation = GetDeclaringCompilation();
+            if (compilation?.GetSourceCoreSpecialType(this) is { } sourceSpecial && sourceSpecial != SpecialType.None)
+                return sourceSpecial;
             if (Name == "Object" && MetadataName == "Object" && TypeKind == TypeKind.Class &&
                 ContainingType is null && ContainingNamespace?.ToDisplayString() == "System" &&
                 compilation?.UsesSourceObjectRoot == true)

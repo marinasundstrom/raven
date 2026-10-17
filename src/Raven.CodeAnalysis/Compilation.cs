@@ -2621,6 +2621,12 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceCoreType)
+                return sourceCoreType;
+        }
         if ((UsesSourceObjectRoot || Options.MetadataImportOptions?.ObjectAssemblyName is not null) && metadataName == "System.Object")
             return GetSpecialType(SpecialType.System_Object) is { TypeKind: not TypeKind.Error } root ? root : null;
         if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } imports)
@@ -2770,6 +2776,11 @@ public partial class Compilation
     internal INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
     {
         EnsureSetup();
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true && preferredAssembly == AssemblyName)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(metadataName);
+        }
 
         var cacheKey = preferredAssembly + "\0" + metadataName;
         if (_preferredMetadataTypeCache.TryGetValue(cacheKey, out var cached))
@@ -2796,6 +2807,14 @@ public partial class Compilation
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true &&
+            specialType != SpecialType.System_Unit)
+        {
+            EnsureSetup();
+            if (setup) EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(_target.RuntimeContract.GetSpecialTypeMetadataName(specialType))
+                ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         if (specialType == SpecialType.System_Object && UsesSourceObjectRoot)
         {
             EnsureSetup();

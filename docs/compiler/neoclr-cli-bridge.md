@@ -14178,3 +14178,27 @@ conversion natively with Int32 array results. Compiler 85660156b qualifies fresh
 five-library compilation, UTC epoch/negative timestamp interpreter consumption
 and completion. No Runtime Contract or .NET change. Native source-core construction
 remains open. Evidence: neoCLR native-core-removal/local-time-results.json.
+
+### Native source-core construction (2026-10-17)
+
+`RavenNeoClrSourceCore=true` selects a library whose output identity also owns its
+core declarations. Supply an explicit `RavenNeoClrBootstrapOwnership` manifest;
+CLI/native reference cores, imported Object selection and bootstrap intrinsics
+are incompatible. Optional explicit metadata/emission core names must equal the
+output identity. This mode does not create a CLI projection or import host types.
+
+Source Object and primitive declarations supply semantic identities as well as
+members. Core namespace lookups can resolve declaration shells during binding;
+default bases, array interfaces/members and source attribute caches account for
+source declaration completion. Emission validates source storage and unit
+ownership against the output identity. The manifest names native extension
+containers by emitted name, while source semantic lookup retains generic arity.
+Ordinary .NET behavior is unchanged by this mode.
+
+The `NeoClrMetadataProbe --native-source-core <output-directory>` regression
+checks reference-free construction, source native-call attributes, array views,
+extension ownership, native consumer emission/completion and rejected conflicting
+configuration/flags. The emitted consumer returns 42 in the interpreter against
+an empty System seed and the new core. Its small Object implementation is a test
+fixture, not a production replacement. Production class-library migration still
+requires foundational declarations and the remaining managed compiler services.

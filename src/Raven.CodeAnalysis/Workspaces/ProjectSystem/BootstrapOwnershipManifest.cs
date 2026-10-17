@@ -111,10 +111,24 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
                     ? ReferenceEqualityComparer.Instance : SymbolEqualityComparer.Default);
                 foreach (var assembly in assemblies)
                 {
-                    if (assembly.GetTypeByMetadataName(name) is not { } type) continue;
+                    var type = assembly.GetTypeByMetadataName(name);
+                    // Native extension containers lift receiver parameters onto methods;
+                    // the ownership manifest names their emitted nongeneric container.
+                    if (type is null && ReferenceEquals(assembly, compilation.Assembly))
+                    {
+                        var separator = name.LastIndexOf('.');
+                        INamespaceSymbol? ns = assembly.GlobalNamespace;
+                        if (separator >= 0)
+                            foreach (var part in name[..separator].Split('.'))
+                                ns = ns?.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                        type = ns?.GetMembers(name[(separator + 1)..]).OfType<Raven.CodeAnalysis.Symbols.SourceNamedTypeSymbol>()
+                            .Where(candidate => candidate.IsExtensionDeclaration).Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol>().SingleOrDefault();
+                    }
+                    if (type is null) continue;
                     var replacesBootstrap = NativePrimitives?.ContainsKey(name) == true ||
                         Unit is { } unit && unit.TypeName == name && unit.AssemblyName == library.AssemblyName;
-                    if (replacesBootstrap && type.ContainingAssembly?.Name == compilation.Options.MetadataImportOptions?.CoreAssemblyName) continue;
+                    if (replacesBootstrap && compilation.Options.MetadataImportOptions?.UseNativeMetadata != true &&
+                        type.ContainingAssembly?.Name == compilation.Options.MetadataImportOptions?.CoreAssemblyName) continue;
                     matches.Add(type);
                 }
                 if (matches.Count != 1 || matches.Single().ContainingAssembly?.Name != library.AssemblyName)

@@ -88,9 +88,16 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             return error;
 
         if (Options.MetadataImportOptions is { UseNativeMetadata: true } nativeImports &&
+            !nativeImports.UseSourceCore &&
             compilation.ReferencedAssemblySymbols.Count(assembly => assembly.Name == nativeImports.CoreAssemblyName &&
                 assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null }) != 1)
             return "native metadata loading requires exactly one native semantic core with the configured identity";
+
+        if (Options.MetadataImportOptions is { UseSourceCore: true } sourceCore &&
+            (!sourceCore.UseNativeMetadata || !sourceCore.UseSourceObjectRoot ||
+             compilation.AssemblyName != sourceCore.CoreAssemblyName || Options.OutputKind != OutputKind.DynamicallyLinkedLibrary ||
+             compilation.ReferencedAssemblySymbols.Any(a => a.Name == sourceCore.CoreAssemblyName)))
+            return "source core requires native metadata, source Object ownership, a matching library identity and no imported core";
 
         if (Options.RuntimeFailureContract is { } failure)
         {

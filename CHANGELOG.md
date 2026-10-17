@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Add explicit native source-core construction with source-owned primitive/root identities and no reference core or CLI projection. Preserve source array views and late-bound attributes; distinguish source extension arity from emitted ownership names. Validate native construction, consumer compilation/completion, interpreter array-interface execution and invalid configuration/native-call flags. Production class-library bootstrap removal remains a separate migration.
+
 - **2026-10-17:** Carry main 2766516e1: match source metadata type names by exact generic arity, including nested declarations; nongeneric lookups do not fall back to generic types.
 
 - **2026-10-17:** Record native local-time service ownership and fresh compilation/interpreter/completion validation. Production neoCLR source has no RuntimeServices calls; compiler source-core contracts remain open.

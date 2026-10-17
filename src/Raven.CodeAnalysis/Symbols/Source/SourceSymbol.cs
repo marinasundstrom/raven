@@ -50,8 +50,23 @@ internal abstract class SourceSymbol : Symbol
         return _lazyDocumentationComment;
     }
 
+    private bool _provisionalSourceCoreAttributes;
+    private void RefreshSourceCoreAttributes()
+    {
+        var compilation = GetDeclaringCompilation();
+        if (compilation?.Options.TargetPlatform != TargetPlatform.NeoCLR || compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+            return;
+        if (_provisionalSourceCoreAttributes && compilation.SourceDeclarationsComplete)
+        {
+            _lazyCustomAttributes = default;
+            _lazyBoundAttributes = default;
+        }
+        _provisionalSourceCoreAttributes = !compilation.SourceDeclarationsComplete;
+    }
+
     public override ImmutableArray<AttributeData> GetAttributes()
     {
+        RefreshSourceCoreAttributes();
         if (_lazyCustomAttributes.IsDefault)
             _lazyCustomAttributes = ComputeAttributes();
 
@@ -65,6 +80,7 @@ internal abstract class SourceSymbol : Symbol
 
     private ImmutableArray<BoundAttributeEntry> GetBoundAttributes()
     {
+        RefreshSourceCoreAttributes();
         if (_lazyBoundAttributes.IsDefault)
             _lazyBoundAttributes = BindAttributes();
         return _lazyBoundAttributes;

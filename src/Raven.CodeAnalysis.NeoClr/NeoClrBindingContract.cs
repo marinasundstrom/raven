@@ -13,6 +13,9 @@ internal static class NeoClrBindingContract
 {
     internal static bool MatchesCore(IAssemblySymbol assembly, AssemblyIdentity core)
     {
+        if (assembly is SourceAssemblySymbol source && source.Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true)
+            return source.Name == core.Name && source.Compilation.Options.TargetCoreAssemblyName == core.Name;
         if (assembly is NativeAssemblySymbol native) return native.Reference.Definition.Identity.Equals(core);
         if (assembly is not PEAssemblySymbol imported) return false;
         var identity = new AssemblyName(imported.FullName);
@@ -56,6 +59,15 @@ internal static class NeoClrBindingContract
                 continue;
             }
             var type = compilation.GetSpecialType(special);
+            if (compilation.Options.MetadataImportOptions?.UseSourceCore == true)
+            {
+                var sourceType = special == SpecialType.System_Unit ? compilation.ResolveRuntimeUnitType() : type;
+                if (sourceType is null || sourceType.TypeKind == TypeKind.Error ||
+                    !SymbolEqualityComparer.Default.Equals(sourceType.ContainingAssembly, compilation.Assembly) ||
+                    !options.Identity.Equals(options.CoreLibrary))
+                    return "source core primitive or unit must belong to the output core identity";
+                continue;
+            }
             if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((INamedTypeSymbol)type)) continue;
             if (special == SpecialType.System_Object && compilation.Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
             {

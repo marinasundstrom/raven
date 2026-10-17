@@ -105,6 +105,12 @@ public sealed record MetadataImportOptions
     /// <returns>A new immutable import configuration.</returns>
     public MetadataImportOptions WithNativeMetadata(bool enabled = true) => this with { UseNativeMetadata = enabled };
 
+    /// <summary>Whether this native library supplies its own core declarations without a reference core.</summary>
+    public bool UseSourceCore { get; private init; }
+
+    /// <summary>Selects source-owned core symbols. Requires native metadata, source Object ownership and a matching output identity.</summary>
+    public MetadataImportOptions WithSourceCore(bool enabled = true) => this with { UseSourceCore = enabled };
+
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Single or SpecialType.System_Double or

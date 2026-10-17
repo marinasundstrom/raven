@@ -5,6 +5,18 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private SourceNamedTypeSymbol? _sourceObjectRoot;
+    internal SpecialType GetSourceCoreSpecialType(INamedTypeSymbol type)
+    {
+        if (Options.TargetPlatform != TargetPlatform.NeoCLR || Options.MetadataImportOptions?.UseSourceCore != true ||
+            type.ContainingType is not null || type.ContainingAssembly?.Name != AssemblyName)
+            return SpecialType.None;
+        var name = type.ToFullyQualifiedMetadataName();
+        foreach (var special in Enum.GetValues<SpecialType>())
+            if (special is not (SpecialType.None or SpecialType.System_Unit) &&
+                _target.RuntimeContract.GetSpecialTypeMetadataName(special) == name)
+                return special;
+        return SpecialType.None;
+    }
     internal bool UsesSourceObjectRoot => _target.RuntimeContract.UsesSourceObjectRoot;
     internal bool IsSourceObjectRoot(INamedTypeSymbol type)
         => UsesSourceObjectRoot && ReferenceEquals(type, _sourceObjectRoot);
@@ -39,5 +51,15 @@ public partial class Compilation
         foreach (var type in _declaredTypeSymbols.Values)
             if (!ReferenceEquals(type, _sourceObjectRoot) && type.BaseType?.SpecialType == SpecialType.System_Object)
                 type.SetBaseType(_sourceObjectRoot);
+        if (Options.MetadataImportOptions?.UseSourceCore == true)
+            foreach (var type in _declaredTypeSymbols.Values)
+                if (!ReferenceEquals(type, _sourceObjectRoot) && type.BaseType is null or { TypeKind: TypeKind.Error })
+                    type.SetBaseType(type.TypeKind switch
+                    {
+                        TypeKind.Struct => Assembly.GetTypeByMetadataName("System.ValueType"),
+                        TypeKind.Enum => Assembly.GetTypeByMetadataName("System.Enum"),
+                        TypeKind.Class => _sourceObjectRoot,
+                        _ => type.BaseType
+                    });
     }
 }

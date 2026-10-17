@@ -11,7 +11,31 @@ namespace Raven.CodeAnalysis.NeoClr;
 /// caching, CLI projection or compilation. Semantic dependency errors remain compilation diagnostics.</remarks>
 public sealed class NeoClrReferenceCatalog
 {
+    private readonly AssemblyIdentity? sourceCore;
     private readonly NativeLibraryDefinition? seed;
+
+    private NeoClrReferenceCatalog(AssemblyIdentity sourceCore, ImmutableArray<MetadataReference> references,
+        ImmutableArray<NeoClrMetadataDependency> dependencies)
+    {
+        this.sourceCore = sourceCore;
+        References = references;
+        Dependencies = dependencies;
+    }
+
+    /// <summary>Creates a native catalog whose core declarations belong to the output library.</summary>
+    public static NeoClrReferenceCatalog ReadSourceCore(AssemblyIdentity identity, IEnumerable<string> nativeReferencePaths)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(nativeReferencePaths);
+        var paths = nativeReferencePaths.Select(Path.GetFullPath).ToArray();
+        if (paths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != paths.Length)
+            throw new ArgumentException("Duplicate native input path.", nameof(nativeReferencePaths));
+        var references = ReadSelectedReferences(paths, null);
+        if (references.Any(r => r.Definition.Name == identity.Name))
+            throw new ArgumentException("Source core cannot import its own identity.", nameof(nativeReferencePaths));
+        return new(identity, references.Cast<MetadataReference>().ToImmutableArray(),
+            references.Select(r => new NeoClrMetadataDependency(r, identity)).ToImmutableArray());
+    }
     private readonly NeoClrPrimitiveBootstrap? bootstrap;
 
     private NeoClrReferenceCatalog(NeoClrPrimitiveBootstrap bootstrap, ImmutableArray<MetadataReference> references,
@@ -36,12 +60,12 @@ public sealed class NeoClrReferenceCatalog
     public NeoClrPrimitiveBootstrap Bootstrap => bootstrap ?? throw new InvalidOperationException("Native catalog has no CLI bootstrap; use CoreReference.");
     /// <summary>Gets the native core snapshot for ReadNative catalogs, otherwise null.</summary>
     public NeoClrMetadataReference? NativeCore { get; }
-    /// <summary>Gets the selected semantic core reference from References.</summary>
-    public MetadataReference CoreReference => NativeCore is { } native ? native : Bootstrap.Reference;
+    /// <summary>Gets the selected semantic core reference, or null when the output owns the core declarations.</summary>
+    public MetadataReference? CoreReference => sourceCore is not null ? null : NativeCore is { } native ? native : Bootstrap.Reference;
     /// <summary>Gets whether this catalog requires native-only semantic loading.</summary>
-    public bool UsesNativeMetadata => NativeCore is not null;
+    public bool UsesNativeMetadata => NativeCore is not null || sourceCore is not null;
     /// <summary>Gets the exact core identity read from the selected snapshot.</summary>
-    public AssemblyIdentity CoreIdentity => NativeCore?.Definition.Identity ?? Bootstrap.Definition.Identity;
+    public AssemblyIdentity CoreIdentity => sourceCore ?? NativeCore?.Definition.Identity ?? Bootstrap.Definition.Identity;
     /// <summary>Gets compiler references, selected core first, followed by native inputs in host order.</summary>
     public ImmutableArray<MetadataReference> References { get; }
     /// <summary>Gets bindings using the same semantic reference instances, including the native core, or the explicit CLI runtime seed if supplied.</summary>
