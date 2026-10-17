@@ -8017,7 +8017,12 @@ public partial class SemanticModel
 
             var candidateReturnType = GetInvocationReturnType(candidate);
             if (!IsUsefulAvailableExpressionType(candidateReturnType))
-                continue;
+            {
+                // An unresolved return type is still an overload candidate. Dropping it
+                // can make a concrete but less suitable overload appear authoritative.
+                returnType = null;
+                return false;
+            }
 
             if (score > bestScore)
             {
@@ -8048,7 +8053,12 @@ public partial class SemanticModel
             var candidateReturnType = GetInvocationReturnType(candidate);
 
             if (!IsUsefulAvailableExpressionType(candidateReturnType))
-                continue;
+            {
+                // An unresolved return type is still an overload candidate. Dropping it
+                // can make a concrete but less suitable overload appear authoritative.
+                returnType = null;
+                return false;
+            }
 
             if (returnType is null)
             {

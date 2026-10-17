@@ -340,3 +340,19 @@ Source patterns retain their source locations; imported patterns have no source
 declaration. Symbol display uses this structure when `IncludeName` is requested;
 `IncludeType` alone continues to display only the input type. Editor signature
 help delegates parameter formatting to this shared compiler display path.
+
+
+### Unresolved overload return types
+
+An overload with an unresolved generic return type remains a candidate. Available
+return-type queries must not discard it and then report a concrete return type
+from a different overload. For example, the unit-returning callback overload of
+`Run` cannot determine the type of `Run(() => 41)` while the generic callback
+candidate still awaits inference. Both the best-candidate and common-return-type
+shortcuts decline that answer and allow authoritative binding to resolve it.
+
+Cold `GetDeclaredSymbol` and `GetTypeInfo` must agree with queries after diagnostics,
+including when an available-type query ran first. Language services present those
+compiler answers; no client-side task-name or callback-result substitution is
+needed. This changes no Runtime Contract option, metadata signature or ordinary
+.NET runtime convention.
