@@ -25,7 +25,9 @@ internal static class NativeCoreProjectChecks
                 new XElement("RavenNeoClrNativeCoreReference", core),
                 new XElement("RavenMetadataCoreAssemblyName", definition.Name)),
             new XElement("ItemGroup", new XElement("Reference", new XAttribute("Include", "Input"),
-                new XElement("HintPath", library))))).Save(projectFile);
+                new XElement("HintPath", library)),
+                new XElement("Reference", new XAttribute("Include", definition.Name),
+                    new XElement("HintPath", core))))).Save(projectFile);
         var provider = new NeoClrProjectMetadataProvider();
         RavenWorkspace Workspace() => RavenWorkspace.Create(targetFramework: "net10.0",
             projectSystemService: new MsBuildProjectSystemService(RavenProjectConventions.Default, false, null, "net10.0",

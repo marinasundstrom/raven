@@ -91,7 +91,8 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
                     throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
         var catalog = nativeCore is not null
-            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths)
+            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths.Where(path =>
+                !string.Equals(Path.GetFullPath(path), Path.GetFullPath(nativeCore), StringComparison.OrdinalIgnoreCase)))
             : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
         var metadataCore = nativeCore is null ? options.MetadataImportOptions?.CoreAssemblyName
             : properties.GetValueOrDefault("RavenMetadataCoreAssemblyName");

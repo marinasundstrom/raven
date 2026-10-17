@@ -14276,3 +14276,10 @@ required; missing or differently owned contracts fail emission. Ordinary .NET an
 explicit legacy CLI targets retain existing behavior. Production source-owned
 System.Runtime plus the runtime await provider compiles and returns 42 in the
 interpreter, removing the startup dependency on bootstrap RuntimeServices.
+
+Native project loading coalesces the selected core's exact path when it is also
+a project/reference dependency. Catalog APIs still reject duplicate inputs and
+assembly identities. The project fixture explicitly references its selected core;
+compilation/emission/completion and nine malformed configuration checks pass.
+A fresh five-library native bundle and its async consumer compile; editor
+completion contains native Int32/Parse/TypeInfo without Action/Func transport types.

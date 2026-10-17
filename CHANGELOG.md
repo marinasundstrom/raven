@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-17:** Coalesce project references to the explicitly selected native core before catalog loading. Preserve strict duplicate identity/path checks for other inputs. Native project regression, nine invalid configurations and fresh five-library production compilation/editor completion pass.
+
 - **2026-10-17:** Native async entry points use RuntimeHelpers.DrainEntryTasks from the explicitly selected async runtime assembly. Legacy CLI targets retain RuntimeServices. A source-owned System.Runtime consumer compiles, awaits and returns 42 without a bootstrap reference.
 
 - **2026-10-17:** Add explicit RavenNeoClrRuntimeContracts for source-core and native-core-reference projects, including primitive, Self, iteration, reflection and async provider settings. Track the manifest as an editor input and reject mixed legacy manifests. Validate native-only production core consumption, parsing execution, editor completion and existing invalid native-project configurations.
