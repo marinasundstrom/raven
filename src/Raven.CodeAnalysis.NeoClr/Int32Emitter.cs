@@ -191,15 +191,15 @@ internal static class Int32Emitter
                     }
                     foreach (var property in recordSymbol.GetMembers().OfType<SourcePropertySymbol>())
                     {
-                        if (property.GetMethod is null || property.SetMethod?.MethodKind != MethodKind.InitOnly || property.EmitAsFieldOnly)
-                            throw Unsupported("constructor-initialized positional val components");
+                        if (property.GetMethod is null || property.SetMethod?.MethodKind is not (MethodKind.InitOnly or MethodKind.PropertySet) || property.EmitAsFieldOnly)
+                            throw Unsupported("positional val or var components");
                         properties.Add(property);
                     }
                     foreach (var method in recordSymbol.GetMembers().OfType<IMethodSymbol>())
                     {
                         // The positional-storage capability does not export record equality,
                         // hashing or formatting. Calls to those source helpers are rejected.
-                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
+                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
                         if (!SourceCallablePlan.TryCreate(method, out var recordCallable, bodyCapabilities, recordSyntax))
                             throw Unsupported("record callable contract: " + method.ToDisplayString());
                         plans.Add(recordCallable!);

@@ -14478,3 +14478,17 @@ changes. The existing binary bridge remains temporary; native property lowering 
 owned by neoCLR. Nine consumer checks agree across interpreter/JIT/AOT on macOS
 ARM64 with GC enabled for native execution; existing class mapping also passes.
 See neoCLR's docs/experiments/json-records for reproducible commands and input hashes.
+
+## Mutable positional record components — 2026-10-18
+
+Native positional record-struct emission now accepts `var` components with ordinary
+setters alongside `val` components with init-only setters. Both retain their
+existing distinct property metadata and access rules. The same constructor/property
+lowering is reused; no Runtime Contract setting or temporary CLI representation
+changes, and ordinary .NET emission is unaffected. Thirty-six focused record/init
+compiler checks pass. A source-built consumer verifies class aliasing, struct and
+record-struct copying, boxing isolation, type classification and init initialization
+across interpreter/JIT/AOT with native GC on macOS ARM64. See neoCLR's
+`docs/experiments/type-semantics` for exact commands/hashes and remaining reference
+record/ValueType ancestry gaps. Native metadata/backend support remains the owner
+of these semantics; the current bridge is not a permanent language restriction.
