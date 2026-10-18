@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-19:** Admit canonical native Slice/ReadOnlySlice ref structs only in the neoCLR source-core contract; preserve imported ref-like and opaque identities, suppress ordinary constructors, and lower native array ranges through GetSlice while .NET retains GetSubArray. Correct portable value-indexer receivers. Qualify Raven array/view conversions, shared mutation, copying and storage/readonly diagnostics; native JIT/AOT lowering remains a runtime gap.
+- **2026-10-19:** Admit canonical Slice/ReadOnlySlice ref structs and ordinary Memory/ReadOnlyMemory structs only in the neoCLR source-core contract; preserve imported opaque/ref-like identities, reject invalid shapes/constructors, and lower native array ranges through GetSlice while .NET retains GetSubArray. Correct portable value-indexer receivers. Qualify shared views, persistent fields across await and GC, copying, borrowed conversions and lifetime/readonly diagnostics. Runtime Contract settings remain unchanged; native JIT/AOT lowering remains a runtime gap.
 
 - **2026-10-18:** Document neoCLR backend boxing coverage for all numeric primitive kinds, Boolean and Char, with exact ancestry/identity and three-mode regressions. No Raven emission or Runtime Contract change; additional-kind default Object display remains explicitly unsupported.
 

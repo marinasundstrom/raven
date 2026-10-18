@@ -386,7 +386,19 @@ internal static class Int32Emitter
                 throw Unsupported("grapheme implementation requires canonical Char storage and no explicit constructors");
             graphemeField = field;
         }
-        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !bodyCapabilities.AllowsRefLikeType(t.Symbol) && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
+        MemoryViewKind? NativeMemoryView(INamedTypeSymbol symbol) =>
+            compilation.Options.MetadataImportOptions?.UseSourceCore == true
+                ? symbol.ToFullyQualifiedMetadataName() switch
+                {
+                    "System.Slice`1" => MemoryViewKind.Slice,
+                    "System.ReadOnlySlice`1" => MemoryViewKind.ReadOnlySlice,
+                    "System.Memory`1" => MemoryViewKind.Memory,
+                    "System.ReadOnlyMemory`1" => MemoryViewKind.ReadOnlyMemory,
+                    _ => null
+                }
+                : null;
+
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && NativeMemoryView(t.Symbol) is null && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
             foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
@@ -724,13 +736,14 @@ internal static class Int32Emitter
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
-            if (compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
-                type.Symbol.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1")
+            if (NativeMemoryView(type.Symbol) is { } memoryView)
             {
-                if (!type.Symbol.IsRefLikeType) throw Unsupported("Slice declarations must be ref structs");
+                var borrowed = memoryView is MemoryViewKind.Slice or MemoryViewKind.ReadOnlySlice;
+                if (!type.IsValueType || type.Symbol.IsRefLikeType != borrowed)
+                    throw Unsupported("memory views require ref structs for slices and ordinary structs for persistent memory");
                 if (plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, type.Symbol) && p.Symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor))
-                    throw Unsupported("opaque Slice declarations cannot define constructors");
-                definition.SetMemoryView(type.Symbol.Name == "Slice" ? MemoryViewKind.Slice : MemoryViewKind.ReadOnlySlice);
+                    throw Unsupported("opaque memory views cannot define constructors");
+                definition.SetMemoryView(memoryView);
             }
             if (flagsEnums.Contains(type.Symbol)) definition.SetEnumFlags();
             if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
