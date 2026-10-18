@@ -1109,7 +1109,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (!SupportedPropertyCall(accessor) || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.IndexerAccessor) ||
                 arguments.Length != accessor.Parameters.Length - (setter ? 1 : 0) - (access.Indexer.IsExtensionProperty ? 1 : 0))
                 return Reject("unsupported indexed property accessor or arguments", Syntax(access));
-            if (!LowerValue(access.Receiver)) return false;
+            if (access.Indexer.IsExtensionProperty)
+            {
+                if (!LowerValue(access.Receiver)) return false;
+            }
+            else if (!PropertyReceiver(access.Receiver, accessor, Syntax(access))) return false;
             foreach (var argument in arguments) if (!LowerValue(argument)) return false;
             return true;
         }

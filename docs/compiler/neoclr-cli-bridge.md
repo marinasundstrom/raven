@@ -14594,3 +14594,44 @@ wrong-kind type tests and a Char box retained across repeated native-GC allocati
 points. The existing default Object-display limitation for the newly admitted
 primitive kinds is explicitly diagnosed instead of exposing synthetic box names.
 Void/unit, erased Value and RuntimeTypeHandle are outside this scalar-box profile.
+
+## 2026-10-19 — Native borrowed slices and array ranges
+
+Author direction selects consistent primary buffer APIs over .NET compatibility
+layers: Array ranges return Slice<T>; array-to-view and writable-to-readonly
+conversions are implicit; ToArray requests a shallow copy. Array-specific and
+owned-result contracts may still use arrays. No AsSlice call-site plumbing is
+required. This deliberately diverges from .NET array range copying.
+
+The neoCLR source-core capability admits only canonical System.Slice<T> and
+ReadOnlySlice<T> ref structs and emits explicit opaque native memory_view metadata.
+Implicit record constructors are suppressed; explicit constructors reject. Imported
+native symbols retain ref-like classification and canonical method/type owners,
+so existing field/array/boxing/capture restrictions apply. Index/Range accessors
+and implicit conversions use ordinary Raven syntax; no grammar change is needed.
+Native target array ranges resolve RuntimeHelpers.GetSlice with an exact
+Slice<element> result contract; ordinary .NET keeps RuntimeHelpers.GetSubArray.
+
+The portable indexer lowerer now uses addressable value receivers, like method
+and property calls, instead of passing struct copies where byrefs are required.
+This is a general correctness candidate, not inherently a Slice exception. The
+portable emitter does not exist on Raven main at the checked revision; carry and
+validate this fix when that emitter is promoted rather than merging branches.
+
+No Runtime Contract configuration field or CLI encoding is added. The existing
+RavenNeoClrSourceCore/native-reference and runtime ownership manifests select the
+library. Opaque view assemblies reject CLI projection; native metadata is the
+semantic transport. Interpreter services own checks, GC tracing and conservative
+suspension rejection. JIT/AOT view ABI/codegen remains unsupported; it rejects
+selected view types. Ref-like generic anti-constraints and element byref returns
+remain gaps. Broader structural work is unchanged.
+
+Validation: the neoCLR Raven consumer checks array range aliasing, nested view
+access, typed parameters receiving arrays directly, readonly aliases, explicit
+copying and UTF-8 bytes; it returns 0. Rejection fixtures diagnose ordinary fields
+(RAV2811), readonly writes (RAV0131) and arrays of slices (RAV2812).
+
+Focused compiler validation: 33 ref-like storage/restriction, value-indexer and
+ordinary .NET Index/Range tests pass. An additional defensive-copy test failed
+(expected 2, observed 3) and remains an open issue; it is not included in the
+passing count. This change does not fix general readonly-field defensive copying.

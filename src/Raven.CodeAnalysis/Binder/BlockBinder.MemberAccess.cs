@@ -3392,7 +3392,8 @@ partial class BlockBinder
         if (runtimeHelpers is null || runtimeHelpers.TypeKind == TypeKind.Error || rangeType.TypeKind == TypeKind.Error)
             return null;
 
-        foreach (var candidate in runtimeHelpers.GetMembers("GetSubArray").OfType<IMethodSymbol>())
+        var methodName = Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR ? "GetSlice" : "GetSubArray";
+        foreach (var candidate in runtimeHelpers.GetMembers(methodName).OfType<IMethodSymbol>())
         {
             if (!candidate.IsStatic || !candidate.IsGenericMethod || candidate.TypeParameters.Length != 1 || candidate.Parameters.Length != 2)
                 continue;
@@ -3403,7 +3404,13 @@ partial class BlockBinder
             if (!SymbolEqualityComparer.Default.Equals(candidate.Parameters[1].Type, rangeType))
                 continue;
 
-            return candidate.Construct(arrayType.ElementType);
+            var constructed = candidate.Construct(arrayType.ElementType);
+            if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+                (constructed.ReturnType is not INamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view ||
+                 view.OriginalDefinition.ToFullyQualifiedMetadataName() != "System.Slice`1" ||
+                 !SymbolEqualityComparer.Default.Equals(view.TypeArguments[0], arrayType.ElementType)))
+                continue;
+            return constructed;
         }
 
         return null;

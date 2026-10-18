@@ -216,7 +216,7 @@ internal static class Int32Emitter
                 {
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (type.ParameterList is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword)))
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword) && !(m.Kind == SyntaxKind.RefKeyword && bodyCapabilities.AllowsRefLikeType(typeSymbol))))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, bodyCapabilities))
                         throw Unsupported("supported public/internal static classes, root classes or unconstrained value types: " + typeSymbol.ToDisplayString());
@@ -386,7 +386,7 @@ internal static class Int32Emitter
                 throw Unsupported("grapheme implementation requires canonical Char storage and no explicit constructors");
             graphemeField = field;
         }
-        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !bodyCapabilities.AllowsRefLikeType(t.Symbol) && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
             foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
@@ -625,6 +625,8 @@ internal static class Int32Emitter
                         throw Unsupported("dependency type unavailable or ambiguous: " + name);
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
+                if (original is NativeNamedTypeSymbol { MemoryView: { } memoryView })
+                    assembly.SetMemoryView(imported, memoryView);
                 importedTypes.Add(original, imported);
                 if (original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null)
                     assembly.DeclareDefaultConstructor(imported, !original.IsAbstract && original.InstanceConstructors.Any(c => c.Parameters.IsEmpty && c.DeclaredAccessibility == Accessibility.Public));
@@ -722,6 +724,14 @@ internal static class Int32Emitter
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
+            if (compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
+                type.Symbol.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1")
+            {
+                if (!type.Symbol.IsRefLikeType) throw Unsupported("Slice declarations must be ref structs");
+                if (plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, type.Symbol) && p.Symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor))
+                    throw Unsupported("opaque Slice declarations cannot define constructors");
+                definition.SetMemoryView(type.Symbol.Name == "Slice" ? MemoryViewKind.Slice : MemoryViewKind.ReadOnlySlice);
+            }
             if (flagsEnums.Contains(type.Symbol)) definition.SetEnumFlags();
             if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
                 definition.SetSealedClass();
