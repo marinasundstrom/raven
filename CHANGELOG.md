@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Document neoCLR backend boxing coverage for all numeric primitive kinds, Boolean and Char, with exact ancestry/identity and three-mode regressions. No Raven emission or Runtime Contract change; additional-kind default Object display remains explicitly unsupported.
+
 - **2026-10-18:** Define native core ValueType/Enum foundations before intrinsic primitives and core enums and retain their local ancestry. Validate a freshly rebuilt four-library cohort and three-mode consumer; ordinary .NET output and Runtime Contract settings remain unchanged.
 
 - **2026-10-18:** Preserve imported System.Enum ancestry in native metadata and admit direct enum boxing to Enum under the native ancestry capability. Keep ordinary .NET behavior and Runtime Contract settings unchanged; validate boxed identity across neoCLR interpreter/JIT/AOT.

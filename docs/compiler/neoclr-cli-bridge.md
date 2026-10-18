@@ -14577,3 +14577,20 @@ intrinsic/core-enum authoring contracts.
 
 Validation is retained in neoCLR's `docs/experiments/primitive-ancestry/`, including
 the rebuilt-library hashes, matched execution modes and metadata ownership tests.
+
+## Complete scalar-box ancestry profile — 2026-10-18
+
+Native value-box lowering now admits all twelve numeric primitive kinds, Boolean
+and Char. Additional primitive tags use the existing rooted record-payload path;
+they retain exact primitive identity for type tests, unboxing and GetType, and
+inherit the verified ValueType foundation. Equal payload widths never imply equal
+types. Char keeps neoCLR's grapheme representation and is traced through the
+existing managed payload layout. This is a backend repair; Raven syntax, Runtime
+Contract configuration and CLI encoding are unchanged.
+
+The interpreter/JIT/AOT regression in neoCLR's `docs/experiments/primitive-boxes/`
+checks all fourteen scalar kinds, signed/narrow values, floating-point payloads,
+wrong-kind type tests and a Char box retained across repeated native-GC allocation
+points. The existing default Object-display limitation for the newly admitted
+primitive kinds is explicitly diagnosed instead of exposing synthetic box names.
+Void/unit, erased Value and RuntimeTypeHandle are outside this scalar-box profile.
