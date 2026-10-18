@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Document native nominal/interpreter interface checked-cast fault parity (InvalidCast rather than RuntimeError); no Raven emission or Runtime Contract change.
+
 - **2026-10-18:** Document neoCLR native boxed Int64/Boolean display support and closed nonempty Result/record boxing, checked unboxing, rooted byref display and generic override discovery; distinguish reproduced Preview 16 backend gaps from separate JSON mapping/retention limits; no Raven compiler semantics or Runtime Contract change.
 
 - **2026-10-17:** Normalize empty/whitespace native runtime-async helper settings to disabled, matching the legacy project contract. Explicitly clearing the default again selects heap state machines instead of resolving an empty helper type. Existing default runtime await/generator lowering and ordinary .NET behavior are unchanged. All nine empty/whitespace/generator checks pass on interpreter, JIT and AOT with an isolated compiler cohort.

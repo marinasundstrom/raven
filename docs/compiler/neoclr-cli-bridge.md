@@ -14423,3 +14423,10 @@ Object-display error. neoCLR's copied-consumer experiment compares the candidate
 backend with the installed compiler, installed backend and interpreter. JSON record
 mapping remains UnsupportedMapping, and class property reflection still requires
 explicit retention. This is development work, not an installed Preview 16 update.
+
+Native nominal cast mismatches now report InvalidCast rather than RuntimeError,
+including narrowing from structural views. This is interpreter/.NET semantic
+parity in the backend; emitted metadata and Runtime Contract settings are unchanged.
+
+The equivalent interpreter interface-cast mismatch is corrected as well; null
+reference casts preserve their existing behavior.
