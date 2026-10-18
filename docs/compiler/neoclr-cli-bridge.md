@@ -14403,3 +14403,23 @@ against interpreter output, require explicit formatter admission, and verify GC
 reclamation. Existing reference/String display and malformed override checks remain
 required. macOS ARM64 is the tested target; this is development work, not an update
 to the installed Preview 16 binaries.
+
+
+### Native closed value boxes — 2026-10-18
+
+neoCLR development now copies nonempty closed value records into Object boxes and
+supports checked copy-out unboxing and byref ToString dispatch while retaining GC
+roots. Closed generic overrides (including Result<string, JsonError>) are discovered
+before native owner erasure. This repairs backend admission/specialization; no Raven
+compiler code, Runtime Contract, CLI encoding or ordinary .NET behavior changes.
+Native type/layout bounds still apply. Legacy report keys emptyRecordBoxes and
+emptyRecordBoxSites also describe nonempty boxes. The native metadata/backend owns
+this implementation, so no new temporary bridge encoding needs replacement.
+
+Preview 16 accepts the exact positional Person declaration reported by the author;
+the earlier NEOMETA001 message was not reproduced for that shape. Its native backend
+rejects nonempty boxing, and class result/result.Value display reproduces the broad
+Object-display error. neoCLR's copied-consumer experiment compares the candidate
+backend with the installed compiler, installed backend and interpreter. JSON record
+mapping remains UnsupportedMapping, and class property reflection still requires
+explicit retention. This is development work, not an installed Preview 16 update.
