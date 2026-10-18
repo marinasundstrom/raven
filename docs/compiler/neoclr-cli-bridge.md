@@ -14492,3 +14492,21 @@ across interpreter/JIT/AOT with native GC on macOS ARM64. See neoCLR's
 `docs/experiments/type-semantics` for exact commands/hashes and remaining reference
 record/ValueType ancestry gaps. Native metadata/backend support remains the owner
 of these semantics; the current bridge is not a permanent language restriction.
+
+## Reference-record storage and Object ancestry — 2026-10-18
+
+An explicit PositionalReferenceRecordStorage backend capability admits positional
+reference records without additional members. It shares constructor/property storage
+lowering while preserving reference semantics; value records retain their own gate.
+Native top-level root classes bind the imported runtime Object identity, and portable
+constructor lowering performs base initialization for that native metadata contract.
+Ordinary .NET output, Runtime Contract configuration and CLI signature encoding are
+unchanged. This is native target integration, not a general language semantic change.
+Synthesized record equality/hash/display and additional members remain separate gaps.
+
+Native TypeInfo.BaseType snapshots use the interpreter's query for closed compiled
+type tokens. The same consumer validates reference flags, explicit Object bases,
+init-only setter metadata, class/record aliasing, value copying and boxing across
+interpreter/JIT/AOT with GC enabled on macOS ARM64. Evidence is in neoCLR's
+`docs/experiments/type-semantics/reference-three-mode-results.json.gz`. The native
+metadata/backend own these contracts; temporary bridge restrictions remain gaps.

@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
@@ -32,6 +33,13 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal EmissionDeclarationKind DeclarationKind => IsObjectRoot ? EmissionDeclarationKind.ObjectRoot : IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
     internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { } parent && (parent.SpecialType != SpecialType.System_Object || IsSourceObjectRoot(parent)) ? parent : null;
+
+    internal bool HasImportedObjectBase => !IsValueType && !IsStatic && MetadataOwner is null &&
+        Symbol.BaseType is
+        {
+            SpecialType: SpecialType.System_Object,
+            ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+        };
 
     internal Accessibility Visibility => Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? Accessibility.Internal : Symbol.DeclaredAccessibility;
 
@@ -85,7 +93,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             GetMetadataOwner(type) is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
-            !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && (type.Arity == 0 || capabilities.AllowsAbstractGenericClasses) && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || (type.OriginalDefinition is not SourceNamedTypeSymbol sourceType || sourceType.IsRecord && !(isValue && capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true)) || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
+            !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && (type.Arity == 0 || capabilities.AllowsAbstractGenericClasses) && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || (type.OriginalDefinition is not SourceNamedTypeSymbol sourceType || sourceType.IsRecord && !(capabilities?.Allows(isValue ? EmissionDeclarationKind.PositionalRecordStorage : EmissionDeclarationKind.PositionalReferenceRecordStorage) == true)) || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
                 !(capabilities?.AllowsLocalClassInheritance == true && !isValue &&
                   (type.Arity == 0 || (SymbolEqualityComparer.Default.Equals(type.BaseType?.ContainingAssembly, type.ContainingAssembly) ? capabilities.AllowsGenericLocalClassInheritance : capabilities.AllowsGenericExternalClassInheritance)) && type.ContainingType is null &&
                   type.BaseType is { ContainingType: null } baseType && (baseType.Arity == 0 || capabilities.AllowsConstructedClassBases) && (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) ? TryCreate(baseType, out _, capabilities) : (capabilities.AllowsExternalClassInheritance && IsSupportedExternalBase(baseType, capabilities.AllowsGenericExternalClassInheritance) || capabilities.AllowsExternalFieldlessClassInheritance && IsFieldlessExternalBase(baseType))))))

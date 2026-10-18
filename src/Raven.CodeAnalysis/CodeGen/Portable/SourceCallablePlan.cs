@@ -95,8 +95,8 @@ internal sealed record SourceCallablePlan(
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
             (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.DeclaringSyntaxReferences is [{ } accessorReference] &&
                 accessorReference.GetSyntax() is AccessorDeclarationSyntax { Body: null, ExpressionBody: null } ||
-                capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true && symbol.DeclaringSyntaxReferences is [{ } parameterReference] &&
-                parameterReference.GetSyntax() is ParameterSyntax && symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true }) && property.DeclaringSyntaxReferences.Length == 1)
+                capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.PositionalRecordStorage : EmissionDeclarationKind.PositionalReferenceRecordStorage) == true && symbol.DeclaringSyntaxReferences is [{ } parameterReference] &&
+                parameterReference.GetSyntax() is ParameterSyntax && symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true }) && property.DeclaringSyntaxReferences.Length == 1)
         {
             var propertySyntax = property.DeclaringSyntaxReferences[0].GetSyntax();
             plan = new(symbol, propertySyntax, propertySyntax, symbol.ContainingType, symbol.MetadataName, signature);
@@ -121,8 +121,8 @@ internal sealed record SourceCallablePlan(
         }
         if (synthesizedAnchor is RecordDeclarationSyntax recordAnchor &&
             (symbol.MethodKind == MethodKind.Constructor || symbol.Name == "Deconstruct") &&
-            symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true } recordOwner &&
-            capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true &&
+            symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true } recordOwner &&
+            capabilities?.Allows(recordOwner.IsValueType ? EmissionDeclarationKind.PositionalRecordStorage : EmissionDeclarationKind.PositionalReferenceRecordStorage) == true &&
             recordOwner.DeclaringSyntaxReferences.Any(reference => reference.SyntaxTree == recordAnchor.SyntaxTree && reference.Span == recordAnchor.Span) &&
             (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.MethodKind == MethodKind.Constructor &&
                 symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is RecordDeclarationSyntax))

@@ -178,10 +178,10 @@ internal static class Int32Emitter
                 }
                 else if (member is RecordDeclarationSyntax recordSyntax)
                 {
-                    if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol { IsValueType: true } recordSymbol ||
+                    if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol recordSymbol ||
                         recordSyntax.Members.Count != 0 ||
                         !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, bodyCapabilities))
-                        throw Unsupported("positional record structs without additional members");
+                        throw Unsupported("positional records without additional members");
                     declaredTypes.TryAdd(recordSymbol, recordPlan!);
                     foreach (var field in recordSymbol.GetMembers().OfType<IFieldSymbol>())
                     {

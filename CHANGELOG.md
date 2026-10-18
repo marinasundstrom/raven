@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Admit native positional reference-record storage behind an explicit target capability. Preserve reference semantics and bind top-level root classes to the selected native Object with base-constructor initialization. Validate metadata, aliasing, copying, boxing and BaseType across neoCLR interpreter/JIT/AOT; retain separate synthesized-record-member limits and unchanged ordinary .NET behavior.
+
 - **2026-10-18:** Admit mutable positional record-struct components in native emission, preserving ordinary setter versus init-only metadata. Verify copying, boxing and init behavior across neoCLR interpreter/JIT/AOT; ordinary .NET behavior and Runtime Contract settings are unchanged.
 
 - **2026-10-18:** Document neoCLR JSON value-record serialization and matched interpreter/JIT/AOT validation, with existing mapping limits retained; no compiler, Runtime Contract or ordinary .NET changes.

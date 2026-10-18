@@ -8,7 +8,10 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
-        if (plan.ClassBase is not { } parent) return;
+        // Native metadata must retain the selected runtime Object identity, not
+        // merely the bootstrap CLI Object placeholder used by AddClass.
+        var parent = plan.ClassBase ?? (plan.HasImportedObjectBase ? plan.Symbol.BaseType : null);
+        if (parent is null) return;
         if (!SymbolEqualityComparer.Default.Equals(parent.ContainingAssembly, plan.Symbol.ContainingAssembly))
             definition.SetBaseType(resolveExternal(parent).ImportedType!);
         else if (parent.Arity > 0)
