@@ -713,6 +713,11 @@ internal static class Int32Emitter
             if (nativeTypes.ContainsKey(type.Symbol)) return;
             if (!definingClasses.Add(type.Symbol)) throw Unsupported("cyclic class base definitions are unsupported");
             if (type.ClassBase is { } parent && declaredTypes.TryGetValue((INamedTypeSymbol)parent.OriginalDefinition, out var basePlan)) DefineClass(basePlan);
+            if (type.IsEnum && type.Symbol.BaseType is { SpecialType: SpecialType.System_Enum } enumParent &&
+                declaredTypes.TryGetValue(enumParent, out var enumPlan)) DefineClass(enumPlan);
+            if (type.IsValueType && (primitiveOwners.ContainsKey(type.Symbol) || SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) &&
+                type.Symbol.BaseType is { SpecialType: SpecialType.System_ValueType } valueParent &&
+                declaredTypes.TryGetValue(valueParent, out var valuePlan)) DefineClass(valuePlan);
             if (type.MetadataOwner is { } container) DefineClass(declaredTypes[container]);
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Define native core ValueType/Enum foundations before intrinsic primitives and core enums and retain their local ancestry. Validate a freshly rebuilt four-library cohort and three-mode consumer; ordinary .NET output and Runtime Contract settings remain unchanged.
+
 - **2026-10-18:** Preserve imported System.Enum ancestry in native metadata and admit direct enum boxing to Enum under the native ancestry capability. Keep ordinary .NET behavior and Runtime Contract settings unchanged; validate boxed identity across neoCLR interpreter/JIT/AOT.
 
 - **2026-10-18:** Bind native application value records to imported System.ValueType and permit direct boxing to that foundation behind the native ValueTypeAncestry capability. Preserve inline storage and ordinary .NET behavior; validate metadata and interpreter/JIT/AOT consumers with neoCLR. Runtime Contract settings are unchanged.

@@ -14551,3 +14551,29 @@ foundation too. The native metadata/runtime and Raven native emitter own this re
 The consumer and exact commands/hashes live in neoCLR's
 `docs/experiments/enum-ancestry/`. Existing Int32 enum restrictions are unchanged;
 primitive ancestry is the following slice.
+
+## Primitive and core-enum foundations — 2026-10-18
+
+The native source-core emitter now defines owned ValueType/Enum foundations before
+intrinsic value declarations and core enums, then binds their exact local bases.
+Intrinsic scalar storage is unchanged; nominal ancestry introduces no fields or
+reference receiver. Runtime ancestry validation admits only the verified fieldless
+ValueType/Object chain, with Enum as the additional enum link. Native primitive
+boxes retain this ancestry while keeping their distinct payload tags.
+
+This matches [.NET ValueType ancestry](https://learn.microsoft.com/en-us/dotnet/api/system.valuetype?view=net-10.0)
+and the [enum inheritance and boxing contract](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/enums).
+The temporary CLI projection retains its ordinary CLR bases; native metadata now
+records the owned identities. No Runtime Contract configuration or ordinary .NET
+compiler behavior changes. Primitive methods continue through existing runtime
+dispatch, independently of ordinary class virtual-slot validation.
+
+Freshly rebuilding all four core libraries exposed two earlier Object-base gaps:
+closed reference roots can now bind the selected external Object, and imported
+Object-slot references retain their virtual classification for override checking.
+The native metadata layer owns both repairs; ordinary derived-base restrictions
+remain enforced. Local ordinary value-record bases are separate from the new
+intrinsic/core-enum authoring contracts.
+
+Validation is retained in neoCLR's `docs/experiments/primitive-ancestry/`, including
+the rebuilt-library hashes, matched execution modes and metadata ownership tests.

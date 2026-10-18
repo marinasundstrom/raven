@@ -9,6 +9,19 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
+        if (plan.IsValueType && (definition.NativePrimitive is not null || definition.NativeGrapheme) &&
+            plan.Symbol.BaseType is { SpecialType: SpecialType.System_ValueType } localValueBase &&
+            SymbolEqualityComparer.Default.Equals(localValueBase.ContainingAssembly, plan.Symbol.ContainingAssembly))
+        {
+            definition.SetValueTypeBase(resolveOwner(localValueBase));
+            return;
+        }
+        if (plan.IsEnum && plan.Symbol.BaseType is { SpecialType: SpecialType.System_Enum } localEnumBase &&
+            SymbolEqualityComparer.Default.Equals(localEnumBase.ContainingAssembly, plan.Symbol.ContainingAssembly))
+        {
+            definition.SetEnumBase(resolveOwner(localEnumBase));
+            return;
+        }
         if (plan.IsEnum && plan.Symbol.BaseType is
             {
                 SpecialType: SpecialType.System_Enum,
