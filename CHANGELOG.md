@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Document neoCLR JSON value-record serialization and matched interpreter/JIT/AOT validation, with existing mapping limits retained; no compiler, Runtime Contract or ordinary .NET changes.
+
 - **2026-10-18:** Document neoCLR boxed value-record property getter support, rooted payload borrowing and record-valued results; no Raven emitter, Runtime Contract or CLI encoding change.
 
 - **2026-10-18:** Document interpreted boxed-record default display parity and seven Preview 16 consumers verified across interpreter/JIT/AOT; no Raven compiler or Runtime Contract change.

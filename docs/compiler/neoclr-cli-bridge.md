@@ -14464,3 +14464,17 @@ Validation: nine interpreter property tests, existing native class property chec
 and a new GC-enabled native test for repeated mutating getters and original-value
 isolation pass on macOS ARM64. Compiler source/emission and ordinary .NET behavior
 are unchanged. JSON mapper admission is the following slice.
+
+## JSON value-record serialization — 2026-10-18
+
+The source-built JSON mapper now serializes public nongeneric value records through
+retained property getters, including nested class/record values. Unsupported scalar
+and nominal-union mappings still return errors; value-record deserialization and
+custom value-record collection elements remain unsupported. Interpreter property
+admission is scoped to getters so unrelated array/method reflection does not widen.
+The Preview 16 compiler c0854cdda emits the unchanged native metadata; no Runtime
+Contract setting, CLI representation, compiler semantics or ordinary .NET behavior
+changes. The existing binary bridge remains temporary; native property lowering is
+owned by neoCLR. Nine consumer checks agree across interpreter/JIT/AOT on macOS
+ARM64 with GC enabled for native execution; existing class mapping also passes.
+See neoCLR's docs/experiments/json-records for reproducible commands and input hashes.
