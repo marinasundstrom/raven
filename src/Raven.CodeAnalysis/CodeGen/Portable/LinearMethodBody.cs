@@ -1759,6 +1759,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerTypedNull(conversion.Type, Syntax(expression));
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && conversion.IsBoxing &&
                     (conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface ||
+                     conversion.Type.GetNonNullableType().SpecialType == SpecialType.System_ValueType && capabilities?.Allows(EmissionDeclarationKind.ValueTypeAncestry) == true ||
                      conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                     TryType(conversion.Expression.Type, false, out var interfaceValue) && capabilities.Allows(interfaceValue) &&

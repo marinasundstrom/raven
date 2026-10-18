@@ -14510,3 +14510,27 @@ init-only setter metadata, class/record aliasing, value copying and boxing acros
 interpreter/JIT/AOT with GC enabled on macOS ARM64. Evidence is in neoCLR's
 `docs/experiments/type-semantics/reference-three-mode-results.json.gz`. The native
 metadata/backend own these contracts; temporary bridge restrictions remain gaps.
+
+## ValueType ancestry — 2026-10-18
+
+Native application structs and record structs now bind an imported, complete,
+fieldless `System.ValueType` foundation. `TypeBuilder.SetValueTypeBase` preserves
+value storage: this nominal edge adds neither reference fields nor a reference-base
+constructor call. Runtime validation requires the selected Object root and a
+fieldless abstract ValueType in that root's defining module/revision. Native private
+root renaming uses a compiler-owned proof that is not serialized.
+
+The native-only `ValueTypeAncestry` capability admits boxing directly to ValueType.
+Interpreter and native cast checks preserve the boxed concrete identity; native
+layout excludes reference-base padding from the value payload. Existing Object
+overrides retain boxed managed receivers with explicit ancestry. Ordinary .NET
+semantics, Runtime Contract configuration and CLI signature encoding are unchanged.
+This is a native metadata/backend repair, not a permanent bridge divergence.
+
+The matched consumer checks BaseType, IsSubclassOf, direct ValueType assignment,
+positive boxed-value and negative class tests, unboxing/copy isolation and init
+accessors. Evidence is retained in neoCLR's
+`docs/experiments/type-semantics/valuetype-three-mode-results.json.gz`. The earlier
+JSON consumer is rerun against this compiler/runtime cohort. Local-core foundation
+authoring, intrinsic primitives/enums, nested root-class mapping and synthesized
+record equality/hash/display remain separate compatibility work.

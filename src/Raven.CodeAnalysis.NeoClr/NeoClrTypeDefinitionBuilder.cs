@@ -1,6 +1,7 @@
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
@@ -8,6 +9,15 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
+        if (plan.IsValueType && !plan.IsEnum && plan.Symbol.BaseType is
+            {
+                SpecialType: SpecialType.System_ValueType,
+                ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+            } valueBase)
+        {
+            definition.SetValueTypeBase(resolveExternal(valueBase).ImportedType!);
+            return;
+        }
         // Native metadata must retain the selected runtime Object identity, not
         // merely the bootstrap CLI Object placeholder used by AddClass.
         var parent = plan.ClassBase ?? (plan.HasImportedObjectBase ? plan.Symbol.BaseType : null);
