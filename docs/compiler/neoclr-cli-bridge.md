@@ -14430,3 +14430,13 @@ parity in the backend; emitted metadata and Runtime Contract settings are unchan
 
 The equivalent interpreter interface-cast mismatch is corrected as well; null
 reference casts preserve their existing behavior.
+
+### Default value display parity — 2026-10-18
+
+neoCLR's interpreter now uses Object.ToString's type-name default for boxed nominal
+records without overrides, matching the native backend. Explicit overrides still
+win; equality/hash and unsupported floating display are unchanged. Seven consumers
+compiled by installed Preview 16 match across interpreter/JIT/AOT (21 executions),
+including direct Person and success/error Result display. Ten interpreter display
+tests pass. This is a runtime correction with no Raven emission, Runtime Contract
+or temporary CLI representation change; macOS ARM64 development validation only.
