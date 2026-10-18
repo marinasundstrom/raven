@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-18:** Document neoCLR native boxed Int64/Boolean display support and the separate remaining nonempty Result/record boxing gap reproduced with Preview 16; no Raven compiler semantics or Runtime Contract change.
+
 - **2026-10-17:** Normalize empty/whitespace native runtime-async helper settings to disabled, matching the legacy project contract. Explicitly clearing the default again selects heap state machines instead of resolving an empty helper type. Existing default runtime await/generator lowering and ordinary .NET behavior are unchanged. All nine empty/whitespace/generator checks pass on interpreter, JIT and AOT with an isolated compiler cohort.
 
 - **2026-10-17:** Preserve unresolved generic overload candidates in available invocation return-type queries. Cold local/type queries now defer to authoritative binding instead of choosing a unit-returning overload merely because its return type is already concrete. This keeps callback results such as `Task.Run(() => 41)` consistent across query order and editor inlays. Native carry of main `752d240b4`; regression fixtures construct non-null boxes for this branch’s nullable rules, and the native metadata probe checks `Task<int>` plus its awaited `int`. Validation: 66 focused compiler checks and the native metadata probe pass. No Runtime Contract or metadata change.
