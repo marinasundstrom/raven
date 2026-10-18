@@ -9,6 +9,15 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
+        if (plan.IsEnum && plan.Symbol.BaseType is
+            {
+                SpecialType: SpecialType.System_Enum,
+                ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+            } enumBase)
+        {
+            definition.SetEnumBase(resolveExternal(enumBase).ImportedType!);
+            return;
+        }
         if (plan.IsValueType && !plan.IsEnum && plan.Symbol.BaseType is
             {
                 SpecialType: SpecialType.System_ValueType,
