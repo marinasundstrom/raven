@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
-- **2026-10-19:** Add ordinary .NET regression coverage for logical-value pattern assignment/short-circuiting and Result propagation inside string equality after completed or pending awaits. All 14 focused tests pass on main without an emitter change; the corresponding neoCLR portable-planner fixes remain target-line changes. No Runtime Contract, semantic-model or metadata change.
+- **2026-10-19:** Add ordinary .NET regression coverage for logical-value pattern assignment/short-circuiting and Result propagation inside string equality after completed or pending awaits. All 14 focused tests pass on main without an emitter change; the corresponding neoCLR portable-planner fixes remain target-line changes. Three additional nullable-union payload cases (null, string and boxed integer) also pass, including narrowed string patterns; no main emitter change is required. No Runtime Contract, semantic-model or metadata change.
 
 - **2026-10-17:** Preserve unresolved generic overload candidates in available invocation return-type queries. Cold local/type queries now defer to authoritative binding instead of choosing a unit-returning overload merely because its return type is already concrete. This keeps callback results such as `Task.Run(() => 41)` consistent across query order and editor inlays. No Runtime Contract or metadata change.
 

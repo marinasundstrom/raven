@@ -711,3 +711,10 @@ planner and native verification/execution remain owned by the neoCLR line; no
 branch merge or target-specific implementation was carried into main. These
 results do not qualify the larger native JSON fixture, which has separate
 specialization and interpreter failures recorded in neoCLR's integration evidence.
+
+A follow-up JSON failure on the native line is reduced to a nullable Result
+payload matched with `Ok(let value)`. Main passes three nullable-payload cases
+(null, string and boxed integer), including narrower string-pattern rejection.
+The native portable planner's payload binding inserted an unnecessary null-rejecting
+type test; its correction and native qualification remain on codex/neoclr. Main's
+new regression fixture contains no target-specific imports or Runtime Contract.
