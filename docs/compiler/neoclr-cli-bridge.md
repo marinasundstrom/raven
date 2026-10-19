@@ -14815,3 +14815,24 @@ formats and native backend ownership remain unchanged. Native library rebuilds
 are required for library-authored matches such as JSON ObjectMapper. Separate
 null-conversion/unit-coercion expression cases exposed while reducing the test
 remain unqualified and are not claimed fixed by this payload change.
+
+
+### Exact intrinsic text Object override references (2026-10-19)
+
+The neoCLR native metadata adapter now admits imported String and Char overrides
+only for the selected Object root's exact Equals(Object), GetHashCode() and
+ToString() signatures. String retains its native primitive reference identity;
+Char retains its native grapheme identity and value receiver. Static, malformed,
+numeric-primitive and grapheme-constructor cases remain rejected. This repairs a
+consumer-emission failure exposed by canonical text APIs; it does not itself
+establish native execution support or switch public equality semantics.
+
+No Runtime Contract setting, metadata format or ordinary .NET lowering changes.
+The temporary CLI reference still projects text through CLR-compatible declarations;
+that representation does not establish native grapheme or canonical semantics.
+The adapter in neoCLR owns member-reference admission; the runtime and backend
+own intrinsic storage and dispatch. Native metadata/codegen must implement those
+contracts directly rather than infer them from CLI storage. Raven codex/neoclr
+2d22055dc with the modified adapter emits the public text consumer; the isolated
+metadata check neoCLR command `dotnet run --project tools/metadata/NeoCLR.Metadata.Experimental.Tests -- --text-overrides` passes. Release-bundle/native-engine qualification is pending.
+This target-specific adapter change does not require a Raven main code change.

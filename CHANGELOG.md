@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-19:** Document neoCLR adapter admission of exact String/Char Object override references, resolving native consumer emission. Runtime Contract, metadata format and ordinary .NET behavior are unchanged; native execution qualification remains pending.
+
 - **2026-10-19:** Bind exact extracted union/property payload declarations directly in the portable planner, preserving nullable payloads instead of rejecting them with a type test. Narrowing patterns retain their checks. Carry main ffa3d0812 regression coverage deliberately; 82 focused CLR tests and the nullable Result consumer in neoCLR interpreter/JIT/AOT pass. No Runtime Contract or metadata-format change.
 
 - **2026-10-19:** Preserve pattern-assignment edges when lowering logical values, and lower overloaded binary operators through ordered call-argument handling so async Result propagation can return safely. All 79 shared linear-body tests and a neoCLR async expression regression in interpreter/JIT/AOT pass. Numeric nested-operand early exits remain restricted; Runtime Contract settings are unchanged.
