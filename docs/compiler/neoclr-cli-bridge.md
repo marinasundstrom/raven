@@ -693,3 +693,21 @@ as `int | string` to `long | string` remain unsupported by the CLI widening rule
 Validation: 85 focused semantic/overload/emission tests on modern .NET, including
 open generic transport, payload reference identity, single evaluation and a .NET
 caller supplying an inactive default. Older .NET targets are not execution-qualified.
+
+### Independent main expression qualification (2026-10-19)
+
+neoCLR's portable-planner correction in Raven `bab04d508` motivated independent
+ordinary .NET tests on main, whose ExpressionGenerator does not use that planner.
+Main already preserves the observed behavior: positive/negative pattern variables
+through logical values, short-circuit evaluation, and Result propagation inside
+string equality after completed and pending awaits. Success invokes the enclosing
+call once; an error returns before that call. Six baseline tests and fourteen
+focused tests including five new cases pass on modern .NET 11. No main emitter
+fix was necessary; older .NET targets are not execution-qualified by this run.
+
+The tests remain independent of neoCLR imports and Runtime Contract configuration.
+There is no semantic-model, CLI metadata or native backend change. The portable
+planner and native verification/execution remain owned by the neoCLR line; no
+branch merge or target-specific implementation was carried into main. These
+results do not qualify the larger native JSON fixture, which has separate
+specialization and interpreter failures recorded in neoCLR's integration evidence.

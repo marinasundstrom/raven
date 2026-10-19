@@ -68,6 +68,38 @@ func Main() {
         Assert.Equal(["42", "mismatch", "7", "42"], CompileAndRun(code));
     }
 
+    [Fact]
+    public void LogicalValuesPreservePatternAssignmentAndShortCircuit()
+    {
+        const string code = """
+            import System.*
+
+            class Box {
+                var Reads: int = 0
+                var Value: int = 42
+                func Read() -> int {
+                    Reads += 1
+                    return Value
+                }
+            }
+            func And(value: object) -> bool => value is Box item && item.Read() == 42
+            func Or(value: object) -> bool => value is not Box item || item.Read() == 42
+            func Main() {
+                let box = Box()
+                Console.WriteLine(And("other"))
+                Console.WriteLine(Or("other"))
+                Console.WriteLine(And(box))
+                Console.WriteLine(Or(box))
+                box.Value = 0
+                Console.WriteLine(And(box))
+                Console.WriteLine(Or(box))
+                Console.WriteLine(box.Reads)
+            }
+            """;
+
+        Assert.Equal(["False", "True", "True", "True", "False", "False", "4"], CompileAndRun(code));
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var references = TestMetadataReferences.Default;

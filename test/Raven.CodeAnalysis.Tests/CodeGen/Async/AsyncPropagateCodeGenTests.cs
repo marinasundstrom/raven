@@ -83,6 +83,46 @@ class Program {
         Assert.Equal(new[] { "False", "42", "unavailable" }, CompileAndRun(code));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void AwaitedPropagationInsideStringEqualityPreservesOutcome(bool suspend, bool success)
+    {
+        var code = """
+            import System.*
+            import System.Threading.Tasks.*
+            import System.Result.*
+
+            class Program {
+                static var Calls: int = 0
+                static func Observe(value: bool) -> bool {
+                    Calls += 1
+                    return value
+                }
+                static async func Read(gate: Task<Result<string, string>>) -> Task<Result<bool, string>> {
+                    return Ok(Observe((await gate)? == "value"))
+                }
+                static func Main() {
+                    let source = TaskCompletionSource<Result<string, string>>()
+                    // COMPLETE_BEFORE
+                    let pending = Read(source.Task)
+                    Console.WriteLine(pending.IsCompleted)
+                    // COMPLETE_AFTER
+                    match pending.GetAwaiter().GetResult() {
+                        Ok(let value) => Console.WriteLine(value)
+                        Error(let error) => Console.WriteLine(error)
+                    }
+                    Console.WriteLine(Calls)
+                }
+            }
+            """;
+        var completion = success ? "source.SetResult(Ok(\"value\"))" : "source.SetResult(Error(\"unavailable\"))";
+        code = code.Replace(suspend ? "// COMPLETE_AFTER" : "// COMPLETE_BEFORE", completion);
+        Assert.Equal(new[] { suspend ? "False" : "True", success ? "True" : "unavailable", success ? "1" : "0" }, CompileAndRun(code));
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
