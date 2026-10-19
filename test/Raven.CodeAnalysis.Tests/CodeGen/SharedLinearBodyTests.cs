@@ -768,6 +768,33 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData("..")]
+    [InlineData("..=")]
+    public void DynamicArrayRangesUseWideCardinalityAndCheckedNarrowing(string range)
+    {
+        var compilation = Create($$"""
+            public static class Buffers {
+                public static func Make(start: int, end: int) -> int[] => [for index in start{{range}}end => index]
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsArrays: true, allowsRangeEnumeration: true);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
+            syntax.ExpressionBody!, _ => false, out var body, out var failure, capabilities), failure?.Detail);
+        var plan = new InstructionRecorder();
+        body!.Emit(plan);
+        Assert.Single(plan.Instructions.Where(i => i.Kind == LinearInstructionKind.CheckedConvert));
+        Assert.Single(plan.Instructions.Where(i => i.Kind == LinearInstructionKind.NewArray));
+        var make = Emit(compilation).GetType("Buffers")!.GetMethod("Make")!;
+        Assert.Equal(range == ".." ? new[] { 2, 3, 4 } : new[] { 2, 3, 4, 5 }, (int[])make.Invoke(null, [2, 5])!);
+        Assert.Empty((int[])make.Invoke(null, [5, 2])!);
+    }
+
     [Fact]
     public void ValueCaptureCapabilityCannotAdmitBorrowedStorage()
     {
@@ -1205,6 +1232,14 @@ public class SharedLinearBodyTests
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
+
+    private sealed class InstructionRecorder : ILinearMethodBuilder
+    {
+        internal List<LinearInstruction> Instructions { get; } = [];
+        public void DeclareLocal(EmissionType type) { }
+        public void DefineLabel() { }
+        public void Emit(LinearInstruction instruction) => Instructions.Add(instruction);
+    }
 
     private static Assembly Emit(Compilation compilation)
     {

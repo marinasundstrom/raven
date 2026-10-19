@@ -98,6 +98,9 @@ public static partial class SymbolExtensions
         if (type is null)
             return string.Empty;
 
+        if (type is StructuralFunctionTypeSymbol function)
+            return $"SF:[{string.Join(";", function.ParameterTypes.Select((parameter, index) => $"{function.ParameterRefKinds[index]}:{GetTypeLookupIdentityKey(parameter)}"))}]->{GetTypeLookupIdentityKey(function.ReturnType)}";
+
         if (type is IStructuralUnionTypeSymbol union)
             return $"SU:[{string.Join(";", union.ConstituentTypes.Select(GetTypeLookupIdentityKey).Order(StringComparer.Ordinal))}]";
 

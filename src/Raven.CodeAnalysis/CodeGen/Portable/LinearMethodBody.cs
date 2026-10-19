@@ -1196,6 +1196,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         }
         bool ConstantRangeArray(IArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, SyntaxNode syntax)
         {
+            if (comprehension.Source is BoundRangeExpression dynamicRange &&
+                (dynamicRange.Left?.Value is not BoundLiteralExpression || dynamicRange.Right?.Value is not BoundLiteralExpression))
+                return DynamicRangeArray(type, comprehension, dynamicRange, syntax);
             // A known cardinality needs no collection builder or target-specific
             // helper. Keep other shapes rejected until their ownership is lowered.
             if (capabilities?.AllowsArrays != true || capabilities.AllowsRangeEnumeration != true ||
@@ -1232,6 +1235,81 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             // Derive the value from the bounded output position. In particular,
             // an inclusive Int32.MaxValue endpoint is never incremented.
             Add(LinearInstructionKind.Constant, syntax, start);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.Add, syntax);
+            Add(LinearInstructionKind.StoreLocal, syntax, iteration);
+            Add(LinearInstructionKind.LoadLocal, syntax, array);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            if (!LowerValue(comprehension.Selector, type.ElementType)) return false;
+            instructions.Add(new(LinearInstructionKind.StoreElement, syntax, Type: type.ElementType));
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.Constant, syntax, 1);
+            Add(LinearInstructionKind.Add, syntax);
+            Add(LinearInstructionKind.StoreLocal, syntax, position);
+            Add(LinearInstructionKind.Branch, syntax, begin);
+            Add(LinearInstructionKind.Label, syntax, done);
+            Add(LinearInstructionKind.LoadLocal, syntax, array);
+            locals.Remove(comprehension.IterationLocal);
+            return true;
+        }
+        bool DynamicRangeArray(IArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, BoundRangeExpression range, SyntaxNode syntax)
+        {
+            if (capabilities?.AllowsArrays != true || capabilities.AllowsRangeEnumeration != true ||
+                capabilities.Allows(LinearInstructionKind.CheckedConvert) != true ||
+                comprehension.Condition is not null || comprehension.IterationLocal.Type.SpecialType != SpecialType.System_Int32 ||
+                range.Left is not { IsFromEnd: false, Value: { Type.SpecialType: SpecialType.System_Int32 } start } ||
+                range.Right is not { IsFromEnd: false, Value: { Type.SpecialType: SpecialType.System_Int32 } end } ||
+                !TryType(type, false, out var arrayType))
+                return Reject("array comprehension requires an unfiltered Int32 range", syntax);
+            int Slot(EmissionType shape) { var slot = localTypes.Count; localTypes.Add(shape); return slot; }
+            var first = Slot(new(Primitive: EmissionPrimitiveType.Int32));
+            var length = Slot(new(Primitive: EmissionPrimitiveType.Int32));
+            var wideLength = Slot(new(Primitive: EmissionPrimitiveType.Int64));
+            var position = Slot(new(Primitive: EmissionPrimitiveType.Int32));
+            var iteration = Slot(new(Primitive: EmissionPrimitiveType.Int32));
+            var array = Slot(arrayType);
+            // Evaluate both endpoints once, left-to-right, before allocating or
+            // running the selector. Int64 arithmetic avoids Int32 subtraction overflow.
+            if (!LowerValue(start)) return false;
+            Add(LinearInstructionKind.StoreLocal, syntax, first);
+            if (!LowerValue(end)) return false;
+            Add(LinearInstructionKind.Convert64, syntax);
+            Add(LinearInstructionKind.LoadLocal, syntax, first);
+            Add(LinearInstructionKind.Convert64, syntax);
+            Add(LinearInstructionKind.Subtract, syntax);
+            if (!range.IsUpperExclusive)
+            {
+                instructions.Add(new(LinearInstructionKind.Constant64, syntax, Long: 1));
+                Add(LinearInstructionKind.Add, syntax);
+            }
+            Add(LinearInstructionKind.StoreLocal, syntax, wideLength);
+            var nonempty = nextLabel++;
+            var allocate = nextLabel++;
+            Add(LinearInstructionKind.LoadLocal, syntax, wideLength);
+            instructions.Add(new(LinearInstructionKind.Constant64, syntax, Long: 0));
+            Add(LinearInstructionKind.Greater, syntax);
+            Add(LinearInstructionKind.BranchTrue, syntax, nonempty);
+            Add(LinearInstructionKind.Constant, syntax, 0);
+            Add(LinearInstructionKind.Branch, syntax, allocate);
+            Add(LinearInstructionKind.Label, syntax, nonempty);
+            Add(LinearInstructionKind.LoadLocal, syntax, wideLength);
+            ConvertNumeric(SpecialType.System_Int64, SpecialType.System_Int32, syntax, isChecked: true);
+            Add(LinearInstructionKind.Label, syntax, allocate);
+            Add(LinearInstructionKind.StoreLocal, syntax, length);
+            Add(LinearInstructionKind.LoadLocal, syntax, length);
+            instructions.Add(new(LinearInstructionKind.NewArray, syntax, Type: type.ElementType));
+            Add(LinearInstructionKind.StoreLocal, syntax, array);
+            Add(LinearInstructionKind.Constant, syntax, 0);
+            Add(LinearInstructionKind.StoreLocal, syntax, position);
+            locals.Add(comprehension.IterationLocal, iteration);
+            var begin = nextLabel++;
+            var done = nextLabel++;
+            Add(LinearInstructionKind.Label, syntax, begin);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.LoadLocal, syntax, length);
+            Add(LinearInstructionKind.Less, syntax);
+            Add(LinearInstructionKind.BranchFalse, syntax, done);
+            Add(LinearInstructionKind.LoadLocal, syntax, first);
             Add(LinearInstructionKind.LoadLocal, syntax, position);
             Add(LinearInstructionKind.Add, syntax);
             Add(LinearInstructionKind.StoreLocal, syntax, iteration);
@@ -1609,6 +1687,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundBaseExpression { Receiver: { } receiver } when capabilities?.AllowsClassVirtualSlots == true:
                     return LowerValue(receiver);
+                case BoundBaseExpression capturedBase when capabilities?.AllowsClassVirtualSlots == true &&
+                    Array.FindIndex(captures, capture => capture is INamedTypeSymbol owner &&
+                        SymbolEqualityComparer.Default.Equals(owner, source.ContainingType) &&
+                        SymbolEqualityComparer.Default.Equals(owner.BaseType, capturedBase.Type)) is var baseCapture && baseCapture >= 0:
+                    Add(LinearInstructionKind.LoadCapture, Syntax(expression), baseCapture);
+                    return true;
                 case BoundBaseExpression baseReceiver when !isStaticBody && capabilities?.AllowsClassVirtualSlots == true &&
                     SymbolEqualityComparer.Default.Equals(baseReceiver.Type, source.ContainingType?.BaseType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;

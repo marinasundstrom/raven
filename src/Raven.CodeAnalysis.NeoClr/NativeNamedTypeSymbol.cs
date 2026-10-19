@@ -18,6 +18,9 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
     private readonly bool isExtensionContainer;
     private readonly NominalTypeInfo view;
     internal MemoryViewKind? MemoryView => view.MemoryView;
+    internal bool IsRuntimeCancellationToken => view.IsValueType && view.GenericArity == 0 &&
+        view.FullName == "System.Concurrency.CancellationToken" &&
+        compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name;
     public bool IsRefLikeType => view.MemoryView is MemoryViewKind.Slice or MemoryViewKind.ReadOnlySlice;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;

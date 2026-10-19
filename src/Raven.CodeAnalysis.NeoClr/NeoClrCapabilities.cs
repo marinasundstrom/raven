@@ -35,6 +35,7 @@ internal static class NeoClrCapabilities
             source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
             type.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1",
         allowsValueCapture: type =>
+            type.OriginalDefinition is NativeNamedTypeSymbol { IsRuntimeCancellationToken: true } ||
             type.OriginalDefinition is NativeNamedTypeSymbol { MemoryView: MemoryViewKind.Memory or MemoryViewKind.ReadOnlyMemory } ||
             type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
             source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&

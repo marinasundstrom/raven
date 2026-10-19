@@ -14724,3 +14724,42 @@ validation uses the Xcode 26.2 SDK. The initial allocating-helper fixture exceed
 its deliberately tiny 256-byte live-heap allowance; its helper scratch allocations
 were reduced to eight bytes while preserving forced collections and root cleanup.
 The final six arena/GC executions and both interpreter cases pass.
+
+### Native HTTP consumer admission (2026-10-19, development)
+
+HTTP release-fixture migration exposed two independent native emission limits:
+async runtime-entry lowering could not capture an imported CancellationToken value,
+and an array comprehension required literal range endpoints. The native profile
+now admits immutable, by-value captures of the canonical CancellationToken from the
+configured async assembly. Its inline descriptor retains the cancellation source;
+borrowed/ref-like captures and arbitrary value captures remain rejected. This does
+not widen admission to arbitrary names in other assemblies or mutable captures.
+
+The portable native array plan also accepts unfiltered Int32 ranges with runtime
+endpoints. It evaluates endpoints once, left-to-right, computes cardinality in Int64,
+clamps descending/empty ranges to zero, and checks conversion to an Int32 length
+before allocation. The selector uses the original index; inclusive maximum endpoints
+do not increment past the endpoint. Allocation remains subject to runtime limits.
+Constant-cardinality lowering retains its existing path. Filtered/spread shapes are
+not enabled by this change.
+
+Runtime Contract settings, native metadata and temporary CLI encoding are unchanged.
+The native adapter owns capture admission and the portable body plan owns range
+lowering; ordinary .NET language semantics are unchanged. These changes belong to
+the neoCLR branch; they do not imply integration into Raven main. The portable
+native plan does not exist on current main and remains a separate integration
+candidate. Compiler-level admission/ordinary execution checks pass (seven focused
+checks); matching neoCLR GC, suspension and range consumer qualification is recorded
+in neoCLR's integration documentation before release.
+
+Structural Function overload lookup now includes parameter ref kinds, parameter
+types and the return type in both ordinary and shallow lookup identities.
+Previously distinct callbacks could collapse to the same nominal `Function` key,
+removing the HttpContext overload before applicability checking. This is a
+compiler lookup correction, not a new runtime/CLI encoding. The structural native
+Function implementation is on `codex/neoclr`, not Raven main; carry this correction
+with that feature rather than merging unrelated branch work.
+
+Native runtime-async closures also load their captured receiver for base calls,
+rather than passing the closure instance to the base member. The HTTP lifetime
+consumer exercises this with an overridden HttpHandler forwarding to base.Send.

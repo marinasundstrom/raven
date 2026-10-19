@@ -86,6 +86,34 @@ public sealed class NativeStructuralFunctionTests
     }
 
     [Fact]
+    public void CallbackOverloadsPreserveParameterAndResultShapesDuringLookup()
+    {
+        var compilation = Create("""
+            class Server {
+                func Serve(callback: (int) -> int) -> int => callback(1)
+                func Serve(callback: (string) -> int) -> int => callback("hello")
+                func Serve(callback: (string) -> string) -> string => callback("hello")
+            }
+            func Number(value: int) -> int => value
+            func Count(value: string) -> int => 42
+            func Text(value: string) -> string => value
+            func Test() {
+                let server = Server()
+                let first = server.Serve(Number)
+                let second = server.Serve(Count)
+                let third = server.Serve(Text)
+                let typed: (string) -> int = Count
+                let fourth = server.Serve(typed)
+            }
+            """);
+        Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+        var methods = compilation.GetTypeByMetadataName("Server")!.GetMembers("Serve").OfType<IMethodSymbol>().ToArray();
+        Assert.Equal(3, methods.Select(method => method.GetLookupIdentityKey()).Distinct().Count());
+        Assert.Equal(3, methods.Select(method => method.GetShallowLookupIdentityKey()).Distinct().Count());
+    }
+
+    [Fact]
     public void DotNetKeepsNominalFunctionTransport()
     {
         var compilation = Create(target: TargetPlatform.DotNet);
