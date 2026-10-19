@@ -14978,3 +14978,27 @@ Runtime Contract configuration. No compiler source fix is involved. Primitive-bo
 interface mappings remain a separate limitation. Native metadata/codegen must
 replace the private CLI helper/tag inventory while retaining exact identity and GC
 ownership. Qualification is tracked in neoCLR docs/experiments/composite-formatting.
+
+
+## Native explicit instance methods — 2026-10-20
+
+Native Raven emission now admits explicit interface methods on nongeneric classes,
+including borrowed Slice parameters and same-named public async/private sync methods.
+The compiler preserves private qualified implementation names and emits explicit
+interface mappings; they are not public class virtual slots. Ordinary .NET behavior
+and Runtime Contract configuration are unchanged. This is a native emitter change,
+not a new CLI encoding. The temporary CLI bridge retains its previously documented
+subset and is not used by the new stream fixture.
+
+Generic owner classes, generic explicit methods and value-type explicit method bodies
+remain outside this admission slice. Existing explicit property paths are unchanged.
+The native emitter owns admission and mapping, while neoCLR owns interface dispatch
+and borrowed lifetime validation. A focused compiler probe checks metadata mappings,
+private visibility and rejected ordinary lookup; the neoCLR synchronous stream
+consumer covers execution with the matching compiler/library bundle.
+
+The native backend additionally admits verified private reference-receiver bodies.
+Closed-world selection remaps explicit mapping identities to selected rows and
+drops mappings to unreached contracts; private library-name rewriting updates
+mapping target names alongside call targets. Original metadata/access verification
+remains authoritative. These transformations do not make private methods public.

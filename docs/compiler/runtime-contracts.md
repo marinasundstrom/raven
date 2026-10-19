@@ -4382,3 +4382,21 @@ now derives metadata/emission core identity from that artifact when
 target core identity still rejects. The retained CLI path keeps its preset identity
 validation. Native project tests cover inferred identity through diagnostics and
 emission as well as the existing explicit mismatch checks.
+
+
+## Native explicit instance methods — 2026-10-20
+
+Native Raven emission now admits explicit interface methods on nongeneric classes,
+including borrowed Slice parameters and same-named public async/private sync methods.
+The compiler preserves private qualified implementation names and emits explicit
+interface mappings; they are not public class virtual slots. Ordinary .NET behavior
+and Runtime Contract configuration are unchanged. This is a native emitter change,
+not a new CLI encoding. The temporary CLI bridge retains its previously documented
+subset and is not used by the new stream fixture.
+
+Generic owner classes, generic explicit methods and value-type explicit method bodies
+remain outside this admission slice. Existing explicit property paths are unchanged.
+The native emitter owns admission and mapping, while neoCLR owns interface dispatch
+and borrowed lifetime validation. A focused compiler probe checks metadata mappings,
+private visibility and rejected ordinary lookup; the neoCLR synchronous stream
+consumer covers execution with the matching compiler/library bundle.

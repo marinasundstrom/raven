@@ -324,7 +324,6 @@ internal static class Int32Emitter
                             continue;
                         }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) ||
-                            method.ExplicitInterfaceSpecifier is not null ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.UnsafeKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
@@ -1652,6 +1651,24 @@ internal static class Int32Emitter
 
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
+            // Explicit method mappings are native metadata, independent of class virtual slots.
+            // Keep admission bounded to ordinary instance methods on nongeneric classes.
+            if (!method.ExplicitInterfaceImplementations.IsDefaultOrEmpty &&
+                method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null })
+            {
+                if (method.IsStatic || method.IsAbstract || method.Arity != 0 ||
+                    method.DeclaredAccessibility != Accessibility.Private ||
+                    method.ContainingType is not { TypeKind: TypeKind.Class, Arity: 0 } ||
+                    method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax declaration ||
+                    !CallableSignature.TryCreate(method, out var explicitSignature, bodyCapabilities))
+                    throw Unsupported("explicit instance interface method on a nongeneric class");
+                var explicitBody = (SyntaxNode?)declaration.Body ?? declaration.ExpressionBody;
+                if (explicitBody is null) throw Unsupported("explicit interface method body");
+                var explicitPlan = new SourceCallablePlan(method, declaration, explicitBody, method.ContainingType,
+                    method.MetadataName, explicitSignature);
+                if (!explicitPlan.IsSupportedBy(bodyCapabilities)) throw Unsupported("explicit interface method contract");
+                return explicitPlan;
+            }
             if (method.MethodKind == MethodKind.StaticConstructor)
             {
                 if (!CallableSignature.TryCreate(method, out var signature, bodyCapabilities))
