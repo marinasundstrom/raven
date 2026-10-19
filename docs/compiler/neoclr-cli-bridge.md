@@ -14836,3 +14836,31 @@ contracts directly rather than infer them from CLI storage. Raven codex/neoclr
 2d22055dc with the modified adapter emits the public text consumer; the isolated
 metadata check neoCLR command `dotnet run --project tools/metadata/NeoCLR.Metadata.Experimental.Tests -- --text-overrides` passes. Release-bundle/native-engine qualification is pending.
 This target-specific adapter change does not require a Raven main code change.
+
+
+### Canonical text Object dispatch (2026-10-19)
+
+The coordinated String/Char library change uses canonical Unicode 17 equality and
+hashes while preserving original UTF-8 bytes. StringComparer.Default and the
+Canonical comparison mode provide the same policy; ordinal protocol and metadata
+consumers select exact comparison and matching hashes explicitly. HashCode.Add(string)
+uses the canonical hash service without an encoding-array intermediate.
+
+The compiler Runtime Contract and ordinary .NET lowering are unchanged. Native
+member references use the exact Object slot admission described above. The native
+backend retains those source bodies, projects String receivers by value and Char
+receivers by reference, and attaches selected Char overrides to synthetic box tags.
+Object dispatch passes the rooted box payload to the Char wrapper; it does not use
+reference identity for text equality. String instance null checks run after GC
+frame registration so terminal faults can unwind registered frames safely.
+
+This is target-specific native metadata/codegen behavior, not a change to CLI
+String or Char semantics. The temporary CLI documentation reference exposes the
+signatures but cannot encode UTF-8 grapheme representation or canonical text policy;
+legacy mirror execution is not the public implementation. Native metadata and
+matched runtime services own those semantics. Raven main requires no code change.
+
+The development compiler is Raven codex/neoclr 2d22055dc with neoCLR metadata
+adapter e4709c451; bundle evidence records the binary hashes. See neoCLR's
+`docs/experiments/canonical-text/README.md` for interpreter/JIT/AOT contracts and
+failure-path validation. This is development qualification, not release publication.
