@@ -14778,3 +14778,22 @@ expression arms, pending waits, forced collection, return and cancellation with
 nested reverse-order disposal. The prior adapter rejects its await; the corrected
 adapter passes interpreter, JIT and AOT. Native metadata/backend ownership remains
 unchanged. Larger async expression/definite-assignment gaps are separate follow-ups.
+
+### Logical value assignment and operator propagation (2026-10-19)
+
+The portable linear planner now preserves branch edges from pattern tests through
+both logical operands before producing a Boolean value. Previously materializing
+the left Boolean joined assigned and unassigned pattern-local states; native
+metadata correctly rejected a subsequent local load. Overloaded binary operators
+now use the same ordered argument and early-return lowering as ordinary calls,
+including Result propagation following an await. This restores normal short-circuit
+and return semantics rather than relaxing metadata verification.
+
+The CLI bridge remains calls, locals and branches; Runtime Contract configuration
+and the native metadata/backend replacement boundary do not change. The portable
+planner is currently on codex/neoclr, not Raven main. Ordinary CLR execution is
+covered by 79 shared linear-body tests; neoCLR RuntimeExpressions.rvn passes all
+three execution engines with positive/negative patterns and success/error results.
+Nested numeric operand early exits remain restricted: admitting those requires
+separate CLR emitter support and is not part of this fix. Larger consumer
+qualification is tracked by neoCLR, with no performance claim.

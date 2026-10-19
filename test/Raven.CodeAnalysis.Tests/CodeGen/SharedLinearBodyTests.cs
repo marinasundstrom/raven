@@ -8,6 +8,29 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class SharedLinearBodyTests
 {
     [Fact]
+    public void LogicalValuePreservesPatternAssignmentAndShortCircuit()
+    {
+        var compilation = Create("""
+            public class Box { public var Value: int = 42 }
+            public static class Conditions {
+                public static func And(value: object) -> bool => value is Box item && item.Value == 42
+                public static func Or(value: object) -> bool => value is not Box item || item.Value == 42
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var assembly = Emit(compilation);
+        var box = Activator.CreateInstance(assembly.GetType("Box")!)!;
+        var methods = assembly.GetType("Conditions")!;
+        Assert.Equal(false, methods.GetMethod("And")!.Invoke(null, [new object()]));
+        Assert.Equal(true, methods.GetMethod("And")!.Invoke(null, [box]));
+        Assert.Equal(true, methods.GetMethod("Or")!.Invoke(null, [new object()]));
+        Assert.Equal(true, methods.GetMethod("Or")!.Invoke(null, [box]));
+        assembly.GetType("Box")!.GetProperty("Value")!.SetValue(box, 0);
+        Assert.Equal(false, methods.GetMethod("And")!.Invoke(null, [box]));
+        Assert.Equal(false, methods.GetMethod("Or")!.Invoke(null, [box]));
+    }
+
+    [Fact]
     public void PropertyPatternsEvaluateOnceAndShortCircuit()
     {
         var compilation = Create("""

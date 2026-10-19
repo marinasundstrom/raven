@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-19:** Preserve pattern-assignment edges when lowering logical values, and lower overloaded binary operators through ordered call-argument handling so async Result propagation can return safely. All 79 shared linear-body tests and a neoCLR async expression regression in interpreter/JIT/AOT pass. Numeric nested-operand early exits remain restricted; Runtime Contract settings are unchanged.
+
 - **2026-10-19:** Traverse match-arm bodies and guards in native runtime-async suspension and cleanup passes. Await, return and cancellation inside match arms now preserve scoped disposal; the neoCLR regression passes interpreter/JIT/AOT. Runtime Contract settings and ordinary .NET lowering are unchanged.
 
 - **2026-10-19:** Preserve structural Function parameter, ref-kind and result shapes in overload lookup identities, so context/request callbacks remain selectable. Fix native async base calls to load the captured receiver rather than the closure. Nine focused Function/range tests pass; runtime consumer qualification is recorded with neoCLR. This corrects the native Function branch without changing ordinary .NET delegate identity.

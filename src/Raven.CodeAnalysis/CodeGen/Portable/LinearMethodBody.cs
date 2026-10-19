@@ -1920,10 +1920,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     binaryMethod.Parameters.Length == 2 && binaryMethod.Parameters.All(p => p.RefKind == RefKind.None) &&
                     TrySignature(binaryMethod, out var binarySignature) && SupportedTypeArguments(binaryMethod) &&
                     (capabilities is null || capabilities.Allows(binarySignature)):
-                    if (!LowerValue(binary.Left, binaryMethod.Parameters[0].Type) ||
-                        !LowerValue(binary.Right, binaryMethod.Parameters[1].Type)) return false;
-                    Add(LinearInstructionKind.Call, Syntax(expression), method: binaryMethod);
-                    return true;
+                    // Operator calls have the same ordered operand/early-exit
+                    // contract as ordinary calls, including late async blocks.
+                    return LowerValue(new BoundInvocationExpression(binaryMethod,
+                        [binary.Left, binary.Right]), atStatementBoundary: atStatementBoundary);
                 case BoundBinaryExpression characterComparison when model.Compilation.Options.UseGraphemeChar &&
                     characterComparison.Operator.MethodSymbol is null &&
                     characterComparison.Left.Type.SpecialType == SpecialType.System_Char &&
@@ -1950,9 +1950,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var shortCircuit = nextLabel++;
                     var completed = nextLabel++;
                     var isOr = logical.Operator.OperatorKind == OperatorKind.LogicalOr;
-                    if (!LowerValue(logical.Left, atStatementBoundary: atStatementBoundary)) return false;
-                    Add(isOr ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse, Syntax(expression), shortCircuit);
-                    if (!LowerValue(logical.Right, atStatementBoundary: atStatementBoundary)) return false;
+                    // Keep pattern-success edges intact until both operands have
+                    // been evaluated. Materializing the LHS boolean first merges
+                    // assigned and unassigned pattern locals before the RHS.
+                    if (!LowerBranch(logical, shortCircuit, isOr, Syntax(expression), atStatementBoundary)) return false;
+                    Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 0 : 1);
                     Add(LinearInstructionKind.Branch, Syntax(expression), completed);
                     Add(LinearInstructionKind.Label, Syntax(expression), shortCircuit);
                     Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 1 : 0);
