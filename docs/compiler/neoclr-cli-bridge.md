@@ -14763,3 +14763,18 @@ with that feature rather than merging unrelated branch work.
 Native runtime-async closures also load their captured receiver for base calls,
 rather than passing the closure instance to the base member. The HTTP lifetime
 consumer exercises this with an overridden HttpHandler forwarding to base.Send.
+
+### Native async match-arm traversal (2026-10-19)
+
+The native adapter's cleanup and suspension passes now visit match arms and guards
+explicitly. The generic rewriter preserves auxiliary arm payloads; relying on it
+left awaits unlowered and skipped scoped-disposal discovery. Native async continues
+to use its source-included Start/Wait/TaskOutcome bridge, with no Runtime Contract
+setting or metadata change. Raven main does not contain this native adapter; this
+is a target-specific correction, not a change to ordinary .NET behavior.
+
+neoCLR's `docs/experiments/runtime-async/RuntimeMatch.rvn` exercises statement and
+expression arms, pending waits, forced collection, return and cancellation with
+nested reverse-order disposal. The prior adapter rejects its await; the corrected
+adapter passes interpreter, JIT and AOT. Native metadata/backend ownership remains
+unchanged. Larger async expression/definite-assignment gaps are separate follow-ups.

@@ -108,11 +108,27 @@ internal static class NativeRuntimeAsyncLowerer
         return plan with { PreparedBody = wrapper };
     }
 
+    // Match arms are auxiliary nodes whose payloads the generated rewriter
+    // preserves. Both cleanup discovery and suspension rewriting must visit them.
+    private abstract class MatchRewriter : BoundTreeRewriter
+    {
+        private ImmutableArray<BoundMatchArm> RewriteArms(ImmutableArray<BoundMatchArm> arms) =>
+            arms.Select(arm => new BoundMatchArm(
+                (BoundPattern)VisitPattern(arm.Pattern)!, VisitExpression(arm.Guard),
+                VisitExpression(arm.Expression)!)).ToImmutableArray();
+
+        public override BoundNode? VisitMatchStatement(BoundMatchStatement node) =>
+            node.Update(VisitExpression(node.Expression)!, RewriteArms(node.Arms));
+
+        public override BoundNode? VisitMatchExpression(BoundMatchExpression node) =>
+            node.Update(VisitExpression(node.Expression)!, RewriteArms(node.Arms), node.Type);
+    }
+
     // Keep synchronous use and asynchronous iterator cleanup in one lexical stack.
     // Otherwise a later use-lowering pass could dispose an inner resource after
     // its outer iterator, or miss an exit introduced by cancellation rewriting.
     private sealed class CleanupScopes(Compilation compilation, ISymbol owner,
-        Func<string, UnsupportedInputException> unsupported) : BoundTreeRewriter
+        Func<string, UnsupportedInputException> unsupported) : MatchRewriter
     {
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
         public override BoundNode? VisitFunctionStatement(BoundFunctionStatement node) => node;
@@ -187,7 +203,7 @@ internal static class NativeRuntimeAsyncLowerer
     private sealed class Rewriter(
         SourceLambdaSymbol owner, ITypeSymbol unit, ITypeSymbol resultType,
         IMethodSymbol complete, IMethodSymbol cancel, ImmutableArray<IMethodSymbol> waits,
-        Func<string, UnsupportedInputException> unsupported, IMethodSymbol? yieldMethod, IParameterSymbol? producer) : BoundTreeRewriter
+        Func<string, UnsupportedInputException> unsupported, IMethodSymbol? yieldMethod, IParameterSymbol? producer) : MatchRewriter
     {
         // Generated visitors otherwise defer argument-list traversal until after
         // VisitTryStatement has popped the lexical cleanup scope.
