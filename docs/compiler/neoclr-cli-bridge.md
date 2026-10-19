@@ -14911,3 +14911,32 @@ requiring this bridge symbol inventory. Validation and limits live in neoCLR's
 `docs/experiments/string-lines/README.md`; no new Raven compiler code or host-.NET
 mapping is introduced. The parameterless LF default is a neoCLR library choice,
 not a compiler substitution for System.String on .NET.
+
+
+### String search services (2026-10-19)
+
+Raven String.Contains/StartsWith/EndsWith default to canonical whole-grapheme
+matching and expose explicit StringComparison overloads. Canonical and
+OrdinalIgnoreCase dispatch to six exact private InternalCalls, named
+String{Contains,StartsWith,EndsWith}{Canonical,OrdinalIgnoreCase}, each
+(String, String) -> Boolean. Ordinal overloads reuse the existing byte services.
+Unknown modes fault in Raven before invoking a kernel, including empty patterns.
+
+Native semantic intent is borrowed immutable text, with no normalized copy, temporary
+array or result allocation. The interpreter and no_std native helper share the same
+Rust kernels and Unicode tables. Canonical search uses Unicode 17 grapheme boundaries;
+ignore-case uses simple-folded scalar matching and can match inside a grapheme.
+The temporary native bridge uses six exact neoclr_string_*_v1 bindings with two text
+descriptors and a Boolean output slot. A private Unicode helper validates UTF-8 and
+mode/operation tags before publishing output; it retains no pointers, does not
+allocate or reenter guest code. The runtime/backend own these adapters; a matching
+rebuilt library, runtime, codegen and native helper are required. Build fingerprints
+include the shared search source and search-only applications select the Unicode
+archive even without other Unicode services.
+
+Runtime Contract configuration and ordinary .NET behavior are unchanged. No Raven
+compiler source change is required. Native metadata/codegen should eventually bind
+these semantic operations without the CLI/private symbol inventory; these symbols
+are not a public Native API. Validation and the repeated-prefix complexity limit
+are recorded in neoCLR's docs/experiments/string-search/README.md. String storage
+and public text positions are unchanged by this addition.

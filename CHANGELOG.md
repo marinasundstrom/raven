@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-19:** Document neoCLR canonical and simple-fold String search overloads, exact private native bindings, borrowed UTF-8 semantics and shared Unicode kernels. Runtime Contract configuration and ordinary .NET behavior remain unchanged; matching library/runtime/backend artifacts are required.
+
 - **2026-10-19:** Document the private neoCLR String line-ending runtime service, exact backend binding, retained UTF-8 bytes and GC ownership. Runtime Contract configuration and ordinary .NET behavior are unchanged; matching library/runtime artifacts are required.
 
 - **2026-10-19:** Document the neoCLR backend private String helper projection, preserving legal calls after receiver lowering while retaining original private-access checks. No compiler code, Runtime Contract or ordinary .NET behavior changes.
