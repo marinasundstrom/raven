@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-19:** Document neoCLR native-backend support for receiver-independent calls, nested construction and string constants in base-constructor arguments, with GC/root-isolation validation. Raven emission, ordinary .NET behavior and Runtime Contract configuration are unchanged; control-flow initializer coverage remains pending.
+
 - **2026-10-19:** Admit canonical Slice/ReadOnlySlice ref structs and ordinary Memory/ReadOnlyMemory structs only in the neoCLR source-core contract; preserve imported opaque/ref-like identities, reject invalid shapes/constructors, and lower native array ranges through GetSlice while .NET retains GetSubArray. Correct portable value-indexer receivers. Qualify shared views, persistent fields across await and GC, copying, borrowed conversions and lifetime/readonly diagnostics. Runtime Contract settings remain unchanged; backend coverage is tracked in neoCLR. Admit immutable persistent memory captures behind an explicit native capability, including defensive local receivers for captured descriptors, so native async entry can retain Memory parameters. Ref-like capture remains rejected and ordinary .NET emission is unchanged. Add focused capture-admission and nested-receiver regressions.
 
 - **2026-10-18:** Document neoCLR backend boxing coverage for all numeric primitive kinds, Boolean and Char, with exact ancestry/identity and three-mode regressions. No Raven emission or Runtime Contract change; additional-kind default Object display remains explicitly unsupported.

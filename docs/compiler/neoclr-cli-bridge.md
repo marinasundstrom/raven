@@ -14691,3 +14691,36 @@ cases). A freshly rebuilt five-library cohort runs four pending-transfer tests i
 interpreter/JIT/AOT on macOS ARM64; both borrowed capture fixtures fail with
 RAV2205. neoCLR records commands, compiler hashes and limitations in
 `docs/validation/memory-views-20261019/async-lifetime-validation.json`.
+
+### Native base-constructor argument calls (2026-10-19)
+
+The HTTP content redesign exposed a neoCLR native-backend gap: Raven emitted
+ordinary helper calls and object construction in base-constructor arguments, but
+native admission accepted only scalar expressions. The backend now recognizes
+straight-line calls, virtual calls on independently supplied receivers, nested
+construction, argument casts and string constants before the direct base initializer. This follows
+ordinary .NET constructor semantics; it is not a new Raven language restriction or
+an HTTP-specific special case.
+
+The verifier counts values above the uninitialized receiver and prevents helpers
+or nested constructors from consuming it. Direct constructor calls still require
+the single leading base initializer; receiver access/duplication, stores and
+control flow in the prefix, and branches back into initialization remain rejected
+coverage gaps. Calls retain their normal effects, fault behavior, typed validation
+and managed root publication. No Runtime Contract setting, temporary CLI encoding,
+native metadata layout or public API changes are needed. The native backend owns
+this fix; Raven emission and ordinary .NET behavior are unchanged.
+
+Validation is recorded by the focused `base_` codegen unit tests and
+`rooted_object_construction_preserves_arguments_and_receiver` executable test.
+The latter exercises nested construction, an instance helper and a static helper
+with a string argument; helper and base-constructor allocations force GC while
+arguments and the derived receiver are live. It checks interpreter and ARM64 AOT,
+including paced/every-boundary collection, root cleanup and bounds/undefined
+behavior sanitizers. The HTTP API integration remains a separate work item.
+
+The first executable run encountered the host command-line SDK/linker mismatch;
+validation uses the Xcode 26.2 SDK. The initial allocating-helper fixture exceeded
+its deliberately tiny 256-byte live-heap allowance; its helper scratch allocations
+were reduced to eight bytes while preserving forced collections and root cleanup.
+The final six arena/GC executions and both interpreter cases pass.
