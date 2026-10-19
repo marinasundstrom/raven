@@ -14940,3 +14940,29 @@ these semantic operations without the CLI/private symbol inventory; these symbol
 are not a public Native API. Validation and the repeated-prefix complexity limit
 are recorded in neoCLR's docs/experiments/string-search/README.md. String storage
 and public text positions are unchanged by this addition.
+
+
+### Char utility services (2026-10-19)
+
+Char.TryFromString returns Option<Char> using the exact private InternalCall
+CharIsSingleGrapheme(String) -> Boolean before the existing CharFromString service.
+The first grapheme must occupy the complete nonempty input. The source method
+constructs Some/None with ordinary Raven unions; no custom carrier is introduced.
+The native adapter reuses the pinned Unicode 17 grapheme helper with one immutable
+text descriptor and a Boolean output slot. It allocates nothing and retains no
+pointer; successful Char/Option construction retains its existing allocation rules.
+
+Char.Equals(Char, StringComparison) selects exact CharCompareCanonical,
+CharCompareOrdinal or CharCompareOrdinalIgnoreCase(Char, Char) -> Int32 services.
+The latter two bind to existing native text comparison kernels while retaining
+Char parameter types in verified metadata. Invalid modes fault in Raven. No
+CharText conversion is used. These are private runtime/backend services, not a
+public Native API; matching library/runtime/codegen/helper builds are required.
+
+Runtime Contract configuration and ordinary .NET compilation remain unchanged.
+No Raven compiler source fix is needed. A future native backend should bind the
+semantic operations directly without this temporary CLI symbol inventory. Source
+and runtime owners must preserve grapheme validation, explicit comparison and
+byte retention. Char.Utf8Bytes remains unimplemented because interpreter-owned
+Char buffers cannot currently supply the shared immutable byte-view owner without
+copying. See neoCLR docs/experiments/char-utilities/README.md for qualification.
