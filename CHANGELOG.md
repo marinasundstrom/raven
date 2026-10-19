@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-20:** Document neoCLR boxed nominal value-interface dispatch repair exposed by Formattable; no Raven compiler or ordinary .NET behavior change. Track private boxing inventory, native ownership and qualification separately.
+
 - **2026-10-19:** Document neoCLR Char.TryFromString and explicit-policy equality, preserving grapheme validation and direct Char storage comparisons through private native services. Runtime Contract configuration and .NET compilation are unchanged; borrowed Char bytes remain a storage-ownership gap.
 
 - **2026-10-19:** Document neoCLR canonical and simple-fold String search overloads, exact private native bindings, borrowed UTF-8 semantics and shared Unicode kernels. Runtime Contract configuration and ordinary .NET behavior remain unchanged; matching library/runtime/backend artifacts are required.

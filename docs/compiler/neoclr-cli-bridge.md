@@ -14966,3 +14966,15 @@ and runtime owners must preserve grapheme validation, explicit comparison and
 byte retention. Char.Utf8Bytes remains unimplemented because interpreter-owned
 Char buffers cannot currently supply the shared immutable byte-view owner without
 copying. See neoCLR docs/experiments/char-utilities/README.md for qualification.
+
+## Boxed value interface dispatch in neoCLR — 2026-10-20
+
+The neoCLR Formattable consumer exposed a backend gap: boxed nominal structs were
+missing from native interface tests/dispatch despite correct interpreter behavior.
+neoCLR now retains verified interface targets for reachable boxes and carries that
+inventory through private boxing projection; native byref calls borrow rooted box
+payloads. This does not change Raven source semantics, ordinary .NET emission or
+Runtime Contract configuration. No compiler source fix is involved. Primitive-box
+interface mappings remain a separate limitation. Native metadata/codegen must
+replace the private CLI helper/tag inventory while retaining exact identity and GC
+ownership. Qualification is tracked in neoCLR docs/experiments/composite-formatting.
