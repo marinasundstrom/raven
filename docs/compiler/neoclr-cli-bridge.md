@@ -14797,3 +14797,21 @@ three execution engines with positive/negative patterns and success/error result
 Nested numeric operand early exits remain restricted: admitting those requires
 separate CLR emitter support and is not part of this fix. Larger consumer
 qualification is tracked by neoCLR, with no performance claim.
+
+### Nullable extracted payload binding (2026-10-19)
+
+The native portable planner now binds exact-type declarations after successful
+case, union-member or property extraction without another type test. A null
+reference is a valid payload; `Ok(let value)` must not become non-exhaustive for
+`Result<Object?, string>.Ok(null)`. Narrower patterns still test/cast the payload.
+This matches main's CLR payload emitter rather than changing the language contract.
+
+Main ffa3d0812 independently passes null, string and boxed-integer regressions,
+including narrowed string patterns, without an emitter change. The test fixture
+is deliberately copied to codex/neoclr; 82 focused CLR tests pass there. neoCLR's
+NullablePayload.rvn passes interpreter, JIT and AOT. The CLI representation uses
+existing extraction calls and local stores; Runtime Contract settings, metadata
+formats and native backend ownership remain unchanged. Native library rebuilds
+are required for library-authored matches such as JSON ObjectMapper. Separate
+null-conversion/unit-coercion expression cases exposed while reducing the test
+remain unqualified and are not claimed fixed by this payload change.

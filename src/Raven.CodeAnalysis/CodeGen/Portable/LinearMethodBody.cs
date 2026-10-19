@@ -355,6 +355,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool UsesReferenceStorage(ITypeSymbol type) => type.IsReferenceType ||
             type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true;
 
+        bool PatternPayload(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        {
+            // A successfully extracted payload already has its declared type.
+            // Like the CLR emitter, bind an exact declaration without an isinst
+            // test, which would incorrectly reject a valid nullable payload.
+            if (pattern is BoundDeclarationPattern declaration &&
+                CallableSignature.SameStorageType(input, declaration.DeclaredType))
+                return PatternDesignator(declaration.Designator, input, syntax);
+            return PatternValue(input, pattern, fail, syntax);
+        }
+
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
@@ -489,7 +500,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         return Reject("unsupported property pattern member", syntax);
                     instructions.Add(new(propertyPattern.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiverSlot, Type: propertyPattern.ReceiverType));
                     Add(InstanceCallKind(accessor), syntax, method: accessor);
-                    if (!PatternValue(propertyMember.Type, propertyMember.Pattern, fail, syntax)) return false;
+                    if (!PatternPayload(propertyMember.Type, propertyMember.Pattern, fail, syntax)) return false;
                 }
                 if (propertyPattern.Designator is { } designator)
                 {
@@ -569,7 +580,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (pattern is BoundUnionMemberPattern member)
             {
                 Add(LinearInstructionKind.LoadLocal, syntax, payload);
-                return PatternValue(output.Type, member.Pattern, fail, syntax);
+                return PatternPayload(output.Type, member.Pattern, fail, syntax);
             }
             if (pattern is BoundDeclarationPattern extracted)
             {
@@ -587,7 +598,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (property?.GetMethod is not { } getter || !SupportedInstanceCall(getter)) return Reject("unsupported case payload accessor", syntax);
                 Add(output.Type.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, payload);
                 Add(InstanceCallKind(getter), syntax, method: getter);
-                if (!PatternValue(property.Type, casePattern.Arguments[i], fail, syntax)) return false;
+                if (!PatternPayload(property.Type, casePattern.Arguments[i], fail, syntax)) return false;
             }
             if (casePattern.Designator is not null)
             {
