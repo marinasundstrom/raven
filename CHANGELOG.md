@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-19:** Document the neoCLR backend private String helper projection, preserving legal calls after receiver lowering while retaining original private-access checks. No compiler code, Runtime Contract or ordinary .NET behavior changes.
+
 - **2026-10-19:** Document native canonical String/Char Object dispatch through verified source overrides, exact receiver projection and GC-safe null faults. No compiler Runtime Contract or ordinary .NET behavior changes; neoCLR owns runtime/backend qualification and the UTF-8 policy.
 
 - **2026-10-19:** Document neoCLR adapter admission of exact String/Char Object override references, resolving native consumer emission. Runtime Contract, metadata format and ordinary .NET behavior are unchanged; native execution qualification remains pending.

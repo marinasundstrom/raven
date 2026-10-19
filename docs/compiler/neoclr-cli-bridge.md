@@ -14864,3 +14864,30 @@ The development compiler is Raven codex/neoclr 2d22055dc with neoCLR metadata
 adapter e4709c451; bundle evidence records the binary hashes. See neoCLR's
 `docs/experiments/canonical-text/README.md` for interpreter/JIT/AOT contracts and
 failure-path validation. This is development qualification, not release publication.
+
+
+### Private String helper projection (2026-10-19)
+
+Native trimming exposed a backend-only access gap: projected String instance
+wrappers and static helpers lose their intrinsic owner, so private helper calls
+failed verification after projection. The backend now marks selected private
+static helpers assembly-visible only inside its private closed-world artifact,
+after complete original-load-set access verification. Source metadata, Runtime
+Contract configuration and ordinary .NET behavior are unchanged. The projection
+inventory records the affected helpers; it cannot authorize an original external
+caller. Private instance wrappers remain unsupported by this bridge projection.
+
+The backend owns this temporary representation. Native metadata/code generation
+should eventually retain logical declaring-owner access independently of receiver
+lowering, eliminating this access adjustment. A focused receiver regression checks
+legal helper calls, preserved null faults and rejection of an original external
+private call; the Raven trimming consumer additionally exercises two private
+helpers in interpreter/JIT/AOT. Qualification is recorded in neoCLR's
+`docs/experiments/string-trimming/README.md`.
+
+The focused test uses `callvirt`, matching Raven public instance calls. A separate
+pre-existing bridge discrepancy remains for hand-authored direct `call` on a null
+String receiver: the interpreter can enter the body, whereas native projected
+String wrappers reject null at entry. This is not qualified as .NET direct-call
+parity. Preserve that distinction when replacing wrapper projection; it remains a
+release-review item, not a new source-language contract.
