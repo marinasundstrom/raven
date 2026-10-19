@@ -1,3 +1,5 @@
+using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
@@ -31,5 +33,10 @@ internal static class NeoClrCapabilities
         [Accessibility.Public, Accessibility.Internal], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsConstructedFieldReferences: true, allowsNominalTypeBounds: true, allowsSpecialTypeConstraints: true, allowsGenericInterfaceDeclarations: true, allowsExternalInterfaceDeclarations: true, allowsConstructedInterfaceInheritance: true, allowsConstructedInterfaceImplementations: true, allowsInterfaceSignatures: true, allowsInterfaceDispatch: true, allowsExternalReferenceSignatures: true, allowsExternalValueSignatures: true, allowsExternalInstanceCalls: true, allowsManagedReferences: true, allowsExternalValueInstanceCalls: true, allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsFunctionValues: true, allowsLoweredExtensionCalls: true, allowsCasePatterns: true, allowsReferenceEnumeration: true, allowsObjectDisplayDispatch: true, allowsObjectHashDispatch: true, allowsRangeEnumeration: true, allowsMethodInterfaceBounds: true, allowsClassVirtualSlots: true, allowsLocalClassInheritance: true, allowsClosedClassFamilies: true, allowsProtectedConstructors: true, allowsClosedInterfaceFamilies: true, allowsParameterArrays: true, allowsUnmanagedPointers: true, allowsGenericObjectRootBase: true, allowsCustomAttributes: true, allowsExternalFieldlessClassInheritance: true, allowsInternalExternalSymbols: true, allowsExternalClassInheritance: true, allowsGenericFunctionCaptures: true, allowsStaticFields: true, allowsImportedCompositionCalls: true, allowsInterfaceVariance: true, allowsGenericLocalClassInheritance: true, allowsConstructedClassBases: true, allowsGenericExternalClassInheritance: true, allowsGenericClassVirtualSlots: true, allowsAbstractGenericClasses: true, allowsFunctionTypeConstraints: true, allowsMethodFunctionTypeConstraints: true, allowsRefLikeType: type =>
             type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
             source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
-            type.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1");
+            type.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1",
+        allowsValueCapture: type =>
+            type.OriginalDefinition is NativeNamedTypeSymbol { MemoryView: MemoryViewKind.Memory or MemoryViewKind.ReadOnlyMemory } ||
+            type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
+            source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
+            type.OriginalDefinition.ToFullyQualifiedMetadataName() is "System.Memory`1" or "System.ReadOnlyMemory`1");
 }

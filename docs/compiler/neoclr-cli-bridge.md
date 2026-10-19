@@ -14659,3 +14659,35 @@ Validation: neoCLR's MemoryConsumer returns 0 with object fields holding both
 persistent types, awaited Task.Run, two explicit GC collections, nested windows,
 borrowed mutation/read aliases and independent copies. Illegal Slice-to-Memory
 and ReadOnlyMemory-to-Slice conversions produce RAV1503 with no output artifact.
+
+### Persistent memory captures for native async entry (2026-10-19)
+
+Raven's `codex/neoclr` native emitter now explicitly admits immutable by-value
+Memory/ReadOnlyMemory captures. Runtime async entry is itself a closure; the prior
+primitive/reference-only capture policy rejected persistent buffer parameters
+before runtime suspension. Imported opaque memory-view metadata identifies the
+supported types; source-core declarations require `UseSourceCore`. The shared
+capability defaults to disabled and refuses ref-like values even if a backend
+predicate accepts them. Slice/ReadOnlySlice captures remain frontend errors.
+
+Instance access on an admitted captured descriptor uses a defensive local copy,
+not an address into closure storage. The backing owner is shared, so writable
+windows still alias their bytes. This uses existing field/local/reference
+instructions and native memory-view metadata; no new opcode, CLI projection or
+Runtime Contract configuration is introduced. Ordinary .NET emission is unchanged.
+The native backend owns descriptor layout and owner tracing. Arbitrary structs,
+non-byte execution, retained native pointers and I/O completion lifetimes are not
+admitted by this qualification.
+
+The semantic distinction follows .NET's persistent Memory versus borrowed Span
+model. neoCLR keeps implicit typed borrowing instead of compatibility-only AsSpan
+adapters. The cost is explicit backend admission and a descriptor copy for captured
+receivers. Native metadata/codegen remain authoritative; opaque view assemblies
+still cannot be projected to CLI references. Stream/socket service migration and
+completion-root release need their own validation.
+
+Validation: 15 focused shared-emitter capture tests pass (10 baseline, five new
+cases). A freshly rebuilt five-library cohort runs four pending-transfer tests in
+interpreter/JIT/AOT on macOS ARM64; both borrowed capture fixtures fail with
+RAV2205. neoCLR records commands, compiler hashes and limitations in
+`docs/validation/memory-views-20261019/async-lifetime-validation.json`.

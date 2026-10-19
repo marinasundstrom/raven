@@ -768,6 +768,60 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Fact]
+    public void ValueCaptureCapabilityCannotAdmitBorrowedStorage()
+    {
+        var compilation = Create("""
+            public static class Capture {
+                public static func Inspect(value: System.Span<int>) -> int => value.Length
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsValueCapture: _ => true);
+        Assert.False(capabilities.AllowsValueCapture((INamedTypeSymbol)method.Parameters[0].Type));
+    }
+
+    [Theory]
+    [InlineData("Memory", false)]
+    [InlineData("Memory", true)]
+    [InlineData("ReadOnlyMemory", false)]
+    [InlineData("ReadOnlyMemory", true)]
+    public void PersistentValueCaptureRequiresExplicitBackendAdmission(string type, bool enabled)
+    {
+        var compilation = Create($$"""
+            public static class Capture {
+                public static func Make(value: System.{{type}}<int>) -> () -> int {
+                    return () => value.Length
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), [EmissionDeclarationKind.PropertyAccessor], allowsFunctionValues: true,
+            allowsExternalValueSignatures: true, allowsGenericClassOwners: true,
+            allowsManagedReferences: true, allowsExternalInstanceCalls: true, allowsExternalValueInstanceCalls: true,
+            allowsValueCapture: value => enabled && value.OriginalDefinition.Name == type);
+        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out var body, out var failure, capabilities);
+        Assert.True(admitted == enabled, failure?.Detail);
+        if (enabled)
+        {
+            var (function, syntax) = Assert.Single(body!.Functions);
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+                _ => false, out _, out failure, capabilities, function), failure?.Detail);
+        }
+        object memory = type == "Memory" ? (object)new Memory<int>(new int[3]) : new ReadOnlyMemory<int>(new int[3]);
+        var callback = (Delegate)Emit(compilation).GetType("Capture")!.GetMethod("Make")!.Invoke(null, [memory])!;
+        Assert.Equal(3, callback.DynamicInvoke());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

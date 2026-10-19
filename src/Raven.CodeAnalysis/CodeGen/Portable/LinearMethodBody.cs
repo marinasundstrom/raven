@@ -1046,6 +1046,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return receiver switch
                 {
                     BoundParenthesizedExpression parenthesized => Receiver(parenthesized.Expression, owner, syntax),
+                    // Captures are immutable value snapshots. Instance receivers get a
+                    // defensive local copy, never an address into closure storage.
+                    BoundLocalAccess local when local.Type is INamedTypeSymbol valueType &&
+                        capabilities.AllowsValueCapture(valueType) &&
+                        captures.Any(c => SymbolEqualityComparer.Default.Equals(c, local.Local)) => TemporaryReceiver(local, syntax),
+                    BoundParameterAccess parameter when parameter.Type is INamedTypeSymbol valueType &&
+                        capabilities.AllowsValueCapture(valueType) &&
+                        captures.Any(c => SymbolEqualityComparer.Default.Equals(c, parameter.Parameter)) => TemporaryReceiver(parameter, syntax),
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
                     BoundArrayAccessExpression array => ArrayElementAddress(array),
                     BoundParameterAccess parameter => LowerReference(parameter),
@@ -1968,7 +1976,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         };
                         if (captured is null || capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
                             !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
-                            !(captured.Type.IsReferenceType || captured.Type is ITypeParameterSymbol && capabilities.AllowsGenericFunctionCaptures || capturedType.Primitive is EmissionPrimitiveType.Int32 or
+                            !(captured.Type.IsReferenceType || captured.Type is INamedTypeSymbol capturedValue && capabilities.AllowsValueCapture(capturedValue) || captured.Type is ITypeParameterSymbol && capabilities.AllowsGenericFunctionCaptures || capturedType.Primitive is EmissionPrimitiveType.Int32 or
                                 EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Single or EmissionPrimitiveType.Double or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
                             return Reject("closure capture requires an immutable reference or supported primitive local or by-value parameter", Syntax(expression));
                         if (!LowerValue(captured)) return false;
