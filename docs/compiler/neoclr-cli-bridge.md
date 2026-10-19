@@ -14891,3 +14891,23 @@ String receiver: the interpreter can enter the body, whereas native projected
 String wrappers reject null at entry. This is not qualified as .NET direct-call
 parity. Preserve that distinction when replacing wrapper projection; it remains a
 release-review item, not a new source-language contract.
+
+
+### String line-ending service (2026-10-19)
+
+The Raven String.ReplaceLineEndings overloads call the private exact InternalCall
+StringReplaceLineEndings(String, String) -> String. Runtime Contract configuration
+and ordinary .NET compiler behavior are unchanged; the library/runtime/backend
+bundle must all include the new service. The native text binding selects
+neoclr_string_replace_line_endings_v1 or its rooted GC variant, passing the existing
+text arena and output slot. This is temporary private ABI, not a public Native API.
+The interpreter/runtime owns Unicode newline matching and checked allocation;
+original UTF-8 bytes outside matches are retained. The rooted native service keeps
+both input and replacement alive through final allocation; no intermediate byte
+arrays or per-match strings are needed. Return the same owner if no bytes change.
+
+A future native metadata/backend should retain the same semantic contract without
+requiring this bridge symbol inventory. Validation and limits live in neoCLR's
+`docs/experiments/string-lines/README.md`; no new Raven compiler code or host-.NET
+mapping is introduced. The parameterless LF default is a neoCLR library choice,
+not a compiler substitution for System.String on .NET.
