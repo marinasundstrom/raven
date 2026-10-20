@@ -85,6 +85,10 @@ The discarded parameter remains part of the function signature but does not
 introduce a name in the body.
 
 Parameter types and `ref`/`out` modifiers participate in overload resolution.
+An `out` parameter must be assigned on every normal method exit. Evaluating a
+return expression happens before this check: a direct call that forwards the
+parameter as `out` assigns it when that call returns normally. A call only on the
+right side of `&&` or `||` does not guarantee assignment because it may be skipped.
 
 `val` and `var` binding keywords are not used on ordinary function parameters.
 Primary-constructor parameter promotion is the exception, where `val` and `var`

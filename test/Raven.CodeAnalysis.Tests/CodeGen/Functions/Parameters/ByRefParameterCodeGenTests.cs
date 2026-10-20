@@ -34,6 +34,28 @@ class Program {
     }
 
     [Fact]
+    public void ReturnedGenericOutCall_AssignsForwardedParameter()
+    {
+        const string code = """
+class Program {
+    static func Set<T>(out value: T) -> bool {
+        value = default
+        return true
+    }
+    static func Forward<T>(out value: T) -> bool {
+        return Set<T>(out value)
+    }
+    public static func Run() -> int {
+        var value = -1
+        if !Forward<int>(out value) { return -1 }
+        return value + 42
+    }
+}
+""";
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, "returned-generic-out-runtime"));
+    }
+
+    [Fact]
     public void SourceOutParameter_WithDeclaredVarLocal_EmitsCallAndAssignedLocal()
     {
         const string code = """

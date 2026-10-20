@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-20:** Analyze return expressions before checking out-parameter assignment at normal exit. Generic direct calls can forward out storage while producing a return value; short-circuit calls still require assignment on every path. Share the return statement/expression analysis and add runtime/diagnostic regressions. No Runtime Contract configuration or metadata change.
+
 - **2026-10-20:** Record the neoCLR Enum Parse/TryParse consumer boundary and existing native generic-method struct/Enum constraint gap. Runtime metadata queries and lowering belong to neoCLR; no compiler semantics, Runtime Contract configuration or .NET behavior change.
 
 - **2026-10-20:** Document neoCLR numeric InternalCall contracts and its metadata producer/reader ownerless-function admission repair (256 to the existing 4096 module inventory bound). Nominal method bounds, Runtime Contract configuration, compiler semantics and ordinary .NET behavior are unchanged; focused metadata boundary qualification is recorded in neoCLR. Record shared native-width static primitive method projection in neoCLR codegen, without changing Raven emission.

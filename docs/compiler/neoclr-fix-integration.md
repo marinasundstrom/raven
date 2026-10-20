@@ -1892,3 +1892,15 @@ This is isolated from native-width metadata/mapping work. Main's current tree ha
 `CodeGen/Portable/LinearMethodBody.cs`, so the owning layer cannot be cherry-picked
 independently there. Carry the fix with that layer's eventual integration; do not copy
 the experimental backend to main solely to apply this one-line correction.
+
+## Returned out forwarding (2026-10-20)
+
+A general reproduction on Raven main found RAV0269 for a generic direct call in
+a return expression forwarding the current method's out parameter. Direct statement
+forwarding already worked. Analyze the returned expression before checking normal
+exit, sharing the same assignment analysis for return statements and return expressions.
+Short-circuit calls remain insufficient guarantees. No Runtime Contract option,
+public semantic API or emitted metadata representation changes; this repairs a
+general diagnostic and permits ordinary CLI emission. All 44 focused semantic and runtime
+ByRefParameter tests pass on modern .NET; native integration is validated separately
+when deliberately carried to codex/neoclr, without merging branches.

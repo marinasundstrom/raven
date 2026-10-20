@@ -28,6 +28,24 @@ class C {
             diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
     }
 
+    [Theory]
+    [InlineData("condition && Set<int>(out value)")]
+    [InlineData("condition || Set<int>(out value)")]
+    public void ReturnedConditionalOutCall_RemainsUnassigned(string expression)
+    {
+        var source = $$"""
+class C {
+    static func Set<T>(out value: T) -> bool { value = default; return true }
+    static func Forward(condition: bool, out value: int) -> bool {
+        return {{expression}}
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
     [Fact]
     public void Parameter_WithRefKeyword_HasRefKindRef()
     {

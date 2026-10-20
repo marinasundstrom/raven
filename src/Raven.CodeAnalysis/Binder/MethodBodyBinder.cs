@@ -399,9 +399,8 @@ class MethodBodyBinder : BlockBinder
                     return AnalyzeExpression(expressionStatement.Expression, assigned);
                 case BoundAssignmentStatement assignmentStatement:
                     return new AnalysisState(MarkAssignedExpression(assignmentStatement.Expression, assigned), true);
-                case BoundReturnStatement:
-                    ReportMissing(assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
-                    return new AnalysisState(assigned, false);
+                case BoundReturnStatement returnStatement:
+                    return AnalyzeReturn(returnStatement.Expression, assigned);
                 case BoundThrowStatement:
                 case BoundBreakStatement:
                     if (_breakExitStates.TryPeek(out var breakExitStates))
@@ -526,9 +525,8 @@ class MethodBodyBinder : BlockBinder
             {
                 case BoundBlockExpression block:
                     return AnalyzeStatements(block.Statements, assigned);
-                case BoundReturnExpression:
-                    ReportMissing(assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
-                    return new AnalysisState(assigned, false);
+                case BoundReturnExpression returnExpression:
+                    return AnalyzeReturn(returnExpression.Expression, assigned);
                 case BoundInvocationExpression invocation when BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method):
                 case BoundThrowExpression:
                     return new AnalysisState(assigned, false);
@@ -546,6 +544,20 @@ class MethodBodyBinder : BlockBinder
                 default:
                     return new AnalysisState(MarkAssignedExpression(expression, assigned), true);
             }
+        }
+
+        private AnalysisState AnalyzeReturn(
+            BoundExpression? expression,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            // Evaluate the return value before checking normal method exit. A direct
+            // call can assign forwarded out storage while producing that value.
+            var state = expression is null
+                ? new AnalysisState(assigned, true)
+                : AnalyzeExpression(expression, assigned);
+            if (state.CompletesNormally)
+                ReportMissing(state.Assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
+            return new AnalysisState(state.Assigned, false);
         }
 
         private AnalysisState AnalyzeStatements(
