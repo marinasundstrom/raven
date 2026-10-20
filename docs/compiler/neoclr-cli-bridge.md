@@ -15002,3 +15002,15 @@ Closed-world selection remaps explicit mapping identities to selected rows and
 drops mappings to unreached contracts; private library-name rewriting updates
 mapping target names alongside call targets. Original metadata/access verification
 remains authoritative. These transformations do not make private methods public.
+
+### Source-core async cleanup (2026-10-20)
+
+`RavenNeoClrSourceCore` now enables the existing RuntimeDisposalContract
+`AllowAsyncScopeExitCleanup` when `RavenNeoClrAsyncLibrary` explicitly selects a
+provider. Previously only imported native-core builds set this option, rejecting
+`use` inside source-core async functions with RAVT006. Without a configured async
+provider cleanup remains disabled. This is a native project configuration repair;
+ordinary .NET behavior is unchanged. It introduces no CLI encoding or new runtime
+instruction, exception unwinding, or iterator cleanup. Validation: the
+`--native-source-core` metadata probe checks both provider configurations; neoCLR's
+text wrapper consumer supplies execution validation.

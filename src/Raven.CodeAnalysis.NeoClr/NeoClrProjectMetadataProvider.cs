@@ -78,6 +78,9 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
                 .WithMetadataImportOptions(new MetadataImportOptions(assemblyName, null, options.MetadataImportOptions?.SourcePrimitiveTypes, true)
                     .WithNativeMetadata().WithSourceCore()
                     .WithAsyncAssemblyName(properties.GetValueOrDefault("RavenNeoClrAsyncLibrary")));
+            if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrAsyncLibrary")) &&
+                options.RuntimeDisposalContract is { } sourceDisposal)
+                options = options.WithRuntimeDisposalContract(sourceDisposal with { AllowAsyncScopeExitCleanup = true });
             configurations[Path.GetFullPath(projectFilePath)] = new(sourceCatalog, referencePaths.ToArray(),
                 PathProperty("RavenNeoClrRuntimeSeed"), sourceOwnership, false, null,
                 properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper"));

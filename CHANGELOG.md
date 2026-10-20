@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-20:** Enable existing async scope-exit cleanup for source-core native projects that explicitly configure RavenNeoClrAsyncLibrary, matching native-reference projects. Keep it disabled without that provider. The source-core metadata probe verifies both configurations; neoCLR text wrappers exercise `use` across suspension. This does not add exception unwinding or iterator support.
+
 - **2026-10-20:** Admit explicit instance interface methods on nongeneric classes in native neoCLR emission, retaining private visibility and explicit mappings without class virtual slots. Preserve ordinary .NET behavior and Runtime Contract settings. The focused metadata/lookup probe passes; the mixed sync/async borrowed-stream consumer passes neoCLR interpreter/JIT/AOT. Generic explicit methods/owners and value-type bodies remain restricted.
 
 - **2026-10-20:** Document neoCLR boxed nominal value-interface dispatch repair exposed by Formattable; no Raven compiler or ordinary .NET behavior change. Track private boxing inventory, native ownership and qualification separately.

@@ -86,6 +86,14 @@ internal static class NativeSourceCoreChecks
         var configured = provider.Load(projectPath, name, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary), properties, []);
         if (configured.References.Length != 0 || provider.GetConfiguration(projectPath).Catalog.CoreReference is not null)
             throw new Exception("Source core acquired a reference core.");
+        if (configured.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup == true)
+            throw new Exception("Source core without an async provider enabled async cleanup.");
+        properties["RavenNeoClrAsyncLibrary"] = name;
+        var asyncConfigured = provider.Load(projectPath, name,
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary), properties, []);
+        if (asyncConfigured.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup != true)
+            throw new Exception("Source core with an async provider did not enable async cleanup.");
+        properties.Remove("RavenNeoClrAsyncLibrary");
         var options = configured.Options;
         var tree = SyntaxTree.ParseText(source);
         var markers = SyntaxTree.ParseText("""
