@@ -11,6 +11,20 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class RecordClassSemanticTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void DotNetRecordsRetainGenericEquatableContract(string kind)
+    {
+        var source = $"record {kind} Key<T>(Value: T);";
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        var equatable = compilation.GetTypeByMetadataName("System.IEquatable`1")!;
+        Assert.Contains(key.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, equatable.Construct(key)));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
     [InlineData("Key", "Key")]
     [InlineData("Key?", "Key?")]
     [InlineData("Key", "Key?")]

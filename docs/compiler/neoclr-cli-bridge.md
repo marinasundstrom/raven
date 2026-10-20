@@ -15228,3 +15228,30 @@ IEquatable/EquatableTo mapping remains open and must coordinate semantic interfa
 synthesis, native body admission and imported metadata. A future native metadata/
 codegen replacement must preserve ordinary interface dispatch, not invent a record
 calling convention. This slice changes diagnostics, not public class-library APIs.
+
+## Automatic native record equality interfaces — 2026-10-20
+
+The existing target runtime contract now supplies the ordinary record equality
+interface identity. .NET keeps IEquatable<T>; neoCLR selects EquatableTo<T>.
+Binding automatically constructs the self-typed interface for native nongeneric
+records; ordinary interface metadata and the existing generated Equals body satisfy
+it. Native record component checks use that same identity. Runtime Contract project
+configuration, layout and ABI are unchanged; no new bridge marker or runtime record
+kind is introduced. Compiler binding owns interface synthesis, native emission owns
+body admission, and the core supplies the named interface. A future native metadata/
+codegen replacement must preserve those ordinary interface semantics.
+
+ConsoleKeyInfo now participates through its implicit interface and as an imported
+record component without source interface clauses or a manual carrier. Nongeneric
+records whose component bodies are unsupported now reject at declaration instead
+of silently exporting storage-only types. Generic native equality bodies remain
+unimplemented: the target capability leaves their existing storage-only surface
+unchanged and does not advertise an unimplemented generated interface. That is a
+gap, not a new record contract. Ordinary .NET generic records keep their interfaces.
+
+The fresh source-core probe covers automatic interfaces and unsupported components;
+34 focused .NET record cases plus the two explicit generic identity cases pass.
+neoCLR's `docs/experiments/record-auto-interfaces` retains source/imported struct,
+class, wrapper equality/hash interpreter/JIT/AOT evidence and API refresh details.
+The tested compiler is 0c7ee885c-dirty-record-auto-interfaces with rebuilt libraries;
+this native-branch repair does not claim a Raven main integration or a release gate.

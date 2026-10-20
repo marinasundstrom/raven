@@ -49,8 +49,6 @@ internal static class NativeSourceCoreChecks
             }
             public record struct UnionKey(Value: Choice<int>)
             public struct Storage { val Value: int = 0 }
-            public record struct StorageKey(Value: Storage)
-            public record struct UnsupportedUnionKey(Value: Choice<Storage>)
             public record struct GenericKey<T>(Value: T)
             public struct Void {}
             public struct Boolean { private var m_value: bool }
@@ -178,6 +176,10 @@ internal static class NativeSourceCoreChecks
         var views = new MetadataLoadContext([snapshot]).Resolve(snapshot.Identity).GetTypes();
         foreach (var recordName in new[] { "NativeKey", "UnionKey" })
         {
+            var recordSymbol = compilation.GetTypeByMetadataName("System." + recordName)!;
+            var equatable = compilation.GetTypeByMetadataName("System.EquatableTo`1")!;
+            if (!recordSymbol.Interfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, equatable.Construct(recordSymbol))))
+                throw new Exception("Automatic native record interface missing: " + recordName);
             var recordMethods = snapshot.MainModule.Types.Single(t => t.Name == recordName).Methods;
             foreach (var member in new[] { "op_Equality", "op_Inequality", "GetHashCode" })
                 if (recordMethods.Count(m => m.Name == member) != 1)
@@ -185,7 +187,7 @@ internal static class NativeSourceCoreChecks
             if (recordMethods.Count(m => m.Name == "Equals") != 2)
                 throw new Exception("Native record requires typed and Object equality.");
         }
-        foreach (var storageOnly in new[] { "StorageKey", "GenericKey`1", "UnsupportedUnionKey" })
+        foreach (var storageOnly in new[] { "GenericKey`1" })
             if (snapshot.MainModule.Types.Single(t => t.Name == storageOnly).Methods.Any(m => m.Name is "Equals" or "GetHashCode" or "op_Equality"))
                 throw new Exception("Unsupported record component acquired identity-based value semantics.");
         var selfContract = views.Single(t => t.Name == "ZeroValue").GetMethods().Single(m => m.Name == "get_Zero");
@@ -230,12 +232,12 @@ internal static class NativeSourceCoreChecks
                 if (!recordResult.Success) throw new Exception(string.Join("\n", recordResult.Diagnostics));
             }
             else if (recordResult.Success || !recordResult.Diagnostics.Any(d => d.ToString().Contains(
-                "record value semantics require supported component equality and hashing", StringComparison.Ordinal)))
+                "record equality interface requires supported component equality and hashing", StringComparison.Ordinal)))
                 throw new Exception("Imported record component contract was not rejected: " + component);
         }
-        foreach (var component in new[] { "int", "System.Storage" })
+        foreach (var component in new[] { "int", "System.Storage", "System.Choice<System.Storage>" })
         {
-            var interfaceSource = $"record struct ContractKey(Value: {component}) : System.EquatableTo<ContractKey>\nfunc Main() -> int {{ let key: ContractKey = default; let contract: System.EquatableTo<ContractKey> = key; if contract.Equals(key) {{ return 1 }}; return 0 }}";
+            var interfaceSource = $"record struct ContractKey(Value: {component})\nfunc Main() -> int {{ let key: ContractKey = default; let contract: System.EquatableTo<ContractKey> = key; if contract.Equals(key) {{ return 1 }}; return 0 }}";
             var interfaceConsumer = Compilation.Create("RecordInterface", [SyntaxTree.ParseText(interfaceSource)],
                 catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(false));
             using var interfaceImage = new MemoryStream();

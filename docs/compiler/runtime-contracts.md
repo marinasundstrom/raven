@@ -4400,3 +4400,18 @@ The native emitter owns admission and mapping, while neoCLR owns interface dispa
 and borrowed lifetime validation. A focused compiler probe checks metadata mappings,
 private visibility and rejected ordinary lookup; the neoCLR synchronous stream
 consumer covers execution with the matching compiler/library bundle.
+
+## Native record equality identity — 2026-10-20
+
+The selected target runtime contract now provides record self-equality identity:
+System.IEquatable<T> for .NET and the existing System.EquatableTo<T> for neoCLR.
+Normal binding synthesizes that interface for native nongeneric records; native
+emission uses the generated typed Equals body and ordinary interface metadata.
+The historical RavenRecordEquatableType project properties above are not new
+configuration inputs; this change uses the established target selection instead.
+Native generic equality bodies remain unsupported, and the target capability does
+not synthesize an interface without its implementation. Ordinary .NET generic
+records keep IEquatable<T>. Unsupported nongeneric native component bodies now
+reject instead of silently exporting storage-only records. See the corresponding
+section of [the neoCLR bridge](neoclr-cli-bridge.md) and neoCLR's
+`docs/experiments/record-auto-interfaces` for qualification and API compatibility.

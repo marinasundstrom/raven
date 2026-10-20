@@ -14,7 +14,7 @@ internal static class NativeRecordBodies
         if (!method.DeclaringSyntaxReferences.IsEmpty || method.ContainingType is not SourceNamedTypeSymbol { IsRecord: true } owner ||
             method.Name is not ("op_Equality" or "op_Inequality" or "Equals" or "GetHashCode"))
             return null;
-        var equatable = compilation.GetTypeByMetadataName("System.EquatableTo`1");
+        var equatable = compilation.GetTypeByMetadataName(compilation.RuntimeRecordEquatableTypeName);
         if (!SupportsValueSemantics(owner, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default), equatable))
             return null;
         if (!CallableSignature.TryCreate(method, out var signature, capabilities))
@@ -227,7 +227,7 @@ internal static class NativeRecordBodies
             // A separately authored typed equality contract needs its matching
             // comparer policy; Object dispatch alone is not a substitute.
             return component.SpecialType == SpecialType.System_String || !component.AllInterfaces.Any(i =>
-                i.OriginalDefinition.ToFullyQualifiedMetadataName() == "System.EquatableTo`1");
+                SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, equatable));
         }
         return component.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or
             SpecialType.System_Int64 or SpecialType.System_Char || component.TypeKind == TypeKind.Enum;
