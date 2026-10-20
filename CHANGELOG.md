@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-20:** Add native generated equality/hash bodies for supported nongeneric positional records, preserving canonical String/Char value semantics and direct integer/Boolean/enum component operations. Keep ordinary .NET synthesis unchanged. Add focused source-core metadata coverage and a clear unsupported-component diagnostic; generic, union-valued and floating-point records and generated formatting remain gaps. Matching neoCLR boxed-value override support and interpreter/JIT/AOT qualification are documented separately.
+- **2026-10-20:** Add native generated equality/hash bodies for supported nongeneric positional records, preserving canonical String/Char value semantics and direct integer/Boolean/enum component operations. Keep ordinary .NET synthesis unchanged. Add focused source-core metadata coverage and a clear unsupported-component diagnostic; extend admission to closed declared tagged-union components using public case patterns and payload getters, including ConsoleKeyInfo.TextScalar: Option<int>. Qualify case/default identity, canonical and nullable payloads, nested unions and boxed calls with neoCLR; typed key equality/hash adds no managed allocations in the focused diagnostic. Generic record owners, unsupported/floating-point components and generated formatting remain gaps. Matching neoCLR boxed-value override support and interpreter/JIT/AOT qualification are documented separately.
 
 - **2026-10-20:** Document neoCLR's synchronous ConsoleKeyReader scalar InternalCall bridge, runtime-owned terminal lifecycle, Unicode scalar results and qualification limits. Compiler configuration and ordinary .NET behavior are unchanged.
 

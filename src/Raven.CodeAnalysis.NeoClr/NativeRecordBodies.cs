@@ -50,9 +50,39 @@ internal static class NativeRecordBodies
                 throw new InvalidOperationException("Native record negation unavailable");
             return new BoundUnaryExpression(op, value);
         }
+        var nextCaseLocal = 0;
+        (BoundExpression Test, BoundExpression Value) Case(BoundExpression value, INamedTypeSymbol caseType)
+        {
+            var local = new SourceLocalSymbol("recordCase" + nextCaseLocal++, caseType, false,
+                method, owner, owner.ContainingNamespace, method.Locations.ToArray(), []);
+            return (new BoundIsPatternExpression(value,
+                new BoundDeclarationPattern(caseType, new BoundSingleVariableDesignator(local)), boolean),
+                new BoundLocalAccess(local));
+        }
+        BoundExpression Property(BoundExpression value, IPropertySymbol property) =>
+            new BoundInvocationExpression(property.GetMethod!, [], value, requiresReceiverAddress: true);
+
         BoundExpression Equal(BoundExpression left, BoundExpression right)
         {
             var type = left.Type.GetNonNullableType();
+            if (type.TryGetUnion() is { } union)
+            {
+                // No matching case on either side represents the default carrier.
+                BoundExpression result = Bool(true);
+                foreach (var caseType in union.DeclaredCaseTypes.Reverse())
+                {
+                    var (leftTest, leftValue) = Case(left, caseType);
+                    var (rightTest, rightValue) = Case(right, caseType);
+                    BoundExpression payloadEqual = Bool(true);
+                    foreach (var property in CaseProperties(caseType)!)
+                        payloadEqual = Binary(SyntaxKind.AmpersandAmpersandToken, payloadEqual,
+                            Equal(Property(leftValue, property), Property(rightValue, property)));
+                    result = new BoundIfExpression(leftTest,
+                        Binary(SyntaxKind.AmpersandAmpersandToken, rightTest, payloadEqual),
+                        new BoundIfExpression(rightTest, Bool(false), result));
+                }
+                return result;
+            }
             if (type.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or SpecialType.System_Int64)
                 return Binary(SyntaxKind.EqualsEqualsToken, left, right);
             if (type.TypeKind == TypeKind.Enum)
@@ -76,32 +106,45 @@ internal static class NativeRecordBodies
                     Equal(new BoundFieldAccess(left, property.BackingField!), new BoundFieldAccess(right, property.BackingField!)));
             return result;
         }
+        BoundExpression Hash(BoundExpression value)
+        {
+            if (value.Type.TryGetUnion() is { } union)
+            {
+                BoundExpression result = Int(0);
+                foreach (var caseType in union.DeclaredCaseTypes.Reverse())
+                {
+                    var (test, payload) = Case(value, caseType);
+                    BoundExpression caseHash = Int(caseType.Ordinal + 1);
+                    foreach (var property in CaseProperties(caseType)!)
+                        caseHash = new BoundInvocationExpression(combine,
+                            [caseHash, Hash(Property(payload, property))]);
+                    result = new BoundIfExpression(test, caseHash, result);
+                }
+                return result;
+            }
+            if (value.Type.SpecialType == SpecialType.System_Int32)
+                return value;
+            if (value.Type.SpecialType == SpecialType.System_Boolean)
+                return new BoundIfExpression(value, Int(1), Int(0));
+            if (value.Type.SpecialType == SpecialType.System_Int64)
+                return Binary(SyntaxKind.CaretToken, ToInt(value),
+                    ToInt(Binary(SyntaxKind.GreaterThanGreaterThanToken, value, Int(32))));
+            if (value.Type.TypeKind == TypeKind.Enum)
+                return ToInt(value);
+            var directHash = value.Type.GetNonNullableType().GetMembers("GetHashCode").OfType<IMethodSymbol>()
+                .FirstOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.IsOverride);
+            BoundExpression hash = directHash is null
+                ? new BoundInvocationExpression(objectHash, [], Box(value))
+                : new BoundInvocationExpression(directHash, [], value, requiresReceiverAddress: value.Type.IsValueType);
+            return value.Type.IsReferenceType ? new BoundIfExpression(Null(value), Int(0), hash) : hash;
+        }
         var statements = new List<BoundStatement>();
         if (method.Name == "GetHashCode")
         {
             BoundExpression hash = Int(0);
             foreach (var property in fields)
-            {
-                var value = new BoundFieldAccess(new BoundSelfExpression(owner), property.BackingField!);
-                // Virtual Object dispatch handles primitive boxes and user overrides.
-                var directHash = value.Type.GetNonNullableType().GetMembers("GetHashCode").OfType<IMethodSymbol>()
-                    .FirstOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.IsOverride);
-                BoundExpression part = directHash is null
-                    ? new BoundInvocationExpression(objectHash, [], Box(value))
-                    : new BoundInvocationExpression(directHash, [], value, requiresReceiverAddress: value.Type.IsValueType);
-                if (value.Type.SpecialType == SpecialType.System_Int32)
-                    part = value;
-                else if (value.Type.SpecialType == SpecialType.System_Boolean)
-                    part = new BoundIfExpression(value, Int(1), Int(0));
-                else if (value.Type.SpecialType == SpecialType.System_Int64)
-                    part = Binary(SyntaxKind.CaretToken, ToInt(value),
-                        ToInt(Binary(SyntaxKind.GreaterThanGreaterThanToken, value, Int(32))));
-                else if (value.Type.TypeKind == TypeKind.Enum)
-                    part = ToInt(value);
-                else if (value.Type.IsReferenceType)
-                    part = new BoundIfExpression(Null(value), Int(0), part);
-                hash = new BoundInvocationExpression(combine, [hash, part]);
-            }
+                hash = new BoundInvocationExpression(combine,
+                    [hash, Hash(new BoundFieldAccess(new BoundSelfExpression(owner), property.BackingField!))]);
             statements.Add(new BoundReturnStatement(hash));
         }
         else
@@ -136,33 +179,50 @@ internal static class NativeRecordBodies
             return false;
         if (!visited.Add(type))
             return true;
-        foreach (var field in record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic))
+        return record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
+            .All(f => SupportsComponent(f.Type, visited));
+    }
+
+    private static IPropertySymbol[]? CaseProperties(IUnionCaseTypeSymbol caseType)
+    {
+        var properties = new List<IPropertySymbol>();
+        foreach (var parameter in caseType.ConstructorParameters)
         {
-            var component = field.Type.GetNonNullableType();
-            if (component is ITypeParameterSymbol)
-                return false;
-            if (component is SourceNamedTypeSymbol { IsRecord: true })
-            {
-                if (!SupportsValueSemantics(component, visited))
-                    return false;
-                continue;
-            }
-            if (component.IsReferenceType)
-            {
-                // A separately authored typed equality contract needs its matching
-                // comparer policy; Object dispatch alone is not a substitute.
-                if (component.SpecialType != SpecialType.System_String && component.AllInterfaces.Any(i =>
-                    i.OriginalDefinition.ToFullyQualifiedMetadataName() == "System.EquatableTo`1"))
-                    return false;
-                continue;
-            }
-            if (component.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or
-                SpecialType.System_Int64 or SpecialType.System_Char)
-                continue;
-            if (component.TypeKind == TypeKind.Enum)
-                continue;
-            return false;
+            var candidates = caseType.GetMembers(UnionFacts.GetCasePropertyName(parameter.Name))
+                .OfType<IPropertySymbol>().Where(p => !p.IsStatic && p.Parameters.IsEmpty &&
+                    p.GetMethod is { DeclaredAccessibility: Accessibility.Public } &&
+                    SymbolEqualityComparer.Default.Equals(p.Type, parameter.Type)).Take(2).ToArray();
+            if (candidates.Length != 1)
+                return null;
+            properties.Add(candidates[0]);
         }
-        return true;
+        return properties.ToArray();
+    }
+
+    private static bool SupportsComponent(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    {
+        var component = type.GetNonNullableType();
+        if (component is ITypeParameterSymbol)
+            return false;
+        if (component.TryGetUnion() is { } union)
+        {
+            if (union.DeclaredCaseTypes.IsEmpty || !visited.Add(component))
+                return false;
+            var supported = union.DeclaredCaseTypes.All(c => CaseProperties(c) is { } properties &&
+                properties.All(p => SupportsComponent(p.Type, visited)));
+            visited.Remove(component);
+            return supported;
+        }
+        if (component is SourceNamedTypeSymbol { IsRecord: true })
+            return SupportsValueSemantics(component, visited);
+        if (component.IsReferenceType)
+        {
+            // A separately authored typed equality contract needs its matching
+            // comparer policy; Object dispatch alone is not a substitute.
+            return component.SpecialType == SpecialType.System_String || !component.AllInterfaces.Any(i =>
+                i.OriginalDefinition.ToFullyQualifiedMetadataName() == "System.EquatableTo`1");
+        }
+        return component.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or
+            SpecialType.System_Int64 or SpecialType.System_Char || component.TypeKind == TypeKind.Enum;
     }
 }

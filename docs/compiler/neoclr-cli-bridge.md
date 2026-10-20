@@ -15078,3 +15078,43 @@ excludes unsupported storage-only/generic records. neoCLR's
 matching hashes, null/different types, nested records, integer/Boolean/enum fields,
 nullable reference records and the unsupported-component diagnostic across
 interpreter/JIT/AOT. See that experiment for exact artifacts and remaining limits.
+
+
+## Native record tagged-union components — 2026-10-20
+
+The native-only positional-record policy now accepts closed declared tagged unions
+whose payloads satisfy the existing component contracts. This includes imported
+Option<int> in ConsoleKeyInfo, nested Option, Result and source unions with multiple
+payloads. Generic record owners remain unsupported. Ordinary .NET synthesis and
+Runtime Contract configuration are unchanged; no new runtime intrinsic is required.
+
+Generated comparisons use public union case patterns/TryGetValue and payload getters,
+not private tag/storage offsets. Both operands must select the same case and all
+payloads must compare equal. Hashing combines case identity and recursive payload
+hashes. Default carriers with no active case compare equal to each other and remain
+distinct from active empty cases (Option.None) and Some(0). Canonical text and null
+reference payload semantics are preserved; arbitrary invalid tags are not a public
+construction contract. Hash values are not stable serialization identifiers.
+
+Compared with CLR record comparer machinery, this bounded native lowering avoids
+payload boxes and reuses Raven's existing public union protocol. The cost is larger
+per-record generated bodies and repeated case tests; no CPU improvement is claimed.
+Public constructor-payload getters must match their declared types. Unsupported
+payloads retain the targeted diagnostic rather than silently comparing fresh boxes.
+Structural unions without declared case types, recursive inline unions, generic
+record owners and other unsupported value components remain unqualified.
+
+The temporary CLI scaffold projects ConsoleKeyInfo's generated signatures only;
+it does not implement native value semantics. Raven owns bound-tree preparation and
+case-pattern lowering; neoCLR owns native metadata/runtime/backend validation. The
+existing native union metadata remains the intended representation. Broader native
+comparer/value support should eventually replace the restricted component policy.
+
+Validation: the source-core metadata probe admits supported union records and keeps
+unsupported/generic records storage-only. neoCLR's record-unions consumer passes
+interpreter/JIT/AOT, including nullable/canonical payloads, nested cases, default
+carriers and boxed Object calls. The previous record-values consumer also passes all
+three engines. A native diagnostic of 128 typed ConsoleKeyInfo equality/hash iterations
+allocates two objects, identical to baseline, with all reclaimed; collection activity
+rises from 8 to 9,864. This measures managed allocations, not host allocations,
+throughput, or explicit boxing. See neoCLR docs/experiments/record-unions for evidence.

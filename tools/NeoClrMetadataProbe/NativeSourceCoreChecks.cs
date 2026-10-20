@@ -26,11 +26,18 @@ internal static class NativeSourceCoreChecks
                 static func Combine(left: int, right: int) -> int => left + right
             }
             public record struct NativeKey(Value: int)
+            public union Choice<T> {
+                case Some(T)
+                case None
+            }
+            public record struct UnionKey(Value: Choice<int>)
             public struct Storage { val Value: int = 0 }
             public record struct StorageKey(Value: Storage)
+            public record struct UnsupportedUnionKey(Value: Choice<Storage>)
             public record struct GenericKey<T>(Value: T)
             public struct Void {}
             public struct Boolean { private var m_value: bool }
+            public struct Byte { private var m_value: byte }
             public interface ZeroValue { static val Zero: Self { get; } }
             public struct Int32 : ZeroValue {
                 private var m_value: int
@@ -76,12 +83,13 @@ internal static class NativeSourceCoreChecks
         {
             version = 1,
             libraries = new[] { new { assemblyName = name, sources = new[] { "Core.rvn" },
-                types = new[] { "System.Int32", "System.Int64", "System.Boolean", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
+                types = new[] { "System.Int32", "System.Int64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
             nativePrimitives = new Dictionary<string, string>
             {
                 ["System.Int32"] = name,
                 ["System.Int64"] = name,
                 ["System.Boolean"] = name,
+                ["System.Byte"] = name,
                 ["System.String"] = name
             },
             unit = new { assemblyName = name, typeName = "System.Void" },
@@ -102,7 +110,8 @@ internal static class NativeSourceCoreChecks
         if (asyncConfigured.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup != true)
             throw new Exception("Source core with an async provider did not enable async cleanup.");
         properties.Remove("RavenNeoClrAsyncLibrary");
-        var options = configured.Options;
+        // This metadata fixture does not provide the library formatting helpers.
+        var options = configured.Options.WithSynthesizeStructuralToString(false);
         var tree = SyntaxTree.ParseText(source);
         var markers = SyntaxTree.ParseText("""
             namespace System.Runtime.CompilerServices
@@ -150,13 +159,16 @@ internal static class NativeSourceCoreChecks
         if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
         var snapshot = AssemblyDefinition.ReadNativeAssembly(image.ToArray());
         var views = new MetadataLoadContext([snapshot]).Resolve(snapshot.Identity).GetTypes();
-        var recordMethods = snapshot.MainModule.Types.Single(t => t.Name == "NativeKey").Methods;
-        foreach (var member in new[] { "op_Equality", "op_Inequality", "GetHashCode" })
-            if (recordMethods.Count(m => m.Name == member) != 1)
-                throw new Exception("Native record value member missing: " + member);
-        if (recordMethods.Count(m => m.Name == "Equals") != 2)
-            throw new Exception("Native record requires typed and Object equality.");
-        foreach (var storageOnly in new[] { "StorageKey", "GenericKey`1" })
+        foreach (var recordName in new[] { "NativeKey", "UnionKey" })
+        {
+            var recordMethods = snapshot.MainModule.Types.Single(t => t.Name == recordName).Methods;
+            foreach (var member in new[] { "op_Equality", "op_Inequality", "GetHashCode" })
+                if (recordMethods.Count(m => m.Name == member) != 1)
+                    throw new Exception("Native record value member missing: " + member);
+            if (recordMethods.Count(m => m.Name == "Equals") != 2)
+                throw new Exception("Native record requires typed and Object equality.");
+        }
+        foreach (var storageOnly in new[] { "StorageKey", "GenericKey`1", "UnsupportedUnionKey" })
             if (snapshot.MainModule.Types.Single(t => t.Name == storageOnly).Methods.Any(m => m.Name is "Equals" or "GetHashCode" or "op_Equality"))
                 throw new Exception("Unsupported record component acquired identity-based value semantics.");
         var selfContract = views.Single(t => t.Name == "ZeroValue").GetMethods().Single(m => m.Name == "get_Zero");
