@@ -15336,3 +15336,26 @@ probe validates exact intrinsic admission and rejects malformed signatures. The
 allocation harness now materializes arguments and mode strings outside the loop;
 matched before/after results and artifact hashes live in neoCLR's
 `docs/experiments/record-generics`. These are development checks, not release qualification.
+
+### Numeric services and ownerless function capacity (2026-10-20)
+
+neoCLR's source library adds numeric Formattable and explicit-culture Parse
+contracts without changing Raven semantics or Runtime Contract settings. Private
+floating conversion services retain ordinary InternalCall signatures with scalar
+arguments and String results. Their code/precision/bounded-profile arguments are
+runtime policy, not a new language conversion or public ABI. Native execution uses
+the runtime's shared conversion core and rooted text allocation; future configurable
+format providers will need a richer private runtime contract.
+
+The two service declarations exposed neoCLR's metadata library's old 256-ownerless-
+function cap. Its producer and reader now use the existing 4096-function module
+inventory limit while retaining the 256-method limit for nominal owners. A focused
+metadata test round-trips 257 functions and rejects the 4097th without mutation.
+The selected neoCLR compiler bundle replaces only its matching metadata library;
+compiler code and ordinary .NET behavior are unchanged. Binary hashes identify the
+matched bundle. This is a neoCLR-owned producer repair, not a Raven branch merge.
+
+Native-width static members exposed a backend admission gap during built-in tests.
+IntPtr/UIntPtr static methods now use the existing verified primitive-owner projection,
+with the shared scalar classification replacing a separate list. This changes neoCLR
+codegen admission only; Raven source semantics and CLI encoding are unchanged.
