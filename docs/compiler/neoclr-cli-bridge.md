@@ -15118,3 +15118,23 @@ three engines. A native diagnostic of 128 typed ConsoleKeyInfo equality/hash ite
 allocates two objects, identical to baseline, with all reclaimed; collection activity
 rises from 8 to 9,864. This measures managed allocations, not host allocations,
 throughput, or explicit boxing. See neoCLR docs/experiments/record-unions for evidence.
+
+
+### Preserve String direct-call versus callvirt semantics (2026-10-20)
+
+The native String projection now retains an inventory of original callvirt sites
+and checks their receiver in the caller. It no longer checks every projected
+String wrapper at entry: that incorrectly changed direct calls whose bodies did
+not inspect a null receiver. The interpreter's existing direct-call behavior is
+preserved, while ordinary Raven instance callvirt keeps its null fault and caller
+fault location. Source nullability, Runtime Contract configuration, public native
+metadata and CLI reference signatures are unchanged. This is a neoCLR backend fix;
+Raven emission and ordinary .NET behavior require no change.
+
+Microsoft's callvirt documentation explicitly guarantees a null fault; its call
+contract requires a non-null receiver. The raw-null regression establishes neoCLR
+execution-mode consistency, not portable CLR behavior for invalid input. Native
+receiver-aware emission should eventually replace the temporary static wrapper and
+its private site inventory. Original access validation still precedes projection.
+See neoCLR docs/validation/string-direct-call-20261020 for research, validation and
+remaining release scope. Earlier discrepancy notes above describe the old cohort.
