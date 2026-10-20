@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-20:** Add native generated equality/hash bodies for supported nongeneric positional records, preserving canonical String/Char value semantics and direct integer/Boolean/enum component operations. Keep ordinary .NET synthesis unchanged. Add focused source-core metadata coverage and a clear unsupported-component diagnostic; generic, union-valued and floating-point records and generated formatting remain gaps. Matching neoCLR boxed-value override support and interpreter/JIT/AOT qualification are documented separately.
+
 - **2026-10-20:** Document neoCLR's synchronous ConsoleKeyReader scalar InternalCall bridge, runtime-owned terminal lifecycle, Unicode scalar results and qualification limits. Compiler configuration and ordinary .NET behavior are unchanged.
 
 - **2026-10-20:** Enable existing async scope-exit cleanup for source-core native projects that explicitly configure RavenNeoClrAsyncLibrary, matching native-reference projects. Keep it disabled without that provider. The source-core metadata probe verifies both configurations; neoCLR text wrappers exercise `use` across suspension. This does not add exception unwinding or iterator support.

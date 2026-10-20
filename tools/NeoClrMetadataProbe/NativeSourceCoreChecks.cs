@@ -16,11 +16,19 @@ internal static class NativeSourceCoreChecks
         var source = """
             namespace System
             public abstract class Object {
+                static func ReferenceEquals(left: Object?, right: Object?) -> bool => false
                 virtual func ToString() -> string => "object"
                 virtual func GetHashCode() -> int => 0
                 virtual func Equals(other: Object?) -> bool => false
             }
             public abstract class ValueType {}
+            public struct HashCode {
+                static func Combine(left: int, right: int) -> int => left + right
+            }
+            public record struct NativeKey(Value: int)
+            public struct Storage { val Value: int = 0 }
+            public record struct StorageKey(Value: Storage)
+            public record struct GenericKey<T>(Value: T)
             public struct Void {}
             public struct Boolean { private var m_value: bool }
             public interface ZeroValue { static val Zero: Self { get; } }
@@ -142,6 +150,15 @@ internal static class NativeSourceCoreChecks
         if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
         var snapshot = AssemblyDefinition.ReadNativeAssembly(image.ToArray());
         var views = new MetadataLoadContext([snapshot]).Resolve(snapshot.Identity).GetTypes();
+        var recordMethods = snapshot.MainModule.Types.Single(t => t.Name == "NativeKey").Methods;
+        foreach (var member in new[] { "op_Equality", "op_Inequality", "GetHashCode" })
+            if (recordMethods.Count(m => m.Name == member) != 1)
+                throw new Exception("Native record value member missing: " + member);
+        if (recordMethods.Count(m => m.Name == "Equals") != 2)
+            throw new Exception("Native record requires typed and Object equality.");
+        foreach (var storageOnly in new[] { "StorageKey", "GenericKey`1" })
+            if (snapshot.MainModule.Types.Single(t => t.Name == storageOnly).Methods.Any(m => m.Name is "Equals" or "GetHashCode" or "op_Equality"))
+                throw new Exception("Unsupported record component acquired identity-based value semantics.");
         var selfContract = views.Single(t => t.Name == "ZeroValue").GetMethods().Single(m => m.Name == "get_Zero");
         var zeroImplementation = views.Single(t => t.Name == "Int32").GetMethods().Single(m => m.Name == "get_Zero");
         if (selfContract.ReturnType is not SelfTypeInfo || zeroImplementation.ReturnType is not PrimitiveTypeInfo { Kind: PrimitiveType.Int32 })

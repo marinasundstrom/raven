@@ -15032,3 +15032,49 @@ requires shared input-buffer ownership. Legacy CLI documentation projections are
 not executable bridge qualification. See neoCLR's `docs/experiments/console-read-key/`
 for public interpreter/JIT/AOT PTY and native managed-allocation evidence, and
 `docs/design/console-input-review-20261020.md` for text/key handoff limitations.
+
+## Native positional record equality and hashing — 2026-10-20
+
+The neoCLR target now prepares generated `==`, `!=`, typed `Equals`, Object `Equals`
+and `GetHashCode` bodies for a bounded set of positional records. Raven's ordinary
+.NET record synthesis is unchanged: it uses the CLR comparer/HashCode machinery.
+The native target calls its selected core's equality/hash methods instead of
+introducing CLR-only comparer singleton or generic HashCode.Add dependencies.
+String and Char components therefore retain canonical equality and matching hashes.
+
+Runtime Contract configuration is unchanged. The selected native core must expose
+Object.ReferenceEquals, Object.Equals/GetHashCode and HashCode.Combine(int,int).
+Integer, Boolean and enum components use direct value operations; Int64 hashing
+folds its two Int32 halves. Text and nested source records call their declared hash
+methods. Reference components retain null handling and Object dispatch. Native
+metadata retains Object override slots; the backend now selects verified boxed value
+Equals/GetHashCode overrides and projects their existing by-reference receivers.
+No new instruction or public runtime service is added. The temporary CLI reference
+bridge does not implement these bodies: this is native target emission, with runtime
+and backend validation owned by neoCLR.
+
+Admission is deliberately bounded to nongeneric positional records without authored
+members, containing Int32, Int64, Boolean, Char, enums, supported source records or
+reference components with supported Object semantics. Separately authored reference
+EquatableTo contracts are not replaced by Object equality. Generic/union/other value
+components, imported value-record discovery, floating-point boxed Object dispatch,
+record inheritance and generated formatting remain gaps. In particular,
+ConsoleKeyInfo's Option<int> component and generic KeyValuePair are still storage-only.
+Unsupported local value-method calls receive NEOMETA001 naming the missing component
+contract; storage, accessors and deconstruction remain available. This is a partial
+release-gap fix, not full .NET record parity. Ordinary boxed primitives still have
+native Object-dispatch gaps; the direct component paths do not qualify those APIs.
+
+The current strategy avoids adding compatibility APIs and unnecessary component
+boxing, at the cost of a bounded compiler-side policy that must expand alongside
+native comparer/value-type support. Hashes are not a persistent or cross-process
+serialization contract. Existing native metadata is the long-term representation;
+broader native equality/comparer contracts should replace the restricted admission
+policy as they become qualified.
+
+Validation: Raven's source-core metadata probe checks generated member inventory and
+excludes unsupported storage-only/generic records. neoCLR's
+`docs/experiments/record-values` consumer checks canonical text, typed/boxed equality,
+matching hashes, null/different types, nested records, integer/Boolean/enum fields,
+nullable reference records and the unsupported-component diagnostic across
+interpreter/JIT/AOT. See that experiment for exact artifacts and remaining limits.
