@@ -14,7 +14,8 @@ internal static class NativeRecordBodies
         if (!method.DeclaringSyntaxReferences.IsEmpty || method.ContainingType is not SourceNamedTypeSymbol { IsRecord: true } owner ||
             method.Name is not ("op_Equality" or "op_Inequality" or "Equals" or "GetHashCode"))
             return null;
-        if (!SupportsValueSemantics(owner, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default)))
+        var equatable = compilation.GetTypeByMetadataName("System.EquatableTo`1");
+        if (!SupportsValueSemantics(owner, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default), equatable))
             return null;
         if (!CallableSignature.TryCreate(method, out var signature, capabilities))
             return null;
@@ -83,6 +84,8 @@ internal static class NativeRecordBodies
                 }
                 return result;
             }
+            if (TryImportedValueContract(type, equatable, out var componentEquals, out _))
+                return new BoundInvocationExpression(componentEquals!, [right], left, requiresReceiverAddress: true);
             if (type.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or SpecialType.System_Int64)
                 return Binary(SyntaxKind.EqualsEqualsToken, left, right);
             if (type.TypeKind == TypeKind.Enum)
@@ -122,6 +125,8 @@ internal static class NativeRecordBodies
                 }
                 return result;
             }
+            if (TryImportedValueContract(value.Type, equatable, out _, out var componentHash))
+                return new BoundInvocationExpression(componentHash!, [], value, requiresReceiverAddress: true);
             if (value.Type.SpecialType == SpecialType.System_Int32)
                 return value;
             if (value.Type.SpecialType == SpecialType.System_Boolean)
@@ -173,14 +178,14 @@ internal static class NativeRecordBodies
 
     // Storage-only records remain usable. Do not emit apparently structural methods
     // whose component fallback would silently compare fresh value boxes by identity.
-    private static bool SupportsValueSemantics(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    private static bool SupportsValueSemantics(ITypeSymbol type, HashSet<ITypeSymbol> visited, INamedTypeSymbol? equatable)
     {
         if (type is not SourceNamedTypeSymbol { IsRecord: true } record || !record.TypeParameters.IsEmpty)
             return false;
         if (!visited.Add(type))
             return true;
         return record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
-            .All(f => SupportsComponent(f.Type, visited));
+            .All(f => SupportsComponent(f.Type, visited, equatable));
     }
 
     private static IPropertySymbol[]? CaseProperties(IUnionCaseTypeSymbol caseType)
@@ -199,7 +204,7 @@ internal static class NativeRecordBodies
         return properties.ToArray();
     }
 
-    private static bool SupportsComponent(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    private static bool SupportsComponent(ITypeSymbol type, HashSet<ITypeSymbol> visited, INamedTypeSymbol? equatable)
     {
         var component = type.GetNonNullableType();
         if (component is ITypeParameterSymbol)
@@ -209,12 +214,14 @@ internal static class NativeRecordBodies
             if (union.DeclaredCaseTypes.IsEmpty || !visited.Add(component))
                 return false;
             var supported = union.DeclaredCaseTypes.All(c => CaseProperties(c) is { } properties &&
-                properties.All(p => SupportsComponent(p.Type, visited)));
+                properties.All(p => SupportsComponent(p.Type, visited, equatable)));
             visited.Remove(component);
             return supported;
         }
         if (component is SourceNamedTypeSymbol { IsRecord: true })
-            return SupportsValueSemantics(component, visited);
+            return SupportsValueSemantics(component, visited, equatable);
+        if (TryImportedValueContract(component, equatable, out _, out _))
+            return true;
         if (component.IsReferenceType)
         {
             // A separately authored typed equality contract needs its matching
@@ -224,5 +231,36 @@ internal static class NativeRecordBodies
         }
         return component.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or
             SpecialType.System_Int64 or SpecialType.System_Char || component.TypeKind == TypeKind.Enum;
+    }
+
+    // Reuse an explicit imported self-equality contract; do not infer a record
+    // from method names or inspect its private fields. Explicit mappings require
+    // full interface implementation resolution and remain outside this policy.
+    private static bool TryImportedValueContract(ITypeSymbol type, INamedTypeSymbol? equatable,
+        out IMethodSymbol? equals, out IMethodSymbol? hash)
+    {
+        equals = hash = null;
+        if (equatable is null || type is not NativeNamedTypeSymbol { IsValueType: true, IsRefLikeType: false } native ||
+            !native.TypeParameters.IsEmpty || native.SpecialType != SpecialType.None ||
+            !native.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, equatable) &&
+                i.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], native)))
+            return false;
+        var methods = native.GetMembers().OfType<NativeMethodSymbol>().ToArray();
+        if (methods.Any(m => m.HasExplicitInterfaceMappings))
+            return false;
+        bool Callable(IMethodSymbol m) => !m.IsStatic && !m.IsAbstract && !m.IsGenericMethod &&
+            m.DeclaredAccessibility == Accessibility.Public &&
+            SymbolEqualityComparer.Default.Equals(m.ContainingType, native);
+        var equality = methods.Where(m => Callable(m) && m.Name == "Equals" &&
+            m.ReturnType.SpecialType == SpecialType.System_Boolean && m.Parameters.Length == 1 &&
+            m.Parameters[0].RefKind == RefKind.None &&
+            SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, native)).Take(2).ToArray();
+        var hashes = methods.Where(m => Callable(m) && m.Name == "GetHashCode" &&
+            m.ReturnType.SpecialType == SpecialType.System_Int32 && m.Parameters.IsEmpty).Take(2).ToArray();
+        if (equality.Length != 1 || hashes.Length != 1)
+            return false;
+        equals = equality[0];
+        hash = hashes[0];
+        return true;
     }
 }

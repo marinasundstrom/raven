@@ -252,6 +252,15 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Compilation compilation;
     private readonly NeoCLR.Metadata.Experimental.Introspection.MethodInfo view;
     internal uint NativeMetadataToken => view.MetadataToken;
+    internal bool HasExplicitInterfaceMappings
+    {
+        get
+        {
+            var module = ((NativeAssemblySymbol)ContainingAssembly).Reference.Definition.MainModule;
+            return module.Name != view.MetadataScopeName ||
+                module.GetMethodDefinition(view.MetadataToken)?.ExplicitInterfaceImplementations.Count != 0;
+        }
+    }
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;

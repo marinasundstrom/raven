@@ -15138,3 +15138,32 @@ receiver-aware emission should eventually replace the temporary static wrapper a
 its private site inventory. Original access validation still precedes projection.
 See neoCLR docs/validation/string-direct-call-20261020 for research, validation and
 remaining release scope. Earlier discrepancy notes above describe the old cohort.
+
+
+## Imported native record component contracts — 2026-10-20
+
+Native positional-record generation now admits nongeneric imported value components
+with the selected core's exact EquatableTo<Self> identity and unambiguous declared
+public Equals(Self)->bool and GetHashCode()->int methods. It invokes those concrete
+methods with borrowed receivers, including inside supported union payloads. Index
+and Range are qualified examples. Method-name lookalikes, wrong self arguments,
+missing hashes, ref-like types and explicit interface mappings requiring full
+resolution remain rejected. Unknown metadata lookup is rejected conservatively.
+This is contract admission, not automatic discovery of imported record markers.
+
+Compared with CLR EqualityComparer<T>.Default selecting IEquatable<T>, the native
+policy uses the existing EquatableTo contract without constructing a comparer or
+boxing a component. It intentionally calls the declared typed hash method even
+when it is not an Object override, following current Index/Range APIs; this does
+not redefine CLR comparer semantics for arbitrary non-overriding methods. The cost
+is bounded admission until native comparer/implementation resolution is broader.
+The type author remains responsible for consistent equality and hashes.
+
+No Runtime Contract setting, native metadata format, public runtime service or
+ordinary .NET synthesis changes. The temporary CLI reference signatures do not
+implement these generated bodies. Raven owns imported method/contract selection;
+neoCLR owns execution qualification. Broader native comparer/interface support is
+the eventual replacement for this conservative policy. See neoCLR's
+`docs/experiments/record-components` for baseline, primary-source comparison,
+three-engine consumer, compiler-probe negatives and allocation scope. Automatic
+imported record discovery, generic owners/components and formatting remain gaps.

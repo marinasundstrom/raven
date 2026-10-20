@@ -25,6 +25,23 @@ internal static class NativeSourceCoreChecks
             public struct HashCode {
                 static func Combine(left: int, right: int) -> int => left + right
             }
+            public interface EquatableTo<in T> { func Equals(other: T) -> bool }
+            public struct ImportedValue : EquatableTo<ImportedValue> {
+                func Equals(other: ImportedValue) -> bool => true
+                func GetHashCode() -> int => 7
+            }
+            public struct MissingHash : EquatableTo<MissingHash> {
+                func Equals(other: MissingHash) -> bool => true
+            }
+            public struct Lookalike {
+                func Equals(other: Lookalike) -> bool => true
+                func GetHashCode() -> int => 7
+            }
+            public struct WrongSelf : EquatableTo<int> {
+                func Equals(other: int) -> bool => true
+                func Equals(other: WrongSelf) -> bool => true
+                func GetHashCode() -> int => 7
+            }
             public record struct NativeKey(Value: int)
             public union Choice<T> {
                 case Some(T)
@@ -200,6 +217,22 @@ internal static class NativeSourceCoreChecks
             new(new("Consumer", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
         if (!consumerResult.Success) throw new Exception(string.Join("\n", consumerResult.Diagnostics));
         File.WriteAllBytes(Path.Combine(directory, "Consumer.dll"), consumerImage.ToArray());
+        foreach (var component in new[] { "ImportedValue", "MissingHash", "Lookalike", "WrongSelf" })
+        {
+            var recordSource = $"record struct Wrapped(Value: System.{component})\nfunc Main() -> int {{ let value: System.{component} = default; let key = Wrapped(value); if key.Equals(key) && key.GetHashCode() == key.GetHashCode() {{ return 1 }}; return 0 }}";
+            var recordConsumer = Compilation.Create("Record" + component, [SyntaxTree.ParseText(recordSource)],
+                catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(false));
+            using var recordImage = new MemoryStream();
+            var recordResult = recordConsumer.Emit(recordImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+                new(new("Record" + component, new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+            if (component == "ImportedValue")
+            {
+                if (!recordResult.Success) throw new Exception(string.Join("\n", recordResult.Diagnostics));
+            }
+            else if (recordResult.Success || !recordResult.Diagnostics.Any(d => d.ToString().Contains(
+                "record value semantics require supported component equality and hashing", StringComparison.Ordinal)))
+                throw new Exception("Imported record component contract was not rejected: " + component);
+        }
         foreach (var operation in new[] { "ReadUninitialized", "NegativeLength" })
         {
             var faultConsumer = Compilation.Create(operation, [SyntaxTree.ParseText("func Main() -> int => System.Example." + operation + "()")], catalog.References.ToArray(), consumerOptions);
