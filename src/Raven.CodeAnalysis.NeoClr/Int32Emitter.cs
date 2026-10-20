@@ -203,6 +203,14 @@ internal static class Int32Emitter
                             plans.Add(valuePlan);
                             continue;
                         }
+                        // Do not defer a promised equality contract to metadata encoding when
+                        // the bounded native record implementation cannot supply its body.
+                        if (method.Name == "Equals" && method.Parameters.Length == 1 &&
+                            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, recordSymbol) &&
+                            recordSymbol.AllInterfaces.Any(i =>
+                                SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, compilation.GetTypeByMetadataName("System.EquatableTo`1")) &&
+                                i.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], recordSymbol)))
+                            throw Unsupported("record equality interface requires supported component equality and hashing: " + recordSymbol.ToDisplayString());
                         // Unqualified generated members remain absent from native metadata.
                         if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
                         if (!SourceCallablePlan.TryCreate(method, out var recordCallable, bodyCapabilities, recordSyntax))

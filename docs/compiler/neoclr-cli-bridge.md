@@ -15209,3 +15209,22 @@ gaps; ConsoleKeyInfo still awaits enum support. Qualification uses the
 probe, interpreter/JIT/AOT and an equivalent-builder allocation comparison. Exact
 commands and results are retained in neoCLR's
 `docs/experiments/record-union-formatting/README.md`.
+
+## Explicit record equality-interface admission — 2026-10-20
+
+Explicit EquatableTo<Self> on a supported native positional record uses the
+ordinary generated typed Equals body and normal interface dispatch. No special
+record runtime identity, layout or ABI is introduced. A promised selected-core
+interface whose equality body cannot be generated now fails at native record
+admission with a targeted component-contract NEOMETA001, replacing the later
+missing-interface-implementation metadata error. Unsupported storage-only records
+without that promise retain their prior behavior. Runtime Contract configuration
+and ordinary .NET behavior are unchanged.
+
+The source-core probe covers both outcomes; the retained neoCLR
+`docs/experiments/record-interface-contracts` consumer qualifies existing explicit
+interface dispatch across interpreter/JIT/AOT on the prior matched bundle. Automatic
+IEquatable/EquatableTo mapping remains open and must coordinate semantic interface
+synthesis, native body admission and imported metadata. A future native metadata/
+codegen replacement must preserve ordinary interface dispatch, not invent a record
+calling convention. This slice changes diagnostics, not public class-library APIs.

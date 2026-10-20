@@ -233,6 +233,22 @@ internal static class NativeSourceCoreChecks
                 "record value semantics require supported component equality and hashing", StringComparison.Ordinal)))
                 throw new Exception("Imported record component contract was not rejected: " + component);
         }
+        foreach (var component in new[] { "int", "System.Storage" })
+        {
+            var interfaceSource = $"record struct ContractKey(Value: {component}) : System.EquatableTo<ContractKey>\nfunc Main() -> int {{ let key: ContractKey = default; let contract: System.EquatableTo<ContractKey> = key; if contract.Equals(key) {{ return 1 }}; return 0 }}";
+            var interfaceConsumer = Compilation.Create("RecordInterface", [SyntaxTree.ParseText(interfaceSource)],
+                catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(false));
+            using var interfaceImage = new MemoryStream();
+            var interfaceResult = interfaceConsumer.Emit(interfaceImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+                new(new("RecordInterface", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+            if (component == "int")
+            {
+                if (!interfaceResult.Success) throw new Exception(string.Join("\n", interfaceResult.Diagnostics));
+            }
+            else if (interfaceResult.Success || !interfaceResult.Diagnostics.Any(d => d.ToString().Contains(
+                "record equality interface requires supported component equality and hashing", StringComparison.Ordinal)))
+                throw new Exception("Unsupported record interface did not produce the record contract diagnostic: " + string.Join("\n", interfaceResult.Diagnostics));
+        }
         var displayConsumer = Compilation.Create("RecordDisplayMissingHelpers",
             [SyntaxTree.ParseText("record struct Label(Value: int)\nfunc Main() -> int { let text = Label(42).ToString(); return 0 }")],
             catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(true));
