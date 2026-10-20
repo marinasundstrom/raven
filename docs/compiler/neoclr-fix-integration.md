@@ -1823,3 +1823,15 @@ this test correction is not claimed as new constructor support.
 
 Main validation: all 190 union semantic, imported empty-case and bootstrap replacement
 checks pass on .NET 11. This repair is independent of the native metadata backend.
+
+## Returned out forwarding (2026-10-20)
+
+A general reproduction on Raven main found RAV0269 for a generic direct call in
+a return expression forwarding the current method's out parameter. Direct statement
+forwarding already worked. Analyze the returned expression before checking normal
+exit, sharing the same assignment analysis for return statements and return expressions.
+Short-circuit calls remain insufficient guarantees. No Runtime Contract option,
+public semantic API or emitted metadata representation changes; this repairs a
+general diagnostic and permits ordinary CLI emission. All 44 focused semantic and runtime
+ByRefParameter tests pass on modern .NET; native integration is validated separately
+when deliberately carried to codex/neoclr, without merging branches.
