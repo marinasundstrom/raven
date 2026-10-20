@@ -42,9 +42,41 @@ internal static class NativeRecordFormatting
             output.Add(Append(new BoundInvocationExpression(replace, [Literal(quote), Literal("\\" + quote)], escaped)));
             output.Add(Append(Literal(quote)));
         }
+        var caseIndex = 0;
         void Value(BoundExpression value, List<BoundStatement> output)
         {
             var type = value.Type.GetNonNullableType();
+            if (type.TryGetUnion() is { } union)
+            {
+                BoundStatement branch = Append(Literal("<Uninitialized>"));
+                foreach (var caseType in union.DeclaredCaseTypes.Reverse())
+                {
+                    var payload = new SourceLocalSymbol("recordCase" + caseIndex++, caseType, false,
+                        method, owner, owner.ContainingNamespace, method.Locations.ToArray(), []);
+                    var test = new BoundIsPatternExpression(value,
+                        new BoundDeclarationPattern(caseType, new BoundSingleVariableDesignator(payload)),
+                        compilation.GetSpecialType(SpecialType.System_Boolean));
+                    var body = new List<BoundStatement> { Append(Literal(union.Name + "." + caseType.Name)) };
+                    var properties = NativeRecordBodies.CaseProperties(caseType)!;
+                    if (properties.Length > 0)
+                    {
+                        body.Add(Append(Literal("(")));
+                        for (var index = 0; index < properties.Length; index++)
+                        {
+                            if (index > 0)
+                                body.Add(Append(Literal(", ")));
+                            if (properties.Length > 1)
+                                body.Add(Append(Literal(properties[index].Name + "=")));
+                            Value(new BoundInvocationExpression(properties[index].GetMethod!, [],
+                                new BoundLocalAccess(payload), requiresReceiverAddress: true), body);
+                        }
+                        body.Add(Append(Literal(")")));
+                    }
+                    branch = new BoundIfStatement(test, new BoundBlockStatement(body), branch);
+                }
+                output.Add(branch);
+                return;
+            }
             if (type is SourceNamedTypeSymbol { IsRecord: true } record)
             {
                 Record(value, record, output);
@@ -92,6 +124,15 @@ internal static class NativeRecordFormatting
     private static bool Supported(ITypeSymbol type, HashSet<ITypeSymbol> path)
     {
         type = type.GetNonNullableType();
+        if (type.TryGetUnion() is { } union)
+        {
+            if (union.DeclaredCaseTypes.IsEmpty || !path.Add(type))
+                return false;
+            var supported = union.DeclaredCaseTypes.All(c => NativeRecordBodies.CaseProperties(c) is { } properties &&
+                properties.All(p => Supported(p.Type, path)));
+            path.Remove(type);
+            return supported;
+        }
         if (type is SourceNamedTypeSymbol { IsRecord: true } record)
         {
             // Recursive reference graphs require a separate cycle/display policy.

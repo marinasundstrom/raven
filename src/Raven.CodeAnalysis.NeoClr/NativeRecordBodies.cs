@@ -188,7 +188,7 @@ internal static class NativeRecordBodies
             .All(f => SupportsComponent(f.Type, visited, equatable));
     }
 
-    private static IPropertySymbol[]? CaseProperties(IUnionCaseTypeSymbol caseType)
+    internal static IPropertySymbol[]? CaseProperties(IUnionCaseTypeSymbol caseType)
     {
         var properties = new List<IPropertySymbol>();
         foreach (var parameter in caseType.ConstructorParameters)

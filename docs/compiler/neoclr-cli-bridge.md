@@ -15189,3 +15189,23 @@ Qualification uses the cf66a235c-dirty-record-formatting compiler with freshly b
 libraries, interpreter/JIT/AOT consumers, a missing-helper source-core regression and
 an equivalent-builder allocation comparison. See neoCLR's
 `docs/experiments/record-formatting/README.md` for exact artifacts, results and limits.
+
+## Native record union display — 2026-10-20
+
+Native positional record formatting now admits closed declared union components
+with recursively supported payloads. It uses the same public case-pattern/getter
+admission as record equality/hash, appending Raven's existing case/payload spelling
+into the enclosing builder. Default carriers display `<Uninitialized>`; named empty
+cases remain distinct. No private tag/layout assumptions, additional boxes or
+intermediate union strings are introduced. Output and builder storage still allocate.
+
+Runtime Contract configuration, ordinary .NET synthesis and the temporary native
+call/override ABI are unchanged. The compiler owns body synthesis and admission;
+the core owns storage, escaping and the 65,536-byte builder limit. Future native
+metadata/codegen must preserve case identity, typed payload receivers and virtual
+ToString dispatch. Enum, imported-value and unsupported payload formatting remain
+gaps; ConsoleKeyInfo still awaits enum support. Qualification uses the
+7062ed558-dirty-record-union-formatting compiler with fresh libraries, the source-core
+probe, interpreter/JIT/AOT and an equivalent-builder allocation comparison. Exact
+commands and results are retained in neoCLR's
+`docs/experiments/record-union-formatting/README.md`.
