@@ -50,6 +50,7 @@ internal static class NativeSourceCoreChecks
             public record struct UnionKey(Value: Choice<int>)
             public struct Storage { val Value: int = 0 }
             public record struct GenericKey<T>(Value: int)
+            public struct RuntimeTypeHandle {}
             public struct Void {}
             public struct Boolean { private var m_value: bool }
             public struct Byte { private var m_value: byte }
@@ -98,9 +99,10 @@ internal static class NativeSourceCoreChecks
         {
             version = 1,
             libraries = new[] { new { assemblyName = name, sources = new[] { "Core.rvn" },
-                types = new[] { "System.Int32", "System.Int64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
+                types = new[] { "System.RuntimeTypeHandle", "System.Int32", "System.Int64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
             nativePrimitives = new Dictionary<string, string>
             {
+                ["System.RuntimeTypeHandle"] = name,
                 ["System.Int32"] = name,
                 ["System.Int64"] = name,
                 ["System.Boolean"] = name,
@@ -142,6 +144,7 @@ internal static class NativeSourceCoreChecks
             [MethodImpl(MethodImplOptions.InternalCall)]
             internal extern func GCCollectionCount() -> long;
             internal extern func ReserveArray<T>(count: int) -> T[];
+            internal extern func TypeHandle<T>() -> System.RuntimeTypeHandle;
             """);
         var overloads = SyntaxTree.ParseText("""
             namespace Example
@@ -301,12 +304,14 @@ internal static class NativeSourceCoreChecks
             throw new Exception("Invalid native-call flags were admitted.");
         foreach (var invalidDeclaration in new[] {
             native.GetText().ToString().Replace("count: int", "count: long", StringComparison.Ordinal),
-            native.GetText().ToString().Replace("-> T[]", "-> T[2]", StringComparison.Ordinal) })
+            native.GetText().ToString().Replace("-> T[]", "-> T[2]", StringComparison.Ordinal),
+            native.GetText().ToString().Replace("TypeHandle<T>()", "TypeHandle<T>(value: T)", StringComparison.Ordinal),
+            native.GetText().ToString().Replace("TypeHandle<T>() -> System.RuntimeTypeHandle", "TypeHandle<T>() -> int", StringComparison.Ordinal) })
         {
             var invalidStorage = Compilation.Create(name, [SyntaxTree.ParseText(invalidDeclaration), tree, markers], [], options);
             using var invalidStorageImage = new MemoryStream();
             if (invalidStorage.Emit(invalidStorageImage, null, new EmitOptions().WithBackend(provider.GetConfiguration(projectPath).CreateEmissionBackend(name))).Success || invalidStorageImage.Length != 0)
-                throw new Exception("Invalid source storage signature was admitted.");
+                throw new Exception("Invalid source intrinsic signature was admitted.");
         }
         Console.WriteLine("PASS reference-free source core, source native-call markers, managed array reservation, array views, consumer emission/completion and configuration/signature rejection");
     }

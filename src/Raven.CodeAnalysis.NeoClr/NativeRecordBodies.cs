@@ -19,13 +19,22 @@ internal static class NativeRecordBodies
             return null;
         if (!CallableSignature.TryCreate(method, out var signature, capabilities))
             return null;
+        // A selected-core compiler service avoids materializing TypeInfo objects.
+        // Older cores retain the descriptor-based policy below.
+        var typePolicy = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers")?
+            .GetMembers("IsAssignable").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                m.IsStatic && m.DeclaredAccessibility == Accessibility.Public && m.Arity == 2 &&
+                m.Parameters.IsEmpty && m.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                m.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty) &&
+                SymbolEqualityComparer.Default.Equals(m.ContainingAssembly,
+                    compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly));
         var typeOf = compilation.ResolveRuntimeTypeOfContract();
         var assignable = typeOf?.Type.GetMembers("AssignableTo").OfType<IMethodSymbol>()
             .SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 1 &&
                 m.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, typeOf!.Type));
         if (!owner.TypeParameters.IsEmpty && owner.GetMembers().OfType<IFieldSymbol>()
-            .Any(f => ContainsTypeParameter(f.Type)) && assignable is null)
+            .Any(f => ContainsTypeParameter(f.Type)) && typePolicy is null && assignable is null)
             return null;
         var boolean = compilation.GetSpecialType(SpecialType.System_Boolean);
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -81,7 +90,9 @@ internal static class NativeRecordBodies
             if (type is ITypeParameterSymbol && equatable is not null)
             {
                 var contract = (INamedTypeSymbol)equatable.Construct(type);
-                var selected = new BoundInvocationExpression(assignable!,
+                BoundExpression selected = typePolicy is not null
+                    ? new BoundInvocationExpression(typePolicy.Construct(type, contract), [])
+                    : new BoundInvocationExpression(assignable!,
                     [new BoundTypeOfExpression(contract, typeOf!.Type)],
                     new BoundTypeOfExpression(type, typeOf!.Type));
                 var leftBox = Temporary(obj);

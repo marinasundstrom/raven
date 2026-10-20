@@ -21,6 +21,7 @@ internal static class Int32Emitter
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
+        var typeHandleHelpers = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var payloadHelpers = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var storageHelpers = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
@@ -55,6 +56,12 @@ internal static class Int32Emitter
                         {
                             storageHelpers.Add(symbol);
                             plans.Add(storageHelper!);
+                            continue;
+                        }
+                        if (NeoClrTypeHandleDeclaration.TryCreate(options, symbol, declaration, out var typeHandleHelper))
+                        {
+                            typeHandleHelpers.Add(symbol);
+                            plans.Add(typeHandleHelper!);
                             continue;
                         }
                         if (NeoClrPayloadDeclaration.TryCreate(options, symbol, declaration, out var payloadHelper))
@@ -423,7 +430,7 @@ internal static class Int32Emitter
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
-            if (storageHelpers.Contains(plan.Symbol) || payloadHelpers.Contains(plan.Symbol) || runtimeServices.Contains(plan.Symbol) || foreignImports.ContainsKey(plan.Symbol) || plan.Symbol.IsAbstract)
+            if (typeHandleHelpers.Contains(plan.Symbol) || storageHelpers.Contains(plan.Symbol) || payloadHelpers.Contains(plan.Symbol) || runtimeServices.Contains(plan.Symbol) || foreignImports.ContainsKey(plan.Symbol) || plan.Symbol.IsAbstract)
             {
                 prepared.Add((plan, null));
                 continue;
@@ -951,6 +958,12 @@ internal static class Int32Emitter
             {
                 var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
                 definition = plan.Define(owner);
+            }
+            if (typeHandleHelpers.Contains(plan.Symbol))
+            {
+                var il = definition.GetILGenerator();
+                il.LoadTypeToken(SignatureType.MethodParameter(0));
+                il.Return();
             }
             if (payloadHelpers.Contains(plan.Symbol))
             {

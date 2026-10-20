@@ -15300,3 +15300,39 @@ generic formatting remain separate gaps; unsupported components may fault or be
 rejected by the native backend. See neoCLR's `docs/experiments/record-generics` for
 exact builds, allocation counts and validation. This is native-branch integration,
 not an implied Raven main carry or replacement-release qualification.
+
+
+## Descriptor-free generic record policy — 2026-10-20
+
+The native compiler now prefers the selected core's public compiler service
+`RuntimeHelpers.IsAssignable<TSource,TTarget>()` when generating generic record
+component equality. It validates the service's core assembly ownership, static
+Boolean result, two unconstrained parameters and empty argument list. Older cores
+retain the previously qualified typeof/TypeInfo fallback. The service applies the
+same declared-type relationship rule; dynamic Object identity, nulls, canonical
+text, interface dispatch and hash values are unchanged.
+
+The service is implemented in Raven using the existing ReflectionAssignable runtime
+query and an internal source-core `neoCLR.Runtime.TypeHandle<T>()` helper. The latter
+is emitted as an ordinary managed method containing the existing type-token operation.
+It requires explicit RuntimeTypeHandle primitive ownership and the exact internal,
+unconstrained, parameterless signature; malformed signatures reject. No new native
+opcode, host callback, record layout, ABI or friend-assembly grant is added.
+
+Compared with .NET's default-comparer specialization, this is a narrower optimization:
+it removes reflection descriptor/context allocation while leaving value boxing and
+dispatch in place. The public compiler service is an explicit neoCLR API addition,
+not a claimed .NET RuntimeHelpers member. Its benefit is allocation-free declared-type
+selection from separately compiled code; its cost is another versioned compiler/core
+contract and the existing runtime relationship limitations. It does not expose private
+descriptors. Future native specialization can eliminate the remaining boxing while
+preserving this policy. Ordinary .NET compilation and Runtime Contract configuration
+are unchanged; this work belongs to Raven codex/neoclr, not Raven main.
+
+The existing generic record consumer, extended with direct positive/negative service
+checks, passes interpreter/JIT/AOT, including custom typed equality and Object policy.
+The unsupported-value consumer still faults in all three engines. The source-core
+probe validates exact intrinsic admission and rejects malformed signatures. The
+allocation harness now materializes arguments and mode strings outside the loop;
+matched before/after results and artifact hashes live in neoCLR's
+`docs/experiments/record-generics`. These are development checks, not release qualification.

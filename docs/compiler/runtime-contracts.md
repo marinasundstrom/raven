@@ -4417,3 +4417,12 @@ remain gaps. Ordinary .NET generic records keep IEquatable<T>. Unsupported nativ
 reject instead of silently exporting storage-only records. See the corresponding
 section of [the neoCLR bridge](neoclr-cli-bridge.md) and neoCLR's
 `docs/experiments/record-auto-interfaces` for qualification and API compatibility.
+
+
+The subsequent descriptor-free policy optimization prefers the selected core's
+`System.Runtime.CompilerServices.RuntimeHelpers.IsAssignable<TSource,TTarget>()`.
+The compiler verifies core ownership and signature; older cores retain the typeof
+fallback. The source core owns the exact internal TypeHandle<T> token helper through
+its existing RuntimeTypeHandle primitive mapping. No configuration input or .NET
+behavior changes. Value boxing remains; see the descriptor-free checkpoint in the
+neoCLR bridge for ownership, validation and replacement work.
