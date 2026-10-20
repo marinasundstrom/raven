@@ -7,9 +7,6 @@ internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : Cli
     internal override string UnionInterfaceTypeName => "System.Runtime.CompilerServices.UnionValue";
     internal override string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.AsyncStateMachine";
     internal override string RecordEquatableTypeName => "System.EquatableTo`1";
-    // Native generic records currently expose storage only; do not advertise
-    // a generated interface before the backend can emit its generic body.
-    internal override bool SupportsGenericRecordEquality => false;
     internal override string TupleTypeName => "System.Tuple";
     internal override bool UsesStructuralTuples => true;
     internal override bool UsesStructuralFunctions => true;

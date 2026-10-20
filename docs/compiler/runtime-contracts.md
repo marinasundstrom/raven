@@ -4405,13 +4405,15 @@ consumer covers execution with the matching compiler/library bundle.
 
 The selected target runtime contract now provides record self-equality identity:
 System.IEquatable<T> for .NET and the existing System.EquatableTo<T> for neoCLR.
-Normal binding synthesizes that interface for native nongeneric records; native
+Normal binding synthesizes that interface for native records; native
 emission uses the generated typed Equals body and ordinary interface metadata.
 The historical RavenRecordEquatableType project properties above are not new
 configuration inputs; this change uses the established target selection instead.
-Native generic equality bodies remain unsupported, and the target capability does
-not synthesize an interface without its implementation. Ordinary .NET generic
-records keep IEquatable<T>. Unsupported nongeneric native component bodies now
+Generic equality now uses the existing native typeof contract and TypeInfo.AssignableTo
+to select the declared component equality policy, with Object hashing and null handling.
+The temporary generic-interface capability exclusion is removed. This path currently
+allocates boxes and type descriptors; generic formatting and several component adapters
+remain gaps. Ordinary .NET generic records keep IEquatable<T>. Unsupported native component bodies
 reject instead of silently exporting storage-only records. See the corresponding
 section of [the neoCLR bridge](neoclr-cli-bridge.md) and neoCLR's
 `docs/experiments/record-auto-interfaces` for qualification and API compatibility.

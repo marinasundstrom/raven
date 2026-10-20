@@ -2368,8 +2368,6 @@ public partial class Compilation
 
     internal string RuntimeRecordEquatableTypeName => _target.RuntimeContract.RecordEquatableTypeName;
 
-    internal bool SupportsGenericRecordEquality => _target.RuntimeContract.SupportsGenericRecordEquality;
-
     internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;
 
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)

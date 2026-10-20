@@ -49,7 +49,7 @@ internal static class NativeSourceCoreChecks
             }
             public record struct UnionKey(Value: Choice<int>)
             public struct Storage { val Value: int = 0 }
-            public record struct GenericKey<T>(Value: T)
+            public record struct GenericKey<T>(Value: int)
             public struct Void {}
             public struct Boolean { private var m_value: bool }
             public struct Byte { private var m_value: byte }
@@ -174,7 +174,7 @@ internal static class NativeSourceCoreChecks
         if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
         var snapshot = AssemblyDefinition.ReadNativeAssembly(image.ToArray());
         var views = new MetadataLoadContext([snapshot]).Resolve(snapshot.Identity).GetTypes();
-        foreach (var recordName in new[] { "NativeKey", "UnionKey" })
+        foreach (var recordName in new[] { "NativeKey", "UnionKey", "GenericKey`1" })
         {
             var recordSymbol = compilation.GetTypeByMetadataName("System." + recordName)!;
             var equatable = compilation.GetTypeByMetadataName("System.EquatableTo`1")!;
@@ -187,9 +187,6 @@ internal static class NativeSourceCoreChecks
             if (recordMethods.Count(m => m.Name == "Equals") != 2)
                 throw new Exception("Native record requires typed and Object equality.");
         }
-        foreach (var storageOnly in new[] { "GenericKey`1" })
-            if (snapshot.MainModule.Types.Single(t => t.Name == storageOnly).Methods.Any(m => m.Name is "Equals" or "GetHashCode" or "op_Equality"))
-                throw new Exception("Unsupported record component acquired identity-based value semantics.");
         var selfContract = views.Single(t => t.Name == "ZeroValue").GetMethods().Single(m => m.Name == "get_Zero");
         var zeroImplementation = views.Single(t => t.Name == "Int32").GetMethods().Single(m => m.Name == "get_Zero");
         if (selfContract.ReturnType is not SelfTypeInfo || zeroImplementation.ReturnType is not PrimitiveTypeInfo { Kind: PrimitiveType.Int32 })
@@ -251,6 +248,15 @@ internal static class NativeSourceCoreChecks
                 "record equality interface requires supported component equality and hashing", StringComparison.Ordinal)))
                 throw new Exception("Unsupported record interface did not produce the record contract diagnostic: " + string.Join("\n", interfaceResult.Diagnostics));
         }
+        var genericConsumer = Compilation.Create("RecordGenericMissingPolicy",
+            [SyntaxTree.ParseText("record struct GenericValue<T>(Value: T)\nfunc Main() -> int => 0")],
+            catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(false));
+        using var genericImage = new MemoryStream();
+        var genericResult = genericConsumer.Emit(genericImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+            new(new("RecordGenericMissingPolicy", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+        if (genericResult.Success || !genericResult.Diagnostics.Any(d => d.ToString().Contains(
+            "record equality interface requires supported component equality and hashing", StringComparison.Ordinal)))
+            throw new Exception("Generic equality without its native type policy was not clearly rejected: " + string.Join("\n", genericResult.Diagnostics));
         var displayConsumer = Compilation.Create("RecordDisplayMissingHelpers",
             [SyntaxTree.ParseText("record struct Label(Value: int)\nfunc Main() -> int { let text = Label(42).ToString(); return 0 }")],
             catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(true));

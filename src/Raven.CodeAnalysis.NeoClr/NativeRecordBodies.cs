@@ -19,6 +19,14 @@ internal static class NativeRecordBodies
             return null;
         if (!CallableSignature.TryCreate(method, out var signature, capabilities))
             return null;
+        var typeOf = compilation.ResolveRuntimeTypeOfContract();
+        var assignable = typeOf?.Type.GetMembers("AssignableTo").OfType<IMethodSymbol>()
+            .SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 1 &&
+                m.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, typeOf!.Type));
+        if (!owner.TypeParameters.IsEmpty && owner.GetMembers().OfType<IFieldSymbol>()
+            .Any(f => ContainsTypeParameter(f.Type)) && assignable is null)
+            return null;
         var boolean = compilation.GetSpecialType(SpecialType.System_Boolean);
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var obj = compilation.GetSpecialType(SpecialType.System_Object);
@@ -52,6 +60,10 @@ internal static class NativeRecordBodies
             return new BoundUnaryExpression(op, value);
         }
         var nextCaseLocal = 0;
+        SourceLocalSymbol Temporary(ITypeSymbol type) => new("recordValue" + nextCaseLocal++, type, false,
+            method, owner, owner.ContainingNamespace, method.Locations.ToArray(), []);
+        BoundStatement Declare(SourceLocalSymbol local, BoundExpression value) =>
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, value)]);
         (BoundExpression Test, BoundExpression Value) Case(BoundExpression value, INamedTypeSymbol caseType)
         {
             var local = new SourceLocalSymbol("recordCase" + nextCaseLocal++, caseType, false,
@@ -66,6 +78,27 @@ internal static class NativeRecordBodies
         BoundExpression Equal(BoundExpression left, BoundExpression right)
         {
             var type = left.Type.GetNonNullableType();
+            if (type is ITypeParameterSymbol && equatable is not null)
+            {
+                var contract = (INamedTypeSymbol)equatable.Construct(type);
+                var selected = new BoundInvocationExpression(assignable!,
+                    [new BoundTypeOfExpression(contract, typeOf!.Type)],
+                    new BoundTypeOfExpression(type, typeOf!.Type));
+                var leftBox = Temporary(obj);
+                var rightBox = Temporary(obj);
+                var boxedLeft = new BoundLocalAccess(leftBox);
+                var boxedRight = new BoundLocalAccess(rightBox);
+                var (test, receiver) = Case(boxedLeft, contract);
+                var equals = contract.GetMembers("Equals").OfType<IMethodSymbol>().Single();
+                var dispatch = new BoundIfExpression(Binary(SyntaxKind.AmpersandAmpersandToken, selected, test),
+                    new BoundInvocationExpression(equals, [right], receiver),
+                    new BoundInvocationExpression(objectEquals, [boxedRight], boxedLeft));
+                return new BoundBlockExpression([
+                    Declare(leftBox, Box(left)), Declare(rightBox, Box(right)),
+                    new BoundExpressionStatement(new BoundIfExpression(Null(boxedLeft), Null(boxedRight),
+                        Binary(SyntaxKind.AmpersandAmpersandToken, Not(Null(boxedRight)), dispatch)))
+                ], boolean);
+            }
             if (type.TryGetUnion() is { } union)
             {
                 // No matching case on either side represents the default carrier.
@@ -111,6 +144,16 @@ internal static class NativeRecordBodies
         }
         BoundExpression Hash(BoundExpression value)
         {
+            if (value.Type is ITypeParameterSymbol)
+            {
+                var local = Temporary(obj);
+                var boxed = new BoundLocalAccess(local);
+                return new BoundBlockExpression([
+                    Declare(local, Box(value)),
+                    new BoundExpressionStatement(new BoundIfExpression(Null(boxed), Int(0),
+                        new BoundInvocationExpression(objectHash, [], boxed)))
+                ], integer);
+            }
             if (value.Type.TryGetUnion() is { } union)
             {
                 BoundExpression result = Int(0);
@@ -176,11 +219,15 @@ internal static class NativeRecordBodies
             PreparedBody: Lowerer.LowerBlock(method, new BoundBlockStatement(statements)));
     }
 
-    // Storage-only records remain usable. Do not emit apparently structural methods
-    // whose component fallback would silently compare fresh value boxes by identity.
+    private static bool ContainsTypeParameter(ITypeSymbol type) =>
+        type is ITypeParameterSymbol || type is INamedTypeSymbol named &&
+            named.TypeArguments.Any(ContainsTypeParameter);
+
+    // Do not emit apparently structural methods whose component fallback would
+    // silently compare fresh value boxes by identity.
     private static bool SupportsValueSemantics(ITypeSymbol type, HashSet<ITypeSymbol> visited, INamedTypeSymbol? equatable)
     {
-        if (type is not SourceNamedTypeSymbol { IsRecord: true } record || !record.TypeParameters.IsEmpty)
+        if (type is not INamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } } record)
             return false;
         if (!visited.Add(type))
             return true;
@@ -208,7 +255,7 @@ internal static class NativeRecordBodies
     {
         var component = type.GetNonNullableType();
         if (component is ITypeParameterSymbol)
-            return false;
+            return equatable is not null;
         if (component.TryGetUnion() is { } union)
         {
             if (union.DeclaredCaseTypes.IsEmpty || !visited.Add(component))
@@ -218,7 +265,7 @@ internal static class NativeRecordBodies
             visited.Remove(component);
             return supported;
         }
-        if (component is SourceNamedTypeSymbol { IsRecord: true })
+        if (component is INamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } })
             return SupportsValueSemantics(component, visited, equatable);
         if (TryImportedValueContract(component, equatable, out _, out _))
             return true;
@@ -240,13 +287,12 @@ internal static class NativeRecordBodies
         out IMethodSymbol? equals, out IMethodSymbol? hash)
     {
         equals = hash = null;
-        if (equatable is null || type is not NativeNamedTypeSymbol { IsValueType: true, IsRefLikeType: false } native ||
-            !native.TypeParameters.IsEmpty || native.SpecialType != SpecialType.None ||
+        if (equatable is null || type is not INamedTypeSymbol { OriginalDefinition: NativeNamedTypeSymbol, IsValueType: true, IsRefLikeType: false } native || native.SpecialType != SpecialType.None ||
             !native.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, equatable) &&
                 i.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], native)))
             return false;
-        var methods = native.GetMembers().OfType<NativeMethodSymbol>().ToArray();
-        if (methods.Any(m => m.HasExplicitInterfaceMappings))
+        var methods = native.GetMembers().OfType<IMethodSymbol>().ToArray();
+        if (methods.Any(m => m.OriginalDefinition is NativeMethodSymbol { HasExplicitInterfaceMappings: true }))
             return false;
         bool Callable(IMethodSymbol m) => !m.IsStatic && !m.IsAbstract && !m.IsGenericMethod &&
             m.DeclaredAccessibility == Accessibility.Public &&

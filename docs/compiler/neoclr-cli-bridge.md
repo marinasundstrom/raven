@@ -15255,3 +15255,48 @@ neoCLR's `docs/experiments/record-auto-interfaces` retains source/imported struc
 class, wrapper equality/hash interpreter/JIT/AOT evidence and API refresh details.
 The tested compiler is 0c7ee885c-dirty-record-auto-interfaces with rebuilt libraries;
 this native-branch repair does not claim a Raven main integration or a release gate.
+
+## Generic native record equality — 2026-10-20
+
+Generic positional record classes/structs now synthesize their self-equality
+interface and typed/Object Equals, equality operators and GetHashCode together.
+The temporary generic-interface capability exclusion is removed. Constructed source
+and imported record components reuse their substituted methods rather than requiring
+nongeneric symbol implementations. This supersedes the generic storage-only limit
+in the preceding checkpoint; generic formatting is still unsupported.
+
+Native bodies choose a component equality policy from its declared type parameter:
+the existing native typeof contract and TypeInfo.AssignableTo select EquatableTo<T>,
+then the ordinary interface call compares values; otherwise virtual Object.Equals
+is used. Null compares with null and hashes as zero. This preserves Object-typed
+identity policy even when a concrete instance has a separate typed contract.
+Value operands are boxed once each for a generic comparison and once for a generic
+hash; the current type-descriptor lookup also allocates. This is a correctness
+foundation, not a zero-allocation default comparer. Nongeneric direct paths remain.
+
+This follows the component-comparer policy of the
+[C# record struct specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/structs),
+where generated equality/hash use the declared field types' default comparers.
+neoCLR retains its existing EquatableTo naming and canonical text semantics.
+Unlike .NET's optimized comparer selection, this bounded implementation uses the
+existing runtime type relationships and boxing. Allocation evidence is recorded;
+removing this overhead is follow-up work, not a new semantic contract.
+
+No record ABI, native instruction or CLI marker is introduced. Runtime Contract
+configuration is unchanged; the existing native typeof mapping and public
+AssignableTo contract are required when a generated component operation depends
+on T. Missing support rejects record body admission. Raven owns synthesis; core
+owns equality/hash members; neoCLR owns type relationships and ordinary boxed
+Object dispatch. The backend now supplies Int32/Int64/Boolean Object value adapters.
+Index and Range expose real Object overrides so generic hashing reaches their
+value contracts. Native metadata/codegen must eventually specialize the same
+policy without descriptors/boxing, preserving null, canonical text and overrides.
+
+Tests cover source generic struct/class records, nesting, imported KeyValuePair,
+custom typed equality, static Object policy, nulls, integers, Boolean and canonical
+String across interpreter/JIT/AOT. Ordinary .NET synthesis is unchanged. Generic
+enum/floating-point Object adapters, ordinary struct default value methods and
+generic formatting remain separate gaps; unsupported components may fault or be
+rejected by the native backend. See neoCLR's `docs/experiments/record-generics` for
+exact builds, allocation counts and validation. This is native-branch integration,
+not an implied Raven main carry or replacement-release qualification.

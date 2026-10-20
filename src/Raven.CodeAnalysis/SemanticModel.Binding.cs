@@ -4083,9 +4083,6 @@ public partial class SemanticModel
         if (typeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsRecord)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
-        if (!Compilation.SupportsGenericRecordEquality && typeSymbol.Arity != 0)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
-
         if (Compilation.GetTypeByMetadataName(Compilation.RuntimeRecordEquatableTypeName) is not INamedTypeSymbol equatableDefinition)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
