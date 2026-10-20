@@ -15014,3 +15014,21 @@ ordinary .NET behavior is unchanged. It introduces no CLI encoding or new runtim
 instruction, exception unwinding, or iterator cleanup. Validation: the
 `--native-source-core` metadata probe checks both provider configurations; neoCLR's
 text wrapper consumer supplies execution validation.
+
+## neoCLR synchronous terminal keys (2026-10-20)
+
+neoCLR's source library adds Console.OpenKeyInput and a disposable ConsoleKeyReader
+with synchronous ReadKey, value results and Unicode scalar text (not a grapheme
+Char). Compiler Runtime Contract configuration and ordinary .NET behavior are
+unchanged; Raven `100f98a2f` is the matching compiler. The neoCLR runtime/backend
+own exact private Int32 InternalCalls for ConsoleTerminalOpen(Boolean),
+ConsoleTerminalReadByte(Int32, Int32) and ConsoleTerminalClose(Int32). Native
+lowering supplies its invocation context; no borrowed managed pointer escapes.
+The interpreter releases graph access while waiting and uses invocation cancellation.
+The native provider currently requires the entry thread and POSIX terminal input.
+A positive opaque handle is not an OS descriptor or stable host ABI. The future
+native metadata service descriptor replaces reserved-name matching; bulk transport
+requires shared input-buffer ownership. Legacy CLI documentation projections are
+not executable bridge qualification. See neoCLR's `docs/experiments/console-read-key/`
+for public interpreter/JIT/AOT PTY and native managed-allocation evidence, and
+`docs/design/console-input-review-20261020.md` for text/key handoff limitations.
