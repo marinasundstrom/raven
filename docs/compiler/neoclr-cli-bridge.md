@@ -15359,3 +15359,19 @@ Native-width static members exposed a backend admission gap during built-in test
 IntPtr/UIntPtr static methods now use the existing verified primitive-owner projection,
 with the shared scalar classification replacing a separate list. This changes neoCLR
 codegen admission only; Raven source semantics and CLI encoding are unchanged.
+
+## Enum parsing consumer boundary (2026-10-20)
+
+neoCLR source Enum Parse/TryParse now uses existing closed generic specialization,
+TypeHandle<T> and ordinary Object-to-value conversion. Four private runtime metadata
+queries supply enum count/name/bits/boxing; neoCLR owns their exact-signature validation
+and native lowering. No Raven emission, Runtime Contract setting or ordinary .NET
+behavior changes. The CLI reference declarations are documentation scaffolds only.
+
+The native method contract currently rejects `where TEnum: struct, Enum`: general
+special/class method bounds need metadata producer/reader/import/emission support.
+The bounded parsing API therefore validates the type at runtime, with that limitation
+tracked in neoCLR's enum-parsing qualification and release review. This is not a
+permanent language divergence or a reason to special-case methods named Parse. The
+matched compiler bundle remains 4c051e332-dirty-record-policy-metadata-function-bound;
+validation belongs to neoCLR's built-in enum-parsing suite across its three engines.
