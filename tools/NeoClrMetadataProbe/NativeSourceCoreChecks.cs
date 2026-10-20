@@ -233,6 +233,15 @@ internal static class NativeSourceCoreChecks
                 "record value semantics require supported component equality and hashing", StringComparison.Ordinal)))
                 throw new Exception("Imported record component contract was not rejected: " + component);
         }
+        var displayConsumer = Compilation.Create("RecordDisplayMissingHelpers",
+            [SyntaxTree.ParseText("record struct Label(Value: int)\nfunc Main() -> int { let text = Label(42).ToString(); return 0 }")],
+            catalog.References.ToArray(), consumerOptions.WithSynthesizeStructuralToString(true));
+        using var displayImage = new MemoryStream();
+        var displayResult = displayConsumer.Emit(displayImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+            new(new("RecordDisplayMissingHelpers", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+        if (displayResult.Success || !displayResult.Diagnostics.Any(d => d.ToString().Contains(
+            "record formatting requires supported scalar components and native text helpers", StringComparison.Ordinal)))
+            throw new Exception("Record display without native text helpers was not clearly rejected: " + string.Join("\n", displayResult.Diagnostics));
         foreach (var operation in new[] { "ReadUninitialized", "NegativeLength" })
         {
             var faultConsumer = Compilation.Create(operation, [SyntaxTree.ParseText("func Main() -> int => System.Example." + operation + "()")], catalog.References.ToArray(), consumerOptions);

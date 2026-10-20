@@ -197,12 +197,13 @@ internal static class Int32Emitter
                     }
                     foreach (var method in recordSymbol.GetMembers().OfType<IMethodSymbol>())
                     {
-                        if (NativeRecordBodies.Create(compilation, method, recordSyntax, bodyCapabilities) is { } valuePlan)
+                        if ((NativeRecordBodies.Create(compilation, method, recordSyntax, bodyCapabilities) ??
+                            NativeRecordFormatting.Create(compilation, method, recordSyntax, bodyCapabilities)) is { } valuePlan)
                         {
                             plans.Add(valuePlan);
                             continue;
                         }
-                        // Structural formatting remains separately qualified.
+                        // Unqualified generated members remain absent from native metadata.
                         if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
                         if (!SourceCallablePlan.TryCreate(method, out var recordCallable, bodyCapabilities, recordSyntax))
                             throw Unsupported("record callable contract: " + method.ToDisplayString());
@@ -1460,6 +1461,9 @@ internal static class Int32Emitter
                 symbol.DeclaringSyntaxReferences.IsEmpty &&
                 symbol.Name is "op_Equality" or "op_Inequality" or "Equals" or "GetHashCode")
                 throw Unsupported("record value semantics require supported component equality and hashing: " + symbol.ContainingType.ToDisplayString());
+            if (symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true } &&
+                symbol.DeclaringSyntaxReferences.IsEmpty && symbol.Name == "ToString")
+                throw Unsupported("record formatting requires supported scalar components and native text helpers: " + symbol.ContainingType.ToDisplayString());
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
             if (symbol is NativeMethodSymbol tupleMethod &&

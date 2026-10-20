@@ -15167,3 +15167,25 @@ the eventual replacement for this conservative policy. See neoCLR's
 `docs/experiments/record-components` for baseline, primary-source comparison,
 three-engine consumer, compiler-probe negatives and allocation scope. Automatic
 imported record discovery, generic owners/components and formatting remain gaps.
+
+## Native scalar record formatting — 2026-10-20
+
+The native compiler now emits generated ToString for nongeneric positional record
+structs with int/long/bool/String/Char or nested supported source record components.
+It preserves Raven's named-member, quoted/escaped text and explicit-null display.
+A bound body uses the selected core's StringBuilder, String.Replace and typed scalar
+formatting; nested records append through getters into one builder without component
+boxes. Runtime Contract configuration and ordinary .NET synthesis are unchanged.
+The temporary native metadata/backend projection retains an ordinary override and
+concrete calls; no CLR reflection helper or additional neoIL opcode is introduced.
+The compiler owns admission and body generation; the core owns escaping/storage and
+the existing 65,536-byte output limit. Native metadata/codegen must retain these
+virtual dispatch and typed receiver semantics when the bridge is replaced.
+
+Union/enum/imported/floating-point components, generic owners and record classes
+remain formatting gaps, distinct from equality/hash support. Missing helpers or
+unqualified source formatting calls produce a targeted NEOMETA001 diagnostic.
+Qualification uses the cf66a235c-dirty-record-formatting compiler with freshly built
+libraries, interpreter/JIT/AOT consumers, a missing-helper source-core regression and
+an equivalent-builder allocation comparison. See neoCLR's
+`docs/experiments/record-formatting/README.md` for exact artifacts, results and limits.
