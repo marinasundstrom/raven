@@ -728,3 +728,16 @@ validated first. Record-struct typed/Object equality synthesis is also corrected
 on main. The neoCLR line must carry the general change deliberately and validate
 its native pattern backend separately; main support alone is not integration
 proof. No additional CLI bridge encoding is introduced.
+
+### Construction payload capture traversal (2026-10-21)
+
+A shared bound-tree traversal fix visits ordinary construction arguments,
+initializer entries and union-case payloads when discovering lambda captures.
+This is a general Raven fix: outer locals inside `Some<object>(value)` must be
+captured on .NET as well as neoCLR. The native emitter's undeclared-local error
+exposed the missing traversal; no target-specific capture exception is added.
+Runtime Contract configuration, CLI bridge representation, metadata and closure
+ABI remain unchanged. The existing native captured-value support limits still
+apply. Focused .NET tests check semantic capture identity and emitted execution;
+the neoCLR DI activation consumer independently validates the native branch carry.
+Native metadata/backend work does not replace this shared semantic requirement.

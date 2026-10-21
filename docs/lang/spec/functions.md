@@ -485,6 +485,9 @@ boxing and unsafe nullable narrowing do not make a variant conversion valid.
 Local functions and function expressions can capture locals, parameters, and
 `self` from their enclosing scope. Captured mutable variables remain shared, so
 changes are visible to every function that captures the same variable.
+References inside object-constructor arguments, initializer entries and union-case
+payload expressions participate in capture analysis just like ordinary invocation
+arguments, including nested calls and conversions.
 
 ```raven
 var count = 0

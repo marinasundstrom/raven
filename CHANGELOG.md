@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-21:** Traverse object construction, initializer entries and union-case payload arguments in the shared bound-tree walker so lambda capture analysis retains outer locals used inside construction, including conversions and nested expressions/calls. Add semantic and emitted .NET regressions. No Runtime Contract, metadata or closure ABI change.
+
 - **2026-10-21:** Bind expanded array `params` arguments for indexers, including extension indexers, while retaining explicit array arguments and preferring applicable normal-form overloads. Reuse ordinary collection lowering for the packed argument array. Add emitted .NET regression coverage; no Runtime Contract or metadata encoding change.
 
 - **2026-10-21:** Unify named positional declarations with deconstruction: irrefutable named bindings may omit else, while refutable named declarations report RAV1620. Resolve inherited accessible Deconstruct members for named and unnamed forms. Qualified read-only static members are evaluated equality patterns, not compile-time constants. Correct synthesized typed/Object equality bodies for record structs exposed by value-pattern execution. Add semantic and execution coverage for value/reference records, base/object narrowing, null, mismatches and equality; ordinary .NET behavior is the baseline for native integration. All 88 focused semantic/execution tests pass.
