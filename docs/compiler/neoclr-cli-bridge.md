@@ -15610,3 +15610,28 @@ validated first. Record-struct typed/Object equality synthesis is also corrected
 on main. The neoCLR line must carry the general change deliberately and validate
 its native pattern backend separately; main support alone is not integration
 proof. No additional CLI bridge encoding is introduced.
+
+### Native positional parity (2026-10-21)
+
+Main d39ef018a is carried deliberately as f5daaaea1. The portable backend now
+lowers reference/base/object positional patterns using existing type tests,
+reference conversions and value unboxing before the ordinary declared Deconstruct
+call. Assignment receivers use implicit reference conversions for inherited
+Deconstruct methods. This supersedes the earlier reference-narrowing limitation;
+outer whole-pattern captures remain outside this bounded lowering path.
+
+Runtime equality patterns evaluate the right operand once and use virtual
+Object.Equals with null handling, matching the general comparison-pattern
+contract. Values currently box on this path; this is semantic integration, not
+an allocation optimization. No Runtime Contract setting, metadata/CLI encoding,
+ABI or runtime type-name mapping is added. Ordinary .NET emission remains the
+main implementation. Native metadata/codegen uses the same nominal contracts;
+there is no new temporary CLI representation to replace.
+
+The neoCLR built-in deconstruction and currency suites exercise reference/value
+records, inherited deconstruction, base/object narrowing, failure and Money's
+formatting/parsing/equality contract. Results are recorded in neoCLR's
+`docs/experiments/deconstruction`; the general .NET matrix has 88 passing tests.
+
+Validation: all four built-in deconstruction tests pass under native, JIT and
+interpreter (12 executions) using the rebuilt five-library Money cohort.

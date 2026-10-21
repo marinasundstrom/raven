@@ -402,6 +402,39 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);
                 return true;
             }
+            if (pattern is BoundComparisonPattern { Operator: BoundComparisonPatternOperator.Equals or BoundComparisonPatternOperator.NotEquals } equality &&
+                TryType(input, false, out var equalityInput) && capabilities?.Allows(equalityInput) == true)
+            {
+                var objectType = model.Compilation.GetSpecialType(SpecialType.System_Object);
+                var objectEquals = objectType.GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                    SupportedObjectEqualsCall(m));
+                if (objectEquals is null || !TryType(objectType, false, out var objectStorage) ||
+                    !capabilities.Allows(LinearInstructionKind.ReferenceIsNull) || !capabilities.Allows(LinearInstructionKind.BoxToObject))
+                    return Reject("runtime value pattern requires Object equality", syntax);
+                var left = localTypes.Count; localTypes.Add(objectStorage);
+                if (input.IsValueType) instructions.Add(new(LinearInstructionKind.BoxToObject, syntax, Type: input));
+                Add(LinearInstructionKind.StoreLocal, syntax, left);
+                if (!LowerValue(equality.Value)) return false;
+                if (equality.Value.Type.IsValueType) instructions.Add(new(LinearInstructionKind.BoxToObject, syntax, Type: equality.Value.Type));
+                var right = localTypes.Count; localTypes.Add(objectStorage);
+                Add(LinearInstructionKind.StoreLocal, syntax, right);
+                var nonNull = nextLabel++;
+                var compared = nextLabel++;
+                Add(LinearInstructionKind.LoadLocal, syntax, left);
+                Add(LinearInstructionKind.ReferenceIsNull, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, nonNull);
+                Add(LinearInstructionKind.LoadLocal, syntax, right);
+                Add(LinearInstructionKind.ReferenceIsNull, syntax);
+                Add(LinearInstructionKind.Branch, syntax, compared);
+                Add(LinearInstructionKind.Label, syntax, nonNull);
+                Add(LinearInstructionKind.LoadLocal, syntax, left);
+                Add(LinearInstructionKind.LoadLocal, syntax, right);
+                Add(InstanceCallKind(objectEquals), syntax, method: objectEquals);
+                Add(LinearInstructionKind.Label, syntax, compared);
+                if (equality.Operator == BoundComparisonPatternOperator.NotEquals) Add(LinearInstructionKind.Not, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             if (pattern is BoundNotPattern negated && !negated.GetDesignators().Any())
             {
                 var accepted = nextLabel++;
@@ -476,10 +509,25 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);
                 return true;
             }
-            if (pattern is BoundDeconstructPattern { Designator: null or BoundDiscardDesignator } deconstruct &&
-                input.IsValueType && CallableSignature.SameStorageType(input, deconstruct.ReceiverType) &&
-                (deconstruct.NarrowedType is null || CallableSignature.SameStorageType(input, deconstruct.NarrowedType)))
+            if (pattern is BoundDeconstructPattern { Designator: null or BoundDiscardDesignator } deconstruct)
             {
+                var receiverType = deconstruct.ReceiverType;
+                if (UsesReferenceStorage(input) && TryType(input, false, out var patternInput) &&
+                    capabilities?.Allows(patternInput) == true && capabilities.Allows(LinearInstructionKind.TypeTest))
+                {
+                    var original = localTypes.Count; localTypes.Add(patternInput);
+                    Add(LinearInstructionKind.StoreLocal, syntax, original);
+                    Add(LinearInstructionKind.LoadLocal, syntax, original);
+                    instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: deconstruct.NarrowedType ?? receiverType));
+                    Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                    Add(LinearInstructionKind.LoadLocal, syntax, original);
+                    var convert = receiverType.IsValueType ? LinearInstructionKind.UnboxAny : LinearInstructionKind.ReferenceConvert;
+                    if (!capabilities.Allows(convert)) return Reject("unsupported deconstruction receiver conversion", syntax);
+                    instructions.Add(new(convert, syntax, Type: receiverType));
+                }
+                else if (!input.IsValueType || !CallableSignature.SameStorageType(input, receiverType) ||
+                    deconstruct.NarrowedType is { } narrowed && !CallableSignature.SameStorageType(input, narrowed))
+                    return Reject("unsupported deconstruction pattern receiver", syntax);
                 if (!DeconstructPayload(deconstruct, syntax, out var outputs)) return false;
                 for (var index = 0; index < outputs.Length; index++)
                 {
@@ -807,8 +855,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 {
                     var method = deconstruction.DeconstructMethod;
                     var syntax = Syntax(statement);
-                    if (!CallableSignature.SameStorageType(deconstructAssignment.Right.Type, deconstruction.ReceiverType) ||
-                        !LowerValue(deconstructAssignment.Right) || !DeconstructPayload(deconstruction, syntax, out var outputs)) return false;
+                    BoundExpression receiver = deconstructAssignment.Right;
+                    if (!CallableSignature.SameStorageType(receiver.Type, deconstruction.ReceiverType))
+                    {
+                        var conversion = model.Compilation.ClassifyConversion(receiver.Type, deconstruction.ReceiverType, includeUserDefined: false);
+                        if (!conversion.IsImplicit || !conversion.IsReference)
+                            return Reject("unsupported deconstruction receiver", syntax);
+                        receiver = new BoundConversionExpression(receiver, deconstruction.ReceiverType, conversion);
+                    }
+                    if (!LowerValue(receiver) || !DeconstructPayload(deconstruction, syntax, out var outputs)) return false;
                     for (var index = 0; index < outputs.Length; index++)
                     {
                         if (deconstruction.Arguments[index] is BoundDiscardPattern) continue;
