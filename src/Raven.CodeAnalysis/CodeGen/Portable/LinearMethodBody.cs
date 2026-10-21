@@ -476,6 +476,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);
                 return true;
             }
+            if (pattern is BoundDeconstructPattern { Designator: null or BoundDiscardDesignator } deconstruct &&
+                input.IsValueType && CallableSignature.SameStorageType(input, deconstruct.ReceiverType) &&
+                (deconstruct.NarrowedType is null || CallableSignature.SameStorageType(input, deconstruct.NarrowedType)))
+            {
+                if (!DeconstructPayload(deconstruct, syntax, out var outputs)) return false;
+                for (var index = 0; index < outputs.Length; index++)
+                {
+                    Add(LinearInstructionKind.LoadLocal, syntax, outputs[index]);
+                    if (!PatternPayload(deconstruct.DeconstructMethod.Parameters[index].Type, deconstruct.Arguments[index], fail, syntax)) return false;
+                }
+                return true;
+            }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
             if (pattern is BoundPropertyPattern propertyPattern && UsesReferenceStorage(input) &&
@@ -605,6 +617,36 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.LoadLocal, syntax, payload);
                 if (!PatternDesignator(casePattern.Designator, output.Type, syntax)) return false;
             }
+            return true;
+        }
+
+        // Consume a receiver and invoke its declared Deconstruct once. Both pattern
+        // matching and assignment reuse this ordinary instance/out-parameter contract.
+        bool DeconstructPayload(BoundDeconstructPattern pattern, SyntaxNode syntax, out int[] outputs)
+        {
+            outputs = [];
+            var method = pattern.DeconstructMethod;
+            if (method.IsStatic || method.IsExtensionMethod || !SupportedInstanceCall(method) ||
+                method.Parameters.Length != pattern.Arguments.Length ||
+                !TryType(pattern.ReceiverType, false, out var receiverType) || capabilities?.Allows(receiverType) != true ||
+                !capabilities.Allows(LinearInstructionKind.LocalAddress))
+                return Reject("unsupported deconstruction contract", syntax);
+            var receiver = localTypes.Count;
+            localTypes.Add(receiverType);
+            Add(LinearInstructionKind.StoreLocal, syntax, receiver);
+            Add(pattern.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiver);
+            outputs = new int[method.Parameters.Length];
+            for (var index = 0; index < outputs.Length; index++)
+            {
+                var parameter = method.Parameters[index];
+                if (parameter.RefKind != RefKind.Out || !TryType(parameter.Type, false, out var outputType) || !capabilities.Allows(outputType))
+                    return Reject("unsupported deconstruction output", syntax);
+                outputs[index] = localTypes.Count;
+                localTypes.Add(outputType);
+                Add(LinearInstructionKind.LocalAddress, syntax, outputs[index]);
+            }
+            Add(InstanceCallKind(method), syntax, method: method);
+            if (ReturnsValue(method)) Add(LinearInstructionKind.Pop, syntax);
             return true;
         }
 
@@ -765,29 +807,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 {
                     var method = deconstruction.DeconstructMethod;
                     var syntax = Syntax(statement);
-                    if (method.IsStatic || method.IsExtensionMethod || !SupportedInstanceCall(method) ||
-                        !CallableSignature.SameStorageType(deconstructAssignment.Right.Type, deconstruction.ReceiverType) ||
-                        method.Parameters.Length != deconstruction.Arguments.Length ||
-                        !TryType(deconstruction.ReceiverType, false, out var receiverType) || capabilities?.Allows(receiverType) != true ||
-                        !capabilities.Allows(LinearInstructionKind.LocalAddress))
-                        return Reject("unsupported deconstruction assignment", syntax);
-                    if (!LowerValue(deconstructAssignment.Right)) return false;
-                    var receiver = localTypes.Count;
-                    localTypes.Add(receiverType);
-                    Add(LinearInstructionKind.StoreLocal, syntax, receiver);
-                    Add(deconstruction.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiver);
-                    var outputs = new int[method.Parameters.Length];
-                    for (var index = 0; index < outputs.Length; index++)
-                    {
-                        var parameter = method.Parameters[index];
-                        if (parameter.RefKind != RefKind.Out || !TryType(parameter.Type, false, out var outputType) || !capabilities.Allows(outputType))
-                            return Reject("unsupported deconstruction output", syntax);
-                        outputs[index] = localTypes.Count;
-                        localTypes.Add(outputType);
-                        Add(LinearInstructionKind.LocalAddress, syntax, outputs[index]);
-                    }
-                    Add(InstanceCallKind(method), syntax, method: method);
-                    if (ReturnsValue(method)) Add(LinearInstructionKind.Pop, syntax);
+                    if (!CallableSignature.SameStorageType(deconstructAssignment.Right.Type, deconstruction.ReceiverType) ||
+                        !LowerValue(deconstructAssignment.Right) || !DeconstructPayload(deconstruction, syntax, out var outputs)) return false;
                     for (var index = 0; index < outputs.Length; index++)
                     {
                         if (deconstruction.Arguments[index] is BoundDiscardPattern) continue;

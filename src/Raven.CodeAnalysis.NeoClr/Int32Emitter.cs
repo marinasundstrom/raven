@@ -186,9 +186,9 @@ internal static class Int32Emitter
                 else if (member is RecordDeclarationSyntax recordSyntax)
                 {
                     if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol recordSymbol ||
-                        recordSyntax.Members.Count != 0 ||
+                        recordSyntax.Members.Any(m => m is not MethodDeclarationSyntax) ||
                         !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, bodyCapabilities))
-                        throw Unsupported("positional records without additional members");
+                        throw Unsupported("positional records with ordinary methods");
                     declaredTypes.TryAdd(recordSymbol, recordPlan!);
                     foreach (var field in recordSymbol.GetMembers().OfType<IFieldSymbol>())
                     {
@@ -204,6 +204,13 @@ internal static class Int32Emitter
                     }
                     foreach (var method in recordSymbol.GetMembers().OfType<IMethodSymbol>())
                     {
+                        // Authored methods use the same callable/body contract as ordinary value types.
+                        // Keep synthesis limited to compiler-generated record members.
+                        if (method.DeclaringSyntaxReferences.Any(r => r.GetSyntax() is MethodDeclarationSyntax))
+                        {
+                            plans.Add(GetPlan(method));
+                            continue;
+                        }
                         if ((NativeRecordBodies.Create(compilation, method, recordSyntax, bodyCapabilities) ??
                             NativeRecordFormatting.Create(compilation, method, recordSyntax, bodyCapabilities)) is { } valuePlan)
                         {

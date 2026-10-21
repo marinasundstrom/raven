@@ -16,7 +16,7 @@ public sealed class PositionalRecordPlanTests : CompilationTestBase
         allowsConstructedFieldReferences: true, allowsGenericInstanceMethods: true,
         allowsGenericStaticOwners: true, allowsGenericClassOwners: true,
         allowsConstructedInterfaceImplementations: true, allowsExternalInterfaceDeclarations: true,
-        allowsInterfaceSignatures: true, allowsGenericInterfaceDeclarations: true);
+        allowsInterfaceSignatures: true, allowsGenericInterfaceDeclarations: true, allowsCasePatterns: true);
 
     [Fact]
     public void PositionalStorageDoesNotBypassUnsupportedInterfaceConstraints()
@@ -66,4 +66,31 @@ public sealed class PositionalRecordPlanTests : CompilationTestBase
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
         Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var ordinaryFailure, Capabilities(false)), ordinaryFailure?.Detail);
     }
+
+    [Fact]
+    public void ValueDeconstructionPatternUsesDeclaredMethodContract()
+    {
+        var (compilation, _) = CreateCompilation("""
+            struct Pair {
+                func Deconstruct(out key: int, out value: int) {
+                    key = 10
+                    value = 32
+                }
+            }
+            class Program {
+                static func Main() -> int {
+                    let pair = Pair()
+                    let Pair(key, value) = pair else { return -1 }
+                    return key + value
+                }
+            }
+            """, new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Main");
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+    }
+
 }

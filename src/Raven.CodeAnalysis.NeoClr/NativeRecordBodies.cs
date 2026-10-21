@@ -128,7 +128,7 @@ internal static class NativeRecordBodies
                 }
                 return result;
             }
-            if (TryImportedValueContract(type, equatable, out var componentEquals, out _))
+            if (TryDeclaredValueContract(type, equatable, out var componentEquals, out _))
                 return new BoundInvocationExpression(componentEquals!, [right], left, requiresReceiverAddress: true);
             if (type.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or SpecialType.System_Int64)
                 return Binary(SyntaxKind.EqualsEqualsToken, left, right);
@@ -179,7 +179,7 @@ internal static class NativeRecordBodies
                 }
                 return result;
             }
-            if (TryImportedValueContract(value.Type, equatable, out _, out var componentHash))
+            if (TryDeclaredValueContract(value.Type, equatable, out _, out var componentHash))
                 return new BoundInvocationExpression(componentHash!, [], value, requiresReceiverAddress: true);
             if (value.Type.SpecialType == SpecialType.System_Int32)
                 return value;
@@ -278,7 +278,7 @@ internal static class NativeRecordBodies
         }
         if (component is INamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } })
             return SupportsValueSemantics(component, visited, equatable);
-        if (TryImportedValueContract(component, equatable, out _, out _))
+        if (TryDeclaredValueContract(component, equatable, out _, out _))
             return true;
         if (component.IsReferenceType)
         {
@@ -292,19 +292,22 @@ internal static class NativeRecordBodies
             SpecialType.System_Double || component.TypeKind == TypeKind.Enum;
     }
 
-    // Reuse an explicit imported self-equality contract; do not infer a record
+    // Reuse an explicit declared self-equality contract; do not infer a record
     // from method names or inspect its private fields. Explicit mappings require
     // full interface implementation resolution and remain outside this policy.
-    private static bool TryImportedValueContract(ITypeSymbol type, INamedTypeSymbol? equatable,
+    private static bool TryDeclaredValueContract(ITypeSymbol type, INamedTypeSymbol? equatable,
         out IMethodSymbol? equals, out IMethodSymbol? hash)
     {
         equals = hash = null;
-        if (equatable is null || type is not INamedTypeSymbol { OriginalDefinition: NativeNamedTypeSymbol, IsValueType: true, IsRefLikeType: false } native || native.SpecialType != SpecialType.None ||
+        if (equatable is null || type is not INamedTypeSymbol { IsValueType: true, IsRefLikeType: false } native ||
+            native.OriginalDefinition is not (NativeNamedTypeSymbol or SourceNamedTypeSymbol) ||
+            native.SpecialType is not (SpecialType.None or SpecialType.System_Decimal) ||
             !native.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, equatable) &&
                 i.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], native)))
             return false;
         var methods = native.GetMembers().OfType<IMethodSymbol>().ToArray();
-        if (methods.Any(m => m.OriginalDefinition is NativeMethodSymbol { HasExplicitInterfaceMappings: true }))
+        if (methods.Any(m => !m.ExplicitInterfaceImplementations.IsDefaultOrEmpty ||
+            m.OriginalDefinition is NativeMethodSymbol { HasExplicitInterfaceMappings: true }))
             return false;
         bool Callable(IMethodSymbol m) => !m.IsStatic && !m.IsAbstract && !m.IsGenericMethod &&
             m.DeclaredAccessibility == Accessibility.Public &&

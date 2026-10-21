@@ -15572,3 +15572,31 @@ member authority. Validation uses neoCLR's built-in Decimal suite, including
 literal/implicit conversion, boxing and .NET-generated arithmetic boundary vectors.
 A future backend can optimize these declared calls without changing the source
 contract or replacing the nominal metadata representation.
+
+### Monetary record methods and declared components (2026-10-21)
+
+The native emitter admits ordinary authored methods on positional records using
+its existing callable plans, alongside synthesized equality/hash/display. Declared
+source value components with explicit self-equality and hash methods now use the
+same contract as imported native values, including source-owned Decimal. Display
+uses the declared parameterless ToString. No monetary type-name mapping is added.
+Runtime Contract configuration and ordinary .NET emission are unchanged; this is
+native backend admission, not a CLI workaround. Extra record storage declarations
+and explicit interface mappings remain outside this bounded policy. The neoCLR
+built-in currency suite exercises MonetaryAmount methods, interfaces, equality,
+hashing, display and positional deconstruction across native/JIT/interpreter;
+see neoCLR docs/experiments/currency for final execution evidence.
+
+Native same-value-type named deconstruction patterns reuse the existing
+Deconstruct/out-parameter lowering used for assignments, with focused portable
+lowering coverage and guest record execution. Reference narrowing and outer
+captures are not admitted by this bounded path. Irrefutable named `let` patterns
+without `else` remain a general syntax follow-up for Raven main; no parser change
+or CLI representation change is made here.
+
+Validation: all three PositionalRecordPlanTests pass, including the new named
+value-pattern regression; all six neoCLR monetary tests pass under native, JIT
+and interpreter (18 executions). The five native class-library projects build.
+These changes are in the native/portable backend on codex/neoclr; that backend is
+not present on Raven main. The separate named-pattern parser follow-up belongs on
+main first. No full branch merge is implied.
