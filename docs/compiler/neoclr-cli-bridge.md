@@ -15853,3 +15853,12 @@ generic functions, invalid scopes/targets and distinct pointer overloads. A sour
 wrapper with a `*T` field compiles and forwards a native buffer pointer through its
 getter to a native release call under the interpreter. This does not qualify native
 imports under JIT/AOT or safe borrowed slices over unmanaged storage.
+
+### Pointer conversion classification (2026-10-21)
+
+General Raven now classifies explicit pointer-to-pointer reinterpretation and implicit
+pointer-to-void erasure. The ordinary .NET emitter uses its existing `conv.u` path;
+35 pointer semantic/codegen tests pass, including an address-preserving round trip.
+No Runtime Contract configuration changes. Native lowering must independently
+preserve the target pointer signature; this shared binder fix alone does not provide
+native emission or grant ownership, bounds, alignment or lifetime validity.

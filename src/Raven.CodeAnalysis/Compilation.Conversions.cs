@@ -330,6 +330,13 @@ public partial class Compilation
             return true;
         }
 
+        // A native address may be reinterpreted explicitly without changing its bits.
+        // Erasing the pointee to void is the one implicit non-identity pointer conversion.
+        if (source is IPointerTypeSymbol && destination is IPointerTypeSymbol pointerTarget)
+            return Finalize(new Conversion(
+                isImplicit: pointerTarget.PointedAtType.SpecialType == SpecialType.System_Void,
+                isPointer: true));
+
         if (source is IAddressTypeSymbol addressSource)
         {
             if (destination is RefTypeSymbol refTypeDestination &&

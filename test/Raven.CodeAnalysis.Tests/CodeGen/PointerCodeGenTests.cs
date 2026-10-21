@@ -11,6 +11,36 @@ namespace Raven.CodeAnalysis.Tests;
 public class PointerCodeGenTests
 {
     [Fact]
+    public void PointerCastsPreserveTheAddressAndVoidErasureIsImplicit()
+    {
+        const string code = """
+            class PointerCasts {
+                unsafe static func Run() -> int {
+                    var value = 42
+                    let typed: *int = &value
+                    let erased: *System.Void = typed
+                    let bytes = (*byte)erased
+                    let restored = (*int)bytes
+                    return *restored
+                }
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("pointer_casts", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(code)).AddReferences(references);
+        var typed = compilation.CreatePointerTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
+        var erased = compilation.CreatePointerTypeSymbol(compilation.GetSpecialType(SpecialType.System_Void));
+        Assert.True(compilation.ClassifyConversion(typed, erased).IsImplicit);
+        var restore = compilation.ClassifyConversion(erased, typed);
+        Assert.True(restore.Exists && restore.IsExplicit && restore.IsPointer);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        Assert.Equal(42, loaded.Assembly.GetType("PointerCasts")!.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!.Invoke(null, null));
+    }
+
+    [Fact]
     public void PointerArithmeticAndSizeOf_EmitExpectedRuntimeValues()
     {
         const string code = """
