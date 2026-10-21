@@ -88,6 +88,11 @@ class MathConstants {
 They remain compile-time constants and are emitted as metadata constants
 (implicitly static), similar to other .NET languages.
 
+Qualified constant fields from referenced assemblies can initialize other constants.
+Their declared numeric type and value are preserved, including floating-point NaN
+and infinity. Reading a property or an ordinary static field is not a constant
+expression.
+
 ## External constants
 
 An `extern const` declares a typed constant whose value may be supplied by the

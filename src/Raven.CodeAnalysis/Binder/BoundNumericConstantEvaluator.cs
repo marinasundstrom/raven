@@ -22,6 +22,9 @@ internal static class BoundNumericConstantEvaluator
             case BoundFieldAccess { Field.IsConst: true } field:
                 value = field.Field.GetConstantValue();
                 return Status.Constant;
+            case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true } member }:
+                value = member.GetConstantValue();
+                return Status.Constant;
             case BoundParenthesizedExpression parenthesized:
                 return Evaluate(parenthesized.Expression, isChecked, out value);
             case BoundConversionExpression conversion when !conversion.IsUserDefined:
