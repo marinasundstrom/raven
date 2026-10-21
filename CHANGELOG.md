@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-21:** Report RAV0111 for a record-class primary constructor with a single self-typed parameter, including nullable and generic spellings. Nullable reference annotations no longer create a duplicate generated copy-constructor signature. This follows C# CS8910 rather than silently changing copy semantics. All 37 focused record semantic tests pass.
+
 - **2026-10-21:** Traverse object construction, initializer entries and union-case payload arguments in the shared bound-tree walker so lambda capture analysis retains outer locals used inside construction, including conversions and nested expressions/calls. Add semantic and emitted .NET regressions. No Runtime Contract, metadata or closure ABI change.
 
 - **2026-10-21:** Bind expanded array `params` arguments for indexers, including extension indexers, while retaining explicit array arguments and preferring applicable normal-form overloads. Reuse ordinary collection lowering for the packed argument array. Add emitted .NET regression coverage; no Runtime Contract or metadata encoding change.
