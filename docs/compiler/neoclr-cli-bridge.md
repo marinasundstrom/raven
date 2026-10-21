@@ -15375,3 +15375,30 @@ tracked in neoCLR's enum-parsing qualification and release review. This is not a
 permanent language divergence or a reason to special-case methods named Parse. The
 matched compiler bundle remains 4c051e332-dirty-record-policy-metadata-function-bound;
 validation belongs to neoCLR's built-in enum-parsing suite across its three engines.
+
+
+## Unicode enum metadata names (2026-10-21)
+
+neoCLR removes an extra ASCII-only enum-member restriction from its metadata
+producer/reader and runtime validator. Ordinary Unicode identifier binding is
+unchanged: source names still follow Raven’s existing lexer/binder rules. The native
+producer preserves UTF-8 metadata names without normalization, as for ordinary
+members. Duplicate, malformed, reserved storage names and bounded name lengths
+remain validated. No Runtime Contract configuration, CLI bridge encoding, semantic
+mapping or ABI change is introduced. The native compiler must bundle the matching
+NeoCLR.Metadata.Experimental library; a compiler revision alone cannot identify
+that separately built dependency. Native metadata is the implementation, with no
+new temporary CLI workaround or future encoding replacement required.
+
+Producer CLI/native round-trip tests cover accented, decomposed, Hebrew and
+supplementary-plane names plus malformed metadata rejection. neoCLR’s built-in
+`enum-parsing` suite covers Unicode parsing/display and ordinary Unicode type/member/
+parameter/local binding. See neoCLR’s `docs/experiments/enum-parsing/README.md` for
+execution qualification and remaining generic constraint limitations. Owner:
+neoCLR metadata/runtime validation; Raven’s existing identifier semantics remain
+shared with its normal .NET target.
+
+The earlier returned-out-call fix (`addfcb11e` on main, `b83a618a0` on this line)
+now has native source-library qualification: all four libraries rebuild and 12
+built-in enum executions pass after removing the redundant forwarding assignment.
+Both compiler branches also pass the 44 focused byref tests.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Document native enum Unicode metadata-name support through the matching neoCLR metadata library, preserving ordinary Raven identifier binding and UTF-8 names without new Runtime Contract mappings. Record completed native source-library/12-execution qualification for returned-out-call forwarding; generic method constraint work remains separate.
+
 - **2026-10-20:** Analyze return expressions before checking out-parameter assignment at normal exit. Generic direct calls can forward out storage while producing a return value; short-circuit calls still require assignment on every path. Share the return statement/expression analysis and add runtime/diagnostic regressions. No Runtime Contract configuration or metadata change.
 
 - **2026-10-20:** Record the neoCLR Enum Parse/TryParse consumer boundary and existing native generic-method struct/Enum constraint gap. Runtime metadata queries and lowering belong to neoCLR; no compiler semantics, Runtime Contract configuration or .NET behavior change.
