@@ -15833,3 +15833,23 @@ The editor fixture uses the explicit native compiler command
 This new selector affects execution only; omitted selectors retain the existing
 interpreter command behavior for diagnostic consumers. No Runtime Contract,
 metadata representation or ABI changes.
+
+
+## Scoped generic pointer targets — 2026-10-21
+
+Native emission explicitly enables `AllowsGenericPointerTargets` alongside unmanaged
+pointer admission. `*T` preserves owner or method parameter identity, including nested
+pointers; it is not erased to `void*`. The metadata SDK must recursively substitute,
+validate and import pointer targets. Supported closed targets remain the existing
+scalar/Void/nested-pointer subset; managed and nominal targets are still gaps.
+The native representation remains Ptr(parameter), and the diagnostic CLI projection
+uses ordinary PTR VAR/MVAR encoding. No Runtime Contract setting or metadata version
+changes; ordinary .NET emission is unchanged. This portable native layer is not on
+Raven main, so no whole-branch carry is implied.
+
+Validation: ten focused portable/general pointer tests pass. The matching SDK checks
+CLI field identity, native readback/import, owned/imported field and method substitution,
+generic functions, invalid scopes/targets and distinct pointer overloads. A source
+wrapper with a `*T` field compiles and forwards a native buffer pointer through its
+getter to a native release call under the interpreter. This does not qualify native
+imports under JIT/AOT or safe borrowed slices over unmanaged storage.

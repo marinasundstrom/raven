@@ -6,6 +6,25 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class PortablePointerSignatureTests
 {
     [Fact]
+    public void GenericPointerTargetsRequireSeparateExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("public class Holder<T> {} ");
+        var compilation = Compilation.Create("GenericPointers", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var owner = compilation.GetTypeByMetadataName("Holder`1")!;
+        var pointer = compilation.CreatePointerTypeSymbol(owner.TypeParameters[0]);
+        var ordinary = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [], allowsUnmanagedPointers: true);
+        var generic = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
+            allowsUnmanagedPointers: true, allowsGenericPointerTargets: true);
+        Assert.False(CallableSignature.TryType(pointer, false, out _, ordinary));
+        Assert.True(CallableSignature.TryType(pointer, false, out var signature, generic));
+        Assert.True(generic.Allows(signature));
+        Assert.False(ordinary.Allows(signature));
+        Assert.True(CallableSignature.TryType(compilation.CreatePointerTypeSymbol(pointer), false, out _, generic));
+        Assert.False(CallableSignature.TryType(compilation.CreatePointerTypeSymbol(compilation.GetSpecialType(SpecialType.System_String)), false, out _, generic));
+    }
+
+    [Fact]
     public void PointerArgumentLocalAndReturnLowerThroughSemanticOperands()
     {
         var tree = SyntaxTree.ParseText("""

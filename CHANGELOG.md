@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Preserve scoped generic unmanaged pointer targets in opt-in native emission, including owner/method parameter mapping and nested pointers. The matching metadata SDK substitutes pointer targets through fields and calls and rejects invalid scopes/closed targets. Ten focused pointer tests pass, and a source generic pointer wrapper executes a native buffer release in the interpreter. Ordinary .NET emission and Runtime Contract configuration are unchanged; this native-only portable layer is absent from main. Native/JIT interop and safe pointer-to-Slice borrowing remain unimplemented.
+
 - **2026-10-21:** Add explicit `--execution jit|interpreter` to `rvnc neoclr --project ... --run ...` for neoCLR editor tasks. Forward the selected execution mode to the runtime; reject invalid, duplicate and run-less selectors. Omitting the selector preserves existing diagnostic command behavior, while generated neoCLR editor tasks select JIT. Exact collections output under JIT and three rejection controls pass; ordinary .NET commands, Runtime Contract and ABI are unchanged.
 
 - **2026-10-21:** Document the matching neoCLR metadata SDK correction for generic static composition imports and value/interface wrappers used by HTTP JSON extensions. Native emission selects its existing explicit import path; ordinary .NET compilation, Runtime Contract and ABI are unchanged. SDK tests and HTTP interpreter requests pass; fresh package qualification remains pending.
