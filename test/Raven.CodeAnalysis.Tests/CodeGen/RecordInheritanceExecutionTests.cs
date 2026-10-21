@@ -19,9 +19,10 @@ public class RecordInheritanceExecutionTests
                     let same: Entity = Item(1, "a")
                     let changed: Entity = Item(1, "b")
                     let unrelated: Entity = Other(1)
+                    let clone = Item(Item(9, "copy"))
                     let root = Entity(1)
                     let contract: System.IEquatable<Entity> = first
-                    return first.Equals(same) && first == same && first != changed && !first.Equals(changed)
+                    return clone.Id == 9 && clone.Name == "copy" && first.Equals(same) && first == same && first != changed && !first.Equals(changed)
                         && first != unrelated && unrelated != first && first != root && root != first
                         && first.GetHashCode() == same.GetHashCode()
                         && contract.Equals(same) && !contract.Equals(changed)

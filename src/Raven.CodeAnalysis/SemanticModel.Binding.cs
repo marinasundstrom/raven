@@ -7299,6 +7299,7 @@ public partial class SemanticModel
                 [location],
                 references);
             copyConstructor.SetParameters(ImmutableArray.Create(otherParameter));
+            copyConstructor.MarkSetsRequiredMembers();
         }
     }
 

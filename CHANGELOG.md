@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
-- **2026-10-21:** Preserve derived record state in base-typed and interface equality/operator calls through ordinary virtual Object.Equals dispatch. Generated class Object.Equals requires matching runtime types, and inherited positional properties participate in display, equality and hashing. The .NET runtime regression previously failed; it and 37 record semantic tests now pass.
+- **2026-10-21:** Preserve derived record state in base-typed and interface equality/operator calls through ordinary virtual Object.Equals dispatch. Generated class Object.Equals requires matching runtime types, and inherited positional properties participate in display, equality and hashing. Generated copy constructors also mark required members initialized, including inherited state. The .NET runtime regression previously failed; it and 37 record semantic tests now pass, including an explicit derived-record copy.
 
 - **2026-10-21:** Report RAV0111 for a record-class primary constructor with a single self-typed parameter, including nullable and generic spellings. Nullable reference annotations no longer create a duplicate generated copy-constructor signature. This follows C# CS8910 rather than silently changing copy semantics. All 37 focused record semantic tests pass.
 
