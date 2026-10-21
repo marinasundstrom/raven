@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Admit imported generic instance methods in native callable selection when AllowsGenericInstanceMethods is enabled. Preserve ordinary signature/owner checks; use the matching neoCLR metadata SDK's consumer-scoped generic receiver support. No general .NET semantics, Runtime Contract configuration or metadata encoding change. Localization Load<T> provides consuming coverage.
+
 - **2026-10-21:** Carry general positional semantics from main d39ef018a as f5daaaea1 and extend native lowering to reference/base/object narrowing, inherited deconstruction receivers and runtime Object equality patterns. Reuse existing nominal calls, conversions and unboxing; value equality patterns currently box. No Runtime Contract, ABI or CLI encoding change. Qualify all four built-in neoCLR deconstruction tests under native, JIT and interpreter (12 executions), including production Money/Currency; outer whole-pattern captures remain bounded.
 
 - **2026-10-21:** Bind expanded array `params` arguments for indexers, including extension indexers, while retaining explicit array arguments and preferring applicable normal-form overloads. Reuse ordinary collection lowering for the packed argument array. Add emitted .NET regression coverage; no Runtime Contract or metadata encoding change.

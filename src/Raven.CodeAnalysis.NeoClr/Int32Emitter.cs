@@ -1533,7 +1533,7 @@ internal static class Int32Emitter
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
-                (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0) &&
+                (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0 || bodyCapabilities.AllowsGenericInstanceMethods) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
                 symbol.TypeParameters.All(p => (p.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) == 0 &&
                     p.ConstraintTypes.All(t => t is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } bound && IsSymbolOnlyOwnerDefinition(bound))) &&

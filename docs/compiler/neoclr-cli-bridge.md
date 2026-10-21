@@ -15635,3 +15635,18 @@ formatting/parsing/equality contract. Results are recorded in neoCLR's
 
 Validation: all four built-in deconstruction tests pass under native, JIT and
 interpreter (12 executions) using the rebuilt five-library Money cohort.
+
+### Imported generic instance calls and localization (2026-10-21)
+
+Native callable selection now uses the existing AllowsGenericInstanceMethods
+capability for imported nonvirtual generic instance methods. The matching neoCLR
+SDK admits their native definitions and retains the consuming receiver identity
+when emitting generic calls. No new Runtime Contract setting or CLI carrier is
+introduced; this exposes the existing native generic call representation. Generic
+virtual/interface methods remain unsupported. Ordinary .NET behavior is unchanged.
+
+General expanded params indexer binding is carried from main 56343767e as 550cbc87c,
+with 11 .NET extension-indexer tests passing on main. neoCLR localization tests
+exercise imported Load<T>, formatted extension indexers, array packing and fixed
+overloads against the matching SDK/runtime libraries. See neoCLR's
+`docs/experiments/localization/README.md` for native validation results.
