@@ -663,11 +663,7 @@ internal static class Int32Emitter
                     assembly.DeclareDefaultConstructor(imported, !original.IsAbstract && original.InstanceConstructors.Any(c => c.Parameters.IsEmpty && c.DeclaredAccessibility == Accessibility.Public));
                 foreach (var parameter in original.TypeParameters)
                 {
-                    var flags = TypeParameterConstraints.None;
-                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
-                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
-                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
-                    if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)) flags |= TypeParameterConstraints.FunctionType;
+                    var flags = NativeConstraintMapping.ToMetadata(parameter.ConstraintKind);
                     if (flags != TypeParameterConstraints.None) assembly.SetSpecialConstraints(imported, parameter.Ordinal, flags);
                     foreach (var bound in parameter.ConstraintTypes)
                         assembly.AddBaseTypeConstraint(imported, parameter.Ordinal, ImportExternalType((INamedTypeSymbol)bound).ImportedType!);
@@ -861,11 +857,7 @@ internal static class Int32Emitter
                 var ordinal = Array.FindIndex(NeoClrTypeMapper.OwnerParameters(type.Symbol), p => SymbolEqualityComparer.Default.Equals(p, parameter));
                 foreach (var bound in parameter.ConstraintTypes)
                     nativeTypes[type.Symbol].AddBaseTypeConstraint(ordinal, nativeTypes[(INamedTypeSymbol)bound]);
-                var flags = TypeParameterConstraints.None;
-                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
-                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
-                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
-                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)) flags |= TypeParameterConstraints.FunctionType;
+                var flags = NativeConstraintMapping.ToMetadata(parameter.ConstraintKind);
                 nativeTypes[type.Symbol].SetSpecialConstraints(ordinal, flags);
             }
         foreach (var literal in literalFields)
@@ -1498,13 +1490,14 @@ internal static class Int32Emitter
                     return assembly.ImportExperimentalTupleReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
             }
             if (symbol is NativeMethodSymbol nativeMethod &&
-                symbol.IsStatic && symbol.ContainingType is null && binding.Reference is NeoClrMetadataReference nativeReference)
+                symbol.IsStatic && binding.Reference is NeoClrMetadataReference nativeReference)
             {
                 if (binding.NativeArtifactSha256 != nativeReference.Artifact.Sha256)
                     throw Unsupported("experimental callable requires its exact semantic snapshot");
                 var definition = nativeReference.Definition.MainModule.GetMethodDefinition(nativeMethod.NativeMetadataToken)
                     ?? throw Unsupported("native callable definition unavailable");
-                if (definition.SpecialConstraints.Count != 0)
+                if (!definition.TypeConstraints.Any(c => NeoClrMetadataReference.ContainsComposition(c.Bound)) &&
+                    (definition.SpecialConstraints.Count != 0 || definition.TypeConstraints.Count != 0))
                     return assembly.ImportReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));
                 if (definition.TypeConstraints.Any(c => NeoClrMetadataReference.ContainsComposition(c.Bound)))
                     return assembly.ImportExperimentalConstrainedReference(definition, binding.CoreLibrary, new NativeCompositionResolver(options.Dependencies));

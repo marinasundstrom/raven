@@ -29,8 +29,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             : owner.AddInstanceMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility);
         foreach (var parameter in plan.Symbol.TypeParameters)
         {
-            if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
-                method.SetSpecialConstraints(parameter.Ordinal, TypeParameterConstraints.FunctionType);
+            method.SetSpecialConstraints(parameter.Ordinal, NativeConstraintMapping.ToMetadata(parameter.ConstraintKind));
             var constraints = parameter.ConstraintTypes;
             // Raven's source intersection constraints are represented as conjunctive bounds.
             if (structuralConstraints && constraints.Length > 1 && constraints.All(t => t is INamedTypeSymbol))
@@ -45,6 +44,8 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
                     method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Union, union.ConstituentTypes.Select(MapConstraint).ToArray());
                 else if (constraint is IIntersectionTypeSymbol intersection)
                     method.AddExperimentalStructuralConstraint(parameter.Ordinal, ReferenceCompositionKind.Intersection, intersection.ConstituentTypes.Select(MapIntersectionConstraint).ToArray());
+                else if (constraint is INamedTypeSymbol { TypeKind: TypeKind.Class })
+                    method.AddBaseTypeConstraint(parameter.Ordinal, MapConstraint(constraint));
                 else if (constraint.DeclaringSyntaxReferences.IsEmpty)
                     method.AddInterfaceConstraint(parameter.Ordinal, resolveExternal!(constraint).ImportedType!);
                 else method.AddInterfaceConstraint(parameter.Ordinal, resolveClass!((INamedTypeSymbol)constraint));

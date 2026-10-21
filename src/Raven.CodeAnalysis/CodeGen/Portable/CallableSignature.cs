@@ -161,10 +161,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             !(capabilities?.AllowsMethodFunctionTypeConstraints == true && parameter.ConstraintKind == TypeParameterConstraintKind.FunctionType && parameter.ConstraintTypes.IsEmpty) &&
             (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
             (capabilities?.AllowsMethodInterfaceBounds != true ||
-             (parameter.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) != 0 ||
+             (parameter.ConstraintKind & ~(TypeParameterConstraintKind.TypeConstraint | (capabilities?.AllowsMethodCategoryConstraints == true ? TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor : TypeParameterConstraintKind.None))) != 0 ||
              !(capabilities?.AllowsImportedCompositionCalls == true && parameter.ConstraintTypes.Length > 1 &&
                 parameter.ConstraintTypes.All(t => t is INamedTypeSymbol { IsReferenceType: true } named && ClosedCompositionBound(named))) &&
              parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } &&
+                !(capabilities?.AllowsMethodClassBounds == true && t is INamedTypeSymbol { TypeKind: TypeKind.Class, Arity: 0, IsStatic: false }) &&
                 !(capabilities?.AllowsImportedCompositionCalls == true && StructuralConstraint(t))));
         bool StructuralConstraint(ITypeSymbol type)
         {

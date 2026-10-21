@@ -275,7 +275,7 @@ internal static class GenericChecks
         foreach (var unsupported in new[] {
             "class Box<T> where T: notnull { }",
             "open class Instance { virtual func Identity<T>(value: T) -> T => value }",
-            "func Restricted<T>(value: T) -> T where T: class => value",
+            "func Restricted<T>(value: T) -> T where T: notnull => value",
             "func Marker<T>() -> int => 42\nfunc Use() -> int => Marker<System.DateTime>()",
             "func Identity<T>(value: T) -> T => value\nfunc Use(values: int[][]) -> int[][] => Identity(values)"
         })

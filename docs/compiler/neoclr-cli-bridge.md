@@ -15431,3 +15431,20 @@ is unchanged. Validation and native specialization evidence are recorded in
 neoCLR's `docs/validation/release-readiness-20261020/README.md` and
 `docs/raven-cli-bridge.md` under Shared method category metadata. This is not a
 fresh matched compiler/package qualification.
+
+
+### Native method categories and class bounds (2026-10-21)
+
+The native adapter now opts into AllowsMethodCategoryConstraints and
+AllowsMethodClassBounds. Type/method emission and semantic import share
+NativeConstraintMapping; class/struct/new requirements and nongeneric nominal class
+bounds survive native metadata. Runtime Contract configuration and ordinary .NET
+emission remain unchanged. The SDK uses standard CLI flags/GenericParamConstraint
+rows and existing native category/TypeBound shapes; no new bridge encoding or ABI.
+
+The `NeoClrMetadataProbe --method-category-import <Core.dll>` test emits a provider,
+loads it as native metadata, emits a consumer with constrained forwarding, checks
+static class methods and rejects incompatible/unconstrained arguments with RAV0320.
+SDK and backend coverage is recorded in neoCLR's release-readiness review. Constructed
+class bounds, existing inheritance reference-projection limits and package
+qualification remain separate. Guest Enum constraints are not changed by this slice.

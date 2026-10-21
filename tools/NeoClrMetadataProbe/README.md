@@ -757,3 +757,11 @@ built native provider and rejects integer/unconstrained arguments. This extensio
 uses neoCLR SDK `435c5fa54`; native execution uses backend `25a9bf3f7`.
 The matching retained Raven consumer is in neoCLR's
 `docs/validation/function-kind-constraint/raven`, including interpreter/AOT/JIT.
+
+
+`--method-category-import <Core.dll>` qualifies native source emission and
+separate-provider import of class/struct/new constraints and a nongeneric class
+bound, including free functions, static class methods, constrained forwarding and
+RAV0320 rejection of incompatible or unconstrained type arguments. Requires the
+matching neoCLR SDK method-category and nominal-class-bound support. Ordinary .NET
+behavior and Runtime Contract configuration are unchanged.
