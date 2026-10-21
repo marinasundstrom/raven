@@ -10,6 +10,29 @@ public sealed class NativeStructuralFunctionTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
 
     [Theory]
+    [InlineData(TargetPlatform.DotNet, false)]
+    [InlineData(TargetPlatform.DotNet, true)]
+    [InlineData(TargetPlatform.NeoCLR, false)]
+    [InlineData(TargetPlatform.NeoCLR, true)]
+    public void ExplicitGenericExtensionArgumentsContextualizeFactoryResults(TargetPlatform target, bool block)
+    {
+        var expression = "Choice<string>.Some(\"text\")";
+        var body = block ? "{ return " + expression + " }" : expression;
+        var compilation = Create($$"""
+            class Services { }
+            union Choice<T> { case Some(value: T) }
+            extension Registration for Services {
+                func Add<T>(factory: (int) -> Choice<T>) -> Choice<T> => factory(0)
+            }
+            func Test() {
+                let services = Services()
+                let result = services.Add<string>(number => {{body}})
+            }
+            """, target);
+        Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Theory]
     [InlineData(TargetPlatform.NeoCLR, true)]
     [InlineData(TargetPlatform.DotNet, false)]
     public void ReservedBootstrapCallbackTransportIsTargetSpecific(TargetPlatform target, bool structural)

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Substitute explicit generic extension arguments throughout native structural function signatures, including lambda return types. Block-bodied typed factories now receive the same contextual result type as expression-bodied factories and ordinary .NET delegates. All 11 focused structural-function tests pass; no Runtime Contract, metadata or ABI change.
+
 - **2026-10-21:** Traverse object construction, initializer entries and union-case payload arguments in the shared bound-tree walker so lambda capture analysis retains outer locals used inside construction, including conversions and nested expressions/calls. Add semantic and emitted .NET regressions. No Runtime Contract, metadata or closure ABI change.
 
 - **2026-10-21:** Admit imported generic instance methods in native callable selection when AllowsGenericInstanceMethods is enabled. Preserve ordinary signature/owner checks; use the matching neoCLR metadata SDK's consumer-scoped generic receiver support. No general .NET semantics, Runtime Contract configuration or metadata encoding change. Localization Load<T> provides consuming coverage.

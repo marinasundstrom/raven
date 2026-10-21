@@ -1244,6 +1244,9 @@ partial class BlockBinder
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
+        if (type is StructuralFunctionTypeSymbol function)
+            return function.Substitute(t => SubstituteTypeParameters(t, substitutions));
+
         if (type is ITypeParameterSymbol parameter &&
             substitutions.TryGetValue(parameter, out var replacement))
         {

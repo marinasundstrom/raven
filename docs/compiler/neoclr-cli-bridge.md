@@ -15663,3 +15663,19 @@ ABI remain unchanged. The existing native captured-value support limits still
 apply. Focused .NET tests check semantic capture identity and emitted execution;
 the neoCLR DI activation consumer independently validates the native branch carry.
 Native metadata/backend work does not replace this shared semantic requirement.
+
+### Generic factory contextual binding (2026-10-21)
+
+Native structural function signatures now participate in explicit extension-method
+type-argument substitution. A block lambda passed to `Add<T>(factory)` receives
+the substituted parameter and result types rather than a residual method type
+parameter. The binder owns this correction; ordinary .NET delegate binding is
+unchanged. No Runtime Contract configuration, temporary CLI representation,
+metadata encoding or native closure ABI changes. The native backend retains its
+existing structural-function support boundaries; this semantic fix requires no
+future bridge replacement.
+
+Validation: the reduced regression failed only for the native block-bodied lambda
+before the fix. All 11 structural-function tests pass afterward, including explicit
+generic factories with expression/block bodies on .NET and neoCLR. neoCLR's
+dependency-injection prototype provides the separate consuming validation.
