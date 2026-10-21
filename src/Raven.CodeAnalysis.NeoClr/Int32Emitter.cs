@@ -253,8 +253,8 @@ internal static class Int32Emitter
                                 throw Unsupported("class constants with public/internal/private visibility and no attributes");
                             foreach (var variable in classConstant.Declaration.Declarators)
                             {
-                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } literal || literal.GetConstantValue() is not int)
-                                    throw Unsupported("Int32 class constants");
+                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 or SpecialType.System_Single or SpecialType.System_Double } literal || literal.GetConstantValue() is not (int or float or double))
+                                    throw Unsupported("Int32/Single/Double type constants");
                                 literalFields.Add(literal);
                             }
                             continue;
@@ -863,7 +863,7 @@ internal static class Int32Emitter
         foreach (var literal in literalFields)
             nativeTypes[literal.ContainingType!].Definition.Fields.Add(new FieldDefinition(literal.MetadataName,
                 (ushort)(0x8050 | (literal.DeclaredAccessibility switch { Accessibility.Public => 6, Accessibility.Internal => 3, _ => 1 })),
-                PrimitiveType.Int32, (int)literal.GetConstantValue()!));
+                NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(literal.Type.SpecialType.ToString()[7..])), literal.GetConstantValue()!));
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)

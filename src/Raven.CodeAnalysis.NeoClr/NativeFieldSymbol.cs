@@ -29,7 +29,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
     public override bool IsStatic { get; }
-    private readonly int? constant;
+    private readonly object? constant;
     public bool IsConst { get; }
     public bool IsReadOnly { get; }
     public int InstanceStorageOrdinal => instanceStorageOrdinal.Value;

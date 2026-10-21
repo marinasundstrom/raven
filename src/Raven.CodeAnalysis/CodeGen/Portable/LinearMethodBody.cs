@@ -1069,9 +1069,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundArrayAccessExpression array => ArrayElementAddress(array),
                     BoundParameterAccess parameter => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
-                    BoundFieldAccess { Field.IsReadOnly: true } field => TemporaryReceiver(field, syntax),
+                    BoundFieldAccess { Field: { IsReadOnly: true } or { IsConst: true } } field => TemporaryReceiver(field, syntax),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
-                    BoundMemberAccessExpression { Member: IFieldSymbol { IsReadOnly: true } } access => TemporaryReceiver(access, syntax),
+                    BoundMemberAccessExpression { Member: IFieldSymbol { IsReadOnly: true } or IFieldSymbol { IsConst: true } } access => TemporaryReceiver(access, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
                     BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundObjectCreationExpression or BoundConversionExpression or BoundDefaultValueExpression or BoundIndexExpression or BoundRangeExpression => TemporaryReceiver(receiver, syntax),
                     BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
@@ -1726,6 +1726,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Constant, Syntax(expression), intValue); return true;
                 case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intMember } when intMember.GetConstantValue() is int intMemberValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), intMemberValue); return true;
+                case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Single } singleField } when singleField.GetConstantValue() is float singleValue:
+                    instructions.Add(new(LinearInstructionKind.ConstantSingle, Syntax(expression), Integer: BitConverter.SingleToInt32Bits(singleValue))); return true;
+                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Single } singleMember } when singleMember.GetConstantValue() is float singleMemberValue:
+                    instructions.Add(new(LinearInstructionKind.ConstantSingle, Syntax(expression), Integer: BitConverter.SingleToInt32Bits(singleMemberValue))); return true;
                 case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantField } when constantField.GetConstantValue() is double constantValue:
                     instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(constantValue))); return true;
                 case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantMember } when constantMember.GetConstantValue() is double memberValue:

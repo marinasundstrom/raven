@@ -139,6 +139,37 @@ public class ConstantOverflowTests
         Assert.Equal(expected, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Fact]
+    public void QualifiedImportedFloatingConstantsRetainValues()
+    {
+        var provider = Create("""
+            public class Values {
+                public const Wide: double = 0.0 / 0.0
+                public const Narrow: float = (float)1.0 / (float)0.0
+                public const Minimum: int = -2147483648
+            }
+            """);
+        using var providerImage = new MemoryStream();
+        var providerResult = provider.Emit(providerImage);
+        Assert.True(providerResult.Success, string.Join(Environment.NewLine, providerResult.Diagnostics));
+        var compilation = Create("""
+            class Runner {
+                public const Wide: double = Values.Wide
+                public const Narrow: float = Values.Narrow
+                public const Minimum: int = Values.Minimum
+            }
+            """).AddReferences(MetadataReference.CreateFromImage(providerImage.ToArray()));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        image.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, TestMetadataReferences.Default);
+        var type = loaded.Assembly.GetType("Runner")!;
+        Assert.True(double.IsNaN(Assert.IsType<double>(type.GetField("Wide")!.GetRawConstantValue())));
+        Assert.Equal(float.PositiveInfinity, type.GetField("Narrow")!.GetRawConstantValue());
+        Assert.Equal(int.MinValue, type.GetField("Minimum")!.GetRawConstantValue());
+    }
+
     private static Compilation Create(string source) => Compilation.Create("ConstantOverflow_" + Guid.NewGuid().ToString("N"),
         new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
         .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(TestMetadataReferences.Default);
