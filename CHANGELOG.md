@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Native record display now formats Int32-backed enum components through ordinary boxed Object.ToString, reusing runtime names/flags/numeric fallback. Document the temporary box cost and qualify local/imported enum and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET behavior changes.
+
 - **2026-10-21:** Native record formatting now reuses declared public imported-value ToString contracts through direct value receiver calls. Share admission/emission selection and qualify Index/Range, nested records and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET synthesis change; broader record formatting remains bounded.
 
 - **2026-10-21:** Enable ordinary method reference/value/constructor constraints and nongeneric nominal class bounds in the native adapter through explicit capabilities. Share type/method flag mapping; preserve constraints on native semantic import and emission, including separate-provider forwarding and static class methods. Use the matching neoCLR SDK nominal-bound contract. Ordinary .NET emission and Runtime Contract configuration are unchanged; the matching enum API now uses struct constraints and passes 18 built-in interpreter/JIT/native executions plus reference/unconstrained rejection and website checks. Matched-package qualification remains open.

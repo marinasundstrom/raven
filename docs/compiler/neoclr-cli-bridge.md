@@ -15474,3 +15474,19 @@ and builder storage still allocate; no performance claim is made. Generic owners
 enum/floating components and record classes remain gaps. The built-in three-engine
 suite and compiler missing-helper rejection are recorded in neoCLR's
 `docs/experiments/record-formatting/README.md` with exact artifact hashes.
+
+### Record enum display (2026-10-21)
+
+Native generated record display now admits Int32-backed enum components, boxing
+through the ordinary Object.ToString contract. The runtime retains responsibility
+for names, aliases, flags and invariant numeric fallback; Raven does not synthesize
+another enum formatter. This follows .NET general enum display and preserves Raven
+record syntax. It costs one temporary enum box per formatted component. No Runtime
+Contract configuration, CLI signature, native metadata encoding or ABI changes;
+ordinary .NET generation is unchanged. The temporary backend projection uses normal
+boxing and virtual dispatch, which a native replacement must preserve. A future
+borrowed-value display contract could remove boxing without copying formatting policy.
+The neoCLR built-in record-formatting suite covers local/imported enum components,
+union payloads, names/flags/numbers and boxed record dispatch across all three engines;
+evidence lives in `docs/experiments/record-formatting/enum-validation-20261021.json`.
+Floating components, generic owners and record classes remain outside this increment.

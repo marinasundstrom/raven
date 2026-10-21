@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// Preserve Raven's positional display syntax without Object boxes or CLR helpers.
+// Preserve Raven's positional display syntax through the selected core's contracts.
 internal static class NativeRecordFormatting
 {
     internal static SourceCallablePlan? Create(Compilation compilation, IMethodSymbol method,
@@ -24,8 +24,9 @@ internal static class NativeRecordFormatting
         var finish = builder?.GetMembers("ToString").OfType<IMethodSymbol>().SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty);
         var replace = text.GetMembers("Replace").OfType<IMethodSymbol>().SingleOrDefault(m =>
             !m.IsStatic && m.Parameters.Length == 2 && m.Parameters.All(p => p.Type.SpecialType == SpecialType.System_String));
+        var objectFormatter = Formatter(obj);
         var referenceEquals = obj.GetMembers("ReferenceEquals").OfType<IMethodSymbol>().SingleOrDefault(m => m.IsStatic && m.Parameters.Length == 2);
-        if (ctor is null || append is null || finish is null || replace is null || referenceEquals is null)
+        if (ctor is null || append is null || finish is null || replace is null || referenceEquals is null || objectFormatter is null)
             return null;
         var local = new SourceLocalSymbol("recordText", builder!, false, method, owner,
             owner.ContainingNamespace, method.Locations.ToArray(), []);
@@ -91,6 +92,14 @@ internal static class NativeRecordFormatting
                      new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, obj)]);
                 output.Add(new BoundIfStatement(isNull, Append(Literal("null")), new BoundBlockStatement(quoted)));
             }
+            else if (type.TypeKind == TypeKind.Enum)
+            {
+                // Reuse ordinary enum Object display, including flags and unnamed values.
+                // The current runtime contract needs a box; do not duplicate its policy here.
+                var boxed = new BoundConversionExpression(value, obj,
+                    compilation.ClassifyConversion(value.Type, obj, includeUserDefined: false));
+                output.Add(Append(new BoundInvocationExpression(objectFormatter, [], boxed)));
+            }
             else if (type.SpecialType == SpecialType.System_Boolean)
                 output.Add(Append(new BoundIfExpression(value, Literal("True"), Literal("False"))));
             else
@@ -153,7 +162,8 @@ internal static class NativeRecordFormatting
             path.Remove(type);
             return supported;
         }
-        if (type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean)
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } ||
+            type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean)
             return true;
         return (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Char ||
             type is INamedTypeSymbol { OriginalDefinition: NativeNamedTypeSymbol, IsValueType: true, IsRefLikeType: false, SpecialType: SpecialType.None }) &&
