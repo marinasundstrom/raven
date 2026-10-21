@@ -15402,3 +15402,15 @@ The earlier returned-out-call fix (`addfcb11e` on main, `b83a618a0` on this line
 now has native source-library qualification: all four libraries rebuild and 12
 built-in enum executions pass after removing the redundant forwarding assignment.
 Both compiler branches also pass the 44 focused byref tests.
+
+
+The ordinary identifier control also exposed native rejection of the constructor
+parameter `värde`. neoCLR `081b399f4` separates descriptive metadata validation from
+legacy source-token validation for slots, generic parameters and properties. Runtime
+names preserve Unicode without normalization; malformed/duplicate/reserved metadata
+still rejects. No Raven lexer/binder or emission change is required. The expanded
+built-in suite now passes six tests in each of interpreter, JIT and native execution
+(18 passes), including Unicode generic class/function parameters and ordinary members.
+The matching runtime/backend and metadata library are required; an old runtime can
+still reject those emitted names. Native source metadata has no temporary bridge
+encoding here. Generic method constraint support remains a separate open gap.
