@@ -885,7 +885,26 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
                 {
-                    if (!ArrayReceiverAndIndex(arrayAssignment.Left) || !LowerValue(arrayAssignment.Right, arrayAssignment.Left.ElementType)) return false;
+                    if (!ArrayReceiverAndIndex(arrayAssignment.Left)) return false;
+                    if (atStatementBoundary)
+                    {
+                        // Preserve receiver/index evaluation order, but empty the
+                        // operand stack before a lowered propagation block.
+                        if (!TryType(arrayAssignment.Left.Receiver.Type, false, out var arrayStorage) ||
+                            !TryType(model.Compilation.GetSpecialType(SpecialType.System_Int32), false, out var indexStorage))
+                            return Reject("unsupported array assignment storage", Syntax(statement));
+                        var indexSlot = localTypes.Count;
+                        localTypes.Add(indexStorage);
+                        var arraySlot = localTypes.Count;
+                        localTypes.Add(arrayStorage);
+                        Add(LinearInstructionKind.StoreLocal, Syntax(statement), indexSlot);
+                        Add(LinearInstructionKind.StoreLocal, Syntax(statement), arraySlot);
+                        var spills = new List<int> { arraySlot, indexSlot };
+                        if (!SpillOperand(arrayAssignment.Right, arrayAssignment.Left.ElementType, spills)) return false;
+                        foreach (var slot in spills)
+                            Add(LinearInstructionKind.LoadLocal, Syntax(statement), slot);
+                    }
+                    else if (!LowerValue(arrayAssignment.Right, arrayAssignment.Left.ElementType)) return false;
                     instructions.Add(new(LinearInstructionKind.StoreElement, Syntax(statement), Type: arrayAssignment.Left.ElementType));
                     continue;
                 }

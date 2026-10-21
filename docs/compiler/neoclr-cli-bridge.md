@@ -15679,3 +15679,19 @@ Validation: the reduced regression failed only for the native block-bodied lambd
 before the fix. All 11 structural-function tests pass afterward, including explicit
 generic factories with expression/block bodies on .NET and neoCLR. neoCLR's
 dependency-injection prototype provides the separate consuming validation.
+
+### Array assignment propagation (2026-10-21)
+
+The native portable lowerer spills an already evaluated array receiver and index
+before emitting the assignment value at a statement boundary. Late Result
+propagation can therefore return from the method without leaving array operands
+on the stack. Reloading the operands afterward preserves evaluation order and
+uses ordinary locals, with no managed allocation. Nested value expressions retain
+their prior control-flow restriction.
+
+This portable backend exists only on codex/neoclr; ordinary .NET emission is
+unchanged. No Runtime Contract setting, CLI encoding or metadata/ABI change is
+needed. Nine focused prepared-expression/index tests pass; the regression failed
+with the prior value-block diagnostic. neoCLR DI's direct argument-array filling
+provides consuming success/error propagation coverage. Async suspension across
+an array assignment is not independently qualified by this increment.
