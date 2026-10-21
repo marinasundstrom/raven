@@ -15,3 +15,7 @@ implementation and requires separate validation, not a whole-branch merge.
 The failing emitted .NET baseline now passes through base-typed, interface and
 Object dispatch, sibling/root rejection and inherited display. All 37 record
 semantic tests also pass. No performance improvement is claimed.
+
+Generated copy constructors mark required members initialized. An explicit derived
+copy now compiles and retains both base and derived values; the 38-test focused
+cohort includes this execution check.

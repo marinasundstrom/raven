@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-21:** Carry main 9645e24f5 record-inheritance semantics: base-typed equality dispatches virtually, Object equality checks runtime type, and inherited positional properties participate in generated contracts. Main passes 38 focused tests; native selected-core qualification is tracked separately. No metadata ABI change.
+- **2026-10-21:** Carry main 9645e24f5 record-inheritance semantics: base-typed equality dispatches virtually, Object equality checks runtime type, and inherited positional properties participate in generated contracts. Also carry main ab1bc96d3, marking generated copies as initializing required members. Main passes 38 focused tests, including an explicit derived copy; native selected-core qualification is tracked separately. No metadata ABI change.
 
 - **2026-10-21:** Carry shared record copy-constructor collision diagnostic from main 8eca1f07d: RAV0111 rejects single self-typed primary constructors, including nullable/generic spellings, before metadata emission. Nullable annotations no longer produce duplicate copy signatures. Runtime Contract and ABI are unchanged.
 
