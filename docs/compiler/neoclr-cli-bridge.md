@@ -15789,3 +15789,47 @@ nested display strings remain allocation costs. Source-defined record hierarchie
 are the qualified scope; this does not promise arbitrary imported record-base
 synthesis. neoCLR's built-in record-formatting and opt-in interpreter allocation
 suites provide the executable consumers, including a rebuilt imported KeyValuePair.
+
+### Native generic composition imports (2026-10-21)
+
+The explicit `ImportExperimentalCompositionReference` path now accepts native static
+methods (including generic extension methods) as well as free functions. Generic
+class, value-type and interface wrappers retain composed arguments through the
+ordinary checked generic construction/substitution path. This repairs the
+`HttpClientJsonExtensions.GetFromJson<T>` import of
+`Task<Result<T, HttpError | JsonError>>`; the public HTTP API is unchanged.
+Default imports still reject compositions. Generic closure involving composed
+storage still requires `EnableExperimentalCompositionStorage`, and normal access,
+arity, constraints, nesting limits and provider identity checks remain in force.
+Instance composition-call import is not introduced by this change.
+
+This is a native metadata SDK correction, with no CLI projection, Runtime Contract
+configuration or ABI change. The existing explicit Raven native backend owns
+selection of this import path; ordinary .NET compilation is unchanged. SDK
+composition-import and authored-composition tests pass, and the freshly compiled
+HTTP client/server pass interpreter end-to-end requests (including UTF-8 JSON and
+invalid input). Fresh packaged SDK/JIT qualification remains separate.
+
+### Development editor execution actions (2026-10-21)
+
+Generated development sample tasks use **neoCLR: Build and Run (JIT)** as the
+default build action (`Tasks: Run Build Task`). This compiles saved Raven source
+to a neoCLR assembly and explicitly runs it with JIT. Missing JIT tools are an
+error, never a silent interpreter fallback. Interpreter execution remains an
+explicit runner option (`--execution interpreter`).
+
+**neoCLR: Compile to Native** is a separate AOT build action. It prompts for a
+matching extracted native build kit and a new absolute output directory, then
+uses the kit's existing checked compiler/linker pipeline. It produces an executable
+and build report without running the program. Current packaged build kits target
+macOS ARM64 and require Apple build tools; HTTP samples select the bounded HTTP
+host and JSON samples retain their declared reflection types. Native compilation
+still has the build kit's documented runtime/profile limits. Repeated builds
+currently require fresh output directories. A native build kit is separate from
+the JIT bundle; the ordinary Raven/.NET extension execution path is unchanged.
+
+The editor fixture uses the explicit native compiler command
+`rvnc neoclr --project App.rvnproj --run /path/to/neoclr --execution jit`.
+This new selector affects execution only; omitted selectors retain the existing
+interpreter command behavior for diagnostic consumers. No Runtime Contract,
+metadata representation or ABI changes.

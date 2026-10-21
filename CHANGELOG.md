@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Add explicit `--execution jit|interpreter` to `rvnc neoclr --project ... --run ...` for neoCLR editor tasks. Forward the selected execution mode to the runtime; reject invalid, duplicate and run-less selectors. Omitting the selector preserves existing diagnostic command behavior, while generated neoCLR editor tasks select JIT. Exact collections output under JIT and three rejection controls pass; ordinary .NET commands, Runtime Contract and ABI are unchanged.
+
+- **2026-10-21:** Document the matching neoCLR metadata SDK correction for generic static composition imports and value/interface wrappers used by HTTP JSON extensions. Native emission selects its existing explicit import path; ordinary .NET compilation, Runtime Contract and ABI are unchanged. SDK tests and HTTP interpreter requests pass; fresh package qualification remains pending.
+
 - **2026-10-21:** Carry main 9645e24f5 record-inheritance semantics: base-typed equality dispatches virtually, Object equality checks runtime type, and inherited positional properties participate in generated contracts. Also carry main ab1bc96d3, marking generated copies as initializing required members. Main passes 38 focused tests, including an explicit derived copy. Native lowering now preserves inherited fields and calls base copy constructors; generated display supports finite recursive source-record graphs. Use the selected core runtime-type handle service to avoid reflection descriptors, with an older-core fallback. All 45 built-in neoCLR record executions pass across interpreter/native/JIT, plus one interpreter allocation contract (64 comparisons allocate no managed objects). Cycles retain stack limits; generic boxes and display allocations remain. No metadata ABI change.
 
 - **2026-10-21:** Carry shared record copy-constructor collision diagnostic from main 8eca1f07d: RAV0111 rejects single self-typed primary constructors, including nullable/generic spellings, before metadata emission. Nullable annotations no longer produce duplicate copy signatures. Runtime Contract and ABI are unchanged.

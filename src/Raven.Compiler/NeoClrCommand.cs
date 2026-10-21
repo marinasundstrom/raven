@@ -18,6 +18,16 @@ internal static class NeoClrCommand
     {
         try
         {
+            var execution = "interpreter";
+            var executionIndex = Array.IndexOf(args, "--execution", 2);
+            if (executionIndex >= 0)
+            {
+                if (executionIndex + 1 >= args.Length || args[executionIndex + 1] is not ("jit" or "interpreter") ||
+                    !args.Contains("--run"))
+                    throw new ArgumentException("--execution requires jit or interpreter and --run.");
+                execution = args[executionIndex + 1];
+                args = args.Take(executionIndex).Concat(args.Skip(executionIndex + 2)).ToArray();
+            }
             var prebuiltCount = args.Skip(2).Count(argument => argument == "--no-build-references");
             if (prebuiltCount > 1) throw new ArgumentException("Specify --no-build-references once.");
             if (prebuiltCount == 1)
@@ -26,7 +36,7 @@ internal static class NeoClrCommand
                 args = args.Where((argument, index) => index < 2 || argument != "--no-build-references").ToArray();
             }
             if (args.Length is not (2 or 4) || (args.Length == 4 && args[2] != "--run"))
-                throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--no-build-references] [--run /path/to/neoclr]");
+                throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--no-build-references] [--run /path/to/neoclr [--execution jit|interpreter]]");
             var projectPath = Path.GetFullPath(args[1]);
             var provider = new NeoClrProjectMetadataProvider();
             var service = new MsBuildProjectSystemService(
@@ -107,7 +117,7 @@ internal static class NeoClrCommand
             var start = new System.Diagnostics.ProcessStartInfo(Path.GetFullPath(args[3])) { UseShellExecute = false };
             start.ArgumentList.Add("run"); start.ArgumentList.Add(output);
             if (compilation.Options.TargetPlatform == TargetPlatform.NeoCLR)
-            { start.ArgumentList.Add("--execution"); start.ArgumentList.Add("interpreter"); }
+            { start.ArgumentList.Add("--execution"); start.ArgumentList.Add(execution); }
             if (config.RuntimeSeedPath is { } seed) { start.ArgumentList.Add("--system"); start.ArgumentList.Add(seed); }
             foreach (var path in config.ReferencePaths) { start.ArgumentList.Add("--module"); start.ArgumentList.Add(path); }
             if (config.ObjectRootPath is { } objectRoot) { start.ArgumentList.Add("--object-root"); start.ArgumentList.Add(objectRoot); }
