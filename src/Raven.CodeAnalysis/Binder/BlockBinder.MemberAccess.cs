@@ -3174,7 +3174,8 @@ partial class BlockBinder
         var candidates = (extensionOnly
             ? LookupExtensionProperties("Item", receiverType).Where(p => p.IsIndexer && p.GetMethod is not null && (!requireSetter || p.SetMethod is not null))
             : GetIndexerCandidates(receiverType, requireSetter: false))
-            .Where(p => p.Parameters.Length == arguments.Length && IsSymbolAccessible(p.GetMethod!) && (!extensionOnly || !requireSetter || IsSymbolAccessible(p.SetMethod!)))
+            .Where(p => (p.Parameters.Length == arguments.Length ||
+                p.Parameters.Length > 0 && p.Parameters[^1].IsVarParams && arguments.Length >= p.Parameters.Length - 1) && IsSymbolAccessible(p.GetMethod!) && (!extensionOnly || !requireSetter || IsSymbolAccessible(p.SetMethod!)))
             .ToArray();
 
         IPropertySymbol? best = null;
@@ -3184,11 +3185,19 @@ partial class BlockBinder
 
         foreach (var candidate in candidates)
         {
-            var converted = new BoundExpression[arguments.Length];
-            var conversionCost = 0;
+            var parameters = candidate.Parameters;
+            var expanded = parameters.Length > 0 && parameters[^1].IsVarParams &&
+                (arguments.Length != parameters.Length ||
+                 !IsAssignable(parameters[^1].Type, arguments[^1].Type, out _));
+            if (expanded && parameters[^1].Type is not IArrayTypeSymbol)
+                continue;
+            var fixedCount = expanded ? parameters.Length - 1 : parameters.Length;
+            var converted = new BoundExpression[parameters.Length];
+            // Prefer applicable normal-form overloads to expanded params candidates.
+            var conversionCost = expanded ? 1000 : 0;
             var valid = true;
 
-            for (var i = 0; i < arguments.Length; i++)
+            for (var i = 0; i < fixedCount; i++)
             {
                 var parameterType = candidate.Parameters[i].Type;
                 var convertedArgument = arguments[i];
@@ -3212,6 +3221,23 @@ partial class BlockBinder
                 converted[i] = convertedArgument;
             }
 
+            if (valid && expanded)
+            {
+                var elementType = ((IArrayTypeSymbol)parameters[^1].Type).ElementType;
+                var elements = new List<BoundExpression>();
+                for (var i = fixedCount; i < arguments.Length; i++)
+                {
+                    var argument = BindLambdaToDelegateIfNeeded(arguments[i], elementType);
+                    if (!IsAssignable(elementType, argument.Type, out var conversion))
+                    {
+                        valid = false;
+                        break;
+                    }
+                    elements.Add(ApplyConversion(argument, elementType, conversion, argumentSyntaxes[i].Expression));
+                    if (!conversion.IsIdentity) conversionCost++;
+                }
+                converted[^1] = new BoundCollectionExpression(parameters[^1].Type, elements, parameters[^1]);
+            }
             if (!valid)
                 continue;
 

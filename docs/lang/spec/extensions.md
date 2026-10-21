@@ -226,6 +226,13 @@ Pipeline syntax is documented in [Pipe expressions](pipe-expressions.md).
 
 ### Extension indexers
 
+A final array `params` parameter accepts expanded arguments or an explicit array.
+Applicable normal-form overloads are preferred over expanded forms. Expanded calls
+construct the ordinary parameter array; fixed overloads need no such array.
+This uses existing parameter metadata and collection lowering, with no additional
+Runtime Contract setting or extension-specific runtime representation.
+
+
 Instance extension indexers use the existing indexer syntax inside an extension:
 
 ```raven
