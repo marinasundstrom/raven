@@ -311,7 +311,7 @@ internal static class NeoClrCommand
                 references.Add(reference);
                 systemSymbols = new(reference, identity.Name, system, selected);
             }
-            var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
+            var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), options: new ParseOptions { EnableCharKeyword = false }, path: path)).ToArray();
             var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
                 .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
             if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions, name, core.Name);

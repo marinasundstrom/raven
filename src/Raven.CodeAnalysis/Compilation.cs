@@ -2489,6 +2489,8 @@ public partial class Compilation
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)
     {
         var keywordKind = predefinedType.Keyword.Kind;
+        if (keywordKind == SyntaxKind.CharKeyword && Options.TargetPlatform == TargetPlatform.NeoCLR)
+            return ErrorTypeSymbol;
 
         var specialType = keywordKind switch
         {

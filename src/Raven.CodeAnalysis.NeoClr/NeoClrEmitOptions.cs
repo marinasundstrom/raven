@@ -84,7 +84,7 @@ public sealed class NeoClrEmitOptions
     /// <summary>Gets host-selected canonical primitive declarations implemented by this output.</summary>
     /// <remarks>The native emitter validates exact System names and primitive storage. Selecting Value also authorizes the exact internal source payload helpers with managed ValueIs/ValueUnpack bodies.</remarks>
     public ImmutableHashSet<PrimitiveType> PrimitiveImplementations { get; }
-    /// <summary>Whether this output implements canonical System.Char using runtime grapheme storage.</summary>
+    /// <summary>Whether this output implements canonical System.Character using runtime grapheme storage.</summary>
     public bool ImplementsGrapheme { get; }
     /// <summary>Explicit experimental Start/Wait/Complete/Cancel provider for retained-body async lowering; null keeps generated state machines.</summary>
     /// <remarks>Interpreter POC only. This is separate from the CLR runtime-async option and does not change ordinary .NET emission.</remarks>

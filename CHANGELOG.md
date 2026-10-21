@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Map the neoCLR grapheme role to System.Character and disable the char keyword in native projects and CLI parsing. Reject preparsed char aliases; update source ownership, native emission/import, completion policy, hover and inlay display. Ordinary .NET Char remains unchanged. All 22 focused parser/profile/grapheme/project tests pass; the language server builds for net10/net11. The matching five-library native build and 21 built-in text/record tests pass in the interpreter. A wider profile run still exposes the unrelated legacy CLI structural-tuple emission fixture limitation; no full-suite or release qualification is claimed.
+
 - **2026-10-21:** Admit imported generic value types with the same supported special constraints as classes, retaining dependency facts through the metadata SDK. The three neoCLR built-in Ptr tests pass across the library boundary, including `where T: struct` forwarding, address operators, boxed equality and hashing. This fixes native import admission; ordinary .NET and Runtime Contract configuration are unchanged.
 
 - **2026-10-21:** Lower native pointer reinterpretation and equality through explicit portable capabilities. Apply the existing special-constraint contract to value types, allowing `where T: struct` without discarding its metadata. The matching SDK validates pointer casts/equality. All 42 focused pointer tests pass; ordinary .NET conversion behavior comes from the separately validated main commit `1e2b43ce4`. No Runtime Contract or ownership change.

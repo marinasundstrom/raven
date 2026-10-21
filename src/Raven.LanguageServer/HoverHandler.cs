@@ -5111,7 +5111,7 @@ internal sealed class HoverHandler : IHoverHandler
             "uint" => SpecialType.System_UInt32,
             "long" => SpecialType.System_Int64,
             "ulong" => SpecialType.System_UInt64,
-            "char" => SpecialType.System_Char,
+            "char" when semanticModel.Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR => SpecialType.System_Char,
             "float" => SpecialType.System_Single,
             "double" => SpecialType.System_Double,
             "decimal" => SpecialType.System_Decimal,

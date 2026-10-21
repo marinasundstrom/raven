@@ -647,7 +647,7 @@ internal abstract partial class Binder
             SyntaxKind.SByteKeyword => SpecialType.System_SByte,
             SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
             SyntaxKind.StringKeyword => SpecialType.System_String,
-            SyntaxKind.CharKeyword => SpecialType.System_Char,
+            SyntaxKind.CharKeyword when Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR => SpecialType.System_Char,
             SyntaxKind.FloatKeyword => SpecialType.System_Single,
             SyntaxKind.DoubleKeyword => SpecialType.System_Double,
             SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,

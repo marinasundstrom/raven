@@ -402,8 +402,8 @@ internal static class Int32Emitter
         IFieldSymbol? graphemeField = null;
         if (options.ImplementsGrapheme)
         {
-            graphemeOwner = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System.Char")
-                ?? throw Unsupported("selected grapheme implementation is missing: System.Char");
+            graphemeOwner = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System.Character")
+                ?? throw Unsupported("selected grapheme implementation is missing: System.Character");
             var storage = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, graphemeOwner)).ToArray();
             if (!graphemeOwner.IsValueType || graphemeOwner.Arity != 0 || graphemeOwner.ContainingType is not null || storage.Length != 1 ||
                 storage[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||

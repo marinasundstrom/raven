@@ -1338,7 +1338,7 @@ internal static class MemberSignatureDeclarationPass
         => kind switch
         {
             SyntaxKind.BoolKeyword => compilation.GetSpecialType(SpecialType.System_Boolean),
-            SyntaxKind.CharKeyword => compilation.GetSpecialType(SpecialType.System_Char),
+            SyntaxKind.CharKeyword when compilation.Options.TargetPlatform != TargetPlatform.NeoCLR => compilation.GetSpecialType(SpecialType.System_Char),
             SyntaxKind.SByteKeyword => compilation.GetSpecialType(SpecialType.System_SByte),
             SyntaxKind.ShortKeyword => compilation.GetSpecialType(SpecialType.System_Int16),
             SyntaxKind.UShortKeyword => compilation.GetSpecialType(SpecialType.System_UInt16),

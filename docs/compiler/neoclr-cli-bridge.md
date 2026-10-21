@@ -15894,3 +15894,36 @@ separate native-target integration; this parser capability alone does not rename
 Completion also observes EnableCharKeyword when escaping identifier insertions; a
 disabled char keyword inserts as `char`, not `@char`. The four focused parser and
 completion tests pass on main with the default .NET policy unchanged.
+
+## Character naming contract (2026-10-21)
+
+Author direction replaces the development `System.Char` grapheme API with
+`System.Character`. This differs deliberately from .NET's UTF-16 code-unit Char:
+the name now signals the existing grapheme semantics instead of suggesting a
+fixed-width numeric unit. UTF-8 bytes, canonical equality and grapheme storage
+are unchanged; this rename does not remove storage allocations.
+
+The neoCLR project driver and workspace select `ParseOptions.EnableCharKeyword =
+false`. Character literals retain the existing semantic role `System_Char`, whose
+neoCLR runtime contract now selects `System.Character`. Explicit annotations use
+`Character`; `char` is an ordinary identifier. Preparsed keyword types are also
+rejected by the native target, rather than silently restoring the alias. .NET
+continues to select `System.Char`, its keyword and CLI `0x03` code-unit encoding.
+Completion, inlay display and hover follow the selected policy.
+
+The native SDK requires the canonical Character declaration and preserves the
+existing serialized `Char` tag and private `Char*` runtime services. These are
+internal encodings, not Raven aliases. The temporary CLI documentation artifact
+still describes the historical Char contract; the native API snapshot is the
+current public reference. Rebuild compiler, libraries and native consumers as one
+cohort: mixing the old Char core with the new mapping is unsupported. The native
+backend uses nominal Character ownership; no new instruction or value layout is
+introduced. A future wire-tag spelling change would require separate format
+migration, not a source alias.
+
+The general parser capability and completion fix were developed and validated on
+Raven main (`bc8d61e90`, `d9a9a7587`), then carried deliberately to codex/neoclr
+(`e0b513d5c`, `4751ffc0a`). Native mapping is confined to that branch. Focused
+validation includes parser/completion controls, ordinary CLI character round trips,
+native grapheme metadata, a complete five-library build, and built-in text/record
+consumers; see the current changelog for completed results.

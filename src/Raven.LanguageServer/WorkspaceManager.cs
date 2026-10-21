@@ -2356,6 +2356,7 @@ internal sealed class WorkspaceManager
 
     private static void AppendParseOptions(IncrementalHash hash, ParseOptions options)
     {
+        AppendString(hash, options.EnableCharKeyword.ToString());
         AppendString(hash, options.Kind.ToString());
         AppendString(hash, options.DocumentationMode.ToString());
         AppendString(hash, options.DocumentationFormat.ToString());

@@ -215,7 +215,7 @@ internal static class MsBuildProjectEvaluator
                 static group => group.Key,
                 static group => group.Last().Value,
                 StringComparer.Ordinal);
-        var parseOptions = new ParseOptions { Features = macroOptions }
+        var parseOptions = new ParseOptions { Features = macroOptions, EnableCharKeyword = targetPlatform != TargetPlatform.NeoCLR }
             .WithPreprocessorSymbols(
                 ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 

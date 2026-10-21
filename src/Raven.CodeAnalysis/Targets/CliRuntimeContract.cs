@@ -183,7 +183,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             SpecialType.System_ValueType => "System.ValueType",
             SpecialType.System_Void => "System.Void",
             SpecialType.System_Boolean => "System.Boolean",
-            SpecialType.System_Char => "System.Char",
+            SpecialType.System_Char => Options.TargetPlatform == TargetPlatform.NeoCLR ? "System.Character" : "System.Char",
             SpecialType.System_SByte => "System.SByte",
             SpecialType.System_Byte => "System.Byte",
             SpecialType.System_Int16 => "System.Int16",

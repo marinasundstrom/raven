@@ -7,6 +7,28 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class NeoClrProfileTests
 {
+    [Fact]
+    public void CharacterIdentityFollowsTheSelectedTarget()
+    {
+        Assert.Equal("System.Character", new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR)
+            .GetSpecialTypeMetadataName(SpecialType.System_Char));
+        Assert.Equal("System.Char", new DotNetRuntimeContract(CompilationOptions.DotNet)
+            .GetSpecialTypeMetadataName(SpecialType.System_Char));
+    }
+
+    [Fact]
+    public void NativeTargetDoesNotAcceptPreparsedCharAlias()
+    {
+        var tree = SyntaxTree.ParseText("let value: char = 'A'");
+        var type = tree.GetRoot().DescendantNodes().OfType<PredefinedTypeSyntax>().Single();
+        var native = Compilation.Create("NativeAlias", [tree], TestMetadataReferences.Default,
+            CompilationOptions.NeoCLR.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime"));
+        Assert.Equal(TypeKind.Error, native.ResolvePredefinedType(type).TypeKind);
+        var dotnet = Compilation.Create("DotNetAlias", [tree], TestMetadataReferences.Default, CompilationOptions.DotNet);
+        Assert.Equal(SpecialType.System_Char, dotnet.ResolvePredefinedType(type).SpecialType);
+    }
+
     [Theory]
     [InlineData("SourceTasks", "SourceTasks", true)]
     [InlineData("SourceTasks", "OtherTasks", false)]
