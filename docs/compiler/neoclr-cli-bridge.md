@@ -15890,3 +15890,7 @@ option-equivalence handling preserve this semantic input. Three focused parser
 tests cover both settings and a char binding. The default .NET contract and literal
 syntax are unchanged. Runtime Character mapping and editor selection require
 separate native-target integration; this parser capability alone does not rename a type.
+
+Completion also observes EnableCharKeyword when escaping identifier insertions; a
+disabled char keyword inserts as `char`, not `@char`. The four focused parser and
+completion tests pass on main with the default .NET policy unchanged.
