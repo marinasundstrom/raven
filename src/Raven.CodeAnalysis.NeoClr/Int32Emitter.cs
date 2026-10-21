@@ -1610,7 +1610,7 @@ internal static class Int32Emitter
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
                 original.TypeKind == TypeKind.Class && original.BaseType is { ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)parentClass.OriginalDefinition, depth + 1)) &&
-            original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind == TypeKind.Class && original.ContainingType is null &&
+            original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind is TypeKind.Class or TypeKind.Struct && original.ContainingType is null &&
                 (p.ConstraintKind & ~(TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.FunctionType)) == 0) &&
                 p.ConstraintTypes.All(bound => bound is INamedTypeSymbol { TypeKind: TypeKind.Class, Arity: 0, ContainingType: null } nominal && IsSymbolOnlyReferenceDefinition(nominal, depth + 1)) && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 

@@ -15877,3 +15877,8 @@ probe wraps NativeMemory storage and compiles equality/casts; execution qualific
 belongs to neoCLR's built-in native-pointer suite. Runtime Contract configuration
 is unchanged. Pointer arithmetic, broader native layouts and scoped borrowing remain
 open; no cast or equality operation grants ownership or extends lifetime.
+
+Imported top-level generic structs now share class special-constraint admission.
+The matching SDK registers category requirements on symbol-authored value owners;
+Ptr<int> and constrained generic forwarding execute in all three built-in pointer
+tests, while SDK tests reject a reference-type argument. No ABI encoding changes.

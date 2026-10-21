@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Admit imported generic value types with the same supported special constraints as classes, retaining dependency facts through the metadata SDK. The three neoCLR built-in Ptr tests pass across the library boundary, including `where T: struct` forwarding, address operators, boxed equality and hashing. This fixes native import admission; ordinary .NET and Runtime Contract configuration are unchanged.
+
 - **2026-10-21:** Lower native pointer reinterpretation and equality through explicit portable capabilities. Apply the existing special-constraint contract to value types, allowing `where T: struct` without discarding its metadata. The matching SDK validates pointer casts/equality. All 42 focused pointer tests pass; ordinary .NET conversion behavior comes from the separately validated main commit `1e2b43ce4`. No Runtime Contract or ownership change.
 
 - **2026-10-21:** Preserve scoped generic unmanaged pointer targets in opt-in native emission, including owner/method parameter mapping and nested pointers. The matching metadata SDK substitutes pointer targets through fields and calls and rejects invalid scopes/closed targets. Ten focused pointer tests pass, and a source generic pointer wrapper executes a native buffer release in the interpreter. Ordinary .NET emission and Runtime Contract configuration are unchanged; this native-only portable layer is absent from main. Native/JIT interop and safe pointer-to-Slice borrowing remain unimplemented.
