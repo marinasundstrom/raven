@@ -110,7 +110,17 @@ internal static class NativeRecordFormatting
             }
             if (type is SourceNamedTypeSymbol { IsRecord: true } record)
             {
-                Record(value, record, output);
+                if (record.IsReferenceType)
+                {
+                    var isNull = new BoundInvocationExpression(referenceEquals,
+                        [new BoundConversionExpression(value, obj,
+                            compilation.ClassifyConversion(value.Type, obj, includeUserDefined: false)),
+                         new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, obj)]);
+                    output.Add(new BoundIfStatement(isNull, Append(Literal("null")),
+                        Append(new BoundInvocationExpression(Formatter(record)!, [], value))));
+                }
+                else
+                    Record(value, record, output);
                 return;
             }
             if (type.SpecialType == SpecialType.System_String)
@@ -150,7 +160,7 @@ internal static class NativeRecordFormatting
             {
                 var property = properties[index];
                 output.Add(Append(Literal((index == 0 ? "" : ", ") + property.Name + " = ")));
-                Value(new BoundInvocationExpression(property.GetMethod!, [], value, requiresReceiverAddress: true), output);
+                Value(new BoundInvocationExpression(property.GetMethod!, [], value, requiresReceiverAddress: record.IsValueType), output);
             }
             output.Add(Append(Literal(" }")));
         }
@@ -186,7 +196,7 @@ internal static class NativeRecordFormatting
         if (type is SourceNamedTypeSymbol { IsRecord: true } record)
         {
             // Recursive reference graphs require a separate cycle/display policy.
-            if (!record.IsValueType || !path.Add(type))
+            if ((record.IsReferenceType && record.BaseType?.SpecialType != SpecialType.System_Object) || !path.Add(type))
                 return false;
             var supported = record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic).All(f => Supported(f.Type, path));
             path.Remove(type);

@@ -15741,3 +15741,23 @@ and boxed dispatch after collection; see neoCLR's record-formatting experiment
 and its separately retained generic validation. Rebuild imported libraries to
 acquire newly generated overrides. Future native lowering can optimize conversions
 without changing the public value/display contract.
+
+## Root record-class display — 2026-10-21
+
+Native generated formatting now accepts source positional record classes directly
+based on Object, with the existing supported component set. Getter calls use
+reference receivers; nested class components have null guards and ordinary virtual
+ToString dispatch. Nested structs retain direct builder appends. No Runtime Contract,
+metadata/ABI or ordinary .NET synthesis changes. The native emitter owns this closure;
+runtime reference identity, GC and virtual dispatch remain the common contracts.
+Nested class display allocates intermediate output, so this is not a performance
+claim. Previously built libraries require rebuilding to acquire generated overrides.
+
+neoCLR's built-in record-formatting suite covers typed/boxed/interface equality,
+null operators, matching hashes, reference identity, collection and nullable nested
+class display. Inherited/recursive record display remains unqualified. A single
+self-typed positional component (`record Node(Next: Node?)`) separately exposed
+NEOMETA003 invalid/duplicate method, apparently a generated copy-constructor collision;
+resolve general synthesis/diagnostics on main before carrying a native fix. The
+recursive-display negative fixture uses an additional string component to isolate
+its intended unsupported-formatting diagnostic.
