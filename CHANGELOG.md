@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Three focused parsing tests pass. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly.
+
 - **2026-10-21:** Classify explicit unmanaged pointer reinterpretation and implicit pointer-to-void erasure through ordinary pointer conversions. Address bits are preserved; no ownership, bounds or lifetime is acquired. All 35 focused pointer semantic/codegen tests pass, including execution through void and byte pointer casts.
 
 - **2026-10-21:** Preserve derived record state in base-typed and interface equality/operator calls through ordinary virtual Object.Equals dispatch. Generated class Object.Equals requires matching runtime types, and inherited positional properties participate in display, equality and hashing. Generated copy constructors also mark required members initialized, including inherited state. The .NET runtime regression previously failed; it and 37 record semantic tests now pass, including an explicit derived-record copy.

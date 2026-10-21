@@ -751,3 +751,13 @@ pointer-to-void erasure. The ordinary .NET emitter uses its existing `conv.u` pa
 No Runtime Contract configuration changes. Native lowering must independently
 preserve the target pointer signature; this shared binder fix alone does not provide
 native emission or grant ownership, bounds, alignment or lifetime validity.
+
+
+### Character keyword capability (2026-10-21)
+
+ParseOptions.EnableCharKeyword defaults to true. Alternate target drivers may disable
+it so char is an ordinary identifier, with no predefined type syntax. Snapshot and
+option-equivalence handling preserve this semantic input. Three focused parser
+tests cover both settings and a char binding. The default .NET contract and literal
+syntax are unchanged. Runtime Character mapping and editor selection require
+separate native-target integration; this parser capability alone does not rename a type.

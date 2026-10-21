@@ -20,10 +20,12 @@ internal class Lexer : ILexer, IMacroBodyScanner
     private readonly List<ConditionalFrame> _conditionalStack = [];
     private readonly Dictionary<int, ConditionalStateSnapshot> _conditionalStateSnapshots = [];
     private bool _reportedMissingEndIf;
+    private readonly bool _enableCharKeyword;
     public Action<DiagnosticInfo>? DiagnosticSink { get; set; }
 
     public Lexer(TextReader textReader, int startPosition = 0, ParseOptions? options = null)
     {
+        _enableCharKeyword = options?.EnableCharKeyword ?? true;
         _textSource = new SeekableTextSource(textReader, startPosition);
         _currentPosition = startPosition;
         _tokenStartPosition = startPosition;
@@ -398,7 +400,8 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         _stringBuilder.Append(ch);
                     }
 
-                    if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind))
+                    if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind) ||
+                        syntaxKind == SyntaxKind.CharKeyword && !_enableCharKeyword)
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
