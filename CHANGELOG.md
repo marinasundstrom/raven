@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Carry main 9645e24f5 record-inheritance semantics: base-typed equality dispatches virtually, Object equality checks runtime type, and inherited positional properties participate in generated contracts. Main passes 38 focused tests; native selected-core qualification is tracked separately. No metadata ABI change.
+
 - **2026-10-21:** Carry shared record copy-constructor collision diagnostic from main 8eca1f07d: RAV0111 rejects single self-typed primary constructors, including nullable/generic spellings, before metadata emission. Nullable annotations no longer produce duplicate copy signatures. Runtime Contract and ABI are unchanged.
 
 - **2026-10-21:** Emit native positional record display for type-parameter components and record classes directly based on Object. Preserve Raven text quoting, null and Unicode through ordinary Object dispatch for generic components; use reference getter receivers and null-safe virtual display for nested class components. Known value components retain direct formatting. Generic values box once and nested generic/class output can allocate intermediate strings. Runtime Contract, metadata ABI and ordinary .NET synthesis are unchanged. All 12 built-in neoCLR record-formatting tests pass in interpreter/native/JIT execution (36 executions), superseding the earlier ten-test generic cohort. Recursive display retains its targeted diagnostic; inherited/recursive display and the self-typed primary/copy-constructor collision remain gaps.
