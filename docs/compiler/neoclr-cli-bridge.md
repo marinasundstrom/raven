@@ -741,3 +741,13 @@ ABI remain unchanged. The existing native captured-value support limits still
 apply. Focused .NET tests check semantic capture identity and emitted execution;
 the neoCLR DI activation consumer independently validates the native branch carry.
 Native metadata/backend work does not replace this shared semantic requirement.
+
+
+### Pointer conversion classification (2026-10-21)
+
+General Raven now classifies explicit pointer-to-pointer reinterpretation and implicit
+pointer-to-void erasure. The ordinary .NET emitter uses its existing `conv.u` path;
+35 pointer semantic/codegen tests pass, including an address-preserving round trip.
+No Runtime Contract configuration changes. Native lowering must independently
+preserve the target pointer signature; this shared binder fix alone does not provide
+native emission or grant ownership, bounds, alignment or lifetime validity.
