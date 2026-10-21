@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Emit native positional record-struct display for type-parameter components using one Object conversion and ordinary virtual dispatch. Preserve Raven text quoting, null and Unicode; keep direct formatting for known components. Generic value components box and nested generic display may allocate intermediate strings. Record classes remain unsupported. Runtime Contract, metadata ABI and ordinary .NET emission are unchanged; all ten built-in neoCLR record-formatting tests pass in interpreter/native/JIT execution (30 executions), and unsupported record-class formatting retains its targeted diagnostic.
+
 - **2026-10-21:** Native neoCLR emission distinguishes unbound generic declaration tokens from constructed generic signatures, using the matching metadata SDK definition-token API. Ordinary .NET emission and Runtime Contract selection are unchanged; the five .NET typeof controls pass, along with six built-in neoCLR reflection tests in interpreter/native execution and 21 DI interpreter tests. JIT and localization qualification continue.
 
 - **2026-10-21:** Spill evaluated array receiver/index operands before lowering an assignment value at a statement boundary, allowing Result propagation to return with an empty native operand stack. Preserve evaluation order and existing nested-expression restrictions; nine focused prepared-expression/index tests pass. Ordinary .NET emission, metadata and ABI are unchanged.

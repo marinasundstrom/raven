@@ -15720,3 +15720,24 @@ interpreter and native backend, including definition literals, exact declaration
 identity and MakeGenericType. All 21 DI interpreter cases pass. JIT/localization
 qualification remains in progress. Regression sources are in neoCLR's
 runtime/raven/tests/type-relations and dependency-injection directories.
+
+## Generic native record display — 2026-10-21
+
+The native record formatter admits type-parameter fields in positional record
+structs. It evaluates a generic component once, converts it to Object, handles
+null and quoted String/Char text, then uses ordinary virtual ToString for other
+values. Native generic specialization supplies the closed component identity.
+Known nongeneric scalar formatting remains direct. The Runtime Contract and
+metadata/ABI are unchanged; selected-core Object/String/StringBuilder methods
+remain required. Ordinary .NET synthesis is unchanged, so this target-specific
+closure stays on the neoCLR compiler line.
+
+This preserves Raven display punctuation rather than adopting C#'s unquoted text.
+Generic value components box once; nested generic output can allocate an intermediate
+string. This is a correctness fix, not evidence of lower allocations or throughput.
+Record-class display remains a gap. The neoCLR built-in record-formatting suite
+covers generic primitives, null, original Unicode text, nested records, enum values
+and boxed dispatch after collection; see neoCLR's record-formatting experiment
+and its separately retained generic validation. Rebuild imported libraries to
+acquire newly generated overrides. Future native lowering can optimize conversions
+without changing the public value/display contract.

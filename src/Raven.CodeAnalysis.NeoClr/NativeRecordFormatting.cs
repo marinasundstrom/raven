@@ -47,6 +47,36 @@ internal static class NativeRecordFormatting
         void Value(BoundExpression value, List<BoundStatement> output)
         {
             var type = value.Type.GetNonNullableType();
+            if (type is ITypeParameterSymbol)
+            {
+                // Evaluate and box once; use the ordinary Object display contract for
+                // unknown components while preserving Raven's text/null punctuation.
+                var boxedLocal = new SourceLocalSymbol("recordValue" + caseIndex++, obj, false,
+                    method, owner, owner.ContainingNamespace, method.Locations.ToArray(), []);
+                output.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(boxedLocal,
+                    new BoundConversionExpression(value, obj,
+                        compilation.ClassifyConversion(value.Type, obj, includeUserDefined: false)))]));
+                var boxed = new BoundLocalAccess(boxedLocal);
+                var stringLocal = new SourceLocalSymbol("recordString" + caseIndex++, text, false,
+                    method, owner, owner.ContainingNamespace, method.Locations.ToArray(), []);
+                var boolean = compilation.GetSpecialType(SpecialType.System_Boolean);
+                var character = compilation.GetSpecialType(SpecialType.System_Char);
+                var quotedString = new List<BoundStatement>();
+                Quoted(new BoundLocalAccess(stringLocal), "\"", quotedString);
+                var quotedChar = new List<BoundStatement>();
+                Quoted(new BoundInvocationExpression(objectFormatter, [], boxed), "'", quotedChar);
+                var isNull = new BoundInvocationExpression(referenceEquals,
+                    [boxed, new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, obj)]);
+                var isString = new BoundIsPatternExpression(boxed,
+                    new BoundDeclarationPattern(text, new BoundSingleVariableDesignator(stringLocal)), boolean);
+                var isChar = new BoundIsPatternExpression(boxed,
+                    new BoundDeclarationPattern(character, new BoundDiscardDesignator(character)), boolean);
+                output.Add(new BoundIfStatement(isNull, Append(Literal("null")),
+                    new BoundIfStatement(isString, new BoundBlockStatement(quotedString),
+                        new BoundIfStatement(isChar, new BoundBlockStatement(quotedChar),
+                            Append(new BoundInvocationExpression(objectFormatter, [], boxed))))));
+                return;
+            }
             if (type.TryGetUnion() is { } union)
             {
                 BoundStatement branch = Append(Literal("<Uninitialized>"));
@@ -156,12 +186,14 @@ internal static class NativeRecordFormatting
         if (type is SourceNamedTypeSymbol { IsRecord: true } record)
         {
             // Recursive reference graphs require a separate cycle/display policy.
-            if (!record.IsValueType || !record.TypeParameters.IsEmpty || !path.Add(type))
+            if (!record.IsValueType || !path.Add(type))
                 return false;
             var supported = record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic).All(f => Supported(f.Type, path));
             path.Remove(type);
             return supported;
         }
+        if (type is ITypeParameterSymbol)
+            return true;
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } ||
             type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean)
             return true;
