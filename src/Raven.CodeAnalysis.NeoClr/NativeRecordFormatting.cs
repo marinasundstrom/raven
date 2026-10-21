@@ -155,7 +155,7 @@ internal static class NativeRecordFormatting
         void Record(BoundExpression value, SourceNamedTypeSymbol record, List<BoundStatement> output)
         {
             output.Add(Append(Literal(record.Name + " { ")));
-            var properties = record.GetMembers().OfType<SourcePropertySymbol>().Where(p => !p.IsStatic && p.BackingField is not null).ToArray();
+            var properties = NativeRecordBodies.RecordProperties(record);
             for (var index = 0; index < properties.Length; index++)
             {
                 var property = properties[index];
@@ -195,10 +195,14 @@ internal static class NativeRecordFormatting
         }
         if (type is SourceNamedTypeSymbol { IsRecord: true } record)
         {
-            // Recursive reference graphs require a separate cycle/display policy.
-            if ((record.IsReferenceType && record.BaseType?.SpecialType != SpecialType.System_Object) || !path.Add(type))
+            if (record.IsReferenceType && record.BaseType?.SpecialType != SpecialType.System_Object &&
+                record.BaseType?.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: true })
                 return false;
-            var supported = record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic).All(f => Supported(f.Type, path));
+            // Reference recursion is emitted as an ordinary virtual call. Finite
+            // graphs terminate at null; cyclic object graphs retain stack limits.
+            if (!path.Add(type))
+                return record.IsReferenceType;
+            var supported = NativeRecordBodies.RecordProperties(record).All(p => Supported(p.Type, path));
             path.Remove(type);
             return supported;
         }

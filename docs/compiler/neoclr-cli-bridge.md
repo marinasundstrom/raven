@@ -15761,3 +15761,31 @@ NEOMETA003 invalid/duplicate method, apparently a generated copy-constructor col
 resolve general synthesis/diagnostics on main before carrying a native fix. The
 recursive-display negative fixture uses an additional string component to isolate
 its intended unsupported-formatting diagnostic.
+
+
+## Inherited and recursive source records — 2026-10-21
+
+Native record equality now dispatches through ordinary virtual Object.Equals from
+base-typed operators and typed equality, then checks exact runtime type identity
+before comparing all inherited and declared components. This carries the general
+.NET-target correction on main 9645e24f5; copy constructors also carry main
+ab1bc96d3's required-member initialization flag. Native portable lowering calls the
+base record copy constructor with the original object instead of selecting a
+parameterless base initializer. These are compiler-generated class semantics, not
+new record runtime types.
+
+The selected neoCLR core can expose the public compiler service
+RuntimeHelpers.HaveSameRuntimeType(Object,Object). It compares non-null object type
+handles through existing runtime services, avoiding reflection descriptor objects.
+Older cores use the descriptor comparison fallback. No new Runtime Contract switch,
+CLI carrier, metadata encoding or runtime opcode is introduced. Native metadata and
+ordinary virtual dispatch remain the implementation; the temporary CLI bridge is
+not used for these generated bodies.
+
+Generated display includes inherited properties and permits finite recursive
+reference graphs through null-safe virtual ToString calls. Actual cycles retain
+ordinary stack limits; this is not cycle detection. Generic component boxing and
+nested display strings remain allocation costs. Source-defined record hierarchies
+are the qualified scope; this does not promise arbitrary imported record-base
+synthesis. neoCLR's built-in record-formatting and opt-in interpreter allocation
+suites provide the executable consumers, including a rebuilt imported KeyValuePair.

@@ -82,7 +82,7 @@ internal static class NativeRecordBodies
                 new BoundLocalAccess(local));
         }
         BoundExpression Property(BoundExpression value, IPropertySymbol property) =>
-            new BoundInvocationExpression(property.GetMethod!, [], value, requiresReceiverAddress: true);
+            new BoundInvocationExpression(property.GetMethod!, [], value, requiresReceiverAddress: value.Type.IsValueType);
 
         BoundExpression Equal(BoundExpression left, BoundExpression right)
         {
@@ -144,13 +144,18 @@ internal static class NativeRecordBodies
                     Binary(SyntaxKind.AmpersandAmpersandToken, Not(Null(right)), equal));
             return equal;
         }
-        var fields = owner.GetMembers().OfType<SourcePropertySymbol>().Where(p => !p.IsStatic && p.BackingField is not null).ToArray();
+        var fields = RecordProperties(owner);
+        BoundExpression RecordValue(BoundExpression receiver, IPropertySymbol property) =>
+            property is SourcePropertySymbol { BackingField: { } backingField } &&
+                SymbolEqualityComparer.Default.Equals(property.ContainingType, owner)
+                ? new BoundFieldAccess(receiver, backingField)
+                : Property(receiver, property);
         BoundExpression ValuesEqual(BoundExpression left, BoundExpression right)
         {
             BoundExpression result = Bool(true);
             foreach (var property in fields)
                 result = Binary(SyntaxKind.AmpersandAmpersandToken, result,
-                    Equal(new BoundFieldAccess(left, property.BackingField!), new BoundFieldAccess(right, property.BackingField!)));
+                    Equal(RecordValue(left, property), RecordValue(right, property)));
             return result;
         }
         BoundExpression Hash(BoundExpression value)
@@ -203,7 +208,7 @@ internal static class NativeRecordBodies
             BoundExpression hash = Int(0);
             foreach (var property in fields)
                 hash = new BoundInvocationExpression(combine,
-                    [hash, Hash(new BoundFieldAccess(new BoundSelfExpression(owner), property.BackingField!))]);
+                    [hash, Hash(RecordValue(new BoundSelfExpression(owner), property))]);
             statements.Add(new BoundReturnStatement(hash));
         }
         else
@@ -223,7 +228,34 @@ internal static class NativeRecordBodies
                 statements.Add(new BoundIfStatement(new BoundInvocationExpression(referenceEquals, [Box(left), Box(right)]), new BoundReturnStatement(Bool(!unequal))));
                 statements.Add(new BoundIfStatement(Binary(SyntaxKind.BarBarToken, Null(left), Null(right)), new BoundReturnStatement(Bool(unequal))));
             }
-            var equal = ValuesEqual(left, right);
+            if (owner.IsReferenceType && !method.IsStatic &&
+                method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object)
+            {
+                var sameType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers")?
+                    .GetMembers("HaveSameRuntimeType").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                        m.IsStatic && m.DeclaredAccessibility == Accessibility.Public && !m.IsGenericMethod &&
+                        m.Parameters.Length == 2 && m.Parameters.All(p => p.Type.SpecialType == SpecialType.System_Object) &&
+                        m.ReturnType.SpecialType == SpecialType.System_Boolean);
+                BoundExpression matches;
+                if (sameType is not null)
+                    matches = new BoundInvocationExpression(sameType, [Box(left), Box(right)]);
+                else
+                {
+                    var getType = obj.GetMembers("GetType").OfType<IMethodSymbol>()
+                        .SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty);
+                    if (getType is null)
+                        return null;
+                    matches = new BoundInvocationExpression(objectEquals,
+                        [Box(new BoundInvocationExpression(getType, [], Box(right)))],
+                        Box(new BoundInvocationExpression(getType, [], Box(left))));
+                }
+                statements.Add(new BoundIfStatement(Not(matches), new BoundReturnStatement(Bool(false))));
+            }
+            var virtualComparison = owner.IsReferenceType && (method.IsStatic ||
+                method.Parameters[0].Type.GetNonNullableType().SpecialType != SpecialType.System_Object);
+            var equal = virtualComparison
+                ? new BoundInvocationExpression(objectEquals, [Box(right)], Box(left))
+                : ValuesEqual(left, right);
             statements.Add(new BoundReturnStatement(unequal ? Not(equal) : equal));
         }
         return new SourceCallablePlan(method, anchor, anchor, owner, method.MetadataName, signature,
@@ -242,8 +274,21 @@ internal static class NativeRecordBodies
             return false;
         if (!visited.Add(type))
             return true;
-        return record.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
-            .All(f => SupportsComponent(f.Type, visited, equatable));
+        return RecordProperties(record).All(p => SupportsComponent(p.Type, visited, equatable));
+    }
+
+    internal static IPropertySymbol[] RecordProperties(INamedTypeSymbol record)
+    {
+        var properties = new List<IPropertySymbol>();
+        if (record.BaseType is { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } } baseRecord)
+            properties.AddRange(RecordProperties(baseRecord));
+        foreach (var property in record.GetMembers().OfType<IPropertySymbol>().Where(p =>
+            !p.IsStatic && (p.OriginalDefinition ?? p) is SourcePropertySymbol { BackingField: not null }))
+        {
+            if (!properties.Any(p => SymbolEqualityComparer.Default.Equals(p, property)))
+                properties.Add(property);
+        }
+        return properties.ToArray();
     }
 
     internal static IPropertySymbol[]? CaseProperties(IUnionCaseTypeSymbol caseType)

@@ -156,8 +156,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             var initializer = (source as SourceMethodSymbol)?.ConstructorInitializer;
             var target = initializer?.Constructor ?? parent.GetMembers().OfType<IMethodSymbol>()
                 .SingleOrDefault(m => m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0 && !m.IsStatic);
-            if (target is null || !SymbolEqualityComparer.Default.Equals(target.ContainingType, parent)) return Reject("direct base constructor unavailable", bodySyntax);
             var arguments = initializer?.Arguments.ToArray() ?? [];
+            if (initializer is null && source.DeclaringSyntaxReferences.IsEmpty &&
+                source.ContainingType is SourceNamedTypeSymbol { IsRecord: true } record &&
+                source.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(source.Parameters[0].Type, record) &&
+                parent.OriginalDefinition is SourceNamedTypeSymbol { IsRecord: true })
+            {
+                target = parent.Constructors.SingleOrDefault(m => !m.IsStatic && m.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetNonNullableType(), parent));
+                arguments = [new BoundParameterAccess(source.Parameters[0])];
+            }
+            if (target is null || !SymbolEqualityComparer.Default.Equals(target.ContainingType, parent)) return Reject("direct base constructor unavailable", bodySyntax);
             if (arguments.Length != target.Parameters.Length) return Reject("base constructor argument shape", bodySyntax);
             Add(LinearInstructionKind.Receiver, bodySyntax);
             for (int i = 0; i < arguments.Length; i++)
