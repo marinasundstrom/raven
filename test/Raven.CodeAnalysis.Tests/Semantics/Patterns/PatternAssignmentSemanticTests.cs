@@ -14,6 +14,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PatternAssignmentSemanticTests : DiagnosticTestBase
 {
+    [Theory]
+    [InlineData("record class Pair(First: int, Second: int)", "Pair?", "null", "Pair(first, second)")]
+    [InlineData("record struct Pair(First: int, Second: int)", "object", "Pair(1, 2)", "Pair(first, second)")]
+    [InlineData("record struct Pair(First: int, Second: int)", "Pair", "Pair(1, 2)", "Pair(first, 3)")]
+    public void RefutableNamedDeclarationWithoutElseIsRejected(string declaration, string inputType, string value, string pattern)
+    {
+        var source = $$"""
+            {{declaration}}
+            let input: {{inputType}} = {{value}}
+            let {{pattern}} = input
+            """;
+        var errors = CreateVerifier(source).GetResult().Compilation.GetDiagnostics()
+            .Where(d => d.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ToArray();
+        Assert.Contains(errors, d => d.Id == "RAV1620");
+    }
+
+    [Theory]
+    [InlineData("record struct")]
+    [InlineData("record class")]
+    public void NamedRecordDeclarationWithoutElseBindsLocals(string kind)
+    {
+        var source = $$"""
+            {{kind}} Money(Amount: int, Currency: int)
+            let money = Money(42, 1)
+            let Money(amount, currency) = money
+            let (otherAmount, otherCurrency) = money
+            amount + currency + otherAmount + otherCurrency
+            """;
+        var result = CreateVerifier(source).GetResult();
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+    }
+
+    [Fact]
+    public void RefutableNamedDeclarationRequiresElse()
+    {
+        var source = """
+            record struct Money(Amount: int, Currency: int)
+            let money = Money(42, 1)
+            let Money(amount, 2) = money
+            """;
+        var errors = CreateVerifier(source).GetResult().Compilation.GetDiagnostics()
+            .Where(d => d.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ToArray();
+        Assert.Contains(errors, d => d.Id == "RAV1620");
+    }
+
     [Fact]
     public void LetPositionalPatternAssignment_BindsLocals()
     {

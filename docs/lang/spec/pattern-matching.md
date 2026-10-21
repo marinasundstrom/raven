@@ -147,6 +147,44 @@ if person is { Age: let age when age > 20 } {
 }
 ```
 
+## Deconstruction declarations and positional patterns
+
+`let (first, second) = value` deconstructs into bindings using the input's
+statically resolved tuple or `Deconstruct` contract. A named positional form is
+also valid without `else` when its type and every nested pattern are irrefutable:
+
+```raven
+record struct Pair(First: int, Second: int)
+let pair = Pair(40, 2)
+let Pair(first, second) = pair
+let (otherFirst, otherSecond) = pair
+```
+
+The type name is redundant in that example. It becomes a runtime constraint when
+the input has a broader type. Constants, qualified read-only static members and
+other component constraints also make a positional pattern refutable. Use an
+exiting `else` to handle failure before subsequent code uses captured locals:
+
+```raven
+let input: object = Pair(40, 2)
+let Pair(first, 2) = input else { return }
+```
+
+Unnamed positional patterns can also constrain components when the static input
+supplies the deconstruction contract: `let (first, 2) = pair else { return }`.
+A nullable input or a narrowed runtime type requires a failure path. RAV1620
+reports a refutable named declaration without `else`. Accessible inherited
+`Deconstruct` methods are considered for both named and unnamed forms, using
+ordinary member hierarchy lookup.
+
+A qualified read-only static property or readonly field (for example
+`Currency.SEK`) is a runtime equality pattern. Its value is evaluated once when
+that component is tested, using the existing equality-pattern semantics
+(`object.Equals`), not operator equality. Such values do not count as constants
+for exhaustiveness. Bare locals, mutable members and instance properties still
+require explicit `== expression` syntax. No guarantee of purity or stable results
+is inferred from a getter having no setter.
+
 ## Linear pattern binding with `let ... else`
 
 Use `let pattern = expression else` when following code requires a successful

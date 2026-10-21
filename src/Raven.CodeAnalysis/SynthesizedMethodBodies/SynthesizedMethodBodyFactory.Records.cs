@@ -81,7 +81,9 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var otherAccess = new BoundParameterAccess(method.Parameters[0]);
         var selfAccess = new BoundSelfExpression(method.ContainingType!);
-        var statements = CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true);
+        var statements = recordType.IsValueType
+            ? new List<BoundStatement>()
+            : CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true);
         statements.Add(new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)));
 
         return new BoundBlockStatement(statements);
@@ -97,6 +99,18 @@ internal static partial class SynthesizedMethodBodyFactory
         var otherLocal = CreateSynthesizedLocal(method, invocationContainingType, "other");
         var objectParameter = new BoundParameterAccess(method.Parameters[0]);
         var selfAccess = new BoundSelfExpression(invocationContainingType);
+        if (recordType.IsValueType)
+        {
+            var typedPattern = new BoundDeclarationPattern(invocationContainingType, new BoundSingleVariableDesignator(otherLocal));
+            var matches = new BoundIsPatternExpression(objectParameter, typedPattern,
+                compilation.GetSpecialType(SpecialType.System_Boolean));
+            return new BoundBlockStatement([
+                new BoundIfStatement(matches,
+                    new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType,
+                        selfAccess, new BoundLocalAccess(otherLocal)))),
+                new BoundReturnStatement(CreateBoolLiteral(compilation, false))
+            ]);
+        }
         var asConversion = compilation.ClassifyConversion(method.Parameters[0].Type, invocationContainingType, includeUserDefined: false);
         var otherAccess = new BoundLocalAccess(otherLocal);
 

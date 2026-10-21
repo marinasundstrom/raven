@@ -132,3 +132,9 @@ cannot acquire the same monitor accidentally.
 On .NET, the statement has the same effect as storing the gate in a hidden
 local, calling `System.Threading.Monitor.Enter`, executing the body in a `try`,
 and calling `System.Threading.Monitor.Exit` from `finally`.
+
+Named positional declaration patterns may omit `else` when their input type and
+components make the match irrefutable. This includes record class/struct bindings
+and accessible inherited Deconstruct contracts. Component constraints or runtime
+type narrowing require an exiting failure branch; see
+[pattern matching](pattern-matching.md#deconstruction-declarations-and-positional-patterns).

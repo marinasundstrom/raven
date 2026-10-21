@@ -718,3 +718,13 @@ payload matched with `Ok(let value)`. Main passes three nullable-payload cases
 The native portable planner's payload binding inserted an unnecessary null-rejecting
 type test; its correction and native qualification remain on codex/neoclr. Main's
 new regression fixture contains no target-specific imports or Runtime Contract.
+
+### General positional declaration semantics (2026-10-21)
+
+Raven main owns irrefutable named declarations, inherited Deconstruct lookup and
+qualified readonly static value-pattern binding. These do not depend on Runtime
+Contract configuration or target type-name mappings. Ordinary .NET emission is
+validated first. Record-struct typed/Object equality synthesis is also corrected
+on main. The neoCLR line must carry the general change deliberately and validate
+its native pattern backend separately; main support alone is not integration
+proof. No additional CLI bridge encoding is introduced.

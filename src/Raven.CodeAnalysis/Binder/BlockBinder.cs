@@ -12087,6 +12087,8 @@ partial class BlockBinder : Binder
             PatternSyntax structural when structural is NominalDeconstructionPatternSyntax or PropertyPatternSyntax &&
                 structural.Ancestors().OfType<ParameterSyntax>().Any()
                 => BindStructuralParameterPattern(structural, valueType, declarationBindingKeywordKind),
+            NominalDeconstructionPatternSyntax nominal when IsDeclarationBindingKeyword(declarationBindingKeywordKind)
+                => BindNominalDeclarationPattern(nominal, valueType, declarationBindingKeywordKind),
             VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType, declarationBindingKeywordKind),
             PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
             SequencePatternSyntax sequencePattern => BindSequencePatternForAssignment(sequencePattern, valueType, declarationBindingKeywordKind),
@@ -12100,6 +12102,20 @@ partial class BlockBinder : Binder
 
         CacheBoundNode(patternSyntax, bound);
         return bound;
+    }
+
+    private BoundPattern BindNominalDeclarationPattern(
+        NominalDeconstructionPatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
+    {
+        var pattern = BindStructuralParameterPattern(syntax, inputType, bindingKeyword);
+        if (FindRefutableParameterPattern(inputType, pattern) is not null)
+        {
+            _diagnostics.Report(Diagnostic.Create(
+                CompilerDiagnostics.RefutableDeclarationPatternRequiresElse, syntax.GetLocation()));
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+        }
+        RegisterPatternLocalsForCurrentLookup(pattern);
+        return pattern;
     }
 
     private BoundPattern Misc(SyntaxNode node)

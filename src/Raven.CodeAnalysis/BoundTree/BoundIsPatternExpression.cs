@@ -902,7 +902,11 @@ internal partial class BlockBinder
         ITypeSymbol inputType,
         BoundDesignator? designator = null)
     {
-        ReportImplicitRuntimeValuePattern(expression, expressionSyntax);
+        var qualifiedValue = expressionSyntax is MemberAccessExpressionSyntax && expression.Symbol is
+            (IPropertySymbol { IsStatic: true, SetMethod: null } or
+             IFieldSymbol { IsStatic: true, IsReadOnly: true, IsConst: false });
+        if (!qualifiedValue)
+            ReportImplicitRuntimeValuePattern(expression, expressionSyntax);
 
         // null literal stays a literal-backed constant pattern.
         // NOTE: `null` may be represented either as a null literal expression OR as a `NullType` type-expression
@@ -942,7 +946,11 @@ internal partial class BlockBinder
         // NOTE: If you later introduce explicit conversion bound nodes, bind it here so codegen is simpler.
         // expression = BindConversion(expression, inputType, expressionSyntax.GetLocation());
 
-        return new BoundConstantPattern(expression, designator);
+        // A qualified readonly member is evaluated at matching time; it is not a
+        // compile-time constant and must not contribute constant exhaustiveness.
+        return qualifiedValue && designator is null
+            ? new BoundComparisonPattern(inputType, BoundComparisonPatternOperator.Equals, expression)
+            : new BoundConstantPattern(expression, designator);
     }
 
     private void ReportImplicitRuntimeValuePattern(BoundExpression expression, ExpressionSyntax syntax)
@@ -2517,9 +2525,15 @@ internal partial class BlockBinder
         }
     }
 
+    private IEnumerable<IMethodSymbol> GetAccessibleDeconstructMethods(ITypeSymbol inputType)
+        => (inputType is INamedTypeSymbol named
+            ? EnumerateTypeAndBaseMembers(named, "Deconstruct")
+            : inputType.GetMembers("Deconstruct"))
+            .OfType<IMethodSymbol>().Where(IsSymbolAccessible);
+
     private IMethodSymbol? FindDeconstructMethod(ITypeSymbol inputType, int parameterCount)
     {
-        foreach (var method in inputType.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        foreach (var method in GetAccessibleDeconstructMethods(inputType))
         {
             if (IsInstanceDeconstructCandidate(method, parameterCount))
                 return method;
@@ -2536,7 +2550,7 @@ internal partial class BlockBinder
 
     private int? GetDeconstructArity(ITypeSymbol inputType)
     {
-        foreach (var method in inputType.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        foreach (var method in GetAccessibleDeconstructMethods(inputType))
         {
             if (method.MethodKind == MethodKind.Ordinary &&
                 !method.IsStatic &&
