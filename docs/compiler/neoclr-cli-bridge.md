@@ -15414,3 +15414,20 @@ built-in suite now passes six tests in each of interpreter, JIT and native execu
 The matching runtime/backend and metadata library are required; an old runtime can
 still reject those emitted names. Native source metadata has no temporary bridge
 encoding here. Generic method constraint support remains a separate open gap.
+
+
+### Method category metadata prerequisite (2026-10-21)
+
+neoCLR `ad7198e10` now preserves ordinary reference/value/default-
+constructor method constraints through native and CLI snapshots, reference
+projection and imports. CLI uses standard GenericParameterAttributes (4/8/16);
+native metadata retains named categories. CLI AllowByRefLike (32) is not native
+FunctionType and remains unsupported by the reader. FunctionType remains a
+standalone native-only contract. Native specialization validates these categories
+through the shared runtime validator before closing methods. No Runtime Contract configuration or Raven
+capability setting changes in this prerequisite; native method emission/import
+and nominal method class bounds remain follow-up work. Ordinary .NET emission
+is unchanged. Validation and native specialization evidence are recorded in
+neoCLR's `docs/validation/release-readiness-20261020/README.md` and
+`docs/raven-cli-bridge.md` under Shared method category metadata. This is not a
+fresh matched compiler/package qualification.

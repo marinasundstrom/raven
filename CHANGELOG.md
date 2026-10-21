@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-21:** Document native enum Unicode metadata-name support through the matching neoCLR metadata library, preserving ordinary Raven identifier binding and UTF-8 names without new Runtime Contract mappings. Record completed native source-library/12-execution qualification for returned-out-call forwarding and 18 built-in executions for shared Unicode metadata naming in neoCLR 081b399f4, including slots, properties and generic parameters; generic method constraint work remains separate.
+- **2026-10-21:** Document native enum Unicode metadata-name support through the matching neoCLR metadata library, preserving ordinary Raven identifier binding and UTF-8 names without new Runtime Contract mappings. Record completed native source-library/12-execution qualification for returned-out-call forwarding and 18 built-in executions for shared Unicode metadata naming in neoCLR 081b399f4, including slots, properties and generic parameters. Document the neoCLR shared method-category metadata prerequisite and its standard CLI flags; native Raven method emission/import and nominal class bounds remain separate work.
 
 - **2026-10-20:** Analyze return expressions before checking out-parameter assignment at normal exit. Generic direct calls can forward out storage while producing a return value; short-circuit calls still require assignment on every path. Share the return statement/expression analysis and add runtime/diagnostic regressions. No Runtime Contract configuration or metadata change.
 
