@@ -15862,3 +15862,18 @@ pointer-to-void erasure. The ordinary .NET emitter uses its existing `conv.u` pa
 No Runtime Contract configuration changes. Native lowering must independently
 preserve the target pointer signature; this shared binder fix alone does not provide
 native emission or grant ownership, bounds, alignment or lifetime validity.
+
+
+### Constrained pointer wrappers and native operations (2026-10-21)
+
+The portable/native layer lowers raw pointer equality and pointer-to-pointer casts
+only with explicit pointer capabilities. Existing special-constraint admission now
+also applies to value types; metadata retains the struct constraint. There is no
+Ptr-specific type-system rule. The SDK validates matching pointer operands for
+Ceq and pointer source/destination for PointerCast. Native output uses ptr.cast;
+the temporary CLI projection uses conv.u, retaining PTR/VAR/MVAR signatures.
+All 42 focused pointer semantic, .NET execution and portable tests pass. The source
+probe wraps NativeMemory storage and compiles equality/casts; execution qualification
+belongs to neoCLR's built-in native-pointer suite. Runtime Contract configuration
+is unchanged. Pointer arithmetic, broader native layouts and scoped borrowing remain
+open; no cast or equality operation grants ownership or extends lifetime.

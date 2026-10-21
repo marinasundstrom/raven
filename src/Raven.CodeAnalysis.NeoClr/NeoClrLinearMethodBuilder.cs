@@ -45,6 +45,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
                 method.IsNull(); method.Emit(OpCode.Ldc_Bool, false); method.Emit(OpCode.Ceq); break;
             case LinearInstructionKind.UnboxAny: method.UnboxAny(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.BoxToObject: method.Box(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
+            case LinearInstructionKind.PointerCast: method.Emit(OpCode.PointerCast, NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.ReferenceConvert: method.CastReference(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.LoadCapture:
             case LinearInstructionKind.FunctionBind: emitCall(instruction, method); break;

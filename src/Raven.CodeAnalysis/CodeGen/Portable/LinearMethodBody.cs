@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt, PointerCast }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -2031,6 +2031,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     conversion.Type.SpecialType == SpecialType.System_Int32 && conversion.Expression.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: conversion.Expression.Type)); return true;
+                case BoundConversionExpression conversion when !conversion.IsIdentity && !conversion.IsUserDefined && conversion.Conversion.Exists &&
+                    conversion.Expression.Type is IPointerTypeSymbol && conversion.Type is IPointerTypeSymbol &&
+                    TryType(conversion.Expression.Type, false, out var sourcePointer) &&
+                    TryType(conversion.Type, false, out var targetPointer) &&
+                    capabilities?.Allows(sourcePointer) == true && capabilities.Allows(targetPointer) &&
+                    capabilities.Allows(LinearInstructionKind.PointerCast):
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
+                    instructions.Add(new(LinearInstructionKind.PointerCast, Syntax(expression), Type: conversion.Type));
+                    return true;
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
@@ -2091,6 +2100,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(reference)) return false;
                     Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
                     if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
+                    return true;
+                case BoundBinaryExpression pointerComparison when pointerComparison.Operator.MethodSymbol is null &&
+                    pointerComparison.Left.Type is IPointerTypeSymbol && pointerComparison.Right.Type is IPointerTypeSymbol &&
+                    pointerComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
+                    TryType(pointerComparison.Left.Type, false, out var leftPointer) &&
+                    TryType(pointerComparison.Right.Type, false, out var rightPointer) &&
+                    capabilities?.Allows(leftPointer) == true && capabilities.Allows(rightPointer) &&
+                    capabilities.Allows(LinearInstructionKind.Equal):
+                    if (!LowerValue(pointerComparison.Left) || !LowerValue(pointerComparison.Right)) return false;
+                    Add(LinearInstructionKind.Equal, Syntax(expression));
+                    if (pointerComparison.Operator.OperatorKind == OperatorKind.Inequality)
+                        Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression enumBits when capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
                     enumBits.Operator.MethodSymbol is null && enumBits.Operator.OperatorKind is OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor &&
