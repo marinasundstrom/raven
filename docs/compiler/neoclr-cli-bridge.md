@@ -15882,3 +15882,11 @@ Imported top-level generic structs now share class special-constraint admission.
 The matching SDK registers category requirements on symbol-authored value owners;
 Ptr<int> and constrained generic forwarding execute in all three built-in pointer
 tests, while SDK tests reject a reference-type argument. No ABI encoding changes.
+### Character keyword capability (2026-10-21)
+
+ParseOptions.EnableCharKeyword defaults to true. Alternate target drivers may disable
+it so char is an ordinary identifier, with no predefined type syntax. Snapshot and
+option-equivalence handling preserve this semantic input. Three focused parser
+tests cover both settings and a char binding. The default .NET contract and literal
+syntax are unchanged. Runtime Character mapping and editor selection require
+separate native-target integration; this parser capability alone does not rename a type.

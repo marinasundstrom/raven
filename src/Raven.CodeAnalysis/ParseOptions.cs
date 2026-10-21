@@ -29,6 +29,9 @@ public class ParseOptions
         DocumentationFormat = documentationFormat;
     }
 
+    /// <summary>Whether char is a predefined type keyword. Alternate runtime targets may disable the alias.</summary>
+    public bool EnableCharKeyword { get; init; } = true;
+
     public bool DocumentationMode { get; init; }
 
     public DocumentationFormat DocumentationFormat { get; init; }
@@ -57,6 +60,7 @@ public class ParseOptions
             preprocessorSymbolNames,
             DocumentationFormat)
         {
+            EnableCharKeyword = EnableCharKeyword,
             ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
         };
 
@@ -69,11 +73,13 @@ public class ParseOptions
             PreprocessorSymbolNames,
             DocumentationFormat)
         {
+            EnableCharKeyword = EnableCharKeyword,
             ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
         };
 
     internal bool IsEquivalentTo(ParseOptions other)
-        => DocumentationMode == other.DocumentationMode &&
+        => EnableCharKeyword == other.EnableCharKeyword &&
+           DocumentationMode == other.DocumentationMode &&
            DocumentationFormat == other.DocumentationFormat &&
            Kind == other.Kind &&
            ThrowOnIncrementalParseFallback == other.ThrowOnIncrementalParseFallback &&
