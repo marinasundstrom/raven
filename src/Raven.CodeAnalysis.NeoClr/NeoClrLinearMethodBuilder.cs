@@ -29,7 +29,14 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.NewTuple: method.NewTuple(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.StoreTupleElement: method.StoreTupleElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter), instruction.Integer); break;
             case LinearInstructionKind.LoadTupleElement: method.LoadTupleElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter), instruction.Integer); break;
-            case LinearInstructionKind.LoadTypeToken: method.LoadTypeToken(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
+            case LinearInstructionKind.LoadTypeToken:
+                var token = NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter);
+                if (instruction.Type is INamedTypeSymbol { Arity: > 0 } named &&
+                    (named.IsUnboundGenericType || ReferenceEquals(named, named.OriginalDefinition)))
+                    method.LoadTypeDefinitionToken(token);
+                else
+                    method.LoadTypeToken(token);
+                break;
             case LinearInstructionKind.EnumFromInt32: method.ConvertToEnum(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.EnumToInt32: method.ConvertFromEnum(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter)); break;
             case LinearInstructionKind.ReferenceIsNull: method.IsNull(); break;

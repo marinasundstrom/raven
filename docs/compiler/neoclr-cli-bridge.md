@@ -15695,3 +15695,28 @@ needed. Nine focused prepared-expression/index tests pass; the regression failed
 with the prior value-block diagnostic. neoCLR DI's direct argument-array filling
 provides consuming success/error propagation coverage. Async suspension across
 an array assignment is not independently qualified by this increment.
+
+### Generic declaration tokens and localization DI (2026-10-21, development)
+
+Native `typeof(Foo<>)` is a declaration identity, while `typeof(Foo<T>)` is a
+constructed signature containing its actual arguments. The native linear emitter
+uses the metadata SDK's `LoadTypeDefinitionToken` for the former. Both encode the
+existing ldtoken operation; no caller-scoped type parameters are synthesized for
+an unbound definition. CLI output uses ordinary TypeDef/TypeRef tokens. Storage
+verification still rejects bare generic definitions.
+
+Runtime Contract selection is unchanged (`NeoCLR` native metadata output); the
+.NET emitter is unchanged. Shared runtime identity supports GetGenericTypeDefinition
+and bounded MakeGenericType; native executable constructor retention remains
+explicit. Open generic implementation roots can retain observed closed service
+views; this does not grant arbitrary runtime specialization or method invocation.
+The SDK, native emitter, runtime and codegen must be built together. The built-in
+neoCLR type-relations, dependency-injection and localization suites are the
+integration checks; qualification is still in progress.
+
+Compiler validation: all five existing .NET TypeOfExpressionCodeGenTests pass.
+The matching neoCLR built-in type-relations suite passes all six tests in the
+interpreter and native backend, including definition literals, exact declaration
+identity and MakeGenericType. All 21 DI interpreter cases pass. JIT/localization
+qualification remains in progress. Regression sources are in neoCLR's
+runtime/raven/tests/type-relations and dependency-injection directories.

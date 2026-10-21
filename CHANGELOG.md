@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Native neoCLR emission distinguishes unbound generic declaration tokens from constructed generic signatures, using the matching metadata SDK definition-token API. Ordinary .NET emission and Runtime Contract selection are unchanged; the five .NET typeof controls pass, along with six built-in neoCLR reflection tests in interpreter/native execution and 21 DI interpreter tests. JIT and localization qualification continue.
+
 - **2026-10-21:** Spill evaluated array receiver/index operands before lowering an assignment value at a statement boundary, allowing Result propagation to return with an empty native operand stack. Preserve evaluation order and existing nested-expression restrictions; nine focused prepared-expression/index tests pass. Ordinary .NET emission, metadata and ABI are unchanged.
 
 - **2026-10-21:** Substitute explicit generic extension arguments throughout native structural function signatures, including lambda return types. Block-bodied typed factories now receive the same contextual result type as expression-bodied factories and ordinary .NET delegates. All 11 focused structural-function tests pass; no Runtime Contract, metadata or ABI change.
