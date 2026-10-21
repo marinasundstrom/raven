@@ -15458,3 +15458,19 @@ arguments reject with RAV0320. The refreshed native/CLI API snapshots and 5,036-
 website pass; see neoCLR `docs/experiments/enum-parsing/constraint-validation-20261021.json`.
 This closes the enum method-category integration gap; SDK/platform/performance
 qualification and broader record display remain separate.
+
+### Imported value record display (2026-10-21)
+
+Raven's native adapter now selects a declared public concrete parameterless
+String-returning ToString for imported value components and emits a direct value
+receiver call. Existing component equality admission is unchanged. This reuses
+normal display contracts, like .NET record display; Raven's existing quoted text
+syntax remains. No Runtime Contract configuration, CLI signature, native metadata
+encoding or ABI changes. Raven owns admission/body generation; neoCLR owns execution
+and the selected value's implementation. The temporary backend projection retains
+the same ordinary method/receiver contracts; native replacement must preserve those.
+Ref-like values and inherited Object fallback are excluded. Component result strings
+and builder storage still allocate; no performance claim is made. Generic owners,
+enum/floating components and record classes remain gaps. The built-in three-engine
+suite and compiler missing-helper rejection are recorded in neoCLR's
+`docs/experiments/record-formatting/README.md` with exact artifact hashes.

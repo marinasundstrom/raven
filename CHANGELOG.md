@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Native record formatting now reuses declared public imported-value ToString contracts through direct value receiver calls. Share admission/emission selection and qualify Index/Range, nested records and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET synthesis change; broader record formatting remains bounded.
+
 - **2026-10-21:** Enable ordinary method reference/value/constructor constraints and nongeneric nominal class bounds in the native adapter through explicit capabilities. Share type/method flag mapping; preserve constraints on native semantic import and emission, including separate-provider forwarding and static class methods. Use the matching neoCLR SDK nominal-bound contract. Ordinary .NET emission and Runtime Contract configuration are unchanged; the matching enum API now uses struct constraints and passes 18 built-in interpreter/JIT/native executions plus reference/unconstrained rejection and website checks. Matched-package qualification remains open.
 
 - **2026-10-21:** Document native enum Unicode metadata-name support through the matching neoCLR metadata library, preserving ordinary Raven identifier binding and UTF-8 names without new Runtime Contract mappings. Record completed native source-library/12-execution qualification for returned-out-call forwarding and 18 built-in executions for shared Unicode metadata naming in neoCLR 081b399f4, including slots, properties and generic parameters. Document the neoCLR shared method-category metadata prerequisite and its standard CLI flags; native Raven method emission/import and nominal class bounds remain separate work.

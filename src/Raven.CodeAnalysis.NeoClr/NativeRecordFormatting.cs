@@ -95,7 +95,7 @@ internal static class NativeRecordFormatting
                 output.Add(Append(new BoundIfExpression(value, Literal("True"), Literal("False"))));
             else
             {
-                var formatter = type.GetMembers("ToString").OfType<IMethodSymbol>().Single(m => !m.IsStatic && m.Parameters.IsEmpty);
+                var formatter = Formatter(type)!;
                 var formatted = new BoundInvocationExpression(formatter, [], value, requiresReceiverAddress: true);
                 if (type.SpecialType == SpecialType.System_Char)
                     Quoted(formatted, "'", output);
@@ -121,6 +121,17 @@ internal static class NativeRecordFormatting
             PreparedBody: Lowerer.LowerBlock(method, new BoundBlockStatement(statements)));
     }
 
+    // Use a declared public contract, never an inherited Object fallback or private layout.
+    private static IMethodSymbol? Formatter(ITypeSymbol type)
+    {
+        var methods = type.GetMembers("ToString").OfType<IMethodSymbol>().Where(m =>
+            !m.IsStatic && !m.IsAbstract && !m.IsGenericMethod && m.Parameters.IsEmpty &&
+            m.DeclaredAccessibility == Accessibility.Public &&
+            m.ReturnType.SpecialType == SpecialType.System_String &&
+            SymbolEqualityComparer.Default.Equals(m.ContainingType, type)).Take(2).ToArray();
+        return methods.Length == 1 ? methods[0] : null;
+    }
+
     private static bool Supported(ITypeSymbol type, HashSet<ITypeSymbol> path)
     {
         type = type.GetNonNullableType();
@@ -144,8 +155,8 @@ internal static class NativeRecordFormatting
         }
         if (type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean)
             return true;
-        return type.SpecialType is (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Char) &&
-            type.GetMembers("ToString").OfType<IMethodSymbol>().Count(m => !m.IsStatic && m.Parameters.IsEmpty &&
-                m.ReturnType.SpecialType == SpecialType.System_String) == 1;
+        return (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Char ||
+            type is INamedTypeSymbol { OriginalDefinition: NativeNamedTypeSymbol, IsValueType: true, IsRefLikeType: false, SpecialType: SpecialType.None }) &&
+            Formatter(type) is not null;
     }
 }
