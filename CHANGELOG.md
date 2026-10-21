@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Traverse object construction, initializer entries and union-case payload arguments in the shared bound-tree walker so lambda capture analysis retains outer locals used inside construction, including conversions and nested expressions/calls. Add semantic and emitted .NET regressions. No Runtime Contract, metadata or closure ABI change.
+
 - **2026-10-21:** Admit imported generic instance methods in native callable selection when AllowsGenericInstanceMethods is enabled. Preserve ordinary signature/owner checks; use the matching neoCLR metadata SDK's consumer-scoped generic receiver support. No general .NET semantics, Runtime Contract configuration or metadata encoding change. Localization Load<T> provides consuming coverage.
 
 - **2026-10-21:** Carry general positional semantics from main d39ef018a as f5daaaea1 and extend native lowering to reference/base/object narrowing, inherited deconstruction receivers and runtime Object equality patterns. Reuse existing nominal calls, conversions and unboxing; value equality patterns currently box. No Runtime Contract, ABI or CLI encoding change. Qualify all four built-in neoCLR deconstruction tests under native, JIT and interpreter (12 executions), including production Money/Currency; outer whole-pattern captures remain bounded.

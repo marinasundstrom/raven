@@ -15650,3 +15650,16 @@ with 11 .NET extension-indexer tests passing on main. neoCLR localization tests
 exercise imported Load<T>, formatted extension indexers, array packing and fixed
 overloads against the matching SDK/runtime libraries. See neoCLR's
 `docs/experiments/localization/README.md` for native validation results.
+
+### Construction payload capture traversal (2026-10-21)
+
+A shared bound-tree traversal fix visits ordinary construction arguments,
+initializer entries and union-case payloads when discovering lambda captures.
+This is a general Raven fix: outer locals inside `Some<object>(value)` must be
+captured on .NET as well as neoCLR. The native emitter's undeclared-local error
+exposed the missing traversal; no target-specific capture exception is added.
+Runtime Contract configuration, CLI bridge representation, metadata and closure
+ABI remain unchanged. The existing native captured-value support limits still
+apply. Focused .NET tests check semantic capture identity and emitted execution;
+the neoCLR DI activation consumer independently validates the native branch carry.
+Native metadata/backend work does not replace this shared semantic requirement.

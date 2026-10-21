@@ -214,6 +214,39 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(arg);
     }
 
+    public override void VisitObjectCreationExpression(BoundObjectCreationExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
+        foreach (var argument in node.Arguments)
+            VisitExpression(argument);
+        if (node.Initializer is not null)
+            VisitObjectInitializer(node.Initializer);
+    }
+
+    public override void VisitObjectInitializer(BoundObjectInitializer node)
+    {
+        foreach (var entry in node.Entries)
+        {
+            if (entry is BoundObjectInitializerAssignmentEntry assignment)
+                VisitObjectInitializerAssignmentEntry(assignment);
+            else if (entry is BoundObjectInitializerExpressionEntry expression)
+                VisitObjectInitializerExpressionEntry(expression);
+        }
+    }
+
+    public override void VisitObjectInitializerAssignmentEntry(BoundObjectInitializerAssignmentEntry node)
+        => VisitExpression(node.Value);
+
+    public override void VisitObjectInitializerExpressionEntry(BoundObjectInitializerExpressionEntry node)
+        => VisitExpression(node.Expression);
+
+    public override void VisitUnionCaseExpression(BoundUnionCaseExpression node)
+    {
+        foreach (var argument in node.Arguments)
+            VisitExpression(argument);
+    }
+
     public override void VisitAwaitExpression(BoundAwaitExpression node)
     {
         VisitExpression(node.Expression);
