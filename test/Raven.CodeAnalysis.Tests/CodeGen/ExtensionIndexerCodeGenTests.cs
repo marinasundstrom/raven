@@ -8,6 +8,33 @@ namespace Raven.CodeAnalysis.Tests;
 public class ExtensionIndexerCodeGenTests
 {
     [Fact]
+    public void ParamsExtensionIndexer_ExpandedAndArrayForms_EmitAndRun()
+    {
+        const string source = """
+import System.*
+extension Formatting for string {
+    val self[key: string, params values: object?[]]: string => String.Format(key, values)
+    val self[key: string, value: object?]: string => "fixed"
+}
+class Harness {
+    public static func Run() -> string {
+        let receiver = ""
+        let supplied: object?[] = ["A", "B"]
+        return receiver["{0}/{1}", "A", "B"] + ":" + receiver["{0}/{1}", supplied] + ":" + receiver["{0}", "A"] + ":" + receiver["literal"]
+    }
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("ParamsIndexers", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(references);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        Assert.Equal("A/B:A/B:fixed:literal", loaded.Assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
     public void GenericExtensionIndexer_ReadWrite_EmitsAndRuns()
     {
         const string source = """
