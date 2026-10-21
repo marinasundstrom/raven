@@ -188,7 +188,7 @@ internal static partial class SynthesizedMethodBodyFactory
             method.Parameters.Length == 1 &&
             method.ReturnType.SpecialType == SpecialType.System_Boolean &&
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
-            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true, IsValueType: false } equalsRecordType)
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } equalsRecordType)
         {
             if (method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object)
             {

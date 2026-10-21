@@ -11,6 +11,139 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class PositionalPatternCodeGenTests
 {
+    [Fact]
+    public void RecordStructEqualityHandlesTypedBoxedNullAndWrongType()
+    {
+        const string code = """
+            import System.*
+            record struct Value(Number: int)
+            func Main() {
+                let value = Value(42)
+                Console.WriteLine(value.Equals(Value(42)))
+                Console.WriteLine(value.Equals(Value(43)))
+                let boxed: object = value
+                Console.WriteLine(boxed.Equals(Value(42)))
+                Console.WriteLine(boxed.Equals(Value(43)))
+                Console.WriteLine(boxed.Equals(null))
+                Console.WriteLine(boxed.Equals(42))
+            }
+            """;
+        Assert.Equal("True\nFalse\nTrue\nFalse\nFalse\nFalse", CompileAndRun(code, "record_struct_equality"));
+    }
+
+    [Theory]
+    [InlineData("record struct")]
+    [InlineData("record class")]
+    public void NamedAndUnnamedPatternsHandleObjectAndNull(string kind)
+    {
+        var code = $$"""
+            import System.*
+            {{kind}} Pair(First: int, Second: int)
+            func Named(value: object?) -> int {
+                let Pair(first, 2) = value else { return -1 }
+                return first
+            }
+            func Unnamed(value: Pair) -> int {
+                let (first, 2) = value else { return -1 }
+                return first
+            }
+            func Main() {
+                let value = Pair(42, 2)
+                let Pair(first, second) = value
+                let (a, b) = value
+                Console.WriteLine(first + second == a + b)
+                Console.WriteLine(Named(value))
+                Console.WriteLine(Named(Pair(42, 3)))
+                Console.WriteLine(Named("wrong"))
+                Console.WriteLine(Named(null))
+                Console.WriteLine(Unnamed(value))
+                Console.WriteLine(Unnamed(Pair(42, 3)))
+            }
+            """;
+        Assert.Equal("True\n42\n-1\n-1\n-1\n42\n-1", CompileAndRun(code, "positional_pattern_matrix"));
+    }
+
+    [Fact]
+    public void DerivedPatternsNarrowBaseAndObjectBeforeInheritedDeconstruction()
+    {
+        const string code = """
+            import System.*
+            open class Parent {
+                func Deconstruct(out first: int, out second: int) {
+                    first = 40
+                    second = 2
+                }
+            }
+            class Child : Parent {}
+            func Read(value: Parent) -> int {
+                let Child(first, second) = value else { return -1 }
+                return first + second
+            }
+            func ReadObject(value: object?) -> int {
+                let Child(first, second) = value else { return -1 }
+                return first + second
+            }
+            func Main() {
+                let child = Child()
+                let Child(first, second) = child
+                let (a, b) = child
+                Console.WriteLine(first + second == a + b)
+                Console.WriteLine(Read(child))
+                Console.WriteLine(Read(Parent()))
+                Console.WriteLine(ReadObject(child))
+                Console.WriteLine(ReadObject(Parent()))
+                Console.WriteLine(ReadObject(null))
+            }
+            """;
+        Assert.Equal("True\n42\n-1\n42\n-1\n-1", CompileAndRun(code, "derived_positional_patterns"));
+    }
+
+    [Fact]
+    public void QualifiedReadonlyValuePatternEvaluatesOnceAndCanFail()
+    {
+        const string code = """
+            import System.*
+            record struct Currency(Code: int) {
+                static var Reads: int = 0
+                static val SEK: Currency {
+                    get {
+                        Reads += 1
+                        return Currency(1)
+                    }
+                }
+            }
+            record struct Money(Amount: decimal, Currency: Currency)
+            func Read(money: Money) -> decimal {
+                let Money(amount, Currency.SEK) = money else { return -1m }
+                return amount
+            }
+            func Main() {
+                Console.WriteLine(Read(Money(12m, Currency(1))))
+                Console.WriteLine(Read(Money(12m, Currency(2))))
+                Console.WriteLine(Currency.Reads)
+            }
+            """;
+        Assert.Equal("12\n-1\n2", CompileAndRun(code, "qualified_readonly_value_pattern"));
+    }
+
+    [Fact]
+    public void NamedAndTupleRecordDeclarationsPreserveValues()
+    {
+        const string code = """
+            import System.*
+            record struct Money(Amount: decimal, Currency: int)
+            func Main() {
+                let money = Money(12.50m, 1)
+                let Money(amount, currency) = money
+                let (otherAmount, otherCurrency) = money
+                Console.WriteLine(amount == otherAmount && currency == otherCurrency)
+                let Money(matched, 1) = money else { return }
+                Console.WriteLine(matched == 12.50m)
+            }
+            """;
+        Assert.Equal("True\nTrue", CompileAndRun(code, "named_record_declarations"));
+    }
+
     [Theory]
     [InlineData("struct")]
     [InlineData("ref struct")]

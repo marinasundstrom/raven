@@ -1061,6 +1061,10 @@
     Title="Parameter pattern context is not supported"
     Message="Parameter patterns are not supported {context}."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1620" Identifier="RefutableDeclarationPatternRequiresElse"
+    Title="Refutable declaration pattern requires else"
+    Message="This declaration pattern can fail; add an else clause that exits the current control-flow region"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"
