@@ -1510,6 +1510,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false)
         {
+            if (capabilities?.AllowsDecimalValueContracts == true &&
+                DecimalValueContracts.Rewrite(model.Compilation, expression) is { } rewrittenDecimal)
+                return LowerValue(rewrittenDecimal, nullTarget, atStatementBoundary);
             if (nullTarget is not null && IsNullLiteral(expression)) return LowerTypedNull(nullTarget, Syntax(expression));
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
                 return Reject("target does not support value type " + valueType, Syntax(expression));

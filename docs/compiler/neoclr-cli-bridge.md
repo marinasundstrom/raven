@@ -15552,3 +15552,23 @@ A separate .NET 11 framework lookup issue was observed: qualified Double.NaN,
 Single.PositiveInfinity and Int32.MinValue can select inaccessible properties
 instead of public fields. The independent imported-literal regression isolates
 constant evaluation; framework member selection remains a general-main follow-up.
+
+### Decimal library value lowering (2026-10-21, development)
+
+The native portable target opts into `AllowsDecimalValueContracts`. Decimal literals
+use the declared five-argument coefficient/sign/scale constructor; built-in decimal
+operators and integral-to-decimal conversions call matching public library methods.
+This follows the ordinary CLI emitter's method-based decimal semantics. Decimal
+remains a nominal struct in native metadata and uses the existing value ABI; there
+is no decimal opcode or new numeric interface. The ordinary .NET emitter and
+Runtime Contract configuration are unchanged. This target-only pipeline is absent
+on Raven main and is not a candidate for a whole-branch merge.
+
+The library supplies arithmetic, equality, hashing, formatting and parsing. This
+increment supports integral inputs and G/F/N text contracts; floating conversions,
+integral extraction and decimal constant-field metadata remain gaps. The temporary
+CLI documentation scaffold does not project Decimal; the native reference is its
+member authority. Validation uses neoCLR's built-in Decimal suite, including
+literal/implicit conversion, boxing and .NET-generated arithmetic boundary vectors.
+A future backend can optimize these declared calls without changing the source
+contract or replacing the nominal metadata representation.

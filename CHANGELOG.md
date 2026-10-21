@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Add native Decimal value-contract lowering: literals call the coefficient constructor, decimal operators call declared library methods, and integral conversions call implicit operators. Gate this target-only portable behavior with an explicit capability; ordinary .NET emission and Runtime Contract options are unchanged. Qualify through neoCLR built-in Decimal tests; floating conversions and decimal constant-field metadata remain gaps.
+
 - **2026-10-21:** Native type constants now emit/import Int32, Single and Double, including exact NaN/infinity/negative-zero values through the matching metadata SDK. Add Single constant loading and temporary value receivers for literal-field instance calls to the native branch portable pipeline (absent on main). Carry main 13f34e357 for qualified imported constant evaluation. Qualify with neoCLR constant/classification and record tests; the shared evaluator fix also applies to ordinary .NET. No Runtime Contract switch; matching native readers required.
 
 - **2026-10-21:** Admit native Single/Double record components using existing typed primitive Equals/ToString and Object hashing. Preserve NaN and signed-zero value semantics, documenting hash boxing. Qualify via neoCLR built-in record tests; no Runtime Contract, metadata or ordinary .NET behavior changes.
