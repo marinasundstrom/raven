@@ -165,7 +165,8 @@ internal static class NativeRecordFormatting
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } ||
             type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean)
             return true;
-        return (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Char ||
+        return (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Char or
+            SpecialType.System_Single or SpecialType.System_Double ||
             type is INamedTypeSymbol { OriginalDefinition: NativeNamedTypeSymbol, IsValueType: true, IsRefLikeType: false, SpecialType: SpecialType.None }) &&
             Formatter(type) is not null;
     }

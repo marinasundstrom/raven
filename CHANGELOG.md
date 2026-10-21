@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Admit native Single/Double record components using existing typed primitive Equals/ToString and Object hashing. Preserve NaN and signed-zero value semantics, documenting hash boxing. Qualify via neoCLR built-in record tests; no Runtime Contract, metadata or ordinary .NET behavior changes.
+
 - **2026-10-21:** Native record display now formats Int32-backed enum components through ordinary boxed Object.ToString, reusing runtime names/flags/numeric fallback. Document the temporary box cost and qualify local/imported enum and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET behavior changes.
 
 - **2026-10-21:** Native record formatting now reuses declared public imported-value ToString contracts through direct value receiver calls. Share admission/emission selection and qualify Index/Range, nested records and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET synthesis change; broader record formatting remains bounded.

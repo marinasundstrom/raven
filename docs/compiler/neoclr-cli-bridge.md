@@ -15490,3 +15490,20 @@ The neoCLR built-in record-formatting suite covers local/imported enum component
 union payloads, names/flags/numbers and boxed record dispatch across all three engines;
 evidence lives in `docs/experiments/record-formatting/enum-validation-20261021.json`.
 Floating components, generic owners and record classes remain outside this increment.
+
+### Floating record components (2026-10-21)
+
+Native record synthesis admits Single/Double components using existing typed Equals
+and ToString, and the ordinary Object hash fallback. Raven owns component admission;
+neoCLR's primitive/runtime contracts own NaN/signed-zero equality and matching hashes,
+and invariant floating text. This matches .NET record component value semantics;
+primitive floating operators keep IEEE behavior. No new Runtime Contract configuration,
+CLI signature, metadata encoding or ABI. Ordinary .NET generation is unchanged.
+The temporary native backend projection preserves concrete receiver calls and existing
+Object boxing/dispatch; native replacement must retain these contracts. Equality/display
+add no component boxes, but hashing currently boxes each floating component, and
+explicit record Object/interface conversions box. No performance improvement is claimed.
+The neoCLR built-in suite exercises both widths, NaNs/zeros/infinities/defaults, nested
+records/unions, boxed/interface calls, hashes and text; evidence is recorded in
+`docs/experiments/record-formatting/floating-validation-20261021.json`. Generic record
+display, record classes and matched release-package validation remain separate gaps.

@@ -288,7 +288,8 @@ internal static class NativeRecordBodies
                 SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, equatable));
         }
         return component.SpecialType is SpecialType.System_Boolean or SpecialType.System_Int32 or
-            SpecialType.System_Int64 or SpecialType.System_Char || component.TypeKind == TypeKind.Enum;
+            SpecialType.System_Int64 or SpecialType.System_Char or SpecialType.System_Single or
+            SpecialType.System_Double || component.TypeKind == TypeKind.Enum;
     }
 
     // Reuse an explicit imported self-equality contract; do not infer a record
