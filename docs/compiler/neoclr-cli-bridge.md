@@ -15448,3 +15448,13 @@ static class methods and rejects incompatible/unconstrained arguments with RAV03
 SDK and backend coverage is recorded in neoCLR's release-readiness review. Constructed
 class bounds, existing inheritance reference-projection limits and package
 qualification remain separate. Guest Enum constraints are not changed by this slice.
+
+
+The matching enum API integration now rebuilds all four core libraries with this
+compiler and uses struct constraints on Parse/TryParse, matching .NET while retaining
+runtime enum-identity validation. Six built-in tests pass in interpreter/JIT/native
+(18 executions), including generic forwarding. Reference and unconstrained type
+arguments reject with RAV0320. The refreshed native/CLI API snapshots and 5,036-page
+website pass; see neoCLR `docs/experiments/enum-parsing/constraint-validation-20261021.json`.
+This closes the enum method-category integration gap; SDK/platform/performance
+qualification and broader record display remain separate.
