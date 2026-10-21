@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-21:** Carry shared record copy-constructor collision diagnostic from main 8eca1f07d: RAV0111 rejects single self-typed primary constructors, including nullable/generic spellings, before metadata emission. Nullable annotations no longer produce duplicate copy signatures. Runtime Contract and ABI are unchanged.
+
 - **2026-10-21:** Emit native positional record display for type-parameter components and record classes directly based on Object. Preserve Raven text quoting, null and Unicode through ordinary Object dispatch for generic components; use reference getter receivers and null-safe virtual display for nested class components. Known value components retain direct formatting. Generic values box once and nested generic/class output can allocate intermediate strings. Runtime Contract, metadata ABI and ordinary .NET synthesis are unchanged. All 12 built-in neoCLR record-formatting tests pass in interpreter/native/JIT execution (36 executions), superseding the earlier ten-test generic cohort. Recursive display retains its targeted diagnostic; inherited/recursive display and the self-typed primary/copy-constructor collision remain gaps.
 
 - **2026-10-21:** Native neoCLR emission distinguishes unbound generic declaration tokens from constructed generic signatures, using the matching metadata SDK definition-token API. Ordinary .NET emission and Runtime Contract selection are unchanged; the five .NET typeof controls pass, along with six built-in neoCLR reflection tests in interpreter/native execution and 21 DI interpreter tests. JIT and localization qualification continue.

@@ -6789,6 +6789,15 @@ public partial class SemanticModel
 
         constructorSymbol.SetParameters(parameters);
 
+        // Nullable reference annotations do not distinguish constructor signatures.
+        // A positional self parameter would replace the record copy operation.
+        if (isRecord && classSymbol.IsReferenceType && parameters.Count == 1 &&
+            SymbolEqualityComparer.Default.Equals(parameters[0].Type.GetNonNullableType(), classSymbol))
+        {
+            classBinder.Diagnostics.ReportTypeAlreadyDefinesMember(
+                classSymbol.Name, ".ctor", classDecl.ParameterList!.GetLocation());
+        }
+
         if (recordProperties is not null)
             classSymbol.SetRecordProperties(recordProperties.ToImmutable());
 
@@ -7453,7 +7462,7 @@ public partial class SemanticModel
             if (constructor.Parameters.Length != 1)
                 continue;
 
-            if (SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, typeSymbol))
+            if (SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type.GetNonNullableType(), typeSymbol))
                 return true;
         }
 

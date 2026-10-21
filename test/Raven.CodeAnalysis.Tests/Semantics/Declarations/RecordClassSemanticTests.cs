@@ -70,6 +70,29 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
+    [Theory]
+    [InlineData("record Node(Next: Node)")]
+    [InlineData("record Node(Next: Node?)")]
+    [InlineData("record Node<T>(Next: Node<T>)")]
+    [InlineData("record Node<T>(Next: Node<T>?)")]
+    public void SelfTypedPrimaryConstructor_ReportsCopySignatureCollision(string source)
+    {
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Equal("RAV0111", diagnostic.Id);
+        Assert.Contains(".ctor", diagnostic.GetMessage());
+        using var output = new System.IO.MemoryStream();
+        Assert.False(compilation.Emit(output).Success);
+    }
+
+    [Fact]
+    public void RecursiveRecordWithDistinctConstructorSignature_RemainsValid()
+    {
+        var (compilation, _) = CreateCompilation("record Node(Name: string, Next: Node?)");
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void RecordClassPrimaryConstructorCreatesPropertiesAndValueMembers()
     {
