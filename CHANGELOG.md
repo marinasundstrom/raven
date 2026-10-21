@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
-- **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Three focused parsing tests pass. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly.
+- **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly.
 
 - **2026-10-21:** Classify explicit unmanaged pointer reinterpretation and implicit pointer-to-void erasure through ordinary pointer conversions. Address bits are preserved; no ownership, bounds or lifetime is acquired. All 35 focused pointer semantic/codegen tests pass, including execution through void and byte pointer casts.
 

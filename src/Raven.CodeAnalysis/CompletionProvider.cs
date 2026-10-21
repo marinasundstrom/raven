@@ -725,7 +725,7 @@ public static class CompletionProvider
             return new TextSpan(position, 0);
         }
 
-        static string EscapeIdentifierForInsertion(string identifier)
+        string EscapeIdentifierForInsertion(string identifier)
         {
             if (string.IsNullOrEmpty(identifier))
                 return identifier;
@@ -733,7 +733,8 @@ public static class CompletionProvider
             if (identifier[0] == '@')
                 return identifier;
 
-            return SyntaxFacts.TryParseKeyword(identifier, out _)
+            return SyntaxFacts.TryParseKeyword(identifier, out var keyword) &&
+                (keyword != SyntaxKind.CharKeyword || model.SyntaxTree.Options.EnableCharKeyword)
                 ? "@" + identifier
                 : identifier;
         }

@@ -24,4 +24,14 @@ public class CharacterKeywordTests
         Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         Assert.Equal(SyntaxKind.IdentifierToken, tree.GetRoot().DescendantTokens().Single(t => t.Text == "char").Kind);
     }
+    [Fact]
+    public void DisabledKeywordCompletionDoesNotEscapeTheIdentifier()
+    {
+        var tree = SyntaxTree.ParseText("let char = 42\nch", options: new ParseOptions { EnableCharKeyword = false });
+        var compilation = Compilation.Create("CharacterCompletion", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var completions = new CompletionService().GetCompletions(compilation, tree, tree.GetText().Length);
+        Assert.Contains(completions, item => item.InsertionText == "char");
+        Assert.DoesNotContain(completions, item => item.InsertionText == "@char");
+    }
 }
