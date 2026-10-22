@@ -1,6 +1,6 @@
 {
   "msbuild-sdks": {
-    "Raven.Sdk": "0.1.14",
-    "Raven.Sdk.Web": "0.1.14"
+    "Raven.Sdk": "0.1.15",
+    "Raven.Sdk.Web": "0.1.15"
   }
 }

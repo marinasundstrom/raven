@@ -1,8 +1,34 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
+Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
 
 ## Unreleased
+
+### Breaking changes
+
+- None recorded.
+
+## 0.1.15 - 2026-10-22
+
+### Breaking changes
+
+- Range endpoints are now consistent: `..` excludes the end and `..=` includes
+  it. Replace the removed `..<` spelling with `..`, and use `..=` where an
+  inclusive endpoint is intended. Sequence spreads use `...`.
+- Invalid built-in numeric constant overflow and integer/decimal division by
+  zero now produce diagnostics. Use explicit `unchecked` for intentional
+  fixed-width constant wrapping.
+- Interface variance conversions require compatible reference conversions;
+  boxing and nullable-reference narrowing are rejected.
+
+### Highlights
+
+- Add checked expressions, statement blocks, conversions and operators, plus
+  truth operators and instance compound/increment operators.
+- Improve async cleanup and capture analysis, record equality and copying,
+  positional patterns, generic unions, pointer conversions and pointer defaults.
+- Improve editor workspace reloads, inlay requests, union hovers and extension
+  API documentation.
 
 - **2026-10-22:** Preserve attributes on a field following an uninitialized field: a newline followed by an attribute list no longer becomes an array rank on the preceding type. Valid multiline array ranks still parse. The attribute/field/array group passes 49 tests.
 
@@ -322,10 +348,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 ### Fixes
 
 - RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.
-
-### Breaking changes
-
-- None recorded.
 
 ## 0.1.14 - 2026-10-07
 
