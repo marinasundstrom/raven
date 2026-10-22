@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-22:** Project NativeImport structural Function parameters to explicit native callback descriptors on the neoCLR target. Preserve unit syntax mapped to System.Void; adapt managed unit-returning Functions to C no-result callbacks through an output-owned wrapper/thunk, including generic value returns closed over unit. Ordinary .NET behavior and Runtime Contract settings are unchanged. Five built-in neoCLR interpreter tests pass with real C callbacks, captured-state GC and bound receivers; metadata SDK roundtrip/rejection checks pass. Document adapter allocations, wrapper metadata identity, and remaining retained/returned-function/JIT/AOT gaps.
+- **2026-10-22:** Project NativeImport structural Function parameters and results to explicit native callable descriptors on the neoCLR target. Preserve unit syntax mapped to System.Void; adapt managed unit-returning Functions to C no-result callbacks through an output-owned wrapper/thunk, including generic value returns closed over unit; adapt returned no-result native functions to managed unit-producing Functions. Ordinary .NET behavior and Runtime Contract settings are unchanged. Seven built-in neoCLR interpreter tests pass with real C callbacks, captured-state GC, bound receivers and returned functions passed back as callbacks; metadata SDK roundtrip/rejection checks pass. Document adapter allocations, wrapper metadata identity, and remaining retained-callback/JIT/AOT gaps.
 
 - **2026-10-22:** Document the neoCLR worker-notification and GC bridge migration to no-result calls; its completion callback remains on the legacy TaskQueue ABI. Raven compiler behavior and Runtime Contract settings are unchanged.
 
