@@ -142,7 +142,7 @@ public static class TypeSymbolNullabilityExtensions
     internal static ITypeSymbol GetDefaultValueType(this ITypeSymbol typeSymbol)
     {
         if (typeSymbol.IsNullable ||
-            typeSymbol.TypeKind is TypeKind.Error or TypeKind.Null)
+            typeSymbol.TypeKind is TypeKind.Error or TypeKind.Null or TypeKind.Pointer)
         {
             return typeSymbol;
         }

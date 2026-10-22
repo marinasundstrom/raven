@@ -4426,3 +4426,18 @@ fallback. The source core owns the exact internal TypeHandle<T> token helper thr
 its existing RuntimeTypeHandle primitive mapping. No configuration input or .NET
 behavior changes. Value boxing remains; see the descriptor-free checkpoint in the
 neoCLR bridge for ownership, validation and replacement work.
+
+
+### Unmanaged pointer default values (2026-10-22)
+
+Explicit `default(*T)` and target-typed pointer `default` retain the pointer type in
+binding and semantic queries. Pointers are neither ordinary value types nor managed
+reference types: a null native address does not require Raven nullable decoration.
+Emission produces a native-sized zero, not a managed null reference. Ordinary
+reference defaults retain their existing nullable behavior. No Runtime Contract
+option, pointer signature, ownership rule or metadata encoding changes.
+
+Focused regression coverage passes a default pointer through a void-pointer argument
+and verifies the returned address is zero under .NET, for explicit int/void pointers
+and target-typed defaults. Native target validation is recorded separately when the
+shared repair is carried; this does not add native allocation or pinning support.
