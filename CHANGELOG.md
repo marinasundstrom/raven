@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Preserve field-level MarshalAs on instance value-type fields in native metadata; retain rejection of unsupported targets. Carry main parser fix 2073ee766 so following field attributes do not become array suffixes. Fifty target parser tests and neoCLR's 23 source/native interop integration tests pass, including public layout attributes and generated Raven imports into AOT libraries. No new Runtime Contract configuration or metadata encoding; managed marshalling/by-value ABI remain separate gaps.
+
 - **2026-10-22:** Qualify Raven struct-pointer exports through neoCLR export-root selection: C11/C++17 callers preserve C-owned and null addresses through a Raven helper. Unused synthesized constructors remain verified source metadata without entering scalar code generation. All 22 native import/export tests pass; no additional compiler or Runtime Contract changes.
 
 - **2026-10-22:** Fix native value-struct pointer signature admission behind an explicit portable capability and preserve nominal pointee identity through the neoCLR mapper. Pair with the metadata SDK value-pointer encoding/import fix; source `*Point` exports now emit. Ordinary .NET behavior is unchanged; this native machinery is absent from main. Struct layout validation remains a runtime boundary, and source struct execution still needs export-root selection for synthesized constructors.

@@ -120,7 +120,7 @@ internal class NameSyntaxParser : SyntaxParser
         {
             var startPosition = Position;
 
-            if (parseArraySuffix && PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+            if (parseArraySuffix && CanParseArraySuffix())
                 name = ParseArrayTypeSuffix(name);
 
             if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
@@ -205,6 +205,11 @@ internal class NameSyntaxParser : SyntaxParser
         return left;
     }
 
+    private bool CanParseArraySuffix()
+        => PeekToken().IsKind(SyntaxKind.OpenBracketToken) &&
+            (!HasLineBreakBeforePeekToken() || PeekToken(1).Kind is
+                SyntaxKind.CloseBracketToken or SyntaxKind.CommaToken or SyntaxKind.NumericLiteralToken);
+
     private TypeSyntax ParseArrayTypeSuffix(TypeSyntax elementType)
     {
         if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
@@ -214,7 +219,7 @@ internal class NameSyntaxParser : SyntaxParser
 
         var rankSpecifiers = new List<GreenNode>();
 
-        while (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        while (CanParseArraySuffix())
         {
             var rankSpecifier = ParseArrayRankSpecifier();
 

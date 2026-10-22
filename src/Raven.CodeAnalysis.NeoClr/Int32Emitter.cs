@@ -1351,8 +1351,11 @@ internal static class Int32Emitter
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == NeoClrForeignDeclaration.AttributeName) continue;
                 if (symbol is IParameterSymbol parameter && parameter.ContainingSymbol is IMethodSymbol foreignOwner && foreignImports.ContainsKey(foreignOwner) &&
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.InteropServices.MarshalAsAttribute") continue;
-                if (attribute.AttributeClass.ToFullyQualifiedMetadataName() is NeoClrForeignDeclaration.AttributeName or "System.Runtime.InteropServices.MarshalAsAttribute")
+                if (attribute.AttributeClass.ToFullyQualifiedMetadataName() == NeoClrForeignDeclaration.AttributeName)
                     throw Unsupported("NativeImport requires a supported extern declaration");
+                if (attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.InteropServices.MarshalAsAttribute" &&
+                    symbol is not IFieldSymbol { IsStatic: false, ContainingType.IsValueType: true })
+                    throw Unsupported("MarshalAs requires a supported extern parameter/result or an instance value-type field");
                 var constructor = attribute.AttributeConstructor;
                 var arguments = attribute.ConstructorArguments.Select(Constant).ToArray();
                 var named = attribute.NamedArguments.Select(argument =>
