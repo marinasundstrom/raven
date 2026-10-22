@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Document neoCLR’s opt-in scalar JIT import probe sharing the AOT thunks and native resolver. All 15 runtime import tests and 24 scalar regressions pass, including the paired Raven AOT consumer. No Raven compiler or Runtime Contract changes; seed/core load contexts for the scalar JIT and ordinary managed JIT imports remain open.
+
 - **2026-10-22:** Lower unmanaged pointer dereference and assignment from pointer values under AllowsUnmanagedPointers instead of requiring managed-reference address lowering. Four new local/parameter regressions reproduce the old rejection; all 22 portable/.NET pointer tests pass after repair. The native AOT consumer reads and updates a C allocation with the matching metadata SDK pointer LoadObject/StoreObject validator. This portable backend is absent from main; ordinary .NET emission and Runtime Contract settings are unchanged. Document the required compiler/SDK pairing and trusted-memory limits.
 
 - **2026-10-22:** Document scalar AOT pointer equality/null and native-integer equality/zero admission in neoCLR. The existing Raven emitter now supports the backend consumer checking allocation failure before use; all 13 import tests and 24 scalar regressions pass. No compiler, Runtime Contract or .NET behavior changes; pointer ordering, pinning and managed AOT integration remain open.

@@ -16130,3 +16130,10 @@ StoreObject operations, retaining local/byref/out assignment checks and rejectin
 mismatched pointees. Both the repaired compiler and SDK are required; an older SDK
 rejects the emitted object operation before an assembly is produced. This changes
 validation admission only, not the temporary CLI representation or native encoding.
+
+Scalar JIT import follow-through (2026-10-22): the opt-in macOS ARM64 codegen probe
+now shares AOT scalar import validation, thunks and the process-owned C resolver.
+No compiler, metadata, temporary CLI representation or Runtime Contract change.
+The probe's CLI does not yet accept Raven seed/core verification inputs, so Raven
+source qualification remains AOT-only here. Ordinary managed JIT imports, pinning,
+callbacks and full cross-engine qualification remain open.
