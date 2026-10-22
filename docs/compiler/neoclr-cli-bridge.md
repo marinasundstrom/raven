@@ -16208,3 +16208,16 @@ The source fixture passes native C/C++ consumers and re-import in all three engi
 Validation uses compiler 3fc2b6d0e with metadata SDK 417e7a451 and the local
 native-export-libraries-20261022-v3 build, not a released bundle.
 Callbacks and managed library integration remain separate gaps.
+
+Raven's native emitter and metadata SDK now preserve nominal value-pointer targets.
+The compiler opts into a value-pointer capability; ordinary .NET/default portable
+profiles are unchanged. This machinery is absent from Raven main and remains on
+codex/neoclr. Existing pointer metadata is reused, with ordinary nominal identity;
+no new Runtime Contract option or lossy CLI bridge encoding is introduced.
+
+Limits: Raven source StructLayout/FieldOffset APIs and field MarshalAs admission are
+still pending, including physical attribute-owner resolution. A Raven Point pointer
+signature compiles and decodes correctly, but its synthesized constructor currently
+blocks whole-module scalar compilation. Correct export-root reachability is the next
+backend gap; constructors must not simply be deleted. No installed-SDK qualification
+or source-level struct execution is claimed by this increment.

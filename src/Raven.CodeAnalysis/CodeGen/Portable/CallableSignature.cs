@@ -33,7 +33,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Primitive: primitive); return true; }
         if (type is IPointerTypeSymbol pointer)
         {
-            if (capabilities?.AllowsUnmanagedPointers != true || !IsSupportedPointer(pointer, allowGenericTargets: capabilities.AllowsGenericPointerTargets)) return false;
+            if (capabilities?.AllowsUnmanagedPointers != true || !IsSupportedPointer(pointer, allowGenericTargets: capabilities.AllowsGenericPointerTargets, allowValueTargets: capabilities.AllowsValuePointerTargets)) return false;
             value = new(Pointer: pointer);
             return true;
         }
@@ -63,10 +63,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Array: array); return true; }
         return false;
     }
-    internal static bool IsSupportedPointer(IPointerTypeSymbol pointer, int depth = 0, bool allowGenericTargets = false) =>
+    internal static bool IsSupportedPointer(IPointerTypeSymbol pointer, int depth = 0, bool allowGenericTargets = false, bool allowValueTargets = false) =>
         depth < 16 && (pointer.PointedAtType is IPointerTypeSymbol nested
-            ? IsSupportedPointer(nested, depth + 1, allowGenericTargets)
-            : allowGenericTargets && pointer.PointedAtType is ITypeParameterSymbol || EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive) && primitive != EmissionPrimitiveType.String);
+            ? IsSupportedPointer(nested, depth + 1, allowGenericTargets, allowValueTargets)
+            : allowValueTargets && pointer.PointedAtType is INamedTypeSymbol { IsValueType: true, IsRefLikeType: false } ||
+              allowGenericTargets && pointer.PointedAtType is ITypeParameterSymbol || EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive) && primitive != EmissionPrimitiveType.String);
 
     internal static bool TryFunction(INamedTypeSymbol type, out CallableSignature signature, EmissionCapabilities capabilities, int depth = 0)
     {

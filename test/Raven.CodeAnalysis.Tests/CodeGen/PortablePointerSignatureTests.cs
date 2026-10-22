@@ -62,6 +62,28 @@ public class PortablePointerSignatureTests
     }
 
     [Fact]
+    public void ValuePointerTargetsRequireExplicitCapabilityAndPreserveIdentity()
+    {
+        var compilation = Compilation.Create("ValuePointers",
+            [SyntaxTree.ParseText("public struct Point { field X: int }\npublic class Owner {}")],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var target = compilation.GetTypeByMetadataName("Point")!;
+        var pointer = compilation.CreatePointerTypeSymbol(target);
+        var ordinary = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [], allowsUnmanagedPointers: true);
+        var enabled = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
+            allowsUnmanagedPointers: true, allowsValuePointerTargets: true);
+        Assert.False(CallableSignature.TryType(pointer, false, out _, ordinary));
+        Assert.True(CallableSignature.TryType(pointer, false, out var signature, enabled));
+        Assert.Same(pointer, signature.Pointer);
+        Assert.Same(target, signature.Pointer!.PointedAtType);
+        Assert.True(enabled.Allows(signature));
+        Assert.False(ordinary.Allows(signature));
+        Assert.True(CallableSignature.TryType(compilation.CreatePointerTypeSymbol(pointer), false, out _, enabled));
+        Assert.False(CallableSignature.TryType(compilation.CreatePointerTypeSymbol(compilation.GetTypeByMetadataName("Owner")!), false, out _, enabled));
+    }
+
+    [Fact]
     public void GenericPointerTargetsRequireSeparateExplicitCapability()
     {
         var tree = SyntaxTree.ParseText("public class Holder<T> {} ");

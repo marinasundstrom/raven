@@ -1628,7 +1628,7 @@ internal static class Int32Emitter
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
             type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType ? IsSymbolOnlyType(type.GetNonNullableType(), result) :
-            type is IPointerTypeSymbol pointer && CallableSignature.IsSupportedPointer(pointer, allowGenericTargets: true) ||
+            type is IPointerTypeSymbol pointer && CallableSignature.IsSupportedPointer(pointer, allowGenericTargets: true, allowValueTargets: true) ||
             RuntimeSelfTypes.IsSelf(compilation, type) ||
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, bodyCapabilities) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||

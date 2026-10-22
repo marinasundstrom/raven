@@ -29,7 +29,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         if (type.IsByReference) return SignatureType.ByReference(Map(type with { IsByReference = false }, resolveClass, resolveExternal, mapParameter));
         if (type.Composition is { } composition)
             return resolveExternal?.Invoke(composition) ?? throw new InvalidOperationException("Composition resolver required");
-        if (type.Pointer is { } pointer) return MapPointer(pointer, mapParameter);
+        if (type.Pointer is { } pointer) return MapPointer(pointer, resolveClass, resolveExternal, mapParameter);
         if (type.OwnerParameter is { } ownerParameter) return mapParameter?.Invoke(ownerParameter) ?? SignatureType.TypeParameter(ownerParameter.Ordinal);
         if (type.MethodParameter is { } parameter) return mapParameter?.Invoke(parameter) ?? SignatureType.MethodParameter(parameter.Ordinal);
         if (type.Primitive is { } p) return Instance.Map(p);
@@ -61,16 +61,16 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         return Map(value, resolveClass, resolveExternal, mapParameter);
     }
 
-    private static SignatureType MapPointer(IPointerTypeSymbol pointer, Func<ITypeParameterSymbol, SignatureType>? mapParameter)
+    private static SignatureType MapPointer(IPointerTypeSymbol pointer, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal, Func<ITypeParameterSymbol, SignatureType>? mapParameter)
     {
-        if (pointer.PointedAtType is IPointerTypeSymbol nested) return SignatureType.PointerTo(MapPointer(nested, mapParameter));
+        if (pointer.PointedAtType is IPointerTypeSymbol nested) return SignatureType.PointerTo(MapPointer(nested, resolveClass, resolveExternal, mapParameter));
         if (pointer.PointedAtType is ITypeParameterSymbol parameter)
             return SignatureType.PointerTo(mapParameter?.Invoke(parameter) ??
                 (parameter.ContainingSymbol is IMethodSymbol
                     ? SignatureType.MethodParameter(parameter.Ordinal)
                     : SignatureType.TypeParameter(parameter.Ordinal)));
         if (!EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive))
-            throw new InvalidOperationException("unsupported native pointer target");
+            return SignatureType.PointerTo(Map(pointer.PointedAtType, resolveClass, resolveExternal, mapParameter));
         return SignatureType.PointerTo(Instance.Map(primitive));
     }
 

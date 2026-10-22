@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Fix native value-struct pointer signature admission behind an explicit portable capability and preserve nominal pointee identity through the neoCLR mapper. Pair with the metadata SDK value-pointer encoding/import fix; source `*Point` exports now emit. Ordinary .NET behavior is unchanged; this native machinery is absent from main. Struct layout validation remains a runtime boundary, and source struct execution still needs export-root selection for synthesized constructors.
+
 - **2026-10-22:** Qualify a Raven-authored AOT free-function library called from C/C++ and re-imported through NativeImport in interpreter/scalar-JIT/AOT. neoCLR uses preserved source identity for versioned export names and NativeExportAttribute discovery, and generates optional C/C++ headers. All 19 import/export tests pass; no compiler, Runtime Contract, metadata encoding or .NET target changes. Callback export mapping remains open.
 
 - **2026-10-22:** Qualify existing uint NativeImport emission, unsigned widening and wide-value truncation against neoCLR scalar JIT/AOT support. The shared consumer passes across all three engines; all 17 import tests pass. No compiler, Runtime Contract or encoding changes.
