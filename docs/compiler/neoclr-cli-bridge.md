@@ -15993,3 +15993,14 @@ The prototype neoCLR `.neo` frontend consumer fix is not a Raven compiler change
 Runtime evidence: 70 focused interpreter tests, seven AOT fault-details tests and
 a successful bridge build with warnings. Legacy callbacks/return bodies remain an
 unfinished neoCLR migration; this is not complete native interop qualification.
+
+The NotifyWorker intrinsic also removes its trailing pop to match the migrated
+bootstrap no-result registration service. The callback parameter itself retains
+the legacy TaskQueue ABI pending coordinated callback migration. No compiler or
+Runtime Contract setting changes; native C callback support is not implied.
+
+GCCollect and GCKeepAlive bridge calls also remove their trailing pops to match
+canonical no-result services. GC policy and KeepAlive lifetime semantics remain
+unchanged; ten GC and sixteen structural-tuple runtime tests pass. Worker/service
+validation adds 29 tests across the main and corrected focused runs; the bridge
+builds with existing warnings.

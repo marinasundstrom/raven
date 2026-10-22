@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Document the neoCLR worker-notification and GC bridge migration to no-result calls; its completion callback remains on the legacy TaskQueue ABI. Raven compiler behavior and Runtime Contract settings are unchanged.
+
 - **2026-10-22:** Document neoCLR's terminal-failure CLI binding migration to canonical no-result calls and its interpreter/native fault validation. No Raven compiler, Runtime Contract or .NET behavior change; legacy callback migration remains open.
 
 - **2026-10-22:** Record neoIL return parity for void and System.Void, preserving generic value-return ABI. The existing bridge output and Raven lowering are unchanged; bare Void removal remains pending in the runtime migration. Focused interpreter and AOT import tests validate the runtime change.
