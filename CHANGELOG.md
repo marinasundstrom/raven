@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Record neoIL return parity for void and System.Void, preserving generic value-return ABI. The existing bridge output and Raven lowering are unchanged; bare Void removal remains pending in the runtime migration. Focused interpreter and AOT import tests validate the runtime change.
+
 - **2026-10-22:** Document the matching neoCLR bridge migration from noresult to void in textual IL and function shapes. Raven code and Runtime Contract configuration are unchanged; legacy named-Void return migration remains a runtime gap. Record focused runtime/bridge validation separately from native compiler qualification.
 
 - **2026-10-22:** Lower empty native Slice/ReadOnlySlice collection expressions to ordinary typed default views through an explicit adapter capability. Restrict admission to recognized native memory-view contracts; preserve arbitrary collection constructors and ordinary .NET emission. The native-buffers built-in consumer covers empty views with default pointers, following main's pointer-default repair 9193bdff1 carried as fa8ecb50c. All four native-buffer interpreter tests pass.

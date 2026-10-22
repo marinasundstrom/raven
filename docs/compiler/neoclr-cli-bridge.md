@@ -15969,3 +15969,14 @@ projection; native metadata/backend lowering must preserve declaration ABI witho
 relying on source spelling. Validation: bridge builds; neoCLR's focused generic,
 function, no-result and native-import tests pass. This is not fresh end-to-end
 Raven native-backend qualification.
+
+### Qualified Void return parity — 2026-10-22
+
+The matching neoIL assembler now makes `System.Void` and `void` equivalent in
+direct method and function-shape result positions. Generic/storage positions stay
+inhabited, and originally generic results retain their value ABI after substitution.
+The bridge's preferred `void` output and Runtime Contract configuration are unchanged.
+The author requires rejecting bare `Void` after the remaining legacy migration;
+it is not an intended third IL spelling. Forty-six focused interpreter tests and
+seven AOT native-import tests pass, including qualified native/helper returns.
+Raven source is unchanged; this is not a new compiler/native bundle qualification.
