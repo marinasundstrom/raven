@@ -16058,3 +16058,23 @@ foreign threads and richer ABI conversions remain open. All seven built-in Raven
 native-callback tests pass, including both return directions after GC and unit value
 assignment. Metadata roundtrip/rejection checks cover FunctionReturn. See neoCLR
 runtime/raven/tests/native-callbacks/README.md for reproduction and bundle limits.
+
+### Raven scalar NativeImport AOT qualification (2026-10-22)
+
+neoCLR's bounded macOS ARM64 scalar AOT driver now accepts explicit seed/core load
+inputs for source metadata verification with `--native-imports`. Raven-emitted PE/#Neo
+is consumed directly; no neoIL or CLI-body translation is used. `@entry` selects the
+Raven executable entry point without guessing generated names. The ordinary loader
+and verifier retain dependency identity/access/body checks, while scalar admission
+still rejects external managed calls, type definitions and unsupported representations.
+Only application code is emitted; this does not admit NativeImport in general managed
+class-library AOT programs. No Raven syntax, Runtime Contract settings or .NET target
+behavior change is needed. Raven `5966b5f84` was used in the local bundle overlay.
+
+The explicit Rust integration test compiles the Raven consumer, emits/links native
+code and verifies C allocation, raw pointer transport and unit/no-result release over
+32 calls. Missing dependency inputs reject before output. The managed Raven runner
+cannot execute in this scalar profile, so the Rust framework owns assertions. The
+test is opt-in because it needs a matching external Raven bundle. Source and commands
+are in neoCLR docs/experiments/aot-native-imports/README.md. JIT, managed buffers/pinning,
+callbacks and ordinary SDK deployment remain unqualified by this proof.
