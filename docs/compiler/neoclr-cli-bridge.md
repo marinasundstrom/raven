@@ -16164,3 +16164,12 @@ unsigned C values in all three engines. No compiler, Runtime Contract or tempora
 CLI encoding changes; no new bridge loss. Native metadata is used directly in this
 test, and the existing compiler/SDK overlay remains required. Arithmetic expansion
 and general managed JIT/AOT imports remain runtime-owned gaps.
+
+
+Floating-point native transport (2026-10-22): the scalar JIT/AOT profile now admits
+existing Single/Double native signatures, locals, constants and defaults with F32/F64
+storage. Raven float/double imports and helper calls need no compiler, Runtime
+Contract or CLI bridge changes. The shared native-metadata consumer checks exact
+negative-zero, infinity, quiet-NaN and finite payloads, including mixed register/stack
+arguments. The existing compiler/SDK overlay remains required; floating-point
+arithmetic/comparisons/conversions and general managed imports remain runtime gaps.
