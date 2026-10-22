@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Document the matching neoCLR bridge migration from noresult to void in textual IL and function shapes. Raven code and Runtime Contract configuration are unchanged; legacy named-Void return migration remains a runtime gap. Record focused runtime/bridge validation separately from native compiler qualification.
+
 - **2026-10-22:** Lower empty native Slice/ReadOnlySlice collection expressions to ordinary typed default views through an explicit adapter capability. Restrict admission to recognized native memory-view contracts; preserve arbitrary collection constructors and ordinary .NET emission. The native-buffers built-in consumer covers empty views with default pointers, following main's pointer-default repair 9193bdff1 carried as fa8ecb50c. All four native-buffer interpreter tests pass.
 
 - **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly. Carried deliberately from main 9193bdff1; native validation follows.

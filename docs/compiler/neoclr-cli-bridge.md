@@ -15951,3 +15951,21 @@ native ownership and JIT/AOT imports are not introduced by these compiler change
 
 Validation: all four built-in native-buffer tests pass with the matching repaired
 compiler and runtime; the .NET suite remains the shared main evidence.
+
+## neoIL no-result spelling — 2026-10-22
+
+The matching neoCLR temporary CLI bridge now emits `-> void` and `fn<void>`;
+the assembler rejects the obsolete `noresult` spelling. Rebuild textual bridge
+artifacts with the matching runtime checkout. Runtime Contract configuration,
+Raven expression lowering and CLI VOID versus named System.Void storage remain
+unchanged. Original generic return declarations retain their value ABI when
+specialized with Void. Native metadata emission is unaffected by this text change.
+
+The intended native contract makes `void` an alias of `System.Void`, with no-result
+ordinary returns and inhabited generic/storage uses. Migrating legacy named-Void
+return bodies/callers remains pending in neoCLR; this is a runtime migration gap,
+not a case-sensitive language contract. The bridge owns this temporary text
+projection; native metadata/backend lowering must preserve declaration ABI without
+relying on source spelling. Validation: bridge builds; neoCLR's focused generic,
+function, no-result and native-import tests pass. This is not fresh end-to-end
+Raven native-backend qualification.
