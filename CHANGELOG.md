@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Qualify existing long/ulong native metadata emission against neoCLR’s added scalar JIT/AOT Int64/UInt64 transport. The shared Raven consumer passes signed and unsigned full-width values through locals/helpers and C calls in all three engines; all 16 runtime import tests pass. No compiler, Runtime Contract or encoding changes.
+
 - **2026-10-22:** Qualify shared Raven native pointer/no-result/native-integer transport through interpreter, scalar JIT and AOT (32 runs each), using C-owned reads and release. The direct pointer read/write proof remains JIT/AOT-only because interpreter access requires tracked storage. Both focused source tests pass; no compiler, Runtime Contract or encoding changes.
 
 - **2026-10-22:** Qualify the existing Raven native-import consumer through both scalar JIT and AOT with explicit seed/core verification contexts and @entry. Each mode completes 32 native allocation/read/write/release calls with result 42. No compiler, Runtime Contract or encoding changes; ordinary managed JIT imports remain open.

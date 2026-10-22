@@ -16154,3 +16154,13 @@ No compiler, Runtime Contract or encoding changes. The separate direct pointer
 read/write consumer remains JIT/AOT-qualified: interpreter dereference of untracked
 foreign storage is still rejected. This is an unresolved memory-contract gap, not
 full NativeImport parity or a new permanent language divergence.
+
+
+Fixed-width native integer transport (2026-10-22): neoCLR's opt-in scalar JIT/AOT
+profile now maps Int64/UInt64 signatures and locals to 64-bit storage. Raven long/
+ulong imports, defaults, comparisons and helper calls use their existing native
+metadata representation. The shared consumer validates negative signed and high-bit
+unsigned C values in all three engines. No compiler, Runtime Contract or temporary
+CLI encoding changes; no new bridge loss. Native metadata is used directly in this
+test, and the existing compiler/SDK overlay remains required. Arithmetic expansion
+and general managed JIT/AOT imports remain runtime-owned gaps.
