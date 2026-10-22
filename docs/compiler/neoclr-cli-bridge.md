@@ -16078,3 +16078,14 @@ cannot execute in this scalar profile, so the Rust framework owns assertions. Th
 test is opt-in because it needs a matching external Raven bundle. Source and commands
 are in neoCLR docs/experiments/aot-native-imports/README.md. JIT, managed buffers/pinning,
 callbacks and ordinary SDK deployment remain unqualified by this proof.
+
+The scalar AOT pointer follow-through now admits Raven's existing explicit typed-pointer
+casts, implicit void-pointer erasure and default pointer expressions. The compiler
+continues to emit ptr.cast and local-address/initobj/default-load sequences; no Raven
+syntax, Runtime Contract or CLI bridge encoding changes. neoCLR lowers exact admitted
+scalar-local defaults directly to initialized SSA storage, without exposing an unmanaged
+address for a managed local. Flow/ordinary verification reject address escape, mismatched
+initobj, use of uninitialized locals and unsupported pointer layouts. The Raven C fixture
+now allocates/returns void*, reads via *int, releases through void* and accepts a null
+default pointer. This closes a backend acceptance gap; managed byrefs, Ptr<T> projection
+and pointer arithmetic remain outside the bounded AOT native-import profile.
