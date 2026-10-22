@@ -15980,3 +15980,16 @@ The author requires rejecting bare `Void` after the remaining legacy migration;
 it is not an intended third IL spelling. Forty-six focused interpreter tests and
 seven AOT native-import tests pass, including qualified native/helper returns.
 Raven source is unchanged; this is not a new compiler/native bundle qualification.
+
+### Terminal-failure runtime migration — 2026-10-22
+
+neoCLR's temporary CLI RuntimeFailure binding now emits the canonical no-result
+`neoCLR.Runtime.Fault(String)` call without a following pop. Its bootstrap service,
+System.Fail wrapper and seed copies migrate together. Native semantic intent is
+unchanged: terminal UserFault retains its message and trace. Raven compiler code,
+Runtime Contract configuration and ordinary .NET behavior are unchanged. Native
+metadata emission remains the replacement for this temporary text projection.
+The prototype neoCLR `.neo` frontend consumer fix is not a Raven compiler change.
+Runtime evidence: 70 focused interpreter tests, seven AOT fault-details tests and
+a successful bridge build with warnings. Legacy callbacks/return bodies remain an
+unfinished neoCLR migration; this is not complete native interop qualification.
