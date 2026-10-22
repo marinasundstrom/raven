@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-22:** Preserve attributes on a field following an uninitialized field: a newline followed by an attribute list no longer becomes an array rank on the preceding type. Valid multiline array ranks still parse. The attribute/field/array group passes 49 tests.
+
 - **2026-10-22:** Preserve unmanaged pointer types for explicit and target-typed default values and emit a native-sized zero address. Do not apply managed-reference nullability to pointers. Add semantic and .NET execution regressions through void-pointer arguments; existing reference default semantics and Runtime Contracts remain unchanged. All 47 focused pointer/default tests pass on .NET 11.
 
 - **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly.

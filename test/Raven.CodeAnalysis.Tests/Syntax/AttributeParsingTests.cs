@@ -9,6 +9,27 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 
 public class AttributeParsingTests : DiagnosticTestBase
 {
+    [Theory]
+    [InlineData("bool")]
+    [InlineData("int[]")]
+    [InlineData("int[4]")]
+    public void AttributeAfterUninitializedFieldStartsNextDeclaration(string fieldType)
+    {
+        var tree = SyntaxTree.ParseText("""
+            struct Packet {
+                [First(1)]
+                field flag: bool
+                [Second(4)]
+                field value: int
+            }
+            """.Replace("bool", fieldType));
+        Assert.Empty(tree.GetDiagnostics());
+        var fields = tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>().ToArray();
+        Assert.Equal(2, fields.Length);
+        Assert.Single(fields[0].AttributeLists);
+        Assert.Single(fields[1].AttributeLists);
+    }
+
     [Fact]
     public void Attribute_WithNamedArgumentUsingColon_Parses()
     {
