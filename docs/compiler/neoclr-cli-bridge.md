@@ -16146,3 +16146,11 @@ in each scalar JIT and AOT mode, returning 42 after native allocation/read/write
 Dependency bodies remain verification-only. No compiler, Runtime Contract or metadata
 encoding changes; ordinary managed JIT imports and full three-engine qualification
 remain open. This supersedes the preceding scalar-JIT load-context limitation.
+
+Three-engine transport qualification (2026-10-22): the same Raven-produced native
+metadata now passes 32 interpreter, 32 scalar JIT and 32 AOT calls with C-owned
+allocation/read/release, pointer/null/no-result and native-sized integer transport.
+No compiler, Runtime Contract or encoding changes. The separate direct pointer
+read/write consumer remains JIT/AOT-qualified: interpreter dereference of untracked
+foreign storage is still rejected. This is an unresolved memory-contract gap, not
+full NativeImport parity or a new permanent language divergence.
