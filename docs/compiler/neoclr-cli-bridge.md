@@ -16195,3 +16195,16 @@ interpreter/scalar-JIT/AOT; private status/result conventions do not leak into C
 Escaping faults terminate at the direct C boundary. NativeExportAttribute source
 integration is the next step, not supplied by CLI selection; objects/sidecars remain
 future work. The existing compiler/SDK overlay remains the tested pairing.
+
+
+Source NativeExportAttribute and C headers (2026-10-22): ordinary attribute
+metadata now selects scalar free-function exports. The backend resolves the
+attribute's physical owner using loaded type source identity; it does not decode
+executable names. No compiler or Runtime Contract setting, temporary bridge
+encoding, or native metadata schema changes are needed. Constructor overloads
+avoid optional-parameter declarations currently unsupported by the portable
+emitter. The backend emits optional C/C++ headers from the same admitted signatures.
+The source fixture passes native C/C++ consumers and re-import in all three engines.
+Validation uses compiler 3fc2b6d0e with metadata SDK 417e7a451 and the local
+native-export-libraries-20261022-v3 build, not a released bundle.
+Callbacks and managed library integration remain separate gaps.
