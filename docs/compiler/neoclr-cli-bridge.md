@@ -16004,3 +16004,35 @@ canonical no-result services. GC policy and KeepAlive lifetime semantics remain
 unchanged; ten GC and sixteen structural-tuple runtime tests pass. Worker/service
 validation adds 29 tests across the main and corrected focused runs; the bridge
 builds with existing warnings.
+
+## NativeImport callbacks and unit projection (2026-10-22)
+
+Target-specific native emission now maps structural Function parameters on NativeImport
+to explicit call-scoped callback ABI metadata, using the import convention. Raven keeps
+`unit` syntax: logical values use the configured System.Void; direct returns use the
+no-result ABI. No new keyword or Runtime Contract option is introduced, and ordinary
+.NET emission is unchanged.
+
+A unit-returning callback retains its managed value-returning Function shape, including
+an original generic return closed over unit. The native emitter generates an ordinary
+source-facing wrapper plus an internal foreign thunk with a no-result Function parameter.
+An output-owned adapter invokes the managed callback and discards the unit value. The
+wrapper is callable through imported metadata but is no longer itself marked extern;
+the native descriptor belongs to the internal thunk. Adapter objects and Function bindings
+currently allocate per adapted parameter per call. Numeric callbacks need no such wrapper.
+
+The metadata SDK and interpreter validate exact ABI shapes; the compiler does not weaken
+those checks. Native code must invoke callbacks synchronously on the same thread without
+retaining them. Captured state is rooted, and managed faults do not unwind C frames.
+This uses native PE/#Neo metadata; reference-only CLI projection loses foreign descriptors.
+Richer callback conversions, returned-function source mapping, retained registrations and
+JIT/AOT execution remain gaps, not permanent restrictions. Built-in Raven execution tests
+live in neoCLR `runtime/raven/tests/native-callbacks`; metadata SDK foreign-import checks
+cover binary roundtrip, no-result signatures and invalid descriptor rejection.
+
+Follow-up: the author is open to a Raven `void` keyword later; this increment retains
+`unit`. During coverage expansion, an explicit generic module-function method group
+reported RAV0103, and direct unit equality reached unsupported BoundBinaryExpression
+emission. Those are separate compiler candidates for reduction/main-first review;
+this slice tests generic return ABI using a static class method and bidirectional
+unit/System.Void assignments. It does not claim those separate failures are fixed.

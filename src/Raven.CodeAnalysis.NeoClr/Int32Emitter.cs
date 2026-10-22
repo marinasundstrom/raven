@@ -919,6 +919,8 @@ internal static class Int32Emitter
         var closureFields = new Dictionary<IMethodSymbol, FieldBuilder[]>(SymbolEqualityComparer.Default);
         var closureConstructors = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody? Body)>();
+        var nativeCallbacks = new NeoClrNativeCallbacks(assembly, () => NeoClrTypeMapper.Map(
+            compilation.UnitTypeSymbol, type => nativeTypes[type], ImportExternalType));
         foreach (var (plan, body) in prepared)
         {
             diagnosticSyntax = plan.Syntax;
@@ -979,7 +981,7 @@ internal static class Int32Emitter
                 il.Return();
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
-            if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) definition.SetNativeImport(foreignImport);
+            if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) nativeCallbacks.SetImport(definition, foreignImport);
             definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
             {

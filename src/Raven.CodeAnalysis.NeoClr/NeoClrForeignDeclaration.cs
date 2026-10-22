@@ -61,7 +61,11 @@ internal static class NeoClrForeignDeclaration
             for (var i = 0; i < symbol.Parameters.Length; i++)
                 if (Marshal(symbol.Parameters[i].GetAttributes()) is { } conversion) parameters.Add(i, conversion);
             var result = symbol is SourceMethodSymbol source ? Marshal(source.GetReturnTypeAttributes()) : null;
-            import = new(library, entry, encoding, convention, parameters, result);
+            var callbacks = new Dictionary<int, NativeCallbackDefinition>();
+            for (var i = 0; i < symbol.Parameters.Length; i++)
+                if (symbol.Parameters[i].Type is INamedTypeSymbol callable && callable.GetDelegateInvokeMethod() is not null)
+                    callbacks.Add(i, new NativeCallbackDefinition(convention));
+            import = new(library, entry, encoding, convention, parameters, result, callbacks);
         }
         catch (ArgumentException) { return false; }
         var owner = syntax is FunctionStatementSyntax ? null : symbol.ContainingType;
