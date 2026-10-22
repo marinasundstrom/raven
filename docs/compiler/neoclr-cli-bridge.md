@@ -16089,3 +16089,14 @@ initobj, use of uninitialized locals and unsupported pointer layouts. The Raven 
 now allocates/returns void*, reads via *int, releases through void* and accepts a null
 default pointer. This closes a backend acceptance gap; managed byrefs, Ptr<T> projection
 and pointer arithmetic remain outside the bounded AOT native-import profile.
+
+Native-sized integer follow-through (2026-10-22): the scalar AOT backend now transports
+Raven nint/nuint as IntPtr/UIntPtr across C imports, locals and helper returns at the
+macOS ARM64 target width. Existing Raven conversions (including Int64 intermediate
+values) are lowered with interpreter-compatible signed/unsigned extension and low-bit
+narrowing. No source compiler, Runtime Contract or CLI encoding change is required.
+The Raven fixture uses a size_t allocation argument and roundtrips high-bit unsigned
+and negative signed native integers. The C ABI test covers nine register/stack arguments.
+This remains a bounded transport/conversion profile: native-width arithmetic, checked
+conversions, pointer/integer conversion, fixed Int64/UInt64 ABI signatures, managed
+library imports and JIT remain unsupported here and are rejected before output.
