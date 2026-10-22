@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Document scalar AOT pointer equality/null and native-integer equality/zero admission in neoCLR. The existing Raven emitter now supports the backend consumer checking allocation failure before use; all 13 import tests and 24 scalar regressions pass. No compiler, Runtime Contract or .NET behavior changes; pointer ordering, pinning and managed AOT integration remain open.
+
 - **2026-10-22:** Document native-sized integer transport and unchecked conversions in neoCLR’s scalar AOT NativeImport profile. The Raven 5966b5f84 consumer exercises size_t allocation sizes, high-bit nuint values and negative nint offsets through locals/helpers; all 12 runtime import tests and 24 scalar regressions pass. No compiler, Runtime Contract, CLI encoding or .NET behavior changes; native-width arithmetic, managed AOT imports and pinning remain open.
 
 - **2026-10-22:** Document Raven-to-native NativeImport qualification using neoCLR's scalar AOT profile with explicit metadata verification dependencies. Raven 5966b5f84 emits PE/#Neo consumed directly through @entry; a Rust integration test verifies C allocation/pointer transport/unit release over 32 native calls and rejects missing dependencies. The scalar backend now also accepts existing typed/void-pointer casts and default-pointer local initialization while rejecting managed-local address escape; the updated Raven consumer passes. No Raven compiler, Runtime Contract or .NET behavior changes; managed-library AOT imports and ordinary SDK deployment remain open.

@@ -16100,3 +16100,11 @@ and negative signed native integers. The C ABI test covers nine register/stack a
 This remains a bounded transport/conversion profile: native-width arithmetic, checked
 conversions, pointer/integer conversion, fixed Int64/UInt64 ABI signatures, managed
 library imports and JIT remain unsupported here and are rejected before output.
+
+Pointer-condition follow-through (2026-10-22): the opt-in macOS ARM64 scalar AOT
+profile now accepts existing pointer equality/null and nint/nuint equality/zero
+instructions with full-width comparison lowering. Raven's allocation consumer
+checks failure before reading; opaque high-bit native pointer controls exercise
+the backend without dereferencing the sentinels. No compiler, Runtime Contract,
+CLI encoding or .NET behavior changes. Metadata compatibility checks remain in
+force; pointer ordering, pinning and managed AOT composition are still gaps.
