@@ -16137,3 +16137,12 @@ No compiler, metadata, temporary CLI representation or Runtime Contract change.
 The probe's CLI does not yet accept Raven seed/core verification inputs, so Raven
 source qualification remains AOT-only here. Ordinary managed JIT imports, pinning,
 callbacks and full cross-engine qualification remain open.
+
+Raven JIT verification-context follow-through (2026-10-22): the scalar JIT probe
+now accepts `@entry` and explicit --system/--module/--object-root dependencies under
+--native-imports, sharing AOT path validation, Object-root selection and complete
+LoadedProgram verification. The same Raven-produced assembly now executes 32 times
+in each scalar JIT and AOT mode, returning 42 after native allocation/read/write/free.
+Dependency bodies remain verification-only. No compiler, Runtime Contract or metadata
+encoding changes; ordinary managed JIT imports and full three-engine qualification
+remain open. This supersedes the preceding scalar-JIT load-context limitation.
