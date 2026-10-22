@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Lower empty native Slice/ReadOnlySlice collection expressions to ordinary typed default views through an explicit adapter capability. Restrict admission to recognized native memory-view contracts; preserve arbitrary collection constructors and ordinary .NET emission. The native-buffers built-in consumer covers empty views with default pointers, following main's pointer-default repair 9193bdff1 carried as fa8ecb50c. All four native-buffer interpreter tests pass.
+
 - **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly. Carried deliberately from main 9193bdff1; native validation follows.
 
 - **2026-10-21:** Map the neoCLR grapheme role to System.Character and disable the char keyword in native projects and CLI parsing. Reject preparsed char aliases; update source ownership, native emission/import, completion policy, hover and inlay display. Ordinary .NET Char remains unchanged. All 22 focused parser/profile/grapheme/project tests pass; the language server builds for net10/net11. The matching five-library native build and 21 built-in text/record tests pass in the interpreter. A wider profile run still exposes the unrelated legacy CLI structural-tuple emission fixture limitation; no full-suite or release qualification is claimed.

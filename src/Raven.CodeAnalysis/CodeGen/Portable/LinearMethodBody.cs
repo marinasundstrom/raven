@@ -1723,6 +1723,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(indexGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
                     return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
+                case BoundEmptyCollectionExpression { Type: INamedTypeSymbol emptyType } empty
+                    when capabilities?.AllowsDefaultEmptyCollection(emptyType) == true:
+                    return LowerValue(new BoundDefaultValueExpression(empty.Type));
                 case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):
                     return ArrayLiteral((IArrayTypeSymbol)empty.Type, [], Syntax(expression));
                 case BoundArrayAccessExpression access:

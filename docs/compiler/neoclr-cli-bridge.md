@@ -15927,3 +15927,27 @@ Raven main (`bc8d61e90`, `d9a9a7587`), then carried deliberately to codex/neoclr
 validation includes parser/completion controls, ordinary CLI character round trips,
 native grapheme metadata, a complete five-library build, and built-in text/record
 consumers; see the current changelog for completed results.
+
+
+## Pointer defaults and empty borrowed views (2026-10-22)
+
+Shared main repair 9193bdff1 is carried as fa8ecb50c: pointer defaults retain native
+pointer identity rather than acquiring managed-reference nullability. CLI emission
+uses a native-sized zero; native emission uses the existing typed DefaultValue
+operation. No Runtime Contract options, pointer metadata layout or ownership rules
+change. Main's 47 focused pointer/default .NET tests pass.
+
+The native adapter additionally opts imported metadata-tagged Slice/ReadOnlySlice
+(and explicit source-core declarations) into empty-collection default lowering.
+The shared portable lowerer asks that capability; .NET and arbitrary collection
+constructors remain unchanged. This is a native adapter gap, not a new collection
+semantic or a reason to enable the capability globally. Native memory-view metadata
+and existing typed default operations replace any need for a CLI carrier workaround.
+
+The neoCLR built-in native-buffers consumer covers inferred default(*System.Void)
+and both empty slice literals, plus initialized Memory subview and UTF-8 copies
+through an imported C function. Copy remains interpreter-only; pinning, retained
+native ownership and JIT/AOT imports are not introduced by these compiler changes.
+
+Validation: all four built-in native-buffer tests pass with the matching repaired
+compiler and runtime; the .NET suite remains the shared main evidence.
