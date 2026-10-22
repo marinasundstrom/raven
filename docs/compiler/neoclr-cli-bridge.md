@@ -16173,3 +16173,12 @@ Contract or CLI bridge changes. The shared native-metadata consumer checks exact
 negative-zero, infinity, quiet-NaN and finite payloads, including mixed register/stack
 arguments. The existing compiler/SDK overlay remains required; floating-point
 arithmetic/comparisons/conversions and general managed imports remain runtime gaps.
+
+
+Unsigned 32-bit native transport (2026-10-22): UInt32 signatures/locals now use
+the existing I32 ABI representation in the scalar JIT/AOT profile, with conv.u4
+truncation and existing unsigned widening. Raven uint imports and explicit ulong/
+nuint/uint casts require no compiler, Runtime Contract or bridge encoding changes.
+The shared consumer checks high-bit identifiers and wide-value truncation in all
+three engines. Existing metadata preserves unsigned type identity; no wrapper
+projection or new bridge loss is introduced.
