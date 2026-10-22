@@ -16108,3 +16108,25 @@ checks failure before reading; opaque high-bit native pointer controls exercise
 the backend without dereferencing the sentinels. No compiler, Runtime Contract,
 CLI encoding or .NET behavior changes. Metadata compatibility checks remain in
 force; pointer ordering, pinning and managed AOT composition are still gaps.
+
+Direct pointer access follow-through (2026-10-22): native portable lowering now
+loads the value of unmanaged pointer locals/parameters for dereference and indirect
+assignment instead of treating them as managed addressable storage. The separate
+AllowsUnmanagedPointers capability admits these values without requiring
+AllowsManagedReferences. Explicit address-of and ref/out handling retain their
+existing path. The portable backend is absent from Raven main; no main-first source
+patch applies to this layer, and the ordinary .NET generator is unchanged.
+
+The emitted ldobj/stobj types and CLI/native metadata encoding are unchanged; no
+Runtime Contract setting is added. The matching trusted macOS ARM64 scalar AOT
+profile admits Byte/Int32 pointer access with null/alignment faults, but cannot
+validate foreign bounds, initialization or lifetime. Invalid non-null native addresses
+can terminate the process. Native Slice borrowing, pinning and managed AOT remain
+open. The Raven consumer reads/writes a C-owned allocation and observes the update
+through C before release; low-level tests cover both typed and indirect instructions.
+
+The matching metadata SDK now admits exact typed pointers for existing LoadObject/
+StoreObject operations, retaining local/byref/out assignment checks and rejecting
+mismatched pointees. Both the repaired compiler and SDK are required; an older SDK
+rejects the emitted object operation before an assembly is produced. This changes
+validation admission only, not the temporary CLI representation or native encoding.

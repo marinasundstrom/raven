@@ -24,6 +24,26 @@ public class PortablePointerSignatureTests
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
     }
 
+    [Theory]
+    [InlineData("return *pointer")]
+    [InlineData("let copy = pointer; return *copy")]
+    [InlineData("*pointer = 42; return *pointer")]
+    [InlineData("let copy = pointer; *copy = 42; return *copy")]
+    public void UnmanagedDereferenceUsesPointerValueWithoutManagedReferenceCapability(string body)
+    {
+        var tree = SyntaxTree.ParseText($"public static class Pointers {{ public static unsafe func Test(pointer: *int) -> int {{ {body} }} }}");
+        var compilation = Compilation.Create("PointerDereference", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsUnmanagedPointers: true);
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, capabilities));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
+    }
+
     [Fact]
     public void ValueTypeConstraintsUseTheOrdinaryCapabilityContract()
     {

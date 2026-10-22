@@ -993,7 +993,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 };
                 if (referenceAssignment is not null)
                 {
-                    if (!LowerReference(referenceAssignment.Reference) || !LowerValue(referenceAssignment.Right)) return false;
+                    if (!LowerIndirectAddress(referenceAssignment.Reference) || !LowerValue(referenceAssignment.Right)) return false;
                     instructions.Add(new(LinearInstructionKind.StoreIndirect, Syntax(statement), Type: referenceAssignment.ElementType));
                     continue;
                 }
@@ -1454,6 +1454,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         static bool IsNullLiteral(BoundExpression expression) => expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } ||
             expression is BoundConversionExpression { IsUserDefined: false } conversion && IsNullLiteral(conversion.Expression);
+
+        bool LowerIndirectAddress(BoundExpression expression)
+        {
+            // An unmanaged pointer is already an address. Loading its value must
+            // not take the address of its local or parameter storage instead.
+            if (expression.Type is IPointerTypeSymbol && expression is not BoundAddressOfExpression)
+            {
+                if (capabilities?.AllowsUnmanagedPointers != true)
+                    return Reject("target does not support unmanaged pointers", Syntax(expression));
+                return LowerValue(expression);
+            }
+            return LowerReference(expression);
+        }
 
         bool LowerReference(BoundExpression expression)
         {
@@ -1930,7 +1943,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundAddressOfExpression address:
                     return LowerReference(address);
                 case BoundDereferenceExpression dereference:
-                    if (!LowerReference(dereference.Reference)) return false;
+                    if (!LowerIndirectAddress(dereference.Reference)) return false;
                     instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: dereference.ElementType));
                     return true;
                 case BoundParameterAccess parameter:
