@@ -16182,3 +16182,16 @@ nuint/uint casts require no compiler, Runtime Contract or bridge encoding change
 The shared consumer checks high-bit identifiers and wide-value truncation in all
 three engines. Existing metadata preserves unsigned type identity; no wrapper
 projection or new bridge loss is introduced.
+
+
+Native C export backend (2026-10-22): neoCLR's macOS ARM64 --native-library mode
+emits selected scalar free functions behind platform C adapters. Raven-produced
+native metadata already preserves source assembly/name identity, which the backend
+uses instead of content-hashed executable names for versioned mangling. Definition
+tokens and revision hashes do not enter the symbol. No compiler, Runtime Contract
+or temporary CLI encoding changes are required for this increment. The Raven
+Exports.rvn library is callable from C and re-imported through NativeImport in
+interpreter/scalar-JIT/AOT; private status/result conventions do not leak into C.
+Escaping faults terminate at the direct C boundary. NativeExportAttribute source
+integration is the next step, not supplied by CLI selection; objects/sidecars remain
+future work. The existing compiler/SDK overlay remains the tested pairing.

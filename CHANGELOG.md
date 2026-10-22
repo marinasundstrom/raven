@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Qualify a Raven-authored AOT free-function library called from C and re-imported through NativeImport in interpreter/scalar-JIT/AOT. neoCLR uses preserved source identity for versioned export names, avoiding executable content hashes and row tokens. All 19 import/export tests pass; no compiler, Runtime Contract or metadata encoding changes in this backend increment. NativeExportAttribute integration remains next.
+
 - **2026-10-22:** Qualify existing uint NativeImport emission, unsigned widening and wide-value truncation against neoCLR scalar JIT/AOT support. The shared consumer passes across all three engines; all 17 import tests pass. No compiler, Runtime Contract or encoding changes.
 
 - **2026-10-22:** Qualify existing float/double native metadata emission across interpreter/scalar-JIT/AOT, including exact IEEE payloads and mixed C register/stack arguments. neoCLR now admits floating-point transport; all 17 import tests and three managed floating-point regressions pass. No compiler, Runtime Contract or encoding changes.
