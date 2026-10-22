@@ -991,6 +991,13 @@ internal abstract class Generator
 
     protected void EmitDefaultValue(ITypeSymbol type)
     {
+        if (type is IPointerTypeSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Conv_U);
+            return;
+        }
+
         if (type.GetNonNullableType() is ITypeParameterSymbol)
         {
             EmitDefaultValueWithInitObj(type);

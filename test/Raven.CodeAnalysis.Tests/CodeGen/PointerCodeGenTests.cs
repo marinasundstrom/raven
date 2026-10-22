@@ -10,6 +10,47 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class PointerCodeGenTests
 {
+    [Theory]
+    [InlineData("let pointer = default(*int)")]
+    [InlineData("let pointer: *int = default")]
+    [InlineData("let pointer = default(*System.Void)")]
+    public void DefaultPointerRetainsItsTypeAndEmitsZeroAddress(string declaration)
+    {
+        var code = $$"""
+            class DefaultPointer {
+                unsafe static func Address(pointer: *System.Void) -> *System.Void {
+                    return pointer
+                }
+                unsafe static func Run() -> *System.Void {
+                    {{declaration}}
+                    return Address(pointer)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("default_pointer", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree).AddReferences(references);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var initializer = tree.GetRoot().DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>().Single().Initializer!.Value;
+        Assert.IsAssignableFrom<IPointerTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(initializer).Type);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        // Adapt the unmanaged pointer return to an integer for the safe C# test host.
+        var method = loaded.Assembly.GetType("DefaultPointer")!
+            .GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        var adapter = new System.Reflection.Emit.DynamicMethod("ReadAddress", typeof(long), Type.EmptyTypes, true);
+        var il = adapter.GetILGenerator();
+        il.Emit(System.Reflection.Emit.OpCodes.Call, method);
+        il.Emit(System.Reflection.Emit.OpCodes.Conv_I8);
+        il.Emit(System.Reflection.Emit.OpCodes.Ret);
+        Assert.Equal(0L, adapter.CreateDelegate<Func<long>>()());
+    }
+
     [Fact]
     public void PointerCastsPreserveTheAddressAndVoidErasureIsImplicit()
     {

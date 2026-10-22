@@ -2809,6 +2809,12 @@ internal partial class ExpressionGenerator
 
     private void EmitDefaultValue(ITypeSymbol type, EmitContext context)
     {
+        if (type is IPointerTypeSymbol)
+        {
+            EmitDefaultValue(type);
+            return;
+        }
+
         if (type.TypeKind == TypeKind.Error)
         {
             ILGenerator.Emit(OpCodes.Ldnull);
