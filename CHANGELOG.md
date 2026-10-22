@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-22:** Qualify Raven struct-pointer exports through neoCLR export-root selection: C11/C++17 callers preserve C-owned and null addresses through a Raven helper. Unused synthesized constructors remain verified source metadata without entering scalar code generation. All 22 native import/export tests pass; no additional compiler or Runtime Contract changes.
+
 - **2026-10-22:** Fix native value-struct pointer signature admission behind an explicit portable capability and preserve nominal pointee identity through the neoCLR mapper. Pair with the metadata SDK value-pointer encoding/import fix; source `*Point` exports now emit. Ordinary .NET behavior is unchanged; this native machinery is absent from main. Struct layout validation remains a runtime boundary, and source struct execution still needs export-root selection for synthesized constructors.
 
 - **2026-10-22:** Qualify a Raven-authored AOT free-function library called from C/C++ and re-imported through NativeImport in interpreter/scalar-JIT/AOT. neoCLR uses preserved source identity for versioned export names and NativeExportAttribute discovery, and generates optional C/C++ headers. All 19 import/export tests pass; no compiler, Runtime Contract, metadata encoding or .NET target changes. Callback export mapping remains open.
