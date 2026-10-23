@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Macros;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 /// <summary>
@@ -14,7 +16,7 @@ internal sealed class SynthesizedMacroDefinitionTypeSymbol : SourceNamedTypeSymb
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)
         : base(
-            $"{macroName}Macro",
+            MacroNaming.GetImplementationTypeName(macroName),
             compilation.GetSpecialType(SpecialType.System_Object),
             TypeKind.Class,
             containingNamespace,

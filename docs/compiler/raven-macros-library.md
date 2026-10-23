@@ -266,3 +266,23 @@ Macro authors may cross the boundary into `Raven.CodeAnalysis`. Use the
 [macro authoring guide](../macro-authoring.md) for the supported public
 workflow. Compiler API implementation material remains in the repository's
 development documentation.
+
+## Macro implementation names
+
+Compact declarations emit suffixed implementation types such as
+`Raven.Macros.ErrorMacro`, while tooling presents the declared macro name `Error`.
+Attached calls accept `#[Error]` and `#[ErrorMacro]` (also namespace-qualified).
+Aliases keep their exact names. Lookup uses exported macro names, so previously
+compiled provider libraries can resolve the new spelling without recompilation.
+Rebuild code that directly references the former generated implementation types.
+The Error/ErrorMessage cooperation also accepts both spellings in newly built
+Raven.Macros; older library code may still inspect only the unsuffixed spelling.
+
+Arrow-bodied macro consumers preserve source mappings after lowering and constant
+folding, so portable PDB sequence points retain the authored fragment or invocation.
+
+Validation (2026-10-23): on main with .NET 11, 95 focused macro checks, 90
+debugger/expression-body/naming checks, and 65 language-server macro checks pass.
+Three lookup checks also pass against the saved pre-change Raven.Macros assembly,
+including coexistence with a type named System.Error. The same changes are carried
+to codex/neoclr; these results do not establish neoCLR runtime execution.

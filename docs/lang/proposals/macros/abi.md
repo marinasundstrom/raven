@@ -279,3 +279,17 @@ Migration should proceed from compiler-owned semantic facts outward:
 7. remove category-specific and parameter-object compatibility APIs.
 
 The method-shaped definition and descriptor model is authoritative.
+
+## Implementation class naming
+
+Compact `macro Name` declarations emit `NameMacro` in the declared namespace.
+The exported `IMacroDefinition.Name` and macro symbol name remain `Name`;
+type parameters remain represented by the existing erased execution ABI.
+This replaces position-derived implementation type names and is a metadata
+break for code that directly references or reflects over those generated types.
+Rebuild such consumers. Class-authored providers keep their declared names.
+
+Attached lookup accepts the exported name with or without an appended `Macro`
+suffix, including qualified names. It does not depend on the implementation
+type name: existing compiled provider libraries still resolve. Aliases match
+exactly, and freestanding lookup is unchanged.

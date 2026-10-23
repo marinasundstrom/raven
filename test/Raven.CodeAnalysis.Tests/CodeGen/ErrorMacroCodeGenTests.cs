@@ -63,19 +63,22 @@ public sealed class ErrorMacroCodeGenTests
         Assert.Equal("custom message:404", result);
     }
 
-    [Fact]
-    public void ErrorMessageMacro_UsesCasePayloadInRavenInterpolation()
+    [Theory]
+    [InlineData("Error", "ErrorMessage")]
+    [InlineData("ErrorMacro", "ErrorMessageMacro")]
+    [InlineData("Raven.Macros.ErrorMacro", "Raven.Macros.ErrorMessageMacro")]
+    public void ErrorMessageMacro_UsesCasePayloadInRavenInterpolation(string errorName, string messageName)
     {
-        var result = InvokeRun("""
+        var result = InvokeRun($$"""
             import System.*
             import Raven.Macros.*
 
-            #[Error]
+            #[{{errorName}}]
             union ParseError {
-                #[ErrorMessage("Invalid value: $value")]
+                #[{{messageName}}("Invalid value: $value")]
                 case InvalidValue(value: string)
 
-                #[ErrorMessage("A value is required")]
+                #[{{messageName}}("A value is required")]
                 case MissingValue
             }
 
@@ -225,10 +228,8 @@ public sealed class ErrorMacroCodeGenTests
                     TestMetadataReferences.RavenCore,
                     TestMetadataReferences.RavenMacros
                 ]);
-        var attribute = syntaxTree.GetRoot()
-            .DescendantNodes()
-            .OfType<AttributeSyntax>()
-            .Single(static attribute => attribute.Name.ToString() == "Error");
+        var attribute = syntaxTree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single()
+            .AttributeLists.SelectMany(static list => list.Attributes).Single();
         var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(attribute);
         Assert.NotNull(expansion);
         Assert.NotNull(expansion.ReplacementDeclaration?.SyntaxTree);

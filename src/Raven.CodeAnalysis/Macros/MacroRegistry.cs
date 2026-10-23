@@ -168,7 +168,8 @@ internal sealed class MacroRegistry
             static loaded => loaded.CanonicalName,
             static loaded => loaded.Aliases,
             out macro,
-            out isAmbiguous);
+            out isAmbiguous,
+            allowSuffix: true);
 
     public bool TryResolveFreestandingMacro(
         Compilation compilation,
@@ -230,9 +231,12 @@ internal sealed class MacroRegistry
         var descriptor = hasAttached
             ? attached.Descriptor
             : freestanding.Descriptor;
-        var resolvedName = IsQualifiedName(macroName)
-            ? GetSimpleName(canonicalName)
-            : macroName;
+        var declaredName = GetSimpleName(canonicalName);
+        var resolvedName = IsQualifiedName(macroName) ||
+            (hasAttached && !aliases.Contains(macroName, StringComparer.Ordinal) &&
+             MacroNaming.MatchesDeclaredName(declaredName, macroName, allowSuffix: true))
+                ? declaredName
+                : macroName;
         var macroNamespace = GetNamespace(canonicalName);
         var containingNamespace = string.IsNullOrEmpty(macroNamespace)
             ? compilation.GetSourceGlobalNamespace()
@@ -306,21 +310,18 @@ internal sealed class MacroRegistry
         Func<TMacro, string> getCanonicalName,
         Func<TMacro, ImmutableArray<string>> getAliases,
         out TMacro macro,
-        out bool isAmbiguous)
+        out bool isAmbiguous,
+        bool allowSuffix = false)
     {
-        if (IsQualifiedName(macroName))
-        {
-            isAmbiguous = false;
-            return macros.TryGetValue(macroName, out macro!);
-        }
-
+        var qualified = IsQualifiedName(macroName);
         var matches = macros.Values
-            .Where(candidate =>
-                IsNamespaceInScope(
+            .Where(candidate => qualified
+                ? MacroNaming.MatchesDeclaredName(getCanonicalName(candidate), macroName, allowSuffix)
+                : IsNamespaceInScope(
                     compilation,
                     context,
                     GetNamespace(getCanonicalName(candidate))) &&
-                (string.Equals(GetSimpleName(getCanonicalName(candidate)), macroName, StringComparison.Ordinal) ||
+                (MacroNaming.MatchesDeclaredName(GetSimpleName(getCanonicalName(candidate)), macroName, allowSuffix) ||
                  getAliases(candidate).Contains(macroName, StringComparer.Ordinal)))
             .Take(2)
             .ToArray();

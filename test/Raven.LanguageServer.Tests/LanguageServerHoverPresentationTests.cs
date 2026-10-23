@@ -709,13 +709,16 @@ func Main() {
         hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
     }
 
-    [Fact]
-    public void AttachedMacroHover_IncludesImplementationDocumentationAndMacroDetails()
+    [Theory]
+    [InlineData("Error")]
+    [InlineData("ErrorMacro")]
+    [InlineData("Raven.Macros.ErrorMacro")]
+    public void AttachedMacroHover_IncludesImplementationDocumentationAndMacroDetails(string name)
     {
-        const string code = """
+        var code = $$"""
 import Raven.Macros.*
 
-#[Error]
+#[{{name}}]
 union ParseError {
     case InvalidValue(value: string)
 }

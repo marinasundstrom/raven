@@ -47,7 +47,7 @@ public macro ErrorMessage(
         for attributeList in targetUnion.AttributeLists {
             for attribute in attributeList.Attributes {
                 if attribute.TryGetMacroName(out var macroName) {
-                    if macroName == "Error" || macroName.EndsWith(".Error", StringComparison.Ordinal) {
+                    if macroName == "Error" || macroName.EndsWith(".Error", StringComparison.Ordinal) || macroName == "ErrorMacro" || macroName.EndsWith(".ErrorMacro", StringComparison.Ordinal) {
                         hasErrorMacro = true
                     }
                 }
