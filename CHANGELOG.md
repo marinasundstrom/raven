@@ -1,12 +1,16 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
+Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
 
 ## Unreleased
 
 ### 2026-10-23
 
-- Rename System.Option<T> to Optional<T>, retaining Some/None and the propagation/JSON semantics. Add internal OptionalFacts, and migrate compiler and SDK prelude imports, compiler conveniences, framework projections, analyzers, editor support, converters, samples and docs on both targets. This is a source/metadata breaking rename: rebuild consumers. Preserve independent Error names in domain-union regression fixtures. Use the owning semantic model for conditional-call symbols on detached macro syntax, fixing editor queries. 157 final regression checks and 84 main Raven.Core tests pass; both branches also pass 18 conditional-attribute tests, and main passes 144 editor tests (three existing skips). Two unrelated lowering-trace failures reproduce with pre-migration compiler sources.
+- Correct synthesized `Program.MetadataName` in named namespaces so `GetTypeByMetadataName("Samples.Program")` resolves the entry-point container using the ordinary named-type API contract. Cover symbol lookup and emitted entry-point identity.
+
+- Restore the standard `#[Error]` macro name accidentally changed during the Result case migration. Preserve explicit `MSBuildSDKsPath` when initializing project evaluation, and make repository sample validation select repository SDK props as well as targets, avoiding stale `System.Option.*` imports from an installed SDK. Refresh the TestApp syntax construction and stale constant-default/lowering-trace fixtures, retaining Error-shaped custom-union conversion coverage.
+
+- Rename System.Option<T> to Optional<T>, retaining Some/None and the propagation/JSON semantics. Add internal OptionalFacts, and migrate compiler and SDK prelude imports, compiler conveniences, framework projections, analyzers, editor support, converters, samples and docs on both targets. This is a source/metadata breaking rename: rebuild consumers. Preserve independent Error names in domain-union regression fixtures. Use the owning semantic model for conditional-call symbols on detached macro syntax, fixing editor queries. 157 final regression checks and 84 main Raven.Core tests pass; both branches also pass 18 conditional-attribute tests, and main passes 144 editor tests (three existing skips). Two unrelated lowering-trace failures reproduced with pre-migration compiler sources; release stabilization now verifies call contracts without stale bound-node identity assertions.
 
 - Centralize compiler-known Result case names and legacy failure-case resolution in internal ResultFacts, keeping payload member names independent.
 
@@ -19,7 +23,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
 
 ### Breaking changes
 
-- None recorded.
+- **Optional naming:** `System.Option<T>` is now `System.Optional<T>`. Update type references, `System.Option.*` imports, and references to the renamed converter and extension container types. No `Option` compatibility alias is provided; rebuild libraries and consumers against matching runtime libraries. `Some`/`None` cases and the Optional JSON representation are unchanged. See [Optional migration details](docs/compiler/optional-naming.md).
+- **Result failure case:** `Result<T, E>.Error` is now `Failure`. Update construction, patterns, generated case-type/reflection references, and serialized case tags, then rebuild consumers. Tagged Result JSON now uses `"case": "Failure"`; migrate stored `"Error"` tags and external producers/consumers. No library `Error` or `Err` alias is provided. Compiler recognition of legacy Error-shaped results does not preserve the renamed library API or JSON contract. `Ok`, `MapError`, and `UnwrapError` retain their names. See [Result migration details](docs/compiler/result-case-names.md).
 
 ## 0.1.15 - 2026-10-22
 

@@ -157,6 +157,58 @@ fail_count=0
 repository_compiler=""
 repository_targets=""
 repository_macros_project=""
+repository_sdk_args=()
+repository_sdk_overlay=""
+
+cleanup_repository_sdks() {
+  if [[ -n "$repository_sdk_overlay" ]]; then
+    rm -rf -- "$repository_sdk_overlay"
+  fi
+}
+trap cleanup_repository_sdks EXIT
+
+prepare_repository_sdks() {
+  local installed_sdks
+  local sdk
+  local sdk_file
+  local package_version
+  installed_sdks="$(dotnet msbuild "$ROOT_DIR/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" -getProperty:MSBuildSDKsPath)" || return
+  package_version="$(sed -nE 's/.*"Raven.Sdk": "([^"]+)".*/\1/p' "$ROOT_DIR/global.json")"
+  [[ -d "$installed_sdks" && -n "$package_version" ]] || return 1
+  repository_sdk_overlay="$(mktemp -d)" || return
+  mkdir "$repository_sdk_overlay/Sdks" || return
+  for sdk in "$installed_sdks"/*; do
+    mkdir -p "$repository_sdk_overlay/Sdks/$(basename "$sdk")/Sdk" || return
+    for sdk_file in "$sdk"/*; do
+      [[ "$(basename "$sdk_file")" == Sdk ]] && continue
+      ln -s "$sdk_file" "$repository_sdk_overlay/Sdks/$(basename "$sdk")/$(basename "$sdk_file")" || return
+    done
+    for sdk_file in Sdk.props Sdk.targets; do
+      [[ -f "$sdk/Sdk/$sdk_file" ]] || continue
+      printf '<Project><Import Project="%s" /></Project>\n' "$sdk/Sdk/$sdk_file" \
+        > "$repository_sdk_overlay/Sdks/$(basename "$sdk")/Sdk/$sdk_file"
+    done
+  done
+  for sdk in Raven.Sdk Raven.Sdk.Web; do
+    mkdir -p "$repository_sdk_overlay/Sdks/$sdk/Sdk" || return
+    cat > "$repository_sdk_overlay/Sdks/$sdk/Sdk/Sdk.props" <<EOF
+<Project>
+  <Import Project="$ROOT_DIR/sdk/$sdk/Sdk/Sdk.props" />
+  <PropertyGroup>
+    <LanguageTargets>$repository_targets</LanguageTargets>
+    <RavenSdkRoot>$ROOT_DIR</RavenSdkRoot>
+    <RavenSdkPackageVersion>$package_version</RavenSdkPackageVersion>
+  </PropertyGroup>
+</Project>
+EOF
+    printf '<Project><Import Project="%s" /></Project>\n' "$ROOT_DIR/sdk/$sdk/Sdk/Sdk.targets" \
+      > "$repository_sdk_overlay/Sdks/$sdk/Sdk/Sdk.targets"
+  done
+  # Use repository SDK props as well as targets; installed props may reference
+  # standard-library names removed by the compiler revision under test.
+  export MSBuildSDKsPath="$repository_sdk_overlay/Sdks"
+  repository_sdk_args=("/property:RavenSdkPackageVersion=$package_version")
+}
 
 resolve_repository_core() {
   local project_path="$1"
@@ -165,9 +217,9 @@ resolve_repository_core() {
   local core_framework
   local candidate
 
-  target_framework="$(dotnet msbuild "$project_path" -getProperty:TargetFramework)"
+  target_framework="$(dotnet msbuild "$project_path" "${repository_sdk_args[@]}" -getProperty:TargetFramework)"
   if [[ -z "$target_framework" ]]; then
-    target_frameworks="$(dotnet msbuild "$project_path" -getProperty:TargetFrameworks)"
+    target_frameworks="$(dotnet msbuild "$project_path" "${repository_sdk_args[@]}" -getProperty:TargetFrameworks)"
     target_framework="${target_frameworks%%;*}"
   fi
 
@@ -182,6 +234,7 @@ case "$SAMPLE_TOOLCHAIN" in
   repository)
     repository_compiler="$ROOT_DIR/src/Raven.Compiler/bin/$BUILD_CONFIG/net11.0/rvnc.dll"
     repository_targets="$ROOT_DIR/build/Raven.Language.targets"
+    prepare_repository_sdks || { echo "Could not prepare repository SDKs"; exit 1; }
     repository_macros_project="$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj"
     if [[ ! -f "$repository_compiler" ]]; then
       echo "Repository compiler host not found: $repository_compiler"
@@ -221,7 +274,7 @@ for project in "${PROJECTS[@]}"; do
   dotnet_build_args=()
   if [[ "$SAMPLE_TOOLCHAIN" == "repository" ]]; then
     repository_core="$(resolve_repository_core "$ROOT_DIR/$project")"
-    dotnet_build_args+=("/property:RavenCompilerHost=$repository_compiler")
+    dotnet_build_args+=("${repository_sdk_args[@]}" "/property:RavenCompilerHost=$repository_compiler")
     if [[ -n "$repository_core" ]]; then
       dotnet_build_args+=("/property:RavenCoreReferencePath=$repository_core")
     fi

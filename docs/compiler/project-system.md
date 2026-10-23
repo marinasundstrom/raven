@@ -153,6 +153,12 @@ The NuGet-based MSBuild SDK resolver restores that version from the configured
 package sources. A standalone project can instead pin the version directly as
 `Sdk="Raven.Sdk/VERSION"`; use one form consistently within a repository.
 
+An explicit `MSBuildSDKsPath` environment selection is preserved when the compiler
+initializes MSBuild for in-process project evaluation. This lets repository
+validation select matching SDK props and targets rather than silently returning
+to an installed SDK. Without an explicit path, normal MSBuild SDK discovery is
+unchanged.
+
 Set the standard `EnableDefaultCompileItems` property to `false` when the
 project needs an explicit source list:
 

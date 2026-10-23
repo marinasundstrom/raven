@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -28,7 +29,8 @@ class C {
     {
         const string code = """
 class C {
-    func M(x: int = 1 + 2) {}
+    static func GetDefault() -> int => 3
+    func M(x: int = GetDefault()) {}
 }
 """;
 
@@ -39,6 +41,18 @@ class C {
             ]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void ConstantExpressionDefault_IsAccepted()
+    {
+        const string code = """
+class C {
+    func M(x: int = 1 + 2) {}
+}
+""";
+
+        CreateVerifier(code, expectedDiagnostics: []).Verify();
     }
 
     [Fact]

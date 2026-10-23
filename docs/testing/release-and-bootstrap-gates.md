@@ -43,10 +43,14 @@ execution would be unsafe, non-terminating, or meaningless. Every exclusion
 must record its reason and is reviewed at the release freeze.
 
 `scripts/build-project-samples.sh` uses the repository
-`build/Raven.Language.targets` and the repository compiler host by default.
+SDK props, `build/Raven.Language.targets`, and the repository compiler host by default.
+It stages SDK resolver forwarding files in a temporary directory, retaining the
+active .NET SDK while selecting the repository Raven SDK imports and the package
+version pinned in `global.json`. The compiler preserves this explicit
+`MSBuildSDKsPath` during in-process project evaluation.
 Use `--installed-toolchain` only when deliberately validating the separately
 installed SDK. This distinction prevents a repository compiler DLL from being
-combined accidentally with stale installed MSBuild targets.
+combined accidentally with stale installed SDK imports or MSBuild targets.
 
 ## .NET SDK and target-framework matrix
 

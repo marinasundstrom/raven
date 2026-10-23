@@ -77,6 +77,7 @@ class Program
                     kind: SyntaxKind.TrueLiteralExpression,
                     token: TrueKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
                 ),
+                Token(SyntaxKind.None),
                 BlockStatement(
                     openBraceToken: OpenBraceToken,
                     statements: SingletonList<StatementSyntax>(

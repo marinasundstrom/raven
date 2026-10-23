@@ -27,7 +27,7 @@ available when an alias is shadowed or the wildcard namespace is not imported.
 Merely referencing the standard library does not place its aliases in lexical
 scope.
 
-`#[Error]` derives Raven's ordinary `System.IError` interface for a union. It
+`#[Error]` derives Raven's ordinary `System.IError` interface for a union. Its name is independent of the `Result.Failure` case; the Result rename does not rename `#[Error]` or `#[ErrorMessage]`. It
 adds default `Message` and `Cause` properties only when the union does not
 already declare them:
 

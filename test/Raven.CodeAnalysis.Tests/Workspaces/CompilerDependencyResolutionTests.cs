@@ -48,6 +48,48 @@ public sealed class CompilerDependencyResolutionTests
         }
     }
 
+    [Fact]
+    public void ProjectCompile_PreservesExplicitSdkSelection()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+        var testOutput = new DirectoryInfo(AppContext.BaseDirectory);
+        var configuration = testOutput.Parent?.Name ?? "Debug";
+        var targetFramework = testOutput.Name;
+        var compilerPath = Path.Combine(repoRoot, "src/Raven.Compiler/bin", configuration, targetFramework, "rvnc.dll");
+        var corePath = Path.Combine(repoRoot, "src/Raven.Core/bin", configuration, targetFramework, "Raven.Core.dll");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "raven-sdk-selection", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var sdkPath = Path.Combine(tempRoot, "Sdks");
+            var sdk = Path.Combine(sdkPath, "Raven.Test.ExplicitSdk", "Sdk");
+            Directory.CreateDirectory(sdk);
+            File.WriteAllText(Path.Combine(sdk, "Sdk.props"), $$"""
+                <Project>
+                  <PropertyGroup>
+                    <TargetFramework>{{targetFramework}}</TargetFramework>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="main.rvn" /></ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(sdk, "Sdk.targets"), "<Project />");
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, "<Project Sdk=\"Raven.Test.ExplicitSdk\" />");
+            File.WriteAllText(Path.Combine(tempRoot, "main.rvn"), "public class SdkSelected { }");
+            var outputPath = Path.Combine(tempRoot, "output");
+
+            var result = RunCompiler(compilerPath, projectPath, outputPath, corePath, targetFramework, sdkPath);
+
+            Assert.True(result.ExitCode == 0, $"stdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(File.Exists(Path.Combine(outputPath, "App.dll")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
     {
         Directory.CreateDirectory(destinationDirectory);
@@ -71,7 +113,8 @@ public sealed class CompilerDependencyResolutionTests
         string sourcePath,
         string outputPath,
         string corePath,
-        string targetFramework)
+        string targetFramework,
+        string? sdkPath = null)
     {
         var startInfo = new ProcessStartInfo(
             "dotnet",
@@ -82,6 +125,12 @@ public sealed class CompilerDependencyResolutionTests
             UseShellExecute = false,
             WorkingDirectory = Path.GetDirectoryName(sourcePath)!
         };
+
+        if (sdkPath is not null)
+        {
+            startInfo.Environment["MSBuildSDKsPath"] = sdkPath;
+            startInfo.Arguments += " --no-project-restore";
+        }
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start rvnc.");
         var stdout = new StringBuilder();

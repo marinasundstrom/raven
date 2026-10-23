@@ -40,6 +40,7 @@ WriteLine("Two")
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
         var entryPoint = assembly.EntryPoint!;
+        Assert.Equal("Samples.Program", entryPoint.DeclaringType!.FullName);
 
         var originalOut = Console.Out;
         using var writer = new StringWriter();

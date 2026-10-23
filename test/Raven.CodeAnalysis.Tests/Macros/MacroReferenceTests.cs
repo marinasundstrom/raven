@@ -12,6 +12,36 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 public sealed class MacroReferenceTests
 {
     [Fact]
+    public void StandardErrorMacro_RetainsErrorNameAndDerivesErrorContract()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import Raven.Macros.*
+
+            #[Error]
+            union ParseError {
+                case InvalidValue(value: string)
+            }
+            """);
+        var compilation = Compilation.Create(
+                "ErrorMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences([.. TestMetadataReferences.DefaultWithRavenMacros, TestMetadataReferences.RavenCore])
+            .AddMacroReferences(MacroReference.CreateFromFile(
+                ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMacroSymbol>(model.GetSymbolInfo(attribute).Symbol);
+
+        Assert.Equal("Error", symbol.Name);
+        Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
+        Assert.Empty(compilation.GetDiagnostics());
+        var errorType = compilation.GetTypeByMetadataName("ParseError");
+        Assert.NotNull(errorType);
+        Assert.Contains(errorType.AllInterfaces, type => type.Name == "IError");
+    }
+
+    [Fact]
     public void CompilerPluginMarker_RequiresAssemblyTarget()
     {
         var markedTree = SyntaxTree.ParseText("""

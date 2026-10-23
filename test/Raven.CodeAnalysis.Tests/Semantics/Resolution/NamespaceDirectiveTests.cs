@@ -29,6 +29,7 @@ public class NamespaceDirectiveTests
 
         var programType = compilation.GetTypeByMetadataName("Samples.Program");
         Assert.NotNull(programType);
+        Assert.Equal("Program", programType.MetadataName);
 
         var containingNamespace = programType!.ContainingNamespace;
         Assert.NotNull(containingNamespace);

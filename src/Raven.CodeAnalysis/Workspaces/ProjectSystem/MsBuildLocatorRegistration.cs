@@ -18,6 +18,7 @@ internal static class MsBuildLocatorRegistration
             if (MSBuildLocator.IsRegistered)
                 return;
 
+            var configuredSdkPath = Environment.GetEnvironmentVariable("MSBuildSDKsPath");
             try
             {
                 MSBuildLocator.RegisterDefaults();
@@ -25,6 +26,13 @@ internal static class MsBuildLocatorRegistration
             catch (InvalidOperationException) when (MSBuildLocator.IsRegistered)
             {
                 // Another concurrent caller won the race.
+            }
+            finally
+            {
+                // Locator initializes SDK defaults, but an explicit SDK selection
+                // must also govern the compiler's in-process project evaluation.
+                if (!string.IsNullOrWhiteSpace(configuredSdkPath))
+                    Environment.SetEnvironmentVariable("MSBuildSDKsPath", configuredSdkPath);
             }
         }
     }

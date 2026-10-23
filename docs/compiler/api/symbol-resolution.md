@@ -147,6 +147,11 @@ symbol-display coverage.
 
 ### Metadata type names
 
+Synthesized top-level `Program` types follow the ordinary named-type contract:
+`MetadataName` is `Program`, while `ContainingNamespace` owns the namespace.
+For file-scoped code in `Samples`, metadata lookup uses `Samples.Program`, and
+the emitted entry-point type has that same fully qualified name.
+
 `Compilation.GetTypeByMetadataName` matches source declarations by metadata name,
 including generic arity. `Box` selects only a nongeneric declaration; ``Box`1``
 selects `Box<T>`. Nested names use `+` and apply the same rule

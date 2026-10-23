@@ -22,5 +22,4 @@ sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, ITyp
 
     public override bool IsImplicitlyDeclared => true;
 
-    public override string MetadataName => !ContainingNamespace!.IsGlobalNamespace ? ContainingNamespace.MetadataName + "." + Name : Name;
 }

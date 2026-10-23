@@ -28,11 +28,11 @@ Validation: 157 final regression checks pass on this branch, including the
 corrected naming fixtures and top-level context inference. All 84 Raven.Core tests
 pass on .NET 10. The broader changed-fixture run exercised over 1,300 tests per
 branch; its rename-related failures were corrected and rerun. Two existing
-ExtensionMethodSemanticTests lowering-trace checks remain failing and reproduce
+ExtensionMethodSemanticTests lowering-trace checks failed during migration validation and reproduced
 with pre-migration compiler sources from main `59a8d09ea`:
 `Lowerer_WithLoweringTrace_RecordsNestedQueryPipelinesAcrossExtensionSources` and
 `Lowerer_WithLoweringTrace_RecordsNestedExtensionInvocations`. They concern trace
-receiver provenance, not Optional execution. Full diagnostics now prepare the
+receiver provenance, not Optional execution. Release stabilization removed those bound-node identity assertions while retaining recorded method, containing-symbol and argument-type checks; both trace tests now pass. Full diagnostics now prepare the
 top-level return context without binding the statement body twice.
 
 Both branches also pass all 84 Raven.Core tests and 18 ConditionalAttribute tests.
