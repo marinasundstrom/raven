@@ -16444,3 +16444,35 @@ Validation passes: seven focused metadata/probe tests, forced-GC sanitized HTTP,
 and optimized/UBSan compiled shared-worker graph/fault stress. Paired one/four-owner
 HTTP throughput improves about 4.4%/7.5% with lower CPU per response; four-owner
 p99 is higher in these trials. The application object is a further 17.7% smaller.
+
+
+## Generated storage ownership (2026-10-23)
+
+neoCLR's native backend now imports `neoclr_gc_enter_owned_v1` for native-GC
+frames. It emits the storage table once in the function prologue. The new entry
+validates addresses, widths and flags, then marks storage metadata as exclusively
+owned and fixed until frame leave or parked-stack expiry. Live slot values may
+change and collection still reads them. Transient descriptors, fault contexts,
+plans and ordinary native frames retain their existing checks. Worker safepoint
+state preserves the ownership marker; frame leave/reuse clears it.
+
+This is a trusted native caller contract, not memory protection or a process-wide
+pointer cache. A native caller that mutates an owned table violates the contract.
+Existing `neoclr_gc_enter_v1` objects remain supported on the fully checked path;
+newly generated objects require a runtime providing the new symbol. The private
+104-byte frame and object headers do not grow. No Runtime Contract setting,
+Raven semantic-model behavior, CLI metadata or .NET target behavior changes.
+The tested Raven input remains codex/neoclr bundle 1128b98cf; neoCLR's
+`runtime/codegen/src/gc_probe.rs` owns native lowering, and `runtime/native/gc`
+owns validation/lifetime enforcement. No Raven compiler binary is rebuilt.
+
+Native intent is compiler-owned execution metadata with explicit lifetime. This
+slice retains temporary per-invocation descriptor tables and compact JSON; it
+does not implement shared binary stack maps or image registration/unloading.
+Those remain the eventual native metadata/backend replacement. In particular,
+transient tables are rewritten during execution and cannot use this ownership
+rule. Malformed entry, mixed checked/owned ancestry, transient mutation, changed
+root values, parked collection and frame reuse pass; 11 codegen tests, forced-GC
+HTTP and optimized/UBSan shared-worker stress also pass. Evidence and performance
+limits are recorded in neoCLR's
+`benchmarks/http-server/primitive-comparison/owned-root-storage/README.md`.
