@@ -13,6 +13,10 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     // state-machine symbols instead keep enclosing parameters on lexical owners.
     internal static ITypeSymbol[] OwnerArguments(INamedTypeSymbol type)
     {
+        // Extension container parameters belong to the emitted accessor/method,
+        // not to the non-generic metadata owner or a closure's enclosing type.
+        if (type.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            return [];
         if (type.OriginalDefinition is not SynthesizedAsyncStateMachineTypeSymbol)
             return type.Arity == 0 ? [] : type.TypeArguments.ToArray();
         var owners = new Stack<INamedTypeSymbol>();

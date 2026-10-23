@@ -863,7 +863,8 @@ internal static class Int32Emitter
             {
                 var ordinal = Array.FindIndex(NeoClrTypeMapper.OwnerParameters(type.Symbol), p => SymbolEqualityComparer.Default.Equals(p, parameter));
                 foreach (var bound in parameter.ConstraintTypes)
-                    nativeTypes[type.Symbol].AddBaseTypeConstraint(ordinal, nativeTypes[(INamedTypeSymbol)bound]);
+                    nativeTypes[type.Symbol].AddBaseTypeConstraint(ordinal, bound.TypeKind == TypeKind.Interface
+                        ? nativeInterfaces[(INamedTypeSymbol)bound] : nativeTypes[(INamedTypeSymbol)bound]);
                 var flags = NativeConstraintMapping.ToMetadata(parameter.ConstraintKind);
                 nativeTypes[type.Symbol].SetSpecialConstraints(ordinal, flags);
             }
@@ -937,6 +938,18 @@ internal static class Int32Emitter
                         : assembly.AddGenericClass("Raven.Generated", frameName, parameters, TypeVisibility.Internal)
                     : nativeOwner is not null ? nativeOwner.AddNestedClass(frameName, TypeVisibility.Internal)
                         : assembly.AddClass("", frameName, TypeVisibility.Internal);
+                for (var ordinal = 0; ordinal < scope.Length; ordinal++)
+                {
+                    var parameter = scope[ordinal];
+                    foreach (var bound in parameter.ConstraintTypes)
+                    {
+                        var constraint = nativeInterfaces.TryGetValue((INamedTypeSymbol)bound, out var localInterface)
+                            ? localInterface : nativeTypes.TryGetValue((INamedTypeSymbol)bound, out var localType)
+                                ? localType : throw Unsupported("closure owner bounds require an owned nominal declaration");
+                        frame.AddBaseTypeConstraint(ordinal, constraint);
+                    }
+                    frame.SetSpecialConstraints(ordinal, NativeConstraintMapping.ToMetadata(parameter.ConstraintKind));
+                }
                 var captureFields = captures.Select((capture, index) => frame.AddField("capture" + index,
                     NeoClrTypeMapper.Map(capture, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)), FieldVisibility.Private)).ToArray();
                 var constructor = frame.AddConstructor(new MethodSignature(PrimitiveType.Void, captureFields.Select(field => field.FieldType)));
@@ -958,7 +971,14 @@ internal static class Int32Emitter
             else
             {
                 var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
-                definition = plan.Define(owner);
+                try { definition = plan.Define(owner); }
+                catch (ArgumentException error)
+                {
+                    throw Unsupported("callable " + plan.Symbol.ToDisplayString() + ": " + error.Message +
+                        "; prior declarations: " + string.Join("; ", methods.Where(m =>
+                            SymbolEqualityComparer.Default.Equals(m.Plan.TypeOwner, plan.TypeOwner) && m.Plan.MetadataName == plan.MetadataName)
+                            .Select(m => m.Plan.Symbol.ToDisplayString())));
+                }
             }
             if (typeHandleHelpers.Contains(plan.Symbol))
             {
@@ -1344,6 +1364,7 @@ internal static class Int32Emitter
                 if (attribute.ApplicationSyntaxReference?.GetSyntax() is not AttributeSyntax syntax) continue;
                 diagnosticSyntax = syntax;
                 emittedAttributes.Add((diagnosticSyntax.SyntaxTree, diagnosticSyntax.Span));
+                if (ConditionalAttributeFacts.IsAttributeOmitted(attribute)) continue;
                 if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } && IsFlagsAttribute(attribute)) continue;
                 if (symbol is IMethodSymbol method && runtimeServices.Contains(method) &&
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.MethodImplAttribute") continue;
@@ -1617,7 +1638,7 @@ internal static class Int32Emitter
                 IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)parentClass.OriginalDefinition, depth + 1)) &&
             original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind is TypeKind.Class or TypeKind.Struct && original.ContainingType is null &&
                 (p.ConstraintKind & ~(TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.FunctionType)) == 0) &&
-                p.ConstraintTypes.All(bound => bound is INamedTypeSymbol { TypeKind: TypeKind.Class, Arity: 0, ContainingType: null } nominal && IsSymbolOnlyReferenceDefinition(nominal, depth + 1)) && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
+                p.ConstraintTypes.All(bound => bound is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Interface, Arity: 0, ContainingType: null } nominal && IsSymbolOnlyReferenceDefinition(nominal, depth + 1)) && (p.Variance == VarianceKind.None || original.TypeKind == TypeKind.Interface));
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&
             SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Unit));

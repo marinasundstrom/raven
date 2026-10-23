@@ -16307,3 +16307,47 @@ of interpreter, JIT and native execution, including nested Result/OS patterns,
 exhaustive matching, base/Object display, equality and GC lifetime. This is not
 mobile/Windows/Linux host qualification. Runtime/library/SDK ownership and exact
 hashes are retained in neoCLR's environment-discovery integration evidence.
+
+### Error decorators and owner interface bounds (2026-10-23)
+
+The native Error context library requires `ContextError<E: Error>`. Native declaration
+planning and the metadata SDK now admit the existing one-bound generic-owner shape
+with a nongeneric nominal interface as well as a class. Emit TypeBound and retain
+it on import; a value implementing the interface satisfies it without acquiring a
+reference-type constraint. CLI uses its ordinary GenericParamConstraint. No new
+Runtime Contract setting, propagation rewrite, error tag or wrapper synthesis is
+introduced. Library code owns context attachment and optional trace capture; the
+runtime owns current guest-stack snapshots. Default interface bodies and general
+structural union constraint projection remain separate gaps. Qualification is
+recorded with neoCLR's error-context slice; this native-only planner is absent from
+Raven main, whose ordinary .NET constraint behavior is a comparison control.
+
+### Conditional diagnostics and typed context closures (2026-10-23)
+
+The shared ConditionalAttribute implementation was developed on main (59a8d09ea)
+and carried separately, not merged wholesale. Caller symbols control call omission in shared
+lowering; native attribute emission honors conditional attribute classes. There
+is no additional Runtime Contract switch. Main's focused group passes 19 cases;
+the carried shared/owner-constraint group passes 27 cases on .NET 11. Native
+execution qualification is recorded below.
+
+The native backend keeps extension type parameters method-owned when constructing
+closures, carries owned nominal constraints onto closure owners and boxes generic
+values converted to interfaces. The metadata SDK verifies owner-parameter forwarding
+to interface-constrained methods. Imported nominal closure-owner bounds remain an
+explicit unsupported authoring case. The existing TypeBound encoding is retained;
+this is metadata/backend completion, not a permanent language restriction.
+
+### Error-context integration qualification (2026-10-23)
+
+The matching neoCLR development tree validates 12 Error/ContextError cases in
+interpreter, JIT and native execution on macOS ARM64 (36 executions), including
+propagation into Result<T, System.Error>, value error conformance, typed causes,
+lazy context factories, conditional startup and captured-stack retention through GC.
+A Release project separately passes all 12 tests with DEBUG absent. The metadata
+SDK tests and 25 specialization tests pass, with one optional timing probe ignored.
+The native specializer now admits nongeneric interface owner bounds and the project
+builder binds the existing stack-capture service; no Runtime Contract switch or
+new metadata encoding is added. Exact working-tree artifact hashes are in neoCLR's
+`docs/validation/error-context/validation.json`. This does not qualify other hosts
+or a published package. Source file/line lookup remains deferred.

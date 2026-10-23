@@ -1991,7 +1991,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));
-                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && conversion.IsBoxing &&
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
+                    (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
                     (conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface ||
                      conversion.Type.GetNonNullableType().SpecialType is (SpecialType.System_ValueType or SpecialType.System_Enum) && capabilities?.Allows(EmissionDeclarationKind.ValueTypeAncestry) == true ||
                      conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&

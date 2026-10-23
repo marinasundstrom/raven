@@ -18,6 +18,37 @@ public class SharedTypeConstraintTests
         """;
 
     [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void InterfaceOwnerBoundsRetainConcreteErrorTypes(string kind)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            public interface Failure { func Code() -> int }
+            public {{kind}} Problem : Failure { func Code() -> int => 42 }
+            public class Context<E: Failure> {
+                private var cause: E
+                init(cause: E) { self.cause = cause }
+                val Cause: E => cause
+            }
+            func Main() -> int => Context<Problem>(Problem()).Cause.Code()
+            """);
+        var compilation = Compilation.Create("InterfaceOwner" + kind, [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Context");
+        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        Assert.Equal(42, loaded.EntryPoint!.Invoke(null, null));
+        var context = loaded.GetType("Context`1")!;
+        Assert.True(context.GetGenericArguments().Single().GetGenericParameterConstraints().Single().IsInterface);
+        Assert.Throws<ArgumentException>(() => context.MakeGenericType(typeof(int)));
+    }
+
+    [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
     public void NominalOwnerBoundsSurviveSharedPlanning(OptimizationLevel optimization)

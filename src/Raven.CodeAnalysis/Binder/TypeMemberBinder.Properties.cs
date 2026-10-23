@@ -875,7 +875,11 @@ internal partial class TypeMemberBinder : Binder
             var accessorVirtual = accessorOverride || isVirtual;
             var accessorSealed = accessorOverride && isSealed;
 
-            var methodSymbol = new SourceMethodSymbol(
+            // Rebinding this property must preserve its accessor identity. Registering a
+            // second getter leaves the first in the owner's declaration graph.
+            var methodSymbol = sourcePropertySymbol?.GetMethod is SourceMethodSymbol { IsSignatureSkeleton: false } existingExpressionGetter
+                ? existingExpressionGetter
+                : new SourceMethodSymbol(
                 name,
                 propertyType,
                 ImmutableArray<SourceParameterSymbol>.Empty,

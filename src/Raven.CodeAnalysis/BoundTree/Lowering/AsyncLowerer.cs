@@ -249,6 +249,7 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(body));
 
         var compilation = GetCompilation(symbol);
+        body = ConditionalCallRewriter.Rewrite(body);
         body = AsyncForLowerer.Rewrite(symbol, body,
             useExceptionHandling: compilation.Options.RuntimeDisposalContract is not { UseExceptionHandling: false });
         if (!compilation.IsRuntimeAsyncEnabled)

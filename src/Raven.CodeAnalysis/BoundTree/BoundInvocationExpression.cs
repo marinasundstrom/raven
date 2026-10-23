@@ -9,13 +9,15 @@ internal partial class BoundInvocationExpression : BoundExpression
     public BoundExpression? Receiver { get; }
     public BoundExpression? ExtensionReceiver { get; }
     public bool RequiresReceiverAddress { get; }
+    public bool IsConditionallyOmitted { get; }
 
     public BoundInvocationExpression(
         IMethodSymbol method,
         IEnumerable<BoundExpression> arguments,
         BoundExpression? receiver = null,
         BoundExpression? extensionReceiver = null,
-        bool requiresReceiverAddress = false)
+        bool requiresReceiverAddress = false,
+        bool isConditionallyOmitted = false)
            : base(NullableMetadataFacts.GetReturnType(method), method, BoundExpressionReason.None)
     {
         Method = method;
@@ -23,6 +25,7 @@ internal partial class BoundInvocationExpression : BoundExpression
         Receiver = receiver;
         ExtensionReceiver = extensionReceiver;
         RequiresReceiverAddress = requiresReceiverAddress;
+        IsConditionallyOmitted = isConditionallyOmitted;
     }
 
     public override string ToString()

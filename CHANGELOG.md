@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-23:** Carry main 59a8d09ea: shared ConditionalAttribute call/attribute omission and diagnostics from main, including receiver/argument suppression and conditional startup support. Preserve expression-bodied getter identity on rebinding to prevent duplicate accessors. All 27 focused conditional/property/shared-constraint tests pass on this branch; no new Runtime Contract switch.
+
+- **2026-10-23:** Admit nongeneric nominal interface bounds on native generic owners and retain them on import, enabling typed error decorators without treating value conformance as class inheritance. Uses existing TypeBound metadata and no new Runtime Contract configuration. Preserve generic closure owner bounds and extension parameter ownership, and box generic-to-interface conversions. Imported nominal closure bounds remain unsupported. Native-only integration; focused qualification is recorded in the compiler bridge documentation.
+
 - **2026-10-23:** Emit nested record cases deriving from their enclosing closed family behind existing native declaration capabilities. Preserve nested identity, imported class slots and interface conversions with the matching neoCLR metadata SDK. Eight built-in environment tests pass in interpreter/JIT/native modes on macOS ARM64 (24 executions), including nested patterns and exhaustive matches. No new Runtime Contract settings; unrelated nested inheritance and native abstract overrides remain bounded gaps.
 
 - **2026-10-23:** Carry main a271da192: preserve inherited slots for abstract overrides and supply zero-parameter Deconstruct bodies for empty records. Covers closed OS/architecture-style hierarchies; no new Runtime Contract settings or metadata representation. All 45 focused record tests pass; reduced closed records and the neoCLR System.Runtime source core compile natively. Carry main db41ad039 with nested-case exhaustive pattern/display coverage. Concrete base overrides remain required by native metadata; abstract override metadata is a separate gap.
