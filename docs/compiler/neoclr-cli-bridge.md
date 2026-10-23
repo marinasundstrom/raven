@@ -16259,3 +16259,21 @@ AOT library. All supported pack values produce C/C++ headers without unsupported
 packing pragmas. Built-in Rust integration tests are used because the scalar backend
 cannot execute the managed Raven test runner. Generated struct imports are not yet
 qualified through the ordinary managed JIT/AOT executable pipeline.
+
+## Environment record hierarchy integration — 2026-10-23
+
+Carry Raven main a271da192 deliberately onto codex/neoclr. The common synthesized
+body factory now supplies zero-component record Deconstruct bodies; native lowering
+no longer falls through to binding a RecordDeclaration as executable code. CLI
+abstract overrides preserve their inherited slots, including Object.ToString.
+Main's 43 and this branch's 45 focused record semantic/execution checks pass. The
+reduced closed-record native consumer and neoCLR's source System.Runtime containing
+OS/version/architecture records compile with the fixed compiler.
+
+No new Runtime Contract configuration or record representation is introduced:
+records use ordinary reference-class metadata, fields and generated methods. There
+is no CLI bridge encoding for these native declarations. This does not enable
+abstract override combinations in native metadata: the native SDK currently
+rejects them. The environment model retains concrete base display methods and
+derived overrides. Native execution and API publication belong to neoCLR's
+integration validation; source compilation alone is not that evidence.

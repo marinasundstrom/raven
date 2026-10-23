@@ -146,7 +146,7 @@ internal static partial class SynthesizedMethodBodyFactory
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { } nominalType)
         {
             var deconstructProperties = GetNominalDeconstructProperties(nominalType);
-            if (!deconstructProperties.IsDefaultOrEmpty)
+            if (!deconstructProperties.IsDefaultOrEmpty || nominalType.IsRecord && method.Parameters.IsEmpty)
             {
                 body = CreateNominalDeconstructBody(compilation, method, deconstructProperties);
                 return true;

@@ -152,6 +152,27 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("record Empty")]
+    [InlineData("record Empty()")]
+    [InlineData("sealed record Empty permits Child; record Child : Empty")]
+    public void EmptyRecordDeconstruct_HasSynthesizedBody(string source)
+    {
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>())
+        {
+            var record = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+            var deconstruct = Assert.Single(record.GetMembers("Deconstruct").OfType<IMethodSymbol>());
+            Assert.Empty(deconstruct.Parameters);
+            Assert.True(compilation.TryGetSynthesizedMethodBody(deconstruct, BoundTreeView.Original, out var body));
+            Assert.NotNull(body);
+            Assert.True(compilation.TryGetSynthesizedMethodBody(deconstruct, BoundTreeView.Lowered, out var lowered));
+            Assert.NotNull(lowered);
+        }
+    }
+
     [Fact]
     public void RecordDeconstruct_HasSynthesizedBody()
     {
