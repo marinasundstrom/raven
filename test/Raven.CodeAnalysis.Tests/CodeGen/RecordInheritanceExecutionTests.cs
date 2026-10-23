@@ -43,6 +43,42 @@ public class RecordInheritanceExecutionTests
     }
 
     [Fact]
+    public void NestedClosedRecordCasesSupportPatternsAndObjectDisplay()
+    {
+        var tree = SyntaxTree.ParseText("""
+            sealed record Platform() {
+                override func ToString() -> string => "Platform"
+                record Desktop(Build: int) : Platform {
+                    override func ToString() -> string => "Desktop ${Build}"
+                }
+                record Mobile() : Platform {
+                    override func ToString() -> string => "Mobile"
+                }
+            }
+            public class Probe {
+                private static func Classify(value: Platform) -> int => match value {
+                    Platform.Desktop(let build) => build
+                    Platform.Mobile => 0
+                }
+                static func Run() -> bool {
+                    let value: Platform = Platform.Desktop(42)
+                    let boxed: object = value
+                    return Classify(value) == 42 && Classify(Platform.Mobile()) == 0
+                        && boxed.ToString() == "Desktop 42" && "${value}" == "Desktop 42"
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NestedClosedRecords", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(true, loaded.Assembly.GetType("Probe")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
     public void BaseTypedEqualityObservesRuntimeTypeAndDerivedState()
     {
         var tree = SyntaxTree.ParseText("""
