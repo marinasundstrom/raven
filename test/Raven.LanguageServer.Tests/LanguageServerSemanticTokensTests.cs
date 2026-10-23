@@ -637,7 +637,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
         }
     }
 
-    if dtoResult is Error(Exception ex) {
+    if dtoResult is Failure(Exception ex) {
         return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
     }
 
@@ -656,7 +656,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
         }
     }
 
-    if dtoResult is Error(Exception ex) {
+    if dtoResult is Failure(Exception ex) {
         return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
     }
 
@@ -874,7 +874,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
         }
     }
 
-    if dtoResult is Error(Exception ex) {
+    if dtoResult is Failure(Exception ex) {
         return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
     }
 
@@ -883,7 +883,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
 
 func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError> {
     let problem: FulfillmentError = .InvalidFeed(message)
-    return Error(problem)
+    return Failure(problem)
 }
 """;
 

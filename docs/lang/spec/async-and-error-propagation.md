@@ -22,7 +22,7 @@ func LoadConfig(path: string) -> Result<Config, IOError | ParseError> {
 Each `?` extracts the success value or injects the error into the enclosing error
 union and returns immediately. Both alternatives are visible in the signature and
 can be discovered and distinguished with typed patterns after extracting
-`Error(let error)`. Neither error type needs a shared interface or base class, and
+`Failure(let error)`. Neither error type needs a shared interface or base class, and
 no application-defined conversion is needed for either listed alternative. An
 unrelated error is rejected. `?` yields the success payload; `Ok(config)` explicitly
 constructs the final successful Result.
@@ -63,7 +63,7 @@ that failure immediately.
 
 | Form | Result type | Success case | Failure case |
 | --- | --- | --- | --- |
-| `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Error(exception)` |
+| `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Failure(exception)` |
 | `try expr?` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
 
 `try expr` evaluates `expr` exactly once and converts the outcome to
@@ -87,8 +87,8 @@ import System.*
 func describeNumber(text: string) -> string {
     return try Convert.ToInt32(text) match {
         Ok(let value) => "Parsed: $value"
-        Error(FormatException ex) => "Invalid format: ${ex.Message}"
-        Error(_) => "Unexpected failure"
+        Failure(FormatException ex) => "Invalid format: ${ex.Message}"
+        Failure(_) => "Unexpected failure"
     }
 }
 
@@ -100,9 +100,9 @@ func parseRequiredInt(text: string) -> Result<int, Exception> {
 func saveText(path: string, text: string) -> string {
     return try System.IO.File.WriteAllText(path, text) match {
         Ok => "Saved"
-        Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
-        Error(IOException ex) => "I/O error: ${ex.Message}"
-        Error(_) => "Unexpected failure"
+        Failure(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
+        Failure(IOException ex) => "I/O error: ${ex.Message}"
+        Failure(_) => "Unexpected failure"
     }
 }
 ```
@@ -154,9 +154,9 @@ case.
 
 | Form | Receiver | Result | Empty or error case |
 | --- | --- | --- | --- |
-| `expr?` | `Result<T, E>` | `T` | propagates `Error(error)` |
+| `expr?` | `Result<T, E>` | `T` | propagates `Failure(error)` |
 | `expr?` | `Option<T>` | `T` | propagates `None` |
-| `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `Error(error)` |
+| `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `Failure(error)` |
 | `expr?.Member` | `Option<T>` | `Option<U>` | preserves `None` |
 
 ### Propagation (`?`)
@@ -181,8 +181,8 @@ func firstEven(values: int[]) -> Option<int> {
 
 #### Detailed rules
 
-* For `Result<T, E>`, `Ok(value)` yields `value` and `Error(error)`
-  immediately returns `Error(error)` from the enclosing context.
+* For `Result<T, E>`, `Ok(value)` yields `value` and `Failure(error)`
+  immediately returns `Failure(error)` from the enclosing context.
 * For `Option<T>`, `Some(value)` yields `value` and `None` immediately returns
   `None` from the enclosing context.
 * `expr?` is valid only when both the operand and the enclosing function or
@@ -244,7 +244,7 @@ union LookupError {
 }
 
 func getUser() -> Result<User, LookupError> {
-    return Error(.MissingUser)
+    return Failure(.MissingUser)
 }
 
 func userNameLength() -> Result<int, LookupError> {
@@ -257,7 +257,7 @@ func selectedItemName() -> Result<string, LookupError> {
 
     match maybeItem {
         Some(let item) => Ok(item.Name)
-        None => Error(.MissingItem)
+        None => Failure(.MissingItem)
     }
 }
 ```
@@ -300,7 +300,7 @@ union LookupError {
 func readNameLength(path: string) -> Result<int, LookupError> {
     let text = try System.IO.File.ReadAllText(path) match {
         Ok(let content) => Ok(content)
-        Error(let ex) => Error(.Io(ex.Message))
+        Failure(let ex) => Failure(.Io(ex.Message))
     }?
 
     let length = parseUser(text)?.Name?.Length?
@@ -309,7 +309,7 @@ func readNameLength(path: string) -> Result<int, LookupError> {
 
 func parseUser(text: string) -> Result<User, LookupError> {
     if text == "" {
-        return Error(.InvalidUser)
+        return Failure(.InvalidUser)
     }
 
     return Ok(User(text))

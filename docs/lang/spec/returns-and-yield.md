@@ -32,7 +32,7 @@ other value positions:
 
 ```raven
 func length(name: string?) -> Result<int, string> {
-    let required = name ?? return Error("Missing name")
+    let required = name ?? return Failure("Missing name")
     return Ok(required.Length)
 }
 

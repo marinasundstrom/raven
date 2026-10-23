@@ -3,7 +3,7 @@ func Connect(endpoint: string) -> Result<string, string> {
         return Ok("connected to $endpoint")
     }
 
-    return Error("cannot connect to $endpoint")
+    return Failure("cannot connect to $endpoint")
 }
 
 func BuildConnection(portText: string) -> Result<string, string> {

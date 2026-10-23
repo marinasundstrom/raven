@@ -4,7 +4,7 @@
 Summarize why `.Case(payload)` patterns still fail to bind for discriminated unions and capture the concrete compiler work needed to make them succeed end-to-end.
 
 ## Current behavior
-Building `samples/discriminated-unions2.rav` still reports that `.Error(message)` is both unrecognized and unbound, even though the case exists. The match is deemed non-exhaustive, the `.Error` case name is treated as a missing identifier, and no payload locals are produced for the arm bodies.【25f513†L15-L25】
+Building `samples/discriminated-unions2.rav` still reports that `.Failure(message)` is both unrecognized and unbound, even though the case exists. The match is deemed non-exhaustive, the `.Error` case name is treated as a missing identifier, and no payload locals are produced for the arm bodies.【25f513†L15-L25】
 
 ## Findings
 1. **Pattern binding depends on synthesized `TryGet*` helpers.** The case-pattern binder resolves the case symbol from the union, then immediately looks for an instance `TryGet{Case}` method whose single `ref` parameter matches the nested case type. If the helper is absent, the binder replaces the entire pattern with a discard and never binds the payload arguments, which explains the missing locals and exhaustiveness diagnostic in the sample.【F:src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs†L561-L599】
@@ -14,4 +14,4 @@ Building `samples/discriminated-unions2.rav` still reports that `.Error(message)
 ## Work required
 * Attach all synthesized union and case members (constructors, properties, `ToString`, implicit conversions, and `TryGet*` helpers) to their containing symbols so the binder and code generator can discover them.
 * Re-run case-pattern binding after the helpers exist to ensure payload locals and exhaustiveness tracking use the real `BoundCasePattern` instead of a discard.
-* Add semantic and lowering tests that cover `.Ok(payload)`/`.Error(message)` patterns, including verification that the emitted `TryGet` helpers and case property getters are invoked during match lowering.
+* Add semantic and lowering tests that cover `.Ok(payload)`/`.Failure(message)` patterns, including verification that the emitted `TryGet` helpers and case property getters are invoked during match lowering.

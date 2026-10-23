@@ -17,7 +17,7 @@ import System.Text.Json.Serialization.*
 ///     if v > 3 {
 ///         return Ok(42)
 ///     }
-///     Error("Wrong number")
+///     Failure("Wrong number")
 /// }
 /// ```
 /// 
@@ -28,7 +28,7 @@ import System.Text.Json.Serialization.*
 /// 
 /// let r = result match {
 ///     Ok(let value) => "Ok: $value"
-///     Error(let message) => "Error: '$message'"
+///     Failure(let message) => "Error: '$message'"
 /// }
 /// ```
 ///
@@ -37,7 +37,7 @@ import System.Text.Json.Serialization.*
 /// ```raven
 /// if result is Ok(let value) {
 ///     // Omitted
-/// } else if result is Error(let error) {
+/// } else if result is Failure(let error) {
 ///     // Omitted
 /// }
 /// ```
@@ -50,7 +50,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     case Ok(T)
 
     /// Represents an error result.
-    case Error(E)
+    case Failure(E)
 
     /// Attempts to extract the successful output used by the propagation protocol.
     func TryGetOutput(out output: T) -> bool {
@@ -65,7 +65,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     /// Attempts to extract the residual used by the propagation protocol.
     func TryGetResidual(out residual: E) -> bool {
         residual = default
-        if self is Error(val error) {
+        if self is Failure(val error) {
             residual = error
             return true
         }
@@ -73,20 +73,20 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     }
 
     /// Constructs an error result from a propagated residual.
-    static func FromResidual(residual: E) -> Result<T, E> => Error(residual)
+    static func FromResidual(residual: E) -> Result<T, E> => Failure(residual)
 
     /// Gets a value indicating whether this result is `Ok`.
     val HasOk: bool => self is Ok(val message)
 
-    /// Gets a value indicating whether this result is `Error`.
-    val HasError: bool => self is Error(val message)
+    /// Gets a value indicating whether this result is `Failure`.
+    val HasError: bool => self is Failure(val message)
 
     /// Gets the successful value as an option.
     val IsOk: Option<T> {
         get {
             self match {
                 Ok(val value) => Some(value)
-                Error(_) => None
+                Failure(_) => None
             }
         }
     }
@@ -95,17 +95,17 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     val IsError: Option<E> {
         get {
             self match {
-                Error(val e) => Some(e)
+                Failure(val e) => Some(e)
                 Ok(_) => None
             }
         }
     }
 
-    /// Projects the value inside `Ok` using `mapper`. `Error` stays `Error`.
+    /// Projects the value inside `Ok` using `mapper`. `Failure` stays `Failure`.
     func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
-            Error(val error) => Error(error)
+            Failure(val error) => Failure(error)
         }
     }
 
@@ -113,7 +113,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     func Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
         self match {
             Ok(val value) => binder(value)
-            Error(val error) => Error(error)
+            Failure(val error) => Failure(error)
         }
     }
 
@@ -121,7 +121,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
             Ok(val value) => Ok(value)
-            Error(val error) => Error(mapper(error))
+            Failure(val error) => Failure(mapper(error))
         }
     }
 
@@ -129,7 +129,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     func Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
         self match {
             Ok(val value) => ok(value)
-            Error(val e) => error(e)
+            Failure(val e) => error(e)
         }
     }
 
@@ -140,17 +140,17 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
                 action(value)
                 Ok(value)
             }
-            Error(val e) => Error(e)
+            Failure(val e) => Failure(e)
         }
     }
 
-    /// Runs `action` if this is `Error`, returning the original result.
+    /// Runs `action` if this is `Failure`, returning the original result.
     func TapError(action: E -> ()) -> Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
-            Error(val e) => {
+            Failure(val e) => {
                 action(e)
-                Error(e)
+                Failure(e)
             }
         }
     }
@@ -159,7 +159,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     func OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
-            Error(val e) => recover(e)
+            Failure(val e) => recover(e)
         }
     }
 
@@ -167,11 +167,11 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     func UnwrapOrElse(factory: () -> T) -> T {
         self match {
             Ok(val value) => value
-            Error(_) => factory()
+            Failure(_) => factory()
         }
     }
 
-    /// Converts `Ok(x)` to a single-item sequence and `Error` to an empty sequence.
+    /// Converts `Ok(x)` to a single-item sequence and `Failure` to an empty sequence.
     func ToEnumerable() -> IEnumerable<T> {
         val list = List<T>()
         if self is Ok(val value) {
@@ -198,7 +198,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
         var error: E = default
         if self is Ok(val value) {
             return value
-        } else if self is Error(val error2) {
+        } else if self is Failure(val error2) {
             error = error2
         }
         throw InvalidOperationException(error.ToString())
@@ -214,17 +214,17 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
 
     /// Returns the error value, or throws when this result is `Ok`.
     func UnwrapError() -> E {
-        if self is Error(val message) {
+        if self is Failure(val message) {
             return message
         }
-        throw InvalidOperationException("Result is not Error")
+        throw InvalidOperationException("Result is not Failure")
     }
 }
 
 /// Converts `Result` values to and from tagged JSON objects.
 public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
-    /// Reads a tagged JSON object as an `Ok` or `Error` result.
+    /// Reads a tagged JSON object as an `Ok` or `Failure` result.
     override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
@@ -237,13 +237,13 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
                 val result: Result<T, E> = Ok(payload)
                 result
             }
-            "Error" => {
+            "Failure" => {
                 val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options)
-                val result: Result<T, E> = Error(payload)
+                val result: Result<T, E> = Failure(payload)
                 result
             }
             _ => {
-                val fallback: Result<T, E> = Error(default(E))
+                val fallback: Result<T, E> = Failure(default(E))
                 fallback
             }
         }
@@ -257,9 +257,9 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
             writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, okValue, options)
             writer.WriteEndObject()
-        } else if value is Error(val errorData) {
+        } else if value is Failure(val errorData) {
             writer.WriteStartObject()
-            writer.WriteString("case", "Error")
+            writer.WriteString("case", "Failure")
             writer.WritePropertyName("data")
             JsonSerializer.Serialize(writer, errorData, options)
             writer.WriteEndObject()

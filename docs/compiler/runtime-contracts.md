@@ -2486,3 +2486,6 @@ shared repair is carried; this does not add native allocation or pinning support
 [ConditionalAttribute support](conditional-methods.md) is shared compiler behavior,
 not a target capability or Runtime Contract mapping. Caller parse symbols decide
 omission; each target supplies its System.Diagnostics.ConditionalAttribute type.
+
+Result case naming is shared across targets: see [Ok and Failure](result-case-names.md).
+It does not change the propagation protocol or add a Runtime Contract switch.

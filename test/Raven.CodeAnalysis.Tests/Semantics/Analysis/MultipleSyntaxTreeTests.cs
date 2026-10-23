@@ -62,7 +62,7 @@ extension OptionExtensions<T> for Option<T> {
             return .Ok(value)
         }
 
-        .Error(error)
+        .Failure(error)
     }
 }
 """);

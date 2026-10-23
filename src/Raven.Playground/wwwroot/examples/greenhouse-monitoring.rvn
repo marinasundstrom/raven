@@ -6,7 +6,7 @@ record struct Percentage private (Value: int) {
     static func Create(value: int) -> Result<Percentage, PercentageError> =>
         value match {
             0..=100 => Ok(Percentage(value))
-            _ => Error(.OutOfRange(value))
+            _ => Failure(.OutOfRange(value))
         }
 }
 
@@ -76,7 +76,7 @@ func CheckDevice(device: GreenhouseDevice) -> Result<ClimateStatus, PercentageEr
 func Report(device: GreenhouseDevice) {
     match CheckDevice(device) {
         Ok(let status) => Console.WriteLine("Recorded status: $status")
-        Error(let error) =>
+        Failure(let error) =>
             Console.WriteLine("${device.DeviceId}: ${Describe(error)}")
     }
 }

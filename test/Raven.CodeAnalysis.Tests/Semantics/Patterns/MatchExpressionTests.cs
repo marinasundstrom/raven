@@ -3379,7 +3379,7 @@ import NestedUnionLibrary.*
 func Describe(result: LoginResult) -> string {
     return match result {
         .Success => "Success"
-        .Error(.WrongCredentials or .ServiceUnavailable) => "Error"
+        .Failure(.WrongCredentials or .ServiceUnavailable) => "Error"
     }
 }
 """);

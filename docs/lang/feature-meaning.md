@@ -251,7 +251,7 @@ state as close to that boundary as practical:
 func FindRequiredCustomer(id: CustomerId) -> Result<Customer, LookupError> {
     let customer = DotNetStore.Find(id)
     match customer {
-        null => .Err(.MissingCustomer(id))
+        null => .Failure(.MissingCustomer(id))
         let value => .Ok(value)
     }
 }
@@ -361,7 +361,7 @@ union RegistrationError {
 func Register(request: RegistrationRequest)
     -> Result<Customer, RegistrationError> {
     // ...
-    return Error(.InvalidName)
+    return Failure(.InvalidName)
 }
 ```
 

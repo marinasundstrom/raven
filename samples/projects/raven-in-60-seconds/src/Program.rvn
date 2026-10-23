@@ -13,7 +13,7 @@ let message = match Quote(request, plans) {
         .Approved => "✓ ${quote.Id}: ${quote.TotalCents} cents"
         .Review(let reason) => "⚠ ${quote.Id}: $reason"
     }
-    Error(let error) => match error {
+    Failure(let error) => match error {
         .UnknownCarrier(let carrier) => "✗ No rate plan for $carrier"
         .InvalidWeight(let weight) => "✗ Invalid weight: ${weight}kg"
     }
@@ -23,7 +23,7 @@ WriteLine(message)
 
 func Quote(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
     if request.WeightKg <= 0 {
-        return Error(.InvalidWeight(request.WeightKg))
+        return Failure(.InvalidWeight(request.WeightKg))
     }
 
     let plan = plans.FirstOrError(

@@ -116,8 +116,8 @@ import System.Console.*
 func parsePort(text: string) -> Result<int, string> {
     int.Parse(text) match {
         .Ok(let port) when port > 0 && port <= 65535 => .Ok(port)
-        .Ok(_) => .Error("Port must be between 1 and 65535")
-        .Error(_) => .Error("Port must be a number")
+        .Ok(_) => .Failure("Port must be between 1 and 65535")
+        .Failure(_) => .Failure("Port must be a number")
     }
 }
 

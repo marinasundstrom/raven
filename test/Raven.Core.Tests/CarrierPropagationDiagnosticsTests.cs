@@ -46,7 +46,7 @@ func test() -> Result<int, int> {
 }
 
 func test2() -> Result<int, string> {
-    return .Error("bad")
+    return .Failure("bad")
 }
 """;
 
@@ -121,7 +121,7 @@ func test() -> Result<int, object> {
 }
 
 func test2() -> Result<int, string> {
-    return .Error("bad")
+    return .Failure("bad")
 }
 """;
 
@@ -142,7 +142,7 @@ async func test() -> Task<Result<int, int>> {
 }
 
 func test2() -> Result<int, string> {
-    return .Error("bad")
+    return .Failure("bad")
 }
 """;
 

@@ -547,7 +547,7 @@ class HtmlDslParser {
         SkipWhitespace()
 
         if _errorMessage is null && !IsEnd() {
-            Error("Expected a single root HTML element.")
+            Failure("Expected a single root HTML element.")
         }
 
         _builder.Append("}")
@@ -564,14 +564,14 @@ class HtmlDslParser {
 
     private func ParseElement() {
         if !Consume("<") {
-            Error("Expected '<' to start an HTML element.")
+            Failure("Expected '<' to start an HTML element.")
             return
         }
 
         let nameStart = _position
         let name = ReadName()
         if name.Length == 0 {
-            Error("Expected an HTML element name.")
+            Failure("Expected an HTML element name.")
             return
         }
         if name.StartsWith(".") || name.EndsWith(".") || name.Contains("..") {
@@ -599,7 +599,7 @@ class HtmlDslParser {
             let attributeStart = _position
             let attributeName = ReadName()
             if attributeName.Length == 0 {
-                Error("Expected an attribute name or '>'.")
+                Failure("Expected an attribute name or '>'.")
                 return
             }
             if isComponent && !IsKeyAttribute(attributeName) {
@@ -612,7 +612,7 @@ class HtmlDslParser {
 
             SkipWhitespace()
             if !Consume("=") {
-                Error("Expected '=' after attribute '${attributeName}'.")
+                Failure("Expected '=' after attribute '${attributeName}'.")
                 return
             }
             SkipWhitespace()
@@ -637,7 +637,7 @@ class HtmlDslParser {
                 }
                 RecordExpressionSourceMap(expression, generatedStart)
             } else {
-                Error("Expected a quoted value or Raven expression for attribute '${attributeName}'.")
+                Failure("Expected a quoted value or Raven expression for attribute '${attributeName}'.")
                 return
             }
 
@@ -650,12 +650,12 @@ class HtmlDslParser {
         }
 
         if !Consume(">") {
-            Error("Expected '>' after element '${name}'.")
+            Failure("Expected '>' after element '${name}'.")
             return
         }
 
         if isComponent {
-            Error("Component '${name}' must use a self-closing tag in this prototype.")
+            Failure("Component '${name}' must use a self-closing tag in this prototype.")
             return
         }
 
@@ -665,11 +665,11 @@ class HtmlDslParser {
                 let closingName = ReadName()
                 SkipWhitespace()
                 if !Consume(">") {
-                    Error("Expected '>' after closing element '${closingName}'.")
+                    Failure("Expected '>' after closing element '${closingName}'.")
                     return
                 }
                 if closingName != name {
-                    Error("Closing element '${closingName}' does not match '${name}'.")
+                    Failure("Closing element '${closingName}' does not match '${name}'.")
                     return
                 }
                 AppendClose(isComponent)
@@ -693,7 +693,7 @@ class HtmlDslParser {
         }
 
         if _errorMessage is null {
-            Error("Element '${name}' is missing a closing tag.")
+            Failure("Element '${name}' is missing a closing tag.")
         }
     }
 
@@ -810,7 +810,7 @@ class HtmlDslParser {
         }
         let value = _source.Substring(start, _position - start)
         if !Consume("\"") {
-            Error("Unterminated quoted attribute value.")
+            Failure("Unterminated quoted attribute value.")
         }
         value
     }
@@ -1012,7 +1012,7 @@ class HtmlDslParser {
         _position >= _source.Length
     }
 
-    private func Error(message: string) {
+    private func Failure(message: string) {
         ErrorAt(_position, message)
     }
 

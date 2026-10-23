@@ -181,7 +181,7 @@ let missing: LookupResult = Missing
 * A comma or semicolon after a case is optional; when present it terminates that
   case declaration.
 * Generic unions are allowed in both forms, for example
-  `union Result<T, E> { case Ok(value: T) case Error(error: E) }`.
+  `union Result<T, E> { case Ok(value: T) case Failure(error: E) }`.
 * `union` declarations may be `partial`. Cases and ordinary members may be
   distributed across partial declarations of the same union. A union with no
   cases reports one cardinality diagnostic on its first declaration in
@@ -209,7 +209,7 @@ when the surrounding context requires the union type.
 
 ```raven
 let ok: Result<int, string> = Ok(99)
-let err = Result<int, string>.Error("boom")
+let err = Result<int, string>.Failure("boom")
 
 let outcome: Either<int, string> = 42
 let left = (int)outcome
@@ -351,7 +351,7 @@ converts to the carrier when the surrounding context requires the union value:
 
 ```raven
 let ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion
-let err = Result<int, string>.Error("boom")
+let err = Result<int, string>.Failure("boom")
 Console.WriteLine(ok)
 ```
 

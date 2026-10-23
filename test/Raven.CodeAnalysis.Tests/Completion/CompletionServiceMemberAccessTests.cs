@@ -1291,7 +1291,7 @@ func Main() -> unit {
         var code = """
 union Result {
     case Ok
-    case Err(message: string)
+    case Failure(message: string)
 }
 
 let value = Result.Ok

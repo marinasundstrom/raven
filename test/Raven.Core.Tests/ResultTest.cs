@@ -51,7 +51,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
-        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Failure");
         var errorCase = Activator.CreateInstance(errorType, "boom")!;
         var result = ConvertCaseToCarrier(resultType, errorCase);
 
@@ -106,7 +106,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
-        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Failure");
         var errorCase = Activator.CreateInstance(errorType, "boom")!;
         var result = ConvertCaseToCarrier(resultType, errorCase);
 
@@ -127,7 +127,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Linq.*
 
-let result: Result<int, string> = .Error("boom")
+let result: Result<int, string> = .Failure("boom")
 let hasError = result.HasError
 let text = result.MapError(message => message + "!").UnwrapError()
 """;
@@ -142,7 +142,7 @@ let text = result.MapError(message => message + "!").UnwrapError()
 import System.*
 import System.Linq.*
 
-let result: Result<int, string> = .Error("boom")
+let result: Result<int, string> = .Failure("boom")
 let _ = result.MapError((v: int) => v)
 """;
 
@@ -260,12 +260,12 @@ let wrapped = result.WithContext("reading value")
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(StringBuilder));
-        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Failure");
         var errorCase = Activator.CreateInstance(errorType, new StringBuilder("secret"))!;
 
         var caseText = errorCase.ToString();
         Assert.NotNull(caseText);
-        Assert.Equal("Result.Error(secret)", caseText);
+        Assert.Equal("Result.Failure(secret)", caseText);
     }
 
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)

@@ -73,7 +73,7 @@ match value {
 ```raven
 let label = try Convert.ToInt32(text) match {
     Ok(let value) => "Parsed ${value}"
-    Error(_) => "Invalid"
+    Failure(_) => "Invalid"
 }
 ```
 

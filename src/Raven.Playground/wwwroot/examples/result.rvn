@@ -1,10 +1,10 @@
 func ReserveSeats(requested: int, available: int) -> Result<int, string> {
     if requested <= 0 {
-        return Error("Choose at least one seat")
+        return Failure("Choose at least one seat")
     }
 
     if requested > available {
-        return Error("Only $available seats remain")
+        return Failure("Only $available seats remain")
     }
 
     return Ok(requested)
@@ -17,5 +17,5 @@ func PriceBooking(requested: int, available: int, pricePerSeat: int) -> Result<i
 
 match PriceBooking(requested: 3, available: 5, pricePerSeat: 40) {
     Ok(let total) => Console.WriteLine("Booking total: $total credits")
-    Error(let message) => Console.WriteLine("Problem: $message")
+    Failure(let message) => Console.WriteLine("Problem: $message")
 }

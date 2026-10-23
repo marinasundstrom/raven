@@ -51,18 +51,23 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
             _ => invocation.Syntax.GetLocation(),
         };
 
+        var receiverType = invocation.TargetMethod.IsExtensionMethod && invocation.TargetMethod.Parameters.Length > 0
+            ? invocation.TargetMethod.Parameters[0].Type : invocation.TargetMethod.ContainingType;
+        var failureCase = receiverType is INamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
+            ? failureType.Name : ResultFacts.FailureCaseName;
+
         context.ReportDiagnostic(Diagnostic.Create(
             Descriptor,
             location,
             invocation.TargetMethod.Name,
             receiverKind,
-            GetThrowingState(invocation.TargetMethod.Name, receiverKind),
-            receiverKind == ReceiverKind.Option ? "Some and None" : "Ok and Error"));
+            GetThrowingState(invocation.TargetMethod.Name, receiverKind, failureCase),
+            receiverKind == ReceiverKind.Option ? "Some and None" : $"{ResultFacts.OkCaseName} and {failureCase}"));
     }
 
-    private static string GetThrowingState(string methodName, ReceiverKind receiverKind)
-        => receiverKind == ReceiverKind.Result && methodName == "UnwrapError" ? "Ok" :
-            receiverKind == ReceiverKind.Option ? "None" : "Error";
+    private static string GetThrowingState(string methodName, ReceiverKind receiverKind, string failureCase)
+        => receiverKind == ReceiverKind.Result && methodName == "UnwrapError" ? ResultFacts.OkCaseName :
+            receiverKind == ReceiverKind.Option ? "None" : failureCase;
 
     private static bool TryGetReceiverKind(IMethodSymbol method, out ReceiverKind receiverKind)
     {

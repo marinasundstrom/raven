@@ -637,14 +637,14 @@ public sealed class FreestandingMacroCodeGenTests
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
-                return Error(context, new TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.");
+                return Failure(context, new TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.");
 
             var keyword = stream.ReadToken();
             if (keyword.RawKind != UnlessKeywordRawKind)
-                return Error(context, keyword.Span, "Expected the 'unless' keyword.");
+                return Failure(context, keyword.Span, "Expected the 'unless' keyword.");
 
             if (stream.IsEndOfFile)
-                return Error(context, keyword.Span, "Expected a Raven expression after 'unless'.");
+                return Failure(context, keyword.Span, "Expected a Raven expression after 'unless'.");
 
             var condition = context.ParseExpression(
                 TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length));
@@ -658,7 +658,7 @@ public sealed class FreestandingMacroCodeGenTests
             };
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static FreestandingMacroExpansionResult Failure(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
@@ -690,17 +690,17 @@ public sealed class FreestandingMacroCodeGenTests
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
-                return Error(context, new TextSpan(0, 0), "Expected a 'test' clause.");
+                return Failure(context, new TextSpan(0, 0), "Expected a 'test' clause.");
 
             var testKeyword = stream.ReadToken();
             if (testKeyword.RawKind != TestKeywordRawKind)
-                return Error(context, testKeyword.Span, "Expected the 'test' keyword.");
+                return Failure(context, testKeyword.Span, "Expected the 'test' keyword.");
 
             if (!TryReadUntil(stream, ThenKeywordRawKind, out var thenKeyword))
-                return Error(context, testKeyword.Span, "Expected a 'then' clause.");
+                return Failure(context, testKeyword.Span, "Expected a 'then' clause.");
 
             if (!TryReadUntil(stream, OtherwiseKeywordRawKind, out var otherwiseKeyword))
-                return Error(context, thenKeyword.Span, "Expected an 'otherwise' clause.");
+                return Failure(context, thenKeyword.Span, "Expected an 'otherwise' clause.");
 
             var condition = context.ParseExpression(
                 TextSpan.FromBounds(testKeyword.Span.End, thenKeyword.SpanStart));
@@ -738,7 +738,7 @@ public sealed class FreestandingMacroCodeGenTests
             return false;
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static FreestandingMacroExpansionResult Failure(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)

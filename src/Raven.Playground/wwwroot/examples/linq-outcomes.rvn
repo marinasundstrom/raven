@@ -30,7 +30,7 @@ let uniqueAustinShipment = shipments.SingleOrError(
 match uniqueAustinShipment {
     Ok(let shipment) =>
         Console.WriteLine("Unique Austin shipment: ${shipment.Id}")
-    Error(let error) =>
+    Failure(let error) =>
         Console.WriteLine(error match {
             .NoShipment(let destination) => "No shipment for $destination"
             .SeveralShipments(let destination) =>

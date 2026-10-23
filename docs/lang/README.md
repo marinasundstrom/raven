@@ -32,7 +32,7 @@ import System.Console.*
 func Main() -> () {
     let result = match ParsePort("8080") {
         Ok(let port) => "Listening on $port"
-        Error(let err) => "Invalid port: $err"
+        Failure(let err) => "Invalid port: $err"
     }
 
     WriteLine(result)
@@ -41,7 +41,7 @@ func Main() -> () {
 func ParsePort(text: string) -> Result<int, string> {
     return int.Parse(text) match {
         Ok(let value) => Ok(value)
-        Error(_) => Error("not a number")
+        Failure(_) => Failure("not a number")
     }
 }
 ```

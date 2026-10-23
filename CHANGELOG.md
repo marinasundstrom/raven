@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
 
 ### 2026-10-23
 
+- Centralize compiler-known Result case names and legacy failure-case resolution in internal ResultFacts, keeping payload member names independent.
+
+- Rename Raven.Core Result.Error to Result.Failure, retaining Ok for the common success path. The failure state carries an error payload; MapError, UnwrapError and diagnostic interfaces keep their names. Update propagation, conditional access, inferred/explicit entry-point emission, analyzer messages and samples. Compiler recognition retains legacy Error-shaped results, but source/metadata consumers must migrate and rebuild; tagged JSON now writes the Failure case. Fix top-level Result inference before full diagnostic binding. 188 focused compiler tests pass; main Raven.Core passes 84 tests. Optional naming is a separate subsequent migration.
+
 - Recognize `System.Diagnostics.ConditionalAttribute`: caller symbols control call omission before argument/receiver evaluation, including precompiled methods; retain semantic binding and method metadata. Validate declarations and delegate conversions, and conditionally emit attribute applications. See `docs/compiler/conditional-methods.md` for the shared compiler contract and validation scope.
 - Preserve expression-bodied property getter identity when declarations are rebound, preventing duplicate accessor declarations on unions.
 

@@ -160,7 +160,7 @@ public class TargetMetadataEmissionTests
                         }
                         public struct Error<E> {
                             public E Value;
-                            public Error(E value) { Value = value; }
+                            public Failure(E value) { Value = value; }
                             public void Deconstruct(out E value) { value = Value; }
                         }
                     }
@@ -250,7 +250,7 @@ public class TargetMetadataEmissionTests
                     public static func Pick(value: Outcome<int, string>) -> int {
                         return match value {
                             .Ok(let number) => number
-                            .Error(_) => -1
+                            .Failure(_) => -1
                         }
                     }
                 }

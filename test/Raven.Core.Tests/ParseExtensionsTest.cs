@@ -163,7 +163,7 @@ func ParseMain(text: string) -> Result<int, FormatException | OverflowException>
 
         var result = parse.Invoke(null, [input])!;
         var resultType = result.GetType();
-        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
+        var errorType = GetCaseTypeFromTryGetValue(resultType, "Failure");
         var tryGetError = GetTryGetValueMethod(resultType, errorType);
         var args = new object?[] { null };
 
@@ -199,7 +199,7 @@ func ParseMain(text: string) -> Result<int, FormatException | OverflowException>
 
         var result = parse.Invoke(null, [input])!;
         var resultType = result.GetType();
-        var caseName = expectedOk ? "Ok" : "Error";
+        var caseName = expectedOk ? "Ok" : "Failure";
         var caseType = GetCaseTypeFromTryGetValue(resultType, caseName);
         var tryGetCase = GetTryGetValueMethod(resultType, caseType);
         var args = new object?[] { null };

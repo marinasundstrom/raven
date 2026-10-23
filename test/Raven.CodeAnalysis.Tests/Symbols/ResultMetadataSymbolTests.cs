@@ -28,7 +28,7 @@ public class ResultMetadataSymbolTests
                 .Single(symbol => symbol.Arity == 2);
 
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Error"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
 
             var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -68,7 +68,7 @@ public class ResultMetadataSymbolTests
             var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Error"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
 
             var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -104,7 +104,7 @@ public class ResultMetadataSymbolTests
                 .Single(symbol => symbol.Arity == 2);
 
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Error"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
 
             var constructors = resultDefinition.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -142,7 +142,7 @@ public class ResultMetadataSymbolTests
             var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Error"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
 
             var constructors = constructedResult.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -246,7 +246,7 @@ func BuildResult(value: int) -> Result<int, string> {
         return Ok(value)
     }
 
-    Error("missing")
+    Failure("missing")
 }
 
 func BuildOption(value: int) -> Option<int> {

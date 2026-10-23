@@ -14,7 +14,7 @@ public class CompletionServiceUnionCaseTests
         var code = """
 union Result {
     case Ok
-    case Err(message: string)
+    case Failure(message: string)
 }
 
 Result.
@@ -31,7 +31,7 @@ Result.
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         var ok = Assert.Single(items.Where(i => i.DisplayText == "Result.Ok"));
-        var err = Assert.Single(items.Where(i => i.DisplayText == "Result.Err"));
+        var err = Assert.Single(items.Where(i => i.DisplayText == "Result.Failure"));
 
         Assert.Equal("Ok", ok.InsertionText);
         Assert.Equal("Err", err.InsertionText);

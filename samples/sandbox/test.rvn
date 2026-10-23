@@ -16,10 +16,10 @@ async func Main() -> Task {
 
             match DisplayProducts(person, displayFunction) {
                 .Ok => ()
-                .Error(CustomError error) => Console.WriteLine(error.Message)
+                .Failure(CustomError error) => Console.WriteLine(error.Message)
             }
         }
-        .Error(let error) => Console.WriteLine(error.Message)
+        .Failure(let error) => Console.WriteLine(error.Message)
     }
 
     await Task.CompletedTask
@@ -29,7 +29,7 @@ func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), Custom
     let products = person.Products
 
     if products.Length == 0 {
-        return .Error(CustomError("No products"))
+        return .Failure(CustomError("No products"))
     }
 
     for product in products {
@@ -50,14 +50,14 @@ func FindPerson(persons: Person[], name: string) -> Result<Person, CustomError> 
             return .Ok(person)
         }
     }
-    return .Error(CustomError("Not found"))
+    return .Failure(CustomError("Not found"))
 }
 
 async func GetPersons() -> Task<Result<Person[], CustomError>> {
     let personResult = await GetPersonsCore()
     match personResult {
         .Ok(let persons) => .Ok(persons)
-        .Error(let exception) => .Error(CustomError(exception.Message))
+        .Failure(let exception) => .Failure(CustomError(exception.Message))
     }
 }
 

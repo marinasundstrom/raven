@@ -35,7 +35,7 @@ import System.Threading.Tasks.*
 
 class Program {
     static func Value(value: int, fail: bool) -> Result<int, string> {
-        if fail { return .Error("expected") }
+        if fail { return .Failure("expected") }
         return .Ok(value)
     }
 
@@ -55,7 +55,7 @@ class Program {
         let result = await Compute(trace, gate, failure)
         return result match {
             .Ok(let value) => "ok:" + value.ToString()
-            .Error(let error) => "error:" + error
+            .Failure(let error) => "error:" + error
         }
     }
 }

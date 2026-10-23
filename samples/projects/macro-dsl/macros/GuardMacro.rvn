@@ -35,15 +35,15 @@ class GuardMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
         if stream.IsEndOfFile {
-            return Error(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
+            return Failure(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
         }
 
         let unlessKeyword = stream.ReadToken()
         if unlessKeyword.RawKind != UnlessKeywordRawKind {
-            return Error(context, unlessKeyword.Span, "Expected the 'unless' keyword.")
+            return Failure(context, unlessKeyword.Span, "Expected the 'unless' keyword.")
         }
         if stream.IsEndOfFile {
-            return Error(
+            return Failure(
                 context,
                 TextSpan(unlessKeyword.Span.End, 0),
                 "Expected a Raven expression after 'unless'.")
@@ -55,7 +55,7 @@ class GuardMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
         }
         if !stream.IsEndOfFile {
             let unexpectedToken = stream.PeekToken()
-            return Error(
+            return Failure(
                 context,
                 unexpectedToken.Span,
                 "Expected the Raven expression to end before '${unexpectedToken.Text}'.")
@@ -68,7 +68,7 @@ class GuardMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
                 condition.Syntax))
     }
 
-    static func Error(
+    static func Failure(
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string

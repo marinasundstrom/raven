@@ -136,30 +136,30 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
-            return Error(context, TextSpan(0, 0), "Expected a 'from' clause.")
+            return Failure(context, TextSpan(0, 0), "Expected a 'from' clause.")
         }
 
         let fromKeyword = stream.ReadToken()
         if fromKeyword.RawKind != FromKeywordRawKind {
-            return Error(context, fromKeyword.Span, "Expected the 'from' keyword.")
+            return Failure(context, fromKeyword.Span, "Expected the 'from' keyword.")
         }
 
         if stream.IsEndOfFile {
-            return Error(context, fromKeyword.Span, "Expected a range variable after 'from'.")
+            return Failure(context, fromKeyword.Span, "Expected a range variable after 'from'.")
         }
 
         let rangeVariable = stream.ReadToken()
         if rangeVariable.Kind != SyntaxKind.IdentifierToken {
-            return Error(context, rangeVariable.Span, "Expected a range-variable identifier.")
+            return Failure(context, rangeVariable.Span, "Expected a range-variable identifier.")
         }
 
         if stream.IsEndOfFile {
-            return Error(context, rangeVariable.Span, "Expected 'in' after the range variable.")
+            return Failure(context, rangeVariable.Span, "Expected 'in' after the range variable.")
         }
 
         let inKeyword = stream.ReadToken()
         if inKeyword.Kind != SyntaxKind.InKeyword {
-            return Error(context, inKeyword.Span, "Expected the 'in' keyword.")
+            return Failure(context, inKeyword.Span, "Expected the 'in' keyword.")
         }
 
         var whereKeyword = inKeyword
@@ -184,7 +184,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
             } else {
                 inKeyword
             }
-            return Error(context, diagnosticToken.Span, "Expected a 'select' clause.")
+            return Failure(context, diagnosticToken.Span, "Expected a 'select' clause.")
         }
 
         let sourceEnd = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
@@ -256,7 +256,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
                 ])))
     }
 
-    static func Error(
+    static func Failure(
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string

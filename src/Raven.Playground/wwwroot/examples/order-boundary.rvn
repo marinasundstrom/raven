@@ -25,11 +25,11 @@ func ReserveStock(sku: string, requested: int) -> Result<Reservation, StockError
     }
 
     if available == 0 {
-        return .Error(.UnknownSku(sku))
+        return .Failure(.UnknownSku(sku))
     }
 
     if requested > available {
-        return .Error(.InsufficientStock(sku, requested, available))
+        return .Failure(.InsufficientStock(sku, requested, available))
     }
 
     return .Ok(Reservation(sku, requested))
@@ -37,7 +37,7 @@ func ReserveStock(sku: string, requested: int) -> Result<Reservation, StockError
 
 func CreateShipment(sku: string, requested: int, address: string) -> Result<Shipment, OrderError> {
     if address == "" {
-        return .Error(.InvalidAddress)
+        return .Failure(.InvalidAddress)
     }
 
     let units = ReserveStock(sku, requested)?.Units?
@@ -47,7 +47,7 @@ func CreateShipment(sku: string, requested: int, address: string) -> Result<Ship
 func Describe(result: Result<Shipment, OrderError>) -> string {
     return result match {
         .Ok(let shipment) => "Ship ${shipment.Units} × ${shipment.Sku} to ${shipment.Address}"
-        .Error(let error) => DescribeOrderError(error)
+        .Failure(let error) => DescribeOrderError(error)
     }
 }
 

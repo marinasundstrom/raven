@@ -625,7 +625,7 @@ func GetItem() -> Result<string, Err> {
 
     return match maybeItem {
         .Some(let item) => .Ok(item.Name)
-        .None => .Error(Err.MissingName)
+        .None => .Failure(Err.MissingName)
     }
 }
 

@@ -2663,8 +2663,8 @@ partial class BlockBinder
                 var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
 
                 // Receiver Result<TPayload, E> cases
-                recvOk = FindUnionCase(receiverNamed, "Ok");
-                recvErr = FindUnionCase(receiverNamed, "Error");
+                recvOk = FindUnionCase(receiverNamed, ResultFacts.OkCaseName);
+                recvErr = FindUnionCase(receiverNamed, ResultFacts.FailureCaseName) ?? FindUnionCase(receiverNamed, ResultFacts.LegacyErrorCaseName);
                 resTryOk = FindTryGetValueMethod(receiverNamed, recvOk);
                 resTryErr = FindTryGetValueMethod(receiverNamed, recvErr);
                 recvOkValue = recvOk is not null ? FindPropertyGetter(recvOk, "Value") : null;
@@ -2673,8 +2673,8 @@ partial class BlockBinder
                     : null;
 
                 // Result<U,E> cases (carrier)
-                resOk = FindUnionCase(carrierTypeSymbol, "Ok");
-                resErr = FindUnionCase(carrierTypeSymbol, "Error");
+                resOk = FindUnionCase(carrierTypeSymbol, ResultFacts.OkCaseName);
+                resErr = FindUnionCase(carrierTypeSymbol, ResultFacts.FailureCaseName) ?? FindUnionCase(carrierTypeSymbol, ResultFacts.LegacyErrorCaseName);
 
                 if (resOk is not null)
                 {

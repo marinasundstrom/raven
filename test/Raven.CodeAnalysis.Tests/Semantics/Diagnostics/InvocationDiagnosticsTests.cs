@@ -35,10 +35,10 @@ func Main() {
     public void TypeInvocation_BindsAsConstructor()
     {
         var code = """
-record Error(Message: string)
+record Failure(Message: string)
 
 func Main() {
-    Error("x")
+    Failure("x")
 }
 """;
 
@@ -54,7 +54,7 @@ import System.*
 import System.Console.*
 
 func Main() {
-    Error("x");
+    Failure("x");
 }
 """;
 
@@ -233,10 +233,10 @@ func Main() {
     public void ConstructorInvocationWithWrongArity_ReportsNoOverload()
     {
         var code = """
-record Error(Message: string)
+record Failure(Message: string)
 
 func Main() {
-    Error()
+    Failure()
 }
 """;
 

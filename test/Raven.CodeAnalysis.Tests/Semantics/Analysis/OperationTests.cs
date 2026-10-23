@@ -1036,7 +1036,7 @@ let error: Error = MissingName("x")
 
         var operation = Assert.IsAssignableFrom<IUnionCaseOperation>(model.GetOperation(invocationSyntax));
         operation.Kind.ShouldBe(OperationKind.UnionCase);
-        operation.UnionType.Name.ShouldBe("Error");
+        operation.UnionType.Name.ShouldBe("Failure");
         operation.CaseType.Name.ShouldBe("MissingName");
         operation.Constructor.ShouldNotBeNull();
         operation.Arguments.Length.ShouldBe(1);

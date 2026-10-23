@@ -27,7 +27,7 @@ public class PropagationCodeGenTests
                 }
                 private static func Read(fail: bool) -> Result<int, string> {
                     _ = Mark(3)
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(7)
                 }
                 private func Use(first: int, matched: bool, last: int) {
@@ -39,7 +39,7 @@ public class PropagationCodeGenTests
                 }
                 public static func Check(fail: bool) -> bool {
                     let result = Run(fail)
-                    if fail { return count == 123 && result is .Error("failed") }
+                    if fail { return count == 123 && result is .Failure("failed") }
                     return count == 12345 && result is .Ok(12345)
                 }
             }
@@ -71,7 +71,7 @@ public class PropagationCodeGenTests
                 private static var count: int = 0
                 private static func Read(fail: bool) -> Result<int, string> {
                     count += 1
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(7)
                 }
                 private static func Run(skip: bool, fail: bool, conjunction: bool) -> Result<int, string> {
@@ -91,7 +91,7 @@ public class PropagationCodeGenTests
                 public static func Check(skip: bool, fail: bool, conjunction: bool) -> bool {
                     let result = Run(skip, fail, conjunction)
                     if skip { return count == 0 && result is .Ok(9) }
-                    if fail { return count == 1 && result is .Error("failed") }
+                    if fail { return count == 1 && result is .Failure("failed") }
                     return count == 11 && result is .Ok(42)
                 }
             }
@@ -121,7 +121,7 @@ public class PropagationCodeGenTests
                 }
                 private static func Read(fail: bool) -> Result<int, string> {
                     count = count * 10 + 2
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(7)
                 }
                 private static func Right() -> int {
@@ -135,7 +135,7 @@ public class PropagationCodeGenTests
                 }
                 public static func Check(fail: bool) -> bool {
                     let result = Run(fail)
-                    if fail { return count == 12 && result is .Error("failed") }
+                    if fail { return count == 12 && result is .Failure("failed") }
                     return count == 1234 && result is .Ok(24)
                 }
             }
@@ -161,7 +161,7 @@ public class PropagationCodeGenTests
                 private static var count: int = 0
                 private static func Read(fail: bool) -> Result<int, string> {
                     count += 1
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(7)
                 }
                 private static func Run(fail: bool) -> Result<int, string> {
@@ -172,7 +172,7 @@ public class PropagationCodeGenTests
                 }
                 public static func Check(fail: bool) -> bool {
                     let result = Run(fail)
-                    if fail { return count == 1 && result is .Error("failed") }
+                    if fail { return count == 1 && result is .Failure("failed") }
                     return count == 11 && result is .Ok(10)
                 }
             }
@@ -200,7 +200,7 @@ public class PropagationCodeGenTests
                 private static var count: int = 0
                 private static func Read(fail: bool, value: int) -> Result<int, string> {
                     count = count * 10 + value
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(value)
                 }
                 private static func Run(chooseFirst: bool, fail: bool) -> Result<int, string> {
@@ -218,7 +218,7 @@ public class PropagationCodeGenTests
                     let result = Run(chooseFirst, fail)
                     if fail {
                         let expected = if chooseFirst { 12 } else { 34 }
-                        return count == expected && result is .Error("failed")
+                        return count == expected && result is .Failure("failed")
                     }
                     if chooseFirst { return count == 125 && result is .Ok(12) }
                     return count == 345 && result is .Ok(14)
@@ -244,7 +244,7 @@ public class PropagationCodeGenTests
                 private static var count: int = 0
                 private static func Read(fail: bool) -> Result<int, string> {
                     count += 1
-                    if fail { return .Error("failed") }
+                    if fail { return .Failure("failed") }
                     return .Ok(7)
                 }
                 private static func Run(fail: bool) -> Result<int, string> {
@@ -256,7 +256,7 @@ public class PropagationCodeGenTests
                     let ok = Run(false)
                     if count != 11 || !(ok is .Ok(42)) { return false }
                     let error = Run(true)
-                    return count == 12 && error is .Error("failed")
+                    return count == 12 && error is .Failure("failed")
                 }
             }
             """;

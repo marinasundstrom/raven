@@ -149,7 +149,7 @@ class Program {
     static async func Main() -> Task {
         let text = try await Program.Fetch() match {
             .Ok(let value) => value.ToString()
-            .Error(Exception ex) => ex.Message
+            .Failure(Exception ex) => ex.Message
         }
 
         Console.WriteLine(text)
@@ -179,7 +179,7 @@ class Program {
 
         return try await Task.FromResult("ok") match {
             .Ok(let text) => .Ok(text)
-            .Error(Exception ex) => .Error(ApiError.Network(ex))
+            .Failure(Exception ex) => .Failure(ApiError.Network(ex))
         }
     }
 
@@ -556,7 +556,7 @@ class Program {
 
         return match maybeItem {
             .Some(let item) => .Ok(item.Name)
-            .None => .Error(Err.MissingName)
+            .None => .Failure(Err.MissingName)
         }
     }
 

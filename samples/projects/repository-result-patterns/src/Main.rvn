@@ -10,7 +10,7 @@ func Main() {
 
     match result {
         Ok(let item) => Console.WriteLine("${item.Id} ${item.Name}")
-        Error(RepositoryError.NotFound) => Console.WriteLine("Not found")
-        Error(let error) => Console.WriteLine("$error")
+        Failure(RepositoryError.NotFound) => Console.WriteLine("Not found")
+        Failure(let error) => Console.WriteLine("$error")
     }
 }
