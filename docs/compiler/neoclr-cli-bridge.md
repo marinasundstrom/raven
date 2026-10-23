@@ -16372,3 +16372,28 @@ Some/None, propagation and carrier layout stay unchanged. All 183 final compiler
 regressions, 84 Raven.Core tests and 18 conditional tests pass here. Native
 error-context and method-state suites pass in interpreter/JIT/AOT (42 executions).
 Two baseline lowering-trace failures are documented in optional-naming.md.
+
+
+## Compiled worker safepoints (development, 2026-10-23)
+
+neoCLR's opt-in `--native-worker-safepoints` backend mode instruments synchronous
+bootstrap callbacks for coordinated GC across worker threads on one heap.
+Runtime Contract selection and Raven semantic/emission behavior are unchanged;
+the existing temporary CLI encoding of closures, references and bodies is consumed
+unchanged. No new language threading semantics or managed API are introduced.
+
+The neoCLR backend owns root snapshots and the private seven-argument worker-root
+publication symbol; the native worker coordinator owns suspension, exclusive
+allocation/helper execution, shared cursor updates and per-invocation diagnostics.
+ABI v4 context layout remains unchanged. Runtime objects must be built with
+`NEOCLR_WORKER_GC`. This profile is macOS ARM64 only and rejects type initializers
+and unaudited native services. Async Tasks/I/O and arbitrary racing field writes
+are not qualified. These are temporary backend admission limits, not Raven rules.
+A production native metadata/backend must describe safepoints, participant roots
+and transitions directly; CLI bridge conventions are not the final threading ABI.
+
+The matching Raven bundle (1128b98cf) compiles the unchanged language fixture;
+optimized/UBSan native tests reach four active participants with live cross-worker
+roots through over 24,000 collections. Evidence and reproduction are in neoCLR's
+`docs/experiments/native-worker-pool/README.md` and
+`compiled-parallel-validation.json`. Default code generation is unchanged.

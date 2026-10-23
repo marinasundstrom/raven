@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-23:** Document neoCLR’s opt-in compiled worker safepoints and shared-heap GC integration, native helper/type-initializer restrictions and optimized/UBSan evidence. Raven Runtime Contract configuration, language semantics and CLI metadata remain unchanged; shared async HTTP is still unqualified.
+
 - **2026-10-23:** Preserve source mappings when lowering arrow-bodied members, including constant-result macro expansions, so debugger sequence points retain the authored fragment or invocation.
 
 - **2026-10-23:** Carry main 694bbeae8: rename System.Option<T> to Optional<T>, retaining Some/None and the propagation/JSON semantics. Add internal OptionalFacts, and migrate compiler and SDK prelude imports, compiler conveniences, framework projections, analyzers, editor support, converters, samples and docs on both targets. This is a source/metadata breaking rename: rebuild consumers. Preserve independent Error names in domain-union regression fixtures. Use the owning semantic model for conditional-call symbols on detached macro syntax, fixing editor queries. 183 final regression checks and 84 Raven.Core tests pass; both branches also pass 18 conditional-attribute tests, and main passes 144 editor tests (three existing skips). Two unrelated lowering-trace failures reproduce with pre-migration compiler sources.
