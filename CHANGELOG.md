@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR's typed native boundary headers: versioned eight-byte lane-count metadata replaces runtime boundary JSON scanning, with checked legacy hooks and byte-identical rich inspection retained. New native objects require matching runtime symbols and private frame readers must discriminate the format flag. Raven CLI/Runtime Contract behavior stays unchanged. Thirty focused tests plus native header, HTTP, worker and async-consumer checks pass; Windows qualification is object emission only.
+
 - **2026-10-24:** Document neoCLR compiler-owned transient descriptor publication: validate fixed descriptors once per published lifetime while tracing changing slot values and preserving the checked native fallback. New native objects need the matching runtime hook. Raven CLI emission, Runtime Contract configuration and .NET semantics remain unchanged; forced-GC HTTP, shared-worker checks and 40 async-consumer invocations pass.
 
 - **2026-10-24:** Document neoCLR native backend transient-root handoff reuse: omit empty tables and duplicate post-success publications while retaining pre-call/constructor roots, diagnostic phase events and all GC/worker boundaries. No Raven CLI emission, Runtime Contract configuration or .NET behavior changes; native ABI stays compatible. See paired neoCLR transient-handoff evidence and validation.

@@ -16522,3 +16522,27 @@ forced-GC HTTP, recompiled shared-worker and 40 async-consumer invocations valid
 the integration. See neoCLR's
 `benchmarks/http-server/primitive-comparison/owned-transient/README.md` for evidence
 and the separate capacity experiment.
+
+### Typed native boundary execution headers — 2026-10-24
+
+neoCLR native-GC/worker lowering emits an eight-byte little-endian `NGC1`/lane-count
+header and imports `neoclr_gc_stack_map_v1` or `neoclr_gc_worker_stack_map_v1`.
+The collector still traces explicit published lanes; all spills, safepoints,
+worker exclusivity and root ownership rules remain. Fixed header validation replaces
+boundary JSON scans. Storage/transient JSON and diagnostic-probe hooks remain.
+
+New native objects need the matching runtime. Older objects retain checked JSON
+hooks. Private frame readers discriminate `NEOCLR_GC_TYPED_PLAN` before interpreting
+`plan` bytes; new-format frames no longer contain a textual boundary spill list.
+ARM64/x64 little-endian targets are qualified for emission; another endian target
+needs an explicit format port. Full `--inspect` output is unchanged in a bytewise
+comparison, retaining rich layout and spill metadata.
+
+Raven Runtime Contract options, CLI representation and managed semantics are
+unchanged. The neoCLR native backend/runtime own this format and validation; no
+Raven main merge or compiler-binary update is required. This is a bounded native
+execution-metadata step, not replacement of all CLI bridge metadata: typed storage/
+transient maps and image-level format admission remain future work. Thirty focused
+tests, optimized/sanitized header cases, forced/paced HTTP, shared workers and 40
+async-consumer invocations pass. Windows coverage is object emission on macOS,
+not Windows runtime execution. Evidence: neoCLR `benchmarks/http-server/primitive-comparison/root-map/README.md`.
