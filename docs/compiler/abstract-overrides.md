@@ -17,3 +17,8 @@ Empty records also expose a synthesized zero-parameter Deconstruct body through
 the common body factory, in both original and lowered views. This includes closed
 record bases and parameterless derived cases. Backends must consume that body
 rather than attempt to bind the record declaration as an executable statement.
+
+Nested cases can use the enclosing closed record as their base. The same-file
+sealed hierarchy discovers those cases without an explicit permits list. Executed
+coverage also verifies qualified case construction, exhaustive deconstruction
+patterns and Object/interpolation display; this is ordinary .NET behavior.

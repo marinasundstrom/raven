@@ -6,7 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
 
 ### 2026-10-23
 
-- Preserve inherited virtual slots for abstract overrides, including authored `ToString` on closed record hierarchies. Calls through Object, the abstract base and interpolation now dispatch to the derived implementation. Supply the synthesized zero-parameter Deconstruct body for empty records, including closed bases and parameterless cases, so body consumers do not fall back to binding a type declaration as executable code.
+- Preserve inherited virtual slots for abstract overrides, including authored `ToString` on closed record hierarchies. Calls through Object, the abstract base and interpolation now dispatch to the derived implementation. Supply the synthesized zero-parameter Deconstruct body for empty records, including closed bases and parameterless cases, so body consumers do not fall back to binding a type declaration as executable code. Add executed coverage for nested closed record cases, exhaustive deconstruction patterns and Object display; 51 focused hierarchy/record tests pass.
 
 ### Breaking changes
 
