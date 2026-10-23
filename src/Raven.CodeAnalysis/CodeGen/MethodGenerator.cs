@@ -99,7 +99,9 @@ internal class MethodGenerator
                 {
                     if (MethodSymbol.IsAbstract)
                     {
-                        attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+                        attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual;
+                        if (!MethodSymbol.IsOverride)
+                            attributes |= MethodAttributes.NewSlot;
                     }
                     else if (MethodSymbol.IsVirtual)
                     {
