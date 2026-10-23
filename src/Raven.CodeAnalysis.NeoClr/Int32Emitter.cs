@@ -186,7 +186,7 @@ internal static class Int32Emitter
                 else if (member is RecordDeclarationSyntax recordSyntax)
                 {
                     if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol recordSymbol ||
-                        recordSyntax.Members.Any(m => m is not MethodDeclarationSyntax) ||
+                        recordSyntax.Members.Any(m => m is not (MethodDeclarationSyntax or RecordDeclarationSyntax)) ||
                         !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, bodyCapabilities))
                         throw Unsupported("positional records with ordinary methods");
                     declaredTypes.TryAdd(recordSymbol, recordPlan!);
@@ -239,7 +239,7 @@ internal static class Int32Emitter
                         throw Unsupported("only invariant owned interfaces with public abstract method contracts");
                     interfaces.Add(interfacePlan!);
                 }
-                else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
+                else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)
                 {
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (type.ParameterList is not null ||
@@ -1442,8 +1442,8 @@ internal static class Int32Emitter
                 else
                 {
                     yield return member;
-                    if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
-                        foreach (var nested in Flatten(type.Members.Where(m => m is ClassDeclarationSyntax or StructDeclarationSyntax)))
+                    if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)
+                        foreach (var nested in Flatten(type.Members.Where(m => m is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)))
                             yield return nested;
                 }
             }

@@ -16277,3 +16277,33 @@ abstract override combinations in native metadata: the native SDK currently
 rejects them. The environment model retains concrete base display methods and
 derived overrides. Native execution and API publication belong to neoCLR's
 integration validation; source compilation alone is not that evidence.
+
+## Nested platform record cases (development, 2026-10-23)
+
+Environment discovery uses a static class and native nested cases such as
+OperatingSystem.Linux and Architecture.Arm64. Ordinary .NET nesting, record equality,
+virtual display and exhaustive closed-family matching are the semantic model.
+Native emission now walks nested record declarations and admits a nongeneric case
+whose direct base is its enclosing closed family, using the existing nested-type,
+local-inheritance and positional-reference-record capabilities. No Runtime Contract
+option was added. Other nested inheritance shapes remain outside this bounded
+extension; explicit permits referring to nested types currently bind too early,
+so these declarations use standard same-file sealed-family inference.
+
+The metadata SDK retains the declaring type and direct base separately. Imported
+case references retain inherited class slots and nongeneric interface implementations.
+The native loader validates actual dependency relationships; reference declarations
+are not authority to bypass them. The temporary .NET semantic view preserves nested
+names and inheritance; it does not substitute CLR bodies for native execution.
+Native metadata/codegen remain the execution path. Broader bridge replacement work
+is tracked independently.
+
+The neoCLR compiled dispatch projection gives retained Object override bodies unique
+private names after Object/class dispatch selection, avoiding stale base-slot links
+or method hiding. Source metadata remains intact for introspection. Concrete base
+ToString implementations remain necessary: native abstract overrides are still a
+separate limitation. Eight built-in environment tests pass on macOS ARM64 in each
+of interpreter, JIT and native execution, including nested Result/OS patterns,
+exhaustive matching, base/Object display, equality and GC lifetime. This is not
+mobile/Windows/Linux host qualification. Runtime/library/SDK ownership and exact
+hashes are retained in neoCLR's environment-discovery integration evidence.

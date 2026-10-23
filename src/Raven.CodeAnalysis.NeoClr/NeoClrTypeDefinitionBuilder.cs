@@ -75,7 +75,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.MetadataOwner is { } parent)
         {
             var owner = resolveOwner(parent);
-            if (!plan.IsValueType && plan.ClassBase is { } localRoot && SourceTypePlan.IsSourceObjectRoot(localRoot))
+            if (!plan.IsValueType && plan.ClassBase is { } localRoot && (SourceTypePlan.IsSourceObjectRoot(localRoot) || SymbolEqualityComparer.Default.Equals(localRoot, parent) && parent.IsSealedHierarchy))
             {
                 var rootParameters = NeoClrTypeMapper.OwnerParameters(plan.Symbol);
                 return owner.AddNestedClass(plan.Symbol.Name, resolveOwner(localRoot),
