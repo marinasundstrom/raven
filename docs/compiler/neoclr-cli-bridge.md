@@ -16476,3 +16476,30 @@ root values, parked collection and frame reuse pass; 11 codegen tests, forced-GC
 HTTP and optimized/UBSan shared-worker stress also pass. Evidence and performance
 limits are recorded in neoCLR's
 `benchmarks/http-server/primitive-comparison/owned-root-storage/README.md`.
+
+
+### Native GC transient handoff publication (2026-10-24)
+
+neoCLR native lowering now retains the pre-call scratch-result or constructor-receiver
+root table through successful return, rather than publishing the same descriptor
+addresses again. Native GC also omits transient tables with no traceable lanes and
+the compact JSON records for omitted events. The table continues to describe current
+storage values; reference, erased discriminator and borrowed/interior-root lanes are
+unchanged. Every pre-operation GC point still publishes and clears the prior transient
+table. Worker boundaries and exclusive-operation selection are unchanged. Full
+`--probe-stack-roots` diagnostic phase events and rich inspection plans are retained.
+
+Owner: neoCLR `runtime/codegen/src/gc_probe.rs`. No Raven Runtime Contract option,
+source semantic/emission rule, CLI representation, ordinary .NET behavior or native
+runtime ABI changes. Old and new objects use the same runtime symbols. The tested
+Raven input remains the codex/neoclr bundle 1128b98cf; Raven main stays separate and
+no Raven compiler binary is rebuilt. This is an execution-work optimization, not an
+immutable-transient metadata contract: the runtime still validates published tables.
+
+The temporary CLI-to-native bridge still uses per-invocation descriptors and compact
+JSON for retained publications. Image-owned typed maps and safe metadata registration/
+unloading remain future native backend work. General noncollecting-call effect
+analysis is not introduced. Qualification covers emitted maps, unchanged diagnostic
+probes, forced-GC HTTP, recompiled shared workers and 40 async-consumer invocations;
+measurements and precise limits are retained in neoCLR's
+`benchmarks/http-server/primitive-comparison/transient-handoff/README.md`.

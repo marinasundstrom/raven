@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR native backend transient-root handoff reuse: omit empty tables and duplicate post-success publications while retaining pre-call/constructor roots, diagnostic phase events and all GC/worker boundaries. No Raven CLI emission, Runtime Contract configuration or .NET behavior changes; native ABI stays compatible. See paired neoCLR transient-handoff evidence and validation.
+
 - **2026-10-23:** Document neoCLR native backend generated-storage ownership: a new runtime entry validates fixed prologue descriptors once per frame, preserving mutable root values, transient/native checks and worker coordination. New native objects require the matching runtime symbol; existing objects remain checked. Raven CLI emission, Runtime Contract configuration and ordinary .NET behavior are unchanged. Eleven neoCLR codegen checks, native GC/parked-root tests, forced-GC HTTP and shared-worker optimized/UBSan checks pass; see the paired neoCLR experiment.
 
 - **2026-10-23 — neoCLR execution metadata:** document the neoCLR backend’s compact native-GC point/storage/transient schemas and separation from full diagnostic plans, guided by CLR metadata design. Raven Runtime Contract configuration and CLI emission remain unchanged; matching bundle 1128b98cf remains supported. See docs/compiler/neoclr-cli-bridge.md and neoCLR’s allocation-metadata and slot-metadata experiments for validation and limits.
