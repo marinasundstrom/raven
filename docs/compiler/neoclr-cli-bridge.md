@@ -16503,3 +16503,22 @@ analysis is not introduced. Qualification covers emitted maps, unchanged diagnos
 probes, forced-GC HTTP, recompiled shared workers and 40 async-consumer invocations;
 measurements and precise limits are retained in neoCLR's
 `benchmarks/http-server/primitive-comparison/transient-handoff/README.md`.
+
+### Native transient descriptor ownership — 2026-10-24
+
+neoCLR native-GC lowering on main now imports `neoclr_gc_transient_owned_v1` for
+compiler-owned descriptor tables. Publication validates addresses/widths once;
+descendant boundaries retain that result until replacement, the owning frame's
+next boundary, or leave/expiry. Slot values remain mutable and traced, including
+parked frames. Ordinary mutable native callers keep the checked hook. New native
+objects require the matching runtime symbol; older objects remain supported.
+
+Raven `codex/neoclr` CLI emission, Runtime Contract configuration, semantic effects,
+and ordinary .NET behavior are unchanged; no Raven main merge or compiler binary
+change is required. The native backend/runtime own table lifetime enforcement.
+This does not change temporary CLI information limits; typed native execution maps
+remain the future replacement for JSON plans. Focused rejection/live-root tests,
+forced-GC HTTP, recompiled shared-worker and 40 async-consumer invocations validate
+the integration. See neoCLR's
+`benchmarks/http-server/primitive-comparison/owned-transient/README.md` for evidence
+and the separate capacity experiment.

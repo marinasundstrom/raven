@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR compiler-owned transient descriptor publication: validate fixed descriptors once per published lifetime while tracing changing slot values and preserving the checked native fallback. New native objects need the matching runtime hook. Raven CLI emission, Runtime Contract configuration and .NET semantics remain unchanged; forced-GC HTTP, shared-worker checks and 40 async-consumer invocations pass.
+
 - **2026-10-24:** Document neoCLR native backend transient-root handoff reuse: omit empty tables and duplicate post-success publications while retaining pre-call/constructor roots, diagnostic phase events and all GC/worker boundaries. No Raven CLI emission, Runtime Contract configuration or .NET behavior changes; native ABI stays compatible. See paired neoCLR transient-handoff evidence and validation.
 
 - **2026-10-23:** Document neoCLR native backend generated-storage ownership: a new runtime entry validates fixed prologue descriptors once per frame, preserving mutable root values, transient/native checks and worker coordination. New native objects require the matching runtime symbol; existing objects remain checked. Raven CLI emission, Runtime Contract configuration and ordinary .NET behavior are unchanged. Eleven neoCLR codegen checks, native GC/parked-root tests, forced-GC HTTP and shared-worker optimized/UBSan checks pass; see the paired neoCLR experiment.
