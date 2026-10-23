@@ -177,7 +177,9 @@ class TopLevelBinder : BlockBinder
             return false;
 
         var resultDefinition = LookupType("Result") as INamedTypeSymbol;
-        if (resultDefinition is null || resultDefinition.Arity != 2 || resultDefinition.IsUnboundGenericType)
+        if (resultDefinition is null || resultDefinition.Arity != 2)
+            resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
+        if (resultDefinition is null || resultDefinition.Arity != 2)
             return false;
 
         inferredResultType = resultDefinition.Construct(okType, errorType);
@@ -251,13 +253,12 @@ class TopLevelBinder : BlockBinder
         if (expression is MemberBindingExpressionSyntax bareCase)
         {
             var name = bareCase.Name.Identifier.ValueText;
-            if (!string.Equals(name, "Ok", StringComparison.Ordinal) &&
-                !string.Equals(name, "Error", StringComparison.Ordinal))
+            if (!ResultFacts.IsCaseName(name))
             {
                 return false;
             }
 
-            isOkCase = string.Equals(name, "Ok", StringComparison.Ordinal);
+            isOkCase = string.Equals(name, ResultFacts.OkCaseName, StringComparison.Ordinal);
             payloadType = Compilation.GetSpecialType(SpecialType.System_Unit);
             return true;
         }
@@ -269,13 +270,12 @@ class TopLevelBinder : BlockBinder
         }
 
         var memberName = memberBinding.Name.Identifier.ValueText;
-        if (!string.Equals(memberName, "Ok", StringComparison.Ordinal) &&
-            !string.Equals(memberName, "Error", StringComparison.Ordinal))
+        if (!ResultFacts.IsCaseName(memberName))
         {
             return false;
         }
 
-        isOkCase = string.Equals(memberName, "Ok", StringComparison.Ordinal);
+        isOkCase = string.Equals(memberName, ResultFacts.OkCaseName, StringComparison.Ordinal);
 
         if (invocation.ArgumentList.Arguments.Count == 0)
         {

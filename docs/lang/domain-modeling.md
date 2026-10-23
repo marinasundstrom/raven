@@ -85,7 +85,7 @@ union YearError {
 record struct Year private (Value: int) {
     static func Create(value: int) -> Result<Year, YearError> {
         if value < 1 {
-            return Error(.OutOfRange(value))
+            return Failure(.OutOfRange(value))
         }
 
         return Ok(Year(value))
@@ -118,7 +118,7 @@ union AccessTokenError {
 class AccessToken private (private val value: string) {
     static func Create(value: string) -> Result<AccessToken, AccessTokenError> {
         if String.IsNullOrWhiteSpace(value) {
-            return Error(.Empty)
+            return Failure(.Empty)
         }
 
         return Ok(AccessToken(value))

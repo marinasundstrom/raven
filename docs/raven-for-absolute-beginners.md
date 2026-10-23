@@ -416,12 +416,12 @@ own behavior.
 ## Operations that may fail
 
 `Result<T, E>` represents either success with `Ok(...)` or an expected problem
-with `Error(...)`.
+with `Failure(...)`.
 
 ```raven
 func Divide(a: int, b: int) -> Result<int, string> {
     if b == 0 {
-        return Error("Cannot divide by zero")
+        return Failure("Cannot divide by zero")
     }
 
     return Ok(a / b)
@@ -431,7 +431,7 @@ func Divide(a: int, b: int) -> Result<int, string> {
 ```raven
 match Divide(10, 0) {
     Ok(let answer) => WriteLine("Answer: $answer")
-    Error(let message) => WriteLine("Problem: $message")
+    Failure(let message) => WriteLine("Problem: $message")
 }
 ```
 

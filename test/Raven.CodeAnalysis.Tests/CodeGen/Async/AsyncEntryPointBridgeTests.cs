@@ -128,7 +128,7 @@ import System.*
 
 class Program {
     static func Main() -> Result<int, string> {
-        return .Error("Wrong args")
+        return .Failure("Wrong args")
     }
 }
 """;
@@ -178,7 +178,7 @@ class Program {
     static async func Main(args: string[]) -> Task<Result<int, string>> {
         await Task.Yield()
         if args.Length == 0 {
-            return .Error("boom")
+            return .Failure("boom")
         }
 
         return .Ok(args.Length)
@@ -235,7 +235,7 @@ class Program {
         await Task.Yield()
 
         if first.Length == 0 {
-            return .Error("empty")
+            return .Failure("empty")
         }
 
         return .Ok
@@ -288,7 +288,7 @@ import System.*
 class Program {
     static func Main(args: string[]) -> Result<(), string> {
         if args.Length == 0 {
-            return .Error("missing")
+            return .Failure("missing")
         }
 
         return .Ok

@@ -204,7 +204,7 @@ class Probe(name: string, trace: List<string>) : IDisposable {
 
 class Program {
     static func MakeResult(value: int, fail: bool) -> Result<int, Exception> {
-        if fail { return .Error(InvalidOperationException("boom")) }
+        if fail { return .Failure(InvalidOperationException("boom")) }
         return .Ok(value)
     }
 
@@ -221,7 +221,7 @@ class Program {
         let result = await Fetch(trace, gate, fail)
         return match result {
             .Ok(let value) => "ok:" + value.ToString()
-            .Error(let error) => "error:" + error.Message
+            .Failure(let error) => "error:" + error.Message
         }
     }
 }

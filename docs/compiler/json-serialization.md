@@ -85,13 +85,13 @@ JSON shape:
 | Raven value | JSON |
 | --- | --- |
 | `Ok(value)` | `{ "case": "Ok", "value": <value as T> }` |
-| `Error(data)` | `{ "case": "Error", "data": <data as E> }` |
+| `Failure(data)` | `{ "case": "Failure", "data": <data as E> }` |
 
 Example:
 
 ```raven
 let ok: Result<int, string> = Ok(42)
-let error: Result<int, string> = Error("not found")
+let error: Result<int, string> = Failure("not found")
 ```
 
 ```json
@@ -99,7 +99,7 @@ let error: Result<int, string> = Error("not found")
 ```
 
 ```json
-{ "case": "Error", "data": "not found" }
+{ "case": "Failure", "data": "not found" }
 ```
 
 Read behavior:
@@ -107,7 +107,7 @@ Read behavior:
 - The converter reads the exact `case` property.
 - `"Ok"` reads the `value` property as `T`.
 - `"Error"` reads the `data` property as `E`.
-- Any other case value currently falls back to `Error(default(E))`.
+- Any other case value currently falls back to `Failure(default(E))`.
 
 The property names are part of the converter shape. They are written as
 lowercase `case`, `value`, and `data`; they are not produced through
@@ -387,7 +387,7 @@ Read behavior:
 | Type | Converter | Plain JSON when possible | Metadata shape |
 | --- | --- | --- | --- |
 | `Option<T>` | `OptionJsonConverter<T>` | Yes | `None` is `null`; `Some` is the payload |
-| `Result<T, E>` | `ResultJsonConverter<T, E>` | No | `{ "case": "Ok", "value": ... }` or `{ "case": "Error", "data": ... }` |
+| `Result<T, E>` | `ResultJsonConverter<T, E>` | No | `{ "case": "Ok", "value": ... }` or `{ "case": "Failure", "data": ... }` |
 | `T1 | T2` / `System.Union<...>` targeting .NET 11 | Native System.Text.Json union converter | Yes | Active case JSON; ambiguous cases need classification |
 | `T1 | T2` / `System.Union<...>` targeting .NET 10 | `RavenParenthesizedUnionJsonConverter<TUnion>` | Yes | Object members get `$type`; arrays currently remain plain arrays |
 | `union Name(T1 | T2)` with `RavenParenthesizedUnionJsonConverterFactory` | `RavenParenthesizedUnionJsonConverter<TUnion>` | Yes | Object members get `$type`; arrays currently remain plain arrays |

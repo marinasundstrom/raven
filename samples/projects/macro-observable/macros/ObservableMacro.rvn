@@ -11,7 +11,7 @@ class ObservableMacro : IMacroDefinition {
         if !IsStorageProperty(property) {
             return MacroExpansionResult {
                 MacroDiagnostics = [
-                    MacroExpansionDiagnostic.Error(
+                    MacroExpansionDiagnostic.Failure(
                         "#[Observable] requires a mutable storage property without accessors or an expression body.",
                         property.GetLocation(),
                         "OBS001")

@@ -24,7 +24,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 ///     case AccessDenied
 /// }
 /// ```
-public macro Error(
+public macro Failure(
     on target: UnionDeclarationSyntax,
     context: AttachedMacroContext
 ) {

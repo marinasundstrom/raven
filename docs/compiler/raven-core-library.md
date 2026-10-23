@@ -76,7 +76,7 @@ Each entry records its exact source signature, projected signature, stable
 projection ID, bridge implementation, and expected exception mapping. The
 `TryParse` entries catch no exceptions: a `false` result becomes `None`, while
 source exceptions remain exceptions. The `int.Parse` and `Guid.Parse` bridges
-put expected format/range failures in `Result.Error`. Exceptions that require
+put expected format/range failures in `Result.Failure`. Exceptions that require
 violating a non-null projected signature, such as passing a forced `null` and
 triggering `ArgumentNullException`, propagate as faults instead.
 
@@ -113,7 +113,7 @@ func parse(text: string) -> Result<int, ParseError> {
     if text == "42" {
         return Ok(42)
     }
-    return Error(ParseError.InvalidInteger(text))
+    return Failure(ParseError.InvalidInteger(text))
 }
 ```
 
@@ -194,7 +194,7 @@ catch-all arms.
 `Result<T, E>` is also a plain `union` struct carrier:
 
 - `Ok(value: T)` for success.
-- `Error(data: E)` for failure.
+- `Failure(data: E)` for failure.
 
 Like `Option<T>`, `Result<T, E>` uses carrier semantics rather than inheritance semantics. Case values convert into the carrier, and extraction happens through `TryGetValue(out CaseType)` or pattern matching.
 The carrier also exposes a conventional `Value: object?` property
@@ -203,13 +203,13 @@ The carrier also exposes `HasValue: bool`, where constructed values report
 `true` and the default carrier value reports `false`.
 
 For constructed `Result<T, E>` values, `Value` points at either the active
-`Ok<T>` or `Error<E>` case object.
+`Ok<T>` or `Failure<E>` case object.
 
 Because `Result<T, E>` is a struct union, `default(Result<T, E>)` is an inactive
 carrier state rather than an `Error`. Raven code that calls a `Result<T, E>`
 helper with a visible default-capable receiver is diagnosed at the call boundary.
 If external code or unsafe construction still forces an inactive carrier into a
-helper, the source match is exhaustive over `Ok` and `Error` and the emitted
+helper, the source match is exhaustive over `Ok` and `Failure` and the emitted
 defensive fallback handles the invalid representation state. Code that forwards
 a `Result<T, E>` across a call or return boundary must pass or return a value
 that flow analysis knows is active.
@@ -336,7 +336,7 @@ compiler work should focus on:
 
 Project builds include a generated prelude source file that globally imports
 the standard `System` namespaces, `System.Result.*`, and `System.Option.*`.
-That prelude is why standard cases such as `Ok`, `Error`, `Some`, and `None`
+That prelude is why standard cases such as `Ok`, `Failure`, `Some`, and `None`
 are usually available as simple names in project code. User-defined union cases
 require qualification, target-typed member syntax, or an explicit
 `import UnionType.*`. Global imports are hoisted across the compilation but

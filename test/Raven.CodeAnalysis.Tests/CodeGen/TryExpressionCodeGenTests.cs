@@ -28,7 +28,7 @@ class Runner {
     static func Run(text: string) -> string {
         return Import(text) match {
             .Ok(let value) => "value: $value"
-            .Error(let error) => "error: ${error.Message}"
+            .Failure(let error) => "error: ${error.Message}"
         }
     }
 }
@@ -81,7 +81,7 @@ class Runner {
         let result = await Test(fail)
         return match result {
             .Ok(let value) => "ok:" + value.ToString()
-            .Error(let error) => "error:" + error.Message
+            .Failure(let error) => "error:" + error.Message
         }
     }
 }
@@ -163,7 +163,7 @@ class Runner {
 import System.*
 class Runner {
     static func Read(mode: int) -> Result<int, Exception> {
-        if mode == 1 { return .Error(Exception("returned")) }
+        if mode == 1 { return .Failure(Exception("returned")) }
         if mode == 2 { throw Exception("thrown") }
         return .Ok(42)
     }
@@ -171,7 +171,7 @@ class Runner {
         let inner = (try Read(mode))?
         return .Ok(inner match {
             .Ok(let value) => "value:" + value.ToString()
-            .Error(let error) => "handled:" + error.Message
+            .Failure(let error) => "handled:" + error.Message
         })
     }
     static func Flatten(mode: int) -> Result<string, Exception> {
@@ -182,7 +182,7 @@ class Runner {
         let result = if flatten { Flatten(mode) } else { Preserve(mode) }
         return result match {
             .Ok(let text) => text
-            .Error(let error) => "error:" + error.Message
+            .Failure(let error) => "error:" + error.Message
         }
     }
 }

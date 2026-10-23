@@ -4787,8 +4787,8 @@ partial class BlockBinder : Binder
         if (union is null)
             return ErrorExpression();
 
-        var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
-        var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Error");
+        var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == ResultFacts.OkCaseName);
+        var errorCase = ResultFacts.FindFailureCase(union);
         if (okCase is null || errorCase is null)
             return ErrorExpression();
 
@@ -5196,8 +5196,8 @@ partial class BlockBinder : Binder
 
         if (typeSymbol.Name == "Result")
         {
-            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
-            var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Error");
+            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == ResultFacts.OkCaseName);
+            var errorCase = ResultFacts.FindFailureCase(union);
             if (okCase is null || errorCase is null)
                 return false;
 

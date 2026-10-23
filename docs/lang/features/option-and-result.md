@@ -32,7 +32,7 @@ contract:
 ```raven
 func ValidateWeight(weightKg: decimal) -> Result<decimal, string> {
     if weightKg <= 0 {
-        return Error("Weight must be positive")
+        return Failure("Weight must be positive")
     }
 
     return Ok(weightKg)

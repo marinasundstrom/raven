@@ -62,7 +62,7 @@ class Program {
     static func Print(task: Task<Result<int, string>>) {
         match task.GetAwaiter().GetResult() {
             Ok(let value) => Console.WriteLine(value)
-            Error(let error) => Console.WriteLine(error)
+            Failure(let error) => Console.WriteLine(error)
         }
     }
 
@@ -73,7 +73,7 @@ class Program {
         source.SetResult(Ok(41))
         Print(pending)
         let failure = TaskCompletionSource<Result<int, string>>()
-        failure.SetResult(Error("unavailable"))
+        failure.SetResult(Failure("unavailable"))
         Print(Read(failure.Task))
     }
 }

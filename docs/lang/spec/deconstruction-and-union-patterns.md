@@ -40,7 +40,7 @@ casts, and property accesses.
 
   * The leading `.` resolves against the current scrutinee.
   * Member payloads may supply nested subpatterns matching the member’s
-    parameter list, e.g. `.Identifier(text)` or `Result<int, string>.Error(let message)`.
+    parameter list, e.g. `.Identifier(text)` or `Result<int, string>.Failure(let message)`.
   * Parentheses are optional for parameterless members.
   * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding member parameter.

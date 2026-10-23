@@ -73,7 +73,7 @@ class C {
                     _ = Parse()?
                     return .Ok(42)
                 }
-                func Parse() -> Result<int, string> => .Error("failed")
+                func Parse() -> Result<int, string> => .Failure("failed")
             }
             """;
         var (method, body) = BindMethodBody(source, "Test");

@@ -782,6 +782,11 @@ public partial class SemanticModel
                     diagnosticInstrumentation.RecordClearTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                     phaseStart = Stopwatch.GetTimestamp();
+                    if (root is CompilationUnitSyntax topLevelUnit &&
+                        Compilation.HasRunnableFileScopeCode(topLevelUnit))
+                    {
+                        EnsureTopLevelCompilationUnitBound(topLevelUnit, ensureSourceDeclarations: requireCompleteDeclarations);
+                    }
                     Traverse(root, binder);
                     diagnosticInstrumentation.RecordTraverseTicks(Stopwatch.GetTimestamp() - phaseStart);
 
@@ -7764,7 +7769,7 @@ public partial class SemanticModel
         return operandNamed.Name switch
         {
             "Result" => union.DeclaredCaseTypes
-                .FirstOrDefault(static @case => @case.Name == "Ok")
+                .FirstOrDefault(static @case => @case.Name == ResultFacts.OkCaseName)
                 ?.ConstructorParameters
                 .SingleOrDefault()
                 ?.Type,
@@ -7831,7 +7836,7 @@ public partial class SemanticModel
         switch (operandNamed.Name)
         {
             case "Result":
-                var errorCase = union.DeclaredCaseTypes.FirstOrDefault(static @case => @case.Name == "Error");
+                var errorCase = ResultFacts.FindFailureCase(union);
                 if (errorCase is null)
                     return false;
 

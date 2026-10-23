@@ -22,12 +22,12 @@ public class AdhocUnionPropagationCodeGenTests
                 private static var steps: int = 0
                 private static func ReadFile(failure: int) -> Result<string, IOError> {
                     steps = steps + 1
-                    if failure == 1 { return .Error(IOError()) }
+                    if failure == 1 { return .Failure(IOError()) }
                     return .Ok("config")
                 }
                 private static func ParseConfig(text: string, failure: int) -> Result<int, ParseError> {
                     steps = steps + 1
-                    if failure == 2 { return .Error(ParseError()) }
+                    if failure == 2 { return .Failure(ParseError()) }
                     return .Ok(42)
                 }
                 private static func LoadConfig(failure: int) -> Result<int, IOError | ParseError> {
@@ -38,7 +38,7 @@ public class AdhocUnionPropagationCodeGenTests
                 }
                 public static func Check(failure: int) -> bool {
                     let result = LoadConfig(failure)
-                    if result is .Error(let error) {
+                    if result is .Failure(let error) {
                         if failure == 1 { return steps == 1 && error is IOError }
                         return failure == 2 && steps == 2 && error is ParseError
                     }
@@ -73,9 +73,9 @@ public class AdhocUnionPropagationCodeGenTests
                 private static func Identity<T>(value: T) -> T => value
                 public static func Check() -> bool {
                     let direct = Box<IOError | ParseError>(SelectedError())
-                    let nested = Box<Result<int, IOError | ParseError>>(.Error(SelectedError()))
+                    let nested = Box<Result<int, IOError | ParseError>>(.Failure(SelectedError()))
                     let invoked = Identity<IOError | ParseError>(SelectedError())
-                    if nested.Value is .Error(let actual) {
+                    if nested.Value is .Failure(let actual) {
                         return direct.Value is SelectedError && invoked is SelectedError && actual is SelectedError
                     }
                     return false
@@ -163,7 +163,7 @@ public class AdhocUnionPropagationCodeGenTests
             class ParseError { }
             class OtherError { }
             class Harness {
-                static func Read() -> Result<int, OtherError> => .Error(OtherError())
+                static func Read() -> Result<int, OtherError> => .Failure(OtherError())
                 static func Load() -> Result<int, IOError | ParseError> {
                     let value = Read()?
                     return .Ok(value)

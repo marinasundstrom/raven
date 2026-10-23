@@ -5,7 +5,7 @@ public class Item(
 public record ItemId private (Value: int) {
     static func Create(value: int) -> Result<ItemId, ItemIdError> {
         if value < 1 {
-            return Error(ItemIdError.OutOfRange)
+            return Failure(ItemIdError.OutOfRange)
         }
         return Ok(ItemId(value))
     }
@@ -23,6 +23,6 @@ class ItemRepository : IRepository<Item, ItemId> {
             let newId = ItemId.Create(42).UnwrapOrThrow()
             return Ok(Item(newId, "Foo"))
         }
-        return Error(RepositoryError.NotFound)
+        return Failure(RepositoryError.NotFound)
     }
 }

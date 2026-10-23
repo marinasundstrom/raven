@@ -78,12 +78,12 @@ let errResult = GetErr()
 
 WriteLine(okResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 func GetOk() -> Outcome<int, string> {
@@ -91,12 +91,12 @@ func GetOk() -> Outcome<int, string> {
 }
 
 func GetErr() -> Outcome<int, string> {
-    .Err("fail")
+    .Failure("fail")
 }
 
 union Outcome<T, E> {
     case Ok(value: T)
-    case Err(data: E)
+    case Failure(data: E)
 }
 """;
 
@@ -118,25 +118,25 @@ let errResult = Compute(false)
 
 WriteLine(okResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 func Compute(flag: bool) -> Outcome<int, string> {
     if flag {
         return .Ok(99)
     } else {
-        return .Err("nope")
+        return .Failure("nope")
     }
 }
 
 union Outcome<T, E> {
     case Ok(value: T)
-    case Err(data: E)
+    case Failure(data: E)
 }
 """;
 
@@ -158,12 +158,12 @@ let errResult = await Compute(false)
 
 WriteLine(okResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
     .Ok(let v) => "ok:${v}"
-    .Err(let e) => "error:${e}"
+    .Failure(let e) => "error:${e}"
 })
 
 async func Compute(flag: bool) -> Task<Outcome<int, string>> {
@@ -171,13 +171,13 @@ async func Compute(flag: bool) -> Task<Outcome<int, string>> {
     if flag {
         return .Ok(99)
     } else {
-        return .Err("nope")
+        return .Failure("nope")
     }
 }
 
 union Outcome<T, E> {
     case Ok(value: T)
-    case Err(data: E)
+    case Failure(data: E)
 }
 """;
 

@@ -167,7 +167,7 @@ class QuoteMacroImplementation {
 
         if context.Compilation.GetTypeByMetadataName(
             "Raven.CodeAnalysis.Syntax.SyntaxFactory") == null {
-            return Error(
+            return Failure(
                 context,
                 "Expression quotes require a runtime reference to Raven.CodeAnalysis.",
                 "QUOTE003")
@@ -189,7 +189,7 @@ class QuoteMacroImplementation {
             context.Syntax.SyntaxTree?.Options)
 
         if expansion is null || expansion.IsMissing || expansion.ContainsDiagnostics {
-            return Error(
+            return Failure(
                 context,
                 "The compiler could not construct the quoted expression.",
                 "QUOTE002")
@@ -254,7 +254,7 @@ class QuoteMacroImplementation {
         }
     }
 
-    static func Error(
+    static func Failure(
         context: TokenTreeMacroContext,
         message: string,
         code: string

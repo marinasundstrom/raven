@@ -23,7 +23,7 @@ import System.Result.*
 class C {
     func Test() {
         let sent: Result<int, string> = Ok(2)
-        if let Error(sendError) = sent {
+        if let Failure(sendError) = sent {
             Console.WriteLine(sendError)
         }
     }
@@ -142,7 +142,7 @@ let ok: Result<int, string> = Ok(2)
 
 match ok {
     Ok(let value) => {}
-    Error(_) => {}
+    Failure(_) => {}
 }
 
 class C {
@@ -151,11 +151,11 @@ class C {
 
         match localOk {
             Ok(_) => {}
-            Error(_) => {}
+            Failure(_) => {}
         }
 
         match localOk {
-            Error(_) => {}
+            Failure(_) => {}
         }
     }
 }
@@ -204,7 +204,7 @@ class C {
         let ok: Result<int, string> = Ok(2)
 
         match ok {
-            Error(_) => {}
+            Failure(_) => {}
         }
     }
 }

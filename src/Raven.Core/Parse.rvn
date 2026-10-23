@@ -35,9 +35,9 @@ public extension Int32Extensions for Int32 {
         try {
             return Ok(int.Parse(input))
         } catch FormatException ex {
-            return Error(ex)
+            return Failure(ex)
         } catch OverflowException ex {
-            return Error(ex)
+            return Failure(ex)
         }
     }
 }
@@ -120,7 +120,7 @@ public extension GuidExtensions for Guid {
         try {
             return Ok(Guid.Parse(input))
         } catch FormatException ex {
-            return Error(ex)
+            return Failure(ex)
         }
     }
 }

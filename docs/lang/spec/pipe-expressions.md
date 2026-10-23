@@ -79,7 +79,7 @@ let normalized =
         |> EnsureActive()
         |> (x => match x {
             Ok(let u) => u.Name
-            Error(let e) => "ERR: " + e.ToString()
+            Failure(let e) => "ERR: " + e.ToString()
         })
         |> Normalize()
 ```

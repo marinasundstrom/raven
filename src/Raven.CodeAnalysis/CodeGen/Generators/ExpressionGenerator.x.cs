@@ -306,7 +306,7 @@ internal partial class ExpressionGenerator
 
     private void EmitResultOkWrap(Type resultClrType)
     {
-        var okCaseType = FindNestedCaseTypeSafe(resultClrType, "Ok");
+        var okCaseType = FindNestedCaseTypeSafe(resultClrType, ResultFacts.OkCaseName);
         var okCtor = FindSingleArgCtorSafe(okCaseType);
 
         ILGenerator.Emit(OpCodes.Newobj, okCtor);

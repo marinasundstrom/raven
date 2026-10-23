@@ -19,14 +19,14 @@ public class NullableUnionPayloadCodeGenTests
                     return match result {
                         Ok(string text) => text
                         Ok(_) => "other"
-                        Error(_) => "error"
+                        Failure(_) => "error"
                     }
                 }
                 public static func Read(input: object?) -> string {
                     let result: Result<object?, string> = Ok(input)
                     return match result {
                         Ok(let value) => if value is null { "null" } else { "value" }
-                        Error(_) => "error"
+                        Failure(_) => "error"
                     }
                 }
             }

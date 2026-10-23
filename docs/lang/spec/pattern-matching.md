@@ -6,7 +6,7 @@ Use them to make a decision and extract data in one operation:
 ```raven
 let message = response match {
     Ok(let value) => "Received $value"
-    Error(let reason) => "Failed: $reason"
+    Failure(let reason) => "Failed: $reason"
 }
 
 if input is string text {

@@ -24,10 +24,10 @@ func Test(result: Result<int, string>, option: Option<int>) {
             [
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(4, 24, 4, 37)
-                    .WithArguments("UnwrapOrThrow", "Result", "Error", "Ok and Error"),
+                    .WithArguments("UnwrapOrThrow", "Result", "Failure", "Ok and Failure"),
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(5, 24, 5, 35)
-                    .WithArguments("UnwrapError", "Result", "Ok", "Ok and Error"),
+                    .WithArguments("UnwrapError", "Result", "Ok", "Ok and Failure"),
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(6, 32, 6, 45)
                     .WithArguments("UnwrapOrThrow", "Option", "None", "Some and None"),
@@ -86,10 +86,10 @@ func Test(result: Result<int, string>) {
             [
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(9, 24, 9, 30)
-                    .WithArguments("Unwrap", "Result", "Error", "Ok and Error"),
+                    .WithArguments("Unwrap", "Result", "Failure", "Ok and Failure"),
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(10, 27, 10, 33)
-                    .WithArguments("Expect", "Result", "Error", "Ok and Error"),
+                    .WithArguments("Expect", "Result", "Failure", "Ok and Failure"),
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
             additionalReferences: [TestMetadataReferences.RavenCore]);

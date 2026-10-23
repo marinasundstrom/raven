@@ -68,7 +68,7 @@ async func LoadInboundBatch() -> Task<Result<InboundBatch, FulfillmentError>> {
         }
     }
 
-    if dtoResult is Error(Exception ex) {
+    if dtoResult is Failure(Exception ex) {
         return InvalidFeedResult("Feed JSON could not be parsed: ${ex.Message}")
     }
 
@@ -77,13 +77,13 @@ async func LoadInboundBatch() -> Task<Result<InboundBatch, FulfillmentError>> {
 
 func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError> {
     let problem: FulfillmentError = .InvalidFeed(message)
-    return Error(problem)
+    return Failure(problem)
 }
 
 func ValidateBatch(dto: InboundBatchDto) -> Result<InboundBatch, FulfillmentError> {
     if dto.AccountId.Trim().Length == 0 {
         let error: FulfillmentError = .Validation("AccountId is required")
-        return Error(error)
+        return Failure(error)
     }
 
     let validatedOrders = List<Order>()
@@ -97,17 +97,17 @@ func ValidateBatch(dto: InboundBatchDto) -> Result<InboundBatch, FulfillmentErro
 func ValidateOrder(dto: OrderDto) -> Result<Order, FulfillmentError> {
     if dto.OrderId.Trim().Length == 0 {
         let error: FulfillmentError = .Validation("OrderId is required")
-        return Error(error)
+        return Failure(error)
     }
 
     if dto.CustomerName.Trim().Length < 3 {
         let error: FulfillmentError = .Validation("CustomerName must contain at least 3 characters for ${dto.OrderId}")
-        return Error(error)
+        return Failure(error)
     }
 
     if dto.Lines.Count == 0 {
         let error: FulfillmentError = .Validation("Order ${dto.OrderId} must contain at least one line")
-        return Error(error)
+        return Failure(error)
     }
 
     let priority = ParsePriority(dto.Priority)?
@@ -128,12 +128,12 @@ func ValidateOrder(dto: OrderDto) -> Result<Order, FulfillmentError> {
 func ValidateLine(orderId: string, dto: OrderLineDto) -> Result<OrderLine, FulfillmentError> {
     if dto.Sku.Trim().Length == 0 {
         let error: FulfillmentError = .Validation("Order ${orderId} contains an empty SKU")
-        return Error(error)
+        return Failure(error)
     }
 
     if dto.Quantity <= 0 {
         let error: FulfillmentError = .Validation("Order ${orderId} contains non-positive quantity for ${dto.Sku}")
-        return Error(error)
+        return Failure(error)
     }
 
     return Ok(OrderLine(dto.Sku.Trim().ToUpperInvariant(), dto.Quantity, dto.IsCold))
@@ -153,7 +153,7 @@ func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
     }
 
     let error: FulfillmentError = .Validation("Unsupported priority: ${text}")
-    return Error(error)
+    return Failure(error)
 }
 
 func ToOption(text: string?) -> Option<string> {
@@ -174,7 +174,7 @@ async func LoadInventorySnapshot(accountId: string) -> Task<Result<InventoryItem
 
     if accountId != "ACME-EU" {
         let error: FulfillmentError = .Service("Unknown fulfillment account: ${accountId}")
-        return Error(error)
+        return Failure(error)
     }
 
     let snapshot: InventoryItem[] = [
@@ -195,7 +195,7 @@ async func LoadExpeditedCapacity(accountId: string) -> Task<Result<int, Fulfillm
     }
 
     let error: FulfillmentError = .Service("No capacity feed found for ${accountId}")
-    return Error(error)
+    return Failure(error)
 }
 
 async func BuildFulfillmentPlan(batch: InboundBatch, inventory: InventoryItem[]) -> Task<Result<FulfillmentPlan, FulfillmentError>> {

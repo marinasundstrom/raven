@@ -5,11 +5,11 @@ namespace Raven.CodeAnalysis.Tests;
 public class ImportedMemberUnionPatternTests
 {
     [Theory]
-    [InlineData(".Ok(let number)", ".Error(_)", true, true)]
-    [InlineData(".Ok(let number)", ".Error(_)", false, true)]
-    [InlineData("Ok(let number)", "Error(_)", true, true)]
-    [InlineData("Ok(let number)", "Error(_)", false, false)]
-    [InlineData("Choice.Ok<int>(let number)", "Choice.Error<string>(_)", false, true)]
+    [InlineData(".Ok(let number)", ".Failure(_)", true, true)]
+    [InlineData(".Ok(let number)", ".Failure(_)", false, true)]
+    [InlineData("Ok(let number)", "Failure(_)", true, true)]
+    [InlineData("Ok(let number)", "Failure(_)", false, false)]
+    [InlineData("Choice.Ok<int>(let number)", "Choice.Failure<string>(_)", false, true)]
     public void ImportedMemberUnionDestructuresThroughItsContract(
         string success, string failure, bool importCases, bool valid)
     {
@@ -26,9 +26,9 @@ public class ImportedMemberUnionPatternTests
                             public Ok(T value) { Value = value; }
                             public void Deconstruct(out T value) { value = Value; Value = default; }
                         }
-                        public struct Error<E> {
+                        public struct Failure<E> {
                             public E Value;
-                            public Error(E value) { Value = value; }
+                            public Failure(E value) { Value = value; }
                             public void Deconstruct(out E value) { value = Value; }
                         }
                     }
@@ -37,13 +37,13 @@ public class ImportedMemberUnionPatternTests
                         private object value;
                         public object Value => value;
                         public Choice(Choice.Ok<T> value) { this.value = value; }
-                        public Choice(Choice.Error<E> value) { this.value = value; }
+                        public Choice(Choice.Failure<E> value) { this.value = value; }
                         public bool TryGetValue(out Choice.Ok<T> result) {
                             if (value is Choice.Ok<T> found) { result = found; return true; }
                             result = default; return false;
                         }
-                        public bool TryGetValue(out Choice.Error<E> result) {
-                            if (value is Choice.Error<E> found) { result = found; return true; }
+                        public bool TryGetValue(out Choice.Failure<E> result) {
+                            if (value is Choice.Failure<E> found) { result = found; return true; }
                             result = default; return false;
                         }
                     }
@@ -63,7 +63,7 @@ public class ImportedMemberUnionPatternTests
                 {{(importCases ? "import Contracts.Choice.*" : "")}}
                 public class Consumer {
                     public static func Pick(value: Choice<int, string>) -> int {
-                        {{(valid && importCases ? "if let Error(message) = value { }" : "")}}
+                        {{(valid && importCases ? "if let Failure(message) = value { }" : "")}}
                         return match value {
                             {{success}} => number
                             {{failure}} => -1
@@ -71,7 +71,7 @@ public class ImportedMemberUnionPatternTests
                     }
                     public static func Run(value: int) -> int {
                         if value < 0 {
-                            return Pick(Choice<int, string>(Choice.Error<string>("failed")))
+                            return Pick(Choice<int, string>(Choice.Failure<string>("failed")))
                         }
                         let choice = Choice<int, string>(Choice.Ok<int>(value))
                         return Pick(choice) + Pick(choice)

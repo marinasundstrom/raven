@@ -209,7 +209,7 @@ import System.*
 func format<T>(result: Result<T, string>) -> Option<string> {
     return match result {
         .Ok(let value) => value.ToString()
-        .Error(_) => .None
+        .Failure(_) => .None
     }
 }
 """;

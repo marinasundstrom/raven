@@ -201,7 +201,7 @@ types. For example:
 // Raven
 // public union Result<T, E> {
 //     case Ok(value: T)
-//     case Error(error: E)
+//     case Failure(error: E)
 // }
 
 Result<int, string> result = new Result.Ok<int>(42);
@@ -219,7 +219,7 @@ if (result.TryGetValue(out Result.Ok<int> extracted))
 ```
 
 The explicit `int` on `Result.Ok<int>` is required by current C#. Raven does
-not emit speculative `CreateOk` or `CreateError` factories; factory ergonomics
+not emit speculative `CreateOk` or `CreateFailure` factories; factory ergonomics
 are deferred until the C# generic-constructor-inference direction is settled.
 The case-to-carrier assignment remains a C# union conversion backed by the
 carrier's public one-parameter constructor.

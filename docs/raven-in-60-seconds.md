@@ -58,8 +58,8 @@ operation that may succeed or fail in an expected way.
 func ParsePort(text: string) -> Result<int, string> {
     return int.Parse(text) match {
         Ok(let port) when port > 0 => Ok(port)
-        Ok(_) => Error("Port must be positive")
-        Error(_) => Error("Port must be a number")
+        Ok(_) => Failure("Port must be positive")
+        Failure(_) => Failure("Port must be a number")
     }
 }
 ```

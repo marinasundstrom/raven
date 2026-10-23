@@ -90,7 +90,7 @@ Raven prefers expressions because they compose well and keep local logic compact
 ```raven
 let message = match status {
     Ok(let value) => "Ready: $value"
-    Error(let err) => "Failed: $err"
+    Failure(let err) => "Failed: $err"
 }
 ```
 
@@ -228,7 +228,7 @@ func NormalizeCarrier(name: string) -> string {
 func TryParseQuantity(text: string) -> Result<int, string> {
     return int.Parse(text) match {
         Ok(let value) => Ok(value)
-        Error(_) => Error("\"$text\" is not a quantity")
+        Failure(_) => Failure("\"$text\" is not a quantity")
     }
 }
 ```

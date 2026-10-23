@@ -65,10 +65,10 @@ func Main() {
     {
         var code = """
 func Main() {
-    throw Error("name");
+    throw Failure("name");
 }
 
-record Error(Message: string)
+record Failure(Message: string)
 """;
 
         var verifier = CreateVerifier(code,
@@ -88,7 +88,7 @@ import System.*
 import System.Console.*
 
 func Main() {
-    throw Error("name");
+    throw Failure("name");
 }
 """;
 
@@ -106,10 +106,10 @@ func Main() {
     {
         var code = """
 func Main() {
-    throw Error(42);
+    throw Failure(42);
 }
 
-record Error(Message: string)
+record Failure(Message: string)
 """;
 
         var verifier = CreateVerifier(code,

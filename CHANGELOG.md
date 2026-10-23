@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-23:** Centralize compiler-known Result case names and legacy failure-case resolution in internal ResultFacts, keeping payload member names independent.
+
+- **2026-10-23:** Carry main 8a264cf8a: rename Raven.Core Result.Error to Result.Failure, retaining Ok for the common success path. The failure state carries an error payload; MapError, UnwrapError and diagnostic interfaces keep their names. Update propagation, conditional access, inferred/explicit entry-point emission, analyzer messages and samples. Compiler recognition retains legacy Error-shaped results, but source/metadata consumers must migrate and rebuild; tagged JSON now writes the Failure case. Fix top-level Result inference before full diagnostic binding. 184 focused compiler tests pass; main Raven.Core passes 84 tests. Optional naming is a separate subsequent migration.
+
 - **2026-10-23:** Carry main 59a8d09ea: shared ConditionalAttribute call/attribute omission and diagnostics from main, including receiver/argument suppression and conditional startup support. Preserve expression-bodied getter identity on rebinding to prevent duplicate accessors. All 27 focused conditional/property/shared-constraint tests pass on this branch; no new Runtime Contract switch.
 
 - **2026-10-23:** Admit nongeneric nominal interface bounds on native generic owners and retain them on import, enabling typed error decorators without treating value conformance as class inheritance. Uses existing TypeBound metadata and no new Runtime Contract configuration. Preserve generic closure owner bounds and extension parameter ownership, and box generic-to-interface conversions. Imported nominal closure bounds remain unsupported. Native-only integration; focused qualification is recorded in the compiler bridge documentation.

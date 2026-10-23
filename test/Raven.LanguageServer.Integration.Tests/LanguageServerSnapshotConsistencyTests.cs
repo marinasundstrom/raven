@@ -2426,7 +2426,7 @@ func ping(name: string) -> PingResult {
 func ping1(name: string) -> Result<PingResult, CustomError> {
     match name {
         "Bob" | "bob" => Ok(PingResult("pong $name"))
-        _ => Error(CustomError("Invalid name"))
+        _ => Failure(CustomError("Invalid name"))
     }
 }
 

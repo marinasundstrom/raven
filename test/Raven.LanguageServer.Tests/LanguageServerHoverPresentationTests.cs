@@ -231,14 +231,14 @@ class ActivityStore {
         var propertySignature = (string)buildSignature.Invoke(null, [property, propertyDeclaration, semanticModel])!;
 
         propertySignature.ShouldBe("static val Received: ConcurrentQueue<OrderActivity>");
-        propertySignature.ShouldNotContain("Error");
+        propertySignature.ShouldNotContain("Failure");
 
         var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
         var @event = semanticModel.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
         var eventSignature = (string)buildSignature.Invoke(null, [@event, eventDeclaration, semanticModel])!;
 
         eventSignature.ShouldBe("event Updated: ActivityChanged");
-        eventSignature.ShouldNotContain("Error");
+        eventSignature.ShouldNotContain("Failure");
     }
 
     [Fact]
@@ -731,7 +731,7 @@ union ParseError {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var sourceText = syntaxTree.GetText();
-        var offset = code.IndexOf("Error", StringComparison.Ordinal) + 1;
+        var offset = code.IndexOf("Failure", StringComparison.Ordinal) + 1;
         var tryBuild = typeof(HoverHandler)
             .GetMethod("TryBuildAttachedMacroHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -2097,7 +2097,7 @@ import System.Console.*
 
 class Runner {
     func Run() {
-        let x = System.Result<int, string>.Error("42")
+        let x = System.Result<int, string>.Failure("42")
     }
 }
 """;
@@ -2128,7 +2128,7 @@ class Runner {
         var root = syntaxTree.GetRoot();
         var errorIdentifier = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Single(id => id.Identifier.ValueText == "Error");
+            .Single(id => id.Identifier.ValueText == "Failure");
 
         var resolution = SymbolResolver.ResolveSymbolAtPosition(
             semanticModel,
@@ -2136,7 +2136,7 @@ class Runner {
             errorIdentifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution.Value.Symbol.Name.ShouldBe("Error");
+        resolution.Value.Symbol.Name.ShouldBe("Failure");
         resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().IsUnionCase.ShouldBeTrue();
     }
 
@@ -2153,7 +2153,7 @@ class C {
 
         match ok {
             Ok(_) => {}
-            Error(_) => {}
+            Failure(_) => {}
         }
     }
 }
@@ -2177,7 +2177,7 @@ class C {
         var root = syntaxTree.GetRoot();
         var errorIdentifier = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Single(id => id.Identifier.ValueText == "Error");
+            .Single(id => id.Identifier.ValueText == "Failure");
         errorIdentifier.Parent.ShouldBeAssignableTo<NominalDeconstructionPatternSyntax>();
         var matchStatement = errorIdentifier.GetAncestor<MatchStatementSyntax>();
         matchStatement.ShouldNotBeNull();
@@ -2198,7 +2198,7 @@ class C {
             null,
             [resolution.Value, semanticModel, root, hoverOffset])!;
 
-        signature.ShouldContain("Error");
+        signature.ShouldContain("Failure");
         signature.ShouldContain("string");
         signature.ShouldNotContain(" E");
     }
@@ -2216,7 +2216,7 @@ class C {
     func Test() {
         let ok: Result<int, string> = Ok(2)
 
-        if let Error(message) = ok {
+        if let Failure(message) = ok {
             Console.WriteLine(message)
         }
     }
@@ -2242,7 +2242,7 @@ class C {
         var root = syntaxTree.GetRoot();
         var errorIdentifier = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Single(id => id.Identifier.ValueText == "Error");
+            .Single(id => id.Identifier.ValueText == "Failure");
         errorIdentifier.Parent.ShouldBeAssignableTo<NominalDeconstructionPatternSyntax>();
         var hoverOffset = errorIdentifier.Identifier.SpanStart + 1;
         var hoverToken = root.FindToken(hoverOffset);
@@ -2257,7 +2257,7 @@ class C {
             null,
             [resolution.Value, semanticModel, root, hoverOffset])!;
 
-        signature.ShouldContain("Error");
+        signature.ShouldContain("Failure");
         signature.ShouldContain("string");
         signature.ShouldNotContain(" E");
     }
@@ -2277,7 +2277,7 @@ class C {
 
         match result {
             Ok(let value) => {}
-            Error(_) => {}
+            Failure(_) => {}
         }
     }
 }
@@ -3070,7 +3070,7 @@ union KettleState {
         waterSignature.ShouldBe("water: System.Foo");
         fuelSignature.ShouldBe("Fuel: Devices.Fuel");
         waterContainingDisplay.ShouldContain("water: System.Foo");
-        waterContainingDisplay.ShouldNotContain("Error");
+        waterContainingDisplay.ShouldNotContain("Failure");
     }
 
     [Fact]
@@ -4141,17 +4141,17 @@ class C {
     func Render(status: Result<System.Int32, System.Int32>, values: System.Int32[], pair: (System.Int32, System.String)) -> unit {
         match status {
             .Ok(let okStatement) => okStatement
-            .Error(let errorStatement) => errorStatement
+            .Failure(let errorStatement) => errorStatement
         }
 
         _ = status match {
             .Ok(let okExpression) => okExpression
-            .Error(let errorExpression) => errorExpression
+            .Failure(let errorExpression) => errorExpression
         }
 
         match status {
             Ok(let nominalStatement) => nominalStatement
-            Error(let nominalError) => nominalError
+            Failure(let nominalError) => nominalError
         }
 
         if status is .Ok(let checkedValue) {
@@ -4165,7 +4165,7 @@ class C {
         for nestedStatus in [status] {
             match nestedStatus {
                 Ok(let nestedStatement) => nestedStatement
-                Error(let nestedError) => nestedError
+                Failure(let nestedError) => nestedError
             }
         }
 
@@ -4234,7 +4234,7 @@ class C {
             var memberPatternTokens = root.DescendantNodes()
                 .OfType<MemberPatternPathSyntax>()
                 .Select(path => path.Identifier)
-                .Where(token => token.ValueText is "Ok" or "Error")
+                .Where(token => token.ValueText is "Ok" or "Failure")
                 .ToArray();
 
             memberPatternTokens.Length.ShouldBe(5);
@@ -4250,7 +4250,7 @@ class C {
             var nominalTokens = root.DescendantNodes()
                 .OfType<NominalDeconstructionPatternSyntax>()
                 .SelectMany(pattern => pattern.Type.DescendantTokens())
-                .Where(token => token.ValueText is "Ok" or "Error")
+                .Where(token => token.ValueText is "Ok" or "Failure")
                 .ToArray();
 
             nominalTokens.Length.ShouldBe(5);
@@ -5051,7 +5051,7 @@ class Runner {
             var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(null, [resolution.Value, semanticModel, root, hoverOffset])!;
             signature.ShouldContain("Where");
             signature.ShouldNotContain("let query");
-            signature.ShouldNotContain("Error");
+            signature.ShouldNotContain("Failure");
         }
     }
 
@@ -5147,7 +5147,7 @@ record CustomError(val Message: string)
 
 class Api {
     func ping(name: string) -> Result<PingResult, CustomError> {
-        Error(CustomError("bad"))
+        Failure(CustomError("bad"))
     }
 }
 """;

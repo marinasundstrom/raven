@@ -16351,3 +16351,13 @@ builder binds the existing stack-capture service; no Runtime Contract switch or
 new metadata encoding is added. Exact working-tree artifact hashes are in neoCLR's
 `docs/validation/error-context/validation.json`. This does not qualify other hosts
 or a published package. Source file/line lookup remains deferred.
+
+## Result case migration (2026-10-23)
+
+Deliberately carries Raven main `8a264cf8a`: Result uses Ok/Failure on both targets,
+with shared ResultFacts constants and legacy Error-shaped metadata recognition.
+No Runtime Contract setting or native metadata encoding changes. Native union
+case identity follows the authored name, so rebuild libraries and consumers.
+The CLI reference projects the same Failure case; payload-oriented Error contracts
+remain unchanged. 184 focused .NET 11 compiler tests pass on this branch; native
+error-context consumers also pass in interpreter/JIT/AOT with the matching library.

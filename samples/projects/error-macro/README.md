@@ -47,7 +47,7 @@ At the calling boundary it uses `WithContext`, which maps the error channel to
 ```raven
 let result = parseAge("age").WithContext("Reading the configured age")
 
-if result is Error(let error) {
+if result is Failure(let error) {
     Console.WriteLine(error.Message)
     Console.WriteLine(error.Cause.Message)
 }

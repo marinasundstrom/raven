@@ -168,19 +168,19 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Bridges `Option` into a `Result`-producing pipeline.
-    /// If this is `None`, returns `Error(noneError())`.
+    /// If this is `None`, returns `Failure(noneError())`.
     func ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => binder(value)
-            None => Error(noneError())
+            None => Failure(noneError())
         }
     }
 
-    /// Maps the contained value into a `Result`. If this is `None`, returns `Error(noneError())`.
+    /// Maps the contained value into a `Result`. If this is `None`, returns `Failure(noneError())`.
     func MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
         self match {
             Some(val value) => Ok(mapper(value))
-            None => Error(noneError())
+            None => Failure(noneError())
         }
     }
 
@@ -189,7 +189,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
         if self is Some(val value) {
             return Ok(value)
         }
-        Error(error)    
+        Failure(error)
     }
 
     /// Converts this option into a result, evaluating `errorFactory` when it is `None`.
@@ -197,7 +197,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
         if self is Some(val value) {
             return Ok(value)
         }
-        Error(errorFactory())    
+        Failure(errorFactory())
     }
 
     /// Returns the contained value, or the default value when this option is `None`.

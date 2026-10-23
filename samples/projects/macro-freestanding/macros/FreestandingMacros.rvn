@@ -38,16 +38,16 @@ class GuardMacro : IMacroDefinition, IMacroKeywordProvider {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
-            return Error(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
+            return Failure(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
         }
 
         let keyword = stream.ReadToken()
         if keyword.RawKind != UnlessKeywordRawKind {
-            return Error(context, keyword.Span, "Expected the 'unless' keyword.")
+            return Failure(context, keyword.Span, "Expected the 'unless' keyword.")
         }
 
         if stream.IsEndOfFile {
-            return Error(context, keyword.Span, "Expected a Raven expression after 'unless'.")
+            return Failure(context, keyword.Span, "Expected a Raven expression after 'unless'.")
         }
 
         let expressionSpan = TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length)
@@ -61,7 +61,7 @@ class GuardMacro : IMacroDefinition, IMacroKeywordProvider {
         }
     }
 
-    static func Error(
+    static func Failure(
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string
@@ -92,12 +92,12 @@ class ChooseMacro : IMacroDefinition, IMacroKeywordProvider {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
-            return Error(context, TextSpan(0, 0), "Expected a 'test' clause.")
+            return Failure(context, TextSpan(0, 0), "Expected a 'test' clause.")
         }
 
         let testKeyword = stream.ReadToken()
         if testKeyword.RawKind != TestKeywordRawKind {
-            return Error(context, testKeyword.Span, "Expected the 'test' keyword.")
+            return Failure(context, testKeyword.Span, "Expected the 'test' keyword.")
         }
 
         var thenKeyword = testKeyword
@@ -110,7 +110,7 @@ class ChooseMacro : IMacroDefinition, IMacroKeywordProvider {
         }
 
         if thenKeyword.RawKind != ThenKeywordRawKind {
-            return Error(context, testKeyword.Span, "Expected a 'then' clause.")
+            return Failure(context, testKeyword.Span, "Expected a 'then' clause.")
         }
 
         var otherwiseKeyword = thenKeyword
@@ -123,7 +123,7 @@ class ChooseMacro : IMacroDefinition, IMacroKeywordProvider {
         }
 
         if otherwiseKeyword.RawKind != OtherwiseKeywordRawKind {
-            return Error(context, thenKeyword.Span, "Expected an 'otherwise' clause.")
+            return Failure(context, thenKeyword.Span, "Expected an 'otherwise' clause.")
         }
 
         let condition = context.ParseExpression(
@@ -142,7 +142,7 @@ class ChooseMacro : IMacroDefinition, IMacroKeywordProvider {
         }
     }
 
-    static func Error(
+    static func Failure(
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string

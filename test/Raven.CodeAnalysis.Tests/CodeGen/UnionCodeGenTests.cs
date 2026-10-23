@@ -2004,7 +2004,7 @@ class Container {
     }
 
     public func GetError() -> Result {
-        return Result.Error(message: "boom")
+        return Result.Failureor(message: "boom")
     }
 }
 """;
@@ -3042,7 +3042,7 @@ class Container {
         var empty = Array.Empty<int>();
         var value = create.Invoke(null, [empty])!;
 
-        Assert.Equal("Result.Error(\"oops\")", value.ToString());
+        Assert.Equal("Result.Failureor(\"oops\")", value.ToString());
     }
 
     [Fact]

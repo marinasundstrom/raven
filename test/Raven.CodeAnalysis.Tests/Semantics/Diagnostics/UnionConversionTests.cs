@@ -285,7 +285,7 @@ func build(x: Ok<int>) -> Result<(), string> {
 import System.*
 
 func build() -> Result<string, Exception> {
-    return .Error(InvalidOperationException("x"))
+    return .Failure(InvalidOperationException("x"))
 }
 """ + ResultUnionDecl;
 
@@ -303,7 +303,7 @@ func build() -> Result<string, Exception> {
 import System.*
 
 func build() -> Result<string, InvalidOperationException> {
-    return .Error(Exception("x"))
+    return .Failure(Exception("x"))
 }
 """ + ResultUnionDecl;
 

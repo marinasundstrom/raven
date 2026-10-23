@@ -57,13 +57,13 @@ union Failure {
 
 union Response {
     case Success(value: string)
-    case Error(reason: Failure)
+    case Failure(reason: Failure)
 }
 
 let message = response match {
     .Success(let value) => value
-    .Error(.Offline) => "offline"
-    .Error(.Timeout) => "timed out"
+    .Failure(.Offline) => "offline"
+    .Failure(.Timeout) => "timed out"
 }
 ```
 
@@ -79,7 +79,7 @@ usefully, a total pattern for the enclosing case is required.
 
 Parenthesized unions use the same reasoning over their declared variant types.
 Missing-case diagnostics identify the uncovered case and payload when possible,
-such as `Error(OverflowException)` or `.Error(.Offline)`.
+such as `Failure(OverflowException)` or `.Failure(.Offline)`.
 
 ## Tuples and structural patterns
 

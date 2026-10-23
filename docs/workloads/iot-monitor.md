@@ -35,7 +35,7 @@ async func Main() -> Task {
     await for result in telemetry.Poll(CancellationToken.None) {
         match result {
             Ok(let readings) => PrintReport(BuildReport(readings))
-            Error(let error) => PrintError(error)
+            Failure(let error) => PrintError(error)
         }
     }
 }

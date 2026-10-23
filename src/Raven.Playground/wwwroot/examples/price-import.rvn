@@ -13,6 +13,6 @@ func ImportPrice(row: PriceRow) -> Result<decimal, Exception> {
 for row in rows {
     match ImportPrice(row) {
         Ok(let price) => Console.WriteLine("${row.Sku}: $price credits")
-        Error(let error) => Console.WriteLine("${row.Sku}: ${error.Message}")
+        Failure(let error) => Console.WriteLine("${row.Sku}: ${error.Message}")
     }
 }

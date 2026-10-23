@@ -1624,8 +1624,8 @@ internal partial class MethodBodyGenerator
         resultLocal.SetLocalSymInfo("entryResult");
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
-        resultType.TryFindUnionCaseType("Ok", out var okCase);
-        resultType.TryFindUnionCaseType("Error", out var errorCase);
+        resultType.TryFindUnionCaseType(ResultFacts.OkCaseName, out var okCase);
+        ResultFacts.TryFindFailureCaseType(resultType, out var errorCase);
 
         var okMethod = FindTryGetValueMethod(resultType, okCase);
         var errorMethod = FindTryGetValueMethod(resultType, errorCase);
@@ -1667,7 +1667,7 @@ internal partial class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldloca, errorCaseLocal);
             ILGenerator.Emit(GetCallOpCode(errorMethod, errorMethodInfo), errorMethodInfo);
             ILGenerator.Emit(OpCodes.Brfalse, nextLabel);
-            EmitWriteCasePayloadToStderr(errorCaseLocal, errorCaseRuntimeType, errorMethod.Parameters[0].Type, "Error");
+            EmitWriteCasePayloadToStderr(errorCaseLocal, errorCaseRuntimeType, errorMethod.Parameters[0].Type, errorCase?.Name ?? ResultFacts.FailureCaseName);
 
             if (isIntBridge)
             {
