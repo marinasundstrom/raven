@@ -185,13 +185,13 @@ func test(foo: Foo?) -> int {
         var source = """
 import System.Threading.Tasks.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Foo(value: int) {
-    async func Test(flag: bool) -> Task<Option<int>> {
+    async func Test(flag: bool) -> Task<Optional<int>> {
         await Task.Yield()
 
         if flag {
@@ -201,12 +201,12 @@ class Foo(value: int) {
         return .None
     }
 
-    func self(flag: bool) -> Task<Option<int>> {
+    func self(flag: bool) -> Task<Optional<int>> {
         return Test(flag)
     }
 }
 
-async func Run(foo: Foo?) -> Task<Option<int>> {
+async func Run(foo: Foo?) -> Task<Optional<int>> {
     if let callable: Foo = foo {
         let result = await callable(true)
         return result
@@ -232,18 +232,18 @@ async func Run(foo: Foo?) -> Task<Option<int>> {
 
         Assert.Equal("Invoke", invokeSymbol.Name);
         Assert.Equal("Foo", invokeSymbol.ContainingType.Name);
-        Assert.Equal("Task<Option<int>>", model.GetTypeInfo(invocation).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Task<Optional<int>>", model.GetTypeInfo(invocation).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         var awaitExpression = root.DescendantNodes()
             .OfType<PrefixOperatorExpressionSyntax>()
             .Single(node => node.Kind == SyntaxKind.AwaitExpression && node.Expression == invocation);
-        Assert.Equal("Option<int>", model.GetTypeInfo(awaitExpression).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", model.GetTypeInfo(awaitExpression).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         var resultDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(node => node.Identifier.ValueText == "result");
         var result = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        Assert.Equal("Option<int>", result.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", result.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]

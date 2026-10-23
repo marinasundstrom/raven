@@ -51,7 +51,7 @@ The surrounding .NET APIs remain available in the same program.
 
 ## Expected failure is data
 
-Raven uses `Option<T>` for a value that may be absent and `Result<T, E>` for an
+Raven uses `Optional<T>` for a value that may be absent and `Result<T, E>` for an
 operation that may succeed or fail in an expected way.
 
 ```raven

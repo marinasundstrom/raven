@@ -54,7 +54,7 @@ program must answer:
 
 | Question | Meaning to represent | Good Raven starting point |
 | --- | --- | --- |
-| Is this one value, or may it be absent? | Meaningful presence or absence | `Option<T>` |
+| Is this one value, or may it be absent? | Meaningful presence or absence | `Optional<T>` |
 | Did an expected operation succeed or fail? | A typed success or failure channel | `Result<T, E>` |
 | Can a value be one of several known alternatives? | A closed semantic domain | `union` |
 | Are the alternatives only names without data? | A closed set of constants | `enum` |
@@ -221,12 +221,12 @@ its payload, narrow a type, or prove a value non-null. Prefer a pattern when
 subsequent code depends on one of those facts rather than repeating casts,
 property checks, or null suppression.
 
-## `Option<T>` represents meaningful absence
+## `Optional<T>` represents meaningful absence
 
-`Option<T>` says that producing no value is an ordinary, expected result:
+`Optional<T>` says that producing no value is an ordinary, expected result:
 
 ```raven
-func FindCustomer(id: CustomerId) -> Option<Customer> {
+func FindCustomer(id: CustomerId) -> Optional<Customer> {
     // A customer may legitimately be absent.
     return None
 }
@@ -236,7 +236,7 @@ func FindCustomer(id: CustomerId) -> Option<Customer> {
 The caller must decide what absence means in its context.
 
 Use `T?` when nullability is part of a .NET API, storage representation, or
-object model. Use `Option<T>` in domain-facing APIs when absence is a meaningful
+object model. Use `Optional<T>` in domain-facing APIs when absence is a meaningful
 outcome that callers should handle explicitly. Raven supports conversions at
 appropriate nullable interoperability boundaries; the two forms should not be
 treated as conceptually identical.
@@ -258,7 +258,7 @@ func FindRequiredCustomer(id: CustomerId) -> Result<Customer, LookupError> {
 ```
 
 After that conversion, domain code should normally use exhaustive patterns over
-`Option`, `Result`, unions, or other explicit states. This keeps absence and
+`Optional`, `Result`, unions, or other explicit states. This keeps absence and
 failure visible in the model instead of carrying a nullable reference through
 unrelated code.
 
@@ -324,7 +324,7 @@ A practical adoption sequence is:
 
 1. preserve and enforce the existing .NET nullable annotations;
 2. introduce local patterns that handle every nullable outcome;
-3. project recurring domain outcomes into `Option`, `Result`, or a union;
+3. project recurring domain outcomes into `Optional`, `Result`, or a union;
 4. keep null concentrated near the remaining interop and storage boundaries.
 
 The canonical user-facing policy is in
@@ -430,7 +430,7 @@ flow when the branches primarily perform effects or require early exits.
 An `if let` expression combines that meaning with a successful pattern:
 
 ```raven
-let option: Option<int> = Some(42)
+let option: Optional<int> = Some(42)
 let value = if let Some(x) = option {
     x
 } else {
@@ -458,8 +458,8 @@ A function parameter says that a caller must provide one capability:
 
 ```raven
 async func LoadSummary(
-    load: (Guid) -> Task<Option<Order>>,
-    id: Guid) -> Task<Option<OrderSummary>> {
+    load: (Guid) -> Task<Optional<Order>>,
+    id: Guid) -> Task<Optional<OrderSummary>> {
     // ...
 }
 ```
@@ -490,14 +490,14 @@ does not have.
 
 ## `async` represents asynchronous execution, not failure
 
-`Task<T>` and `async` describe when and how an operation completes. `Option<T>`
+`Task<T>` and `async` describe when and how an operation completes. `Optional<T>`
 and `Result<T, E>` describe what its completion means.
 
 For example:
 
 ```raven
 async func FindCustomer(id: CustomerId)
-    -> Task<Option<Customer>> {
+    -> Task<Optional<Customer>> {
     // Asynchronous operation with ordinary absence.
 }
 
@@ -712,7 +712,7 @@ When generating or changing Raven code:
 
 1. Describe the domain distinction before selecting a construct.
 2. Identify the .NET or storage boundaries before changing their types.
-3. Use `Option` for meaningful absence and `Result` for expected failure; do
+3. Use `Optional` for meaningful absence and `Result` for expected failure; do
    not treat them as stylistic replacements for every nullable value or
    exception.
 4. Use a union only when the alternative set is intentionally closed.
@@ -753,6 +753,6 @@ workloads:
   demonstrates a typed, inspectable predicate passed through an ordinary
   `IQueryable` API.
 - [Raven Core](../compiler/raven-core-library.md) documents the precise
-  `Option<T>` and `Result<T, E>` contracts and framework API projections.
+  `Optional<T>` and `Result<T, E>` contracts and framework API projections.
 - [Language features](features/index.md) provides focused explanations and
   examples for everyday syntax and behavior.

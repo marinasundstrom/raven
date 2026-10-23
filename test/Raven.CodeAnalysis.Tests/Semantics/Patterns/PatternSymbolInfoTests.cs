@@ -41,7 +41,7 @@ class C {
             var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(info.Symbol);
             Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
             symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
-            Assert.Equal("Error", symbol.Name);
+            Assert.Equal("Failure", symbol.Name);
             Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
         }
     }
@@ -184,10 +184,10 @@ class C {
             Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
         }
 
-        foreach (var patternName in patternNames["Error"])
+        foreach (var patternName in patternNames["Failure"])
         {
             var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternName).Symbol);
-            Assert.Equal("Error", errorCase.Name);
+            Assert.Equal("Failure", errorCase.Name);
             Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
         }
     }
@@ -230,10 +230,10 @@ class C {
             .DescendantNodes()
             .OfType<NominalDeconstructionPatternSyntax>()
             .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
-            .Single(name => name.Identifier.ValueText == "Error");
+            .Single(name => name.Identifier.ValueText == "Failure");
 
         var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(errorPatternName).Symbol);
-        Assert.Equal("Error", errorCase.Name);
+        Assert.Equal("Failure", errorCase.Name);
         Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
     }
 

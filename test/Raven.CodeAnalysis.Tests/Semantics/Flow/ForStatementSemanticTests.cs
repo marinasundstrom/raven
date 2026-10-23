@@ -290,15 +290,15 @@ for let (2, > 0.5) point in points {
     public void For_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         const string source = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Test(inputs: Option<(string, int)>[]) {
+    func Test(inputs: Optional<(string, int)>[]) {
         for let Some((first, >= 18)) whole in inputs {
             first.Length
             whole

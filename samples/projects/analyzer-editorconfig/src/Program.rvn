@@ -7,10 +7,10 @@ func ReadName(input: string?) -> string {
 }
 
 func Main() {
-    // Classic nullable style instead of Option<T>.
+    // Classic nullable style instead of Optional<T>.
     let maybeAge: int? = null
 
-    // Regular LINQ instead of Result/Option extensions.
+    // Regular LINQ instead of Result/Optional extensions.
     let values = [1, 2, 3]
     let first = values.FirstOrDefault()
 

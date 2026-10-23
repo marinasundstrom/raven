@@ -16,7 +16,7 @@ write.
   to choose a type from the meaning of the data.
 - [Make decisions with patterns](patterns.md) shows how `match` interprets
   closed states and extracts their data.
-- [Handle absence and failure](option-and-result.md) introduces `Option`,
+- [Handle absence and failure](option-and-result.md) introduces `Optional`,
   `Result`, and `?` propagation.
 
 ## Work with the .NET platform

@@ -35,7 +35,7 @@ The compiler maps these to CLR shapes (`Nullable<T>` and nullable reference meta
 * **no `T?` syntax**,
 * **explicit union nullability**,
 * **binding contracts**, and
-* `Option<T>` as the idiomatic high-level “maybe” type.
+* `Optional<T>` as the idiomatic high-level “maybe” type.
 
 This model is simpler, clearer, and more consistent than C#’s model while maintaining perfect interop.
 
@@ -132,7 +132,7 @@ This is the **canonical type form** for nullability.
 ### Purpose
 
 * Allows nullable types everywhere unions are valid,
-* Integrates perfectly with `Option<T>` and algebraic typing,
+* Integrates perfectly with `Optional<T>` and algebraic typing,
 * Avoids clutter and special-case semantics.
 
 ### Relation to binding sugar
@@ -157,7 +157,7 @@ Raven does **not** expose `T?` as a type-level nullability operator.
 
   * `T?`
   * `T | null`
-  * `Option<T>`
+  * `Optional<T>`
 * Leaves a single canonical type shape: **`T | null`**.
 * Strengthens the binding-first philosophy.
 
@@ -316,19 +316,19 @@ The narrowing rules apply equally to:
 
 ---
 
-## 8. Interop With `Option<T>`
+## 8. Interop With `Optional<T>`
 
 Raven’s idiomatic maybe type is:
 
 ```raven
-Option<T>
+Optional<T>
 ```
 
 To interoperate with nullable types (`T | null`), Raven will rely on **user-defined conversions** written in Raven itself once the language supports them:
 
 ```raven
 // In Raven stdlib, eventually:
-implicit func (o : Option<T>) -> T | null { ... }
+implicit func (o : Optional<T>) -> T | null { ... }
 ```
 
 Conceptually:
@@ -336,11 +336,11 @@ Conceptually:
 * `Some(v)` → `v`
 * `None` → `null`
 
-This is implemented *in Raven*, not hard-coded into the compiler, since `Option<T>` is just a normal Raven union type.
+This is implemented *in Raven*, not hard-coded into the compiler, since `Optional<T>` is just a normal Raven union type.
 
 ### No implicit reverse
 
-`T | null → Option<T>` must be explicit to avoid ambiguity.
+`T | null → Optional<T>` must be explicit to avoid ambiguity.
 
 ---
 
@@ -379,7 +379,7 @@ let p  : *int | null
 
 ## F#
 
-* Idiomatic: `Option<T>`.
+* Idiomatic: `Optional<T>`.
 * Unions increasingly used: `int | null`.
 * Raven follows this closely but adds `name?` for binding clarity and uses `null` as a specific union case for .NET interop.
 
@@ -387,11 +387,11 @@ let p  : *int | null
 
 * `T?` is sugar for an enum `Optional<T>`.
 * No general union types; nullability is via optionals.
-* Raven is more general: supports unions *and* `Option<T>` explicitly.
+* Raven is more general: supports unions *and* `Optional<T>` explicitly.
 
 ## Rust
 
-* No nulls; only `Option<T>`.
+* No nulls; only `Optional<T>`.
 * Raven must keep `null` for .NET interop but treats it as a union case: `T | null`.
 
 ## Kotlin
@@ -404,17 +404,17 @@ let p  : *int | null
 
 * Use `Maybe<T>` / `option<T>`.
 * No null except at FFI boundaries.
-* Raven’s `Option<T>` mirrors this, but unions permit explicit `null` for interop.
+* Raven’s `Optional<T>` mirrors this, but unions permit explicit `null` for interop.
 
 ### Summary Table
 
-Language   | Nullability Model   | Union? | Option? | Nullability belongs to… |
+Language   | Nullability Model   | Union? | Optional? | Nullability belongs to… |
 | ---------- | ------------------- | ------ | ------- | ----------------------- |
 | C#         | T?, implicit refs   | ❌      | ❌       | Type + analyzer         |
 | TypeScript | T | null            | ✅      | ❌       | Type (union)            |
-| F#         | Option + unions     | ✅      | ✅       | Type (union/option)     |
+| F#         | Optional + unions     | ✅      | ✅       | Type (union/option)     |
 | Swift      | Optional<T>         | ❌      | (enum)  | Type                    |
-| Rust       | Option only         | ❌      | ✅       | Binding via Option      |
+| Rust       | Optional only         | ❌      | ✅       | Binding via Optional      |
 | Kotlin     | T?                  | ❌      | ❌       | Type                    |
 | Raven      | name? : T, T | null | ✅      | ✅       | Binding + union type    |
 
@@ -433,7 +433,7 @@ Raven uses:
 
 1. **Binding sugar** (`name? : T`) for declarations,
 2. **Canonical nullable types** (`T | null`) for the type system,
-3. **Idiomatic `Option<T>`** for “maybe” semantics,
+3. **Idiomatic `Optional<T>`** for “maybe” semantics,
 
 while preserving flawless .NET interop.
 

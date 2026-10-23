@@ -2773,13 +2773,13 @@ union class Result<T, E> {
     public void MatchExpression_InsideGenericUnionWithInferredPayloadBindings_IsExhaustive()
     {
         const string code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         self match {
             Some(val value) => Some(mapper(value))
             None => None
@@ -3379,7 +3379,7 @@ import NestedUnionLibrary.*
 func Describe(result: LoginResult) -> string {
     return match result {
         .Success => "Success"
-        .Failure(.WrongCredentials or .ServiceUnavailable) => "Error"
+        .Error(.WrongCredentials or .ServiceUnavailable) => "Error"
     }
 }
 """);
@@ -4243,14 +4243,14 @@ let result = match input {
     public void MatchExpression_WithOuterValNominalPattern_BindsImplicitCaptures()
     {
         const string code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-let value: Option<(int, int)> = .Some((1, 2))
+let value: Optional<(int, int)> = .Some((1, 2))
 
 let result = match value {
     let Some((x, y)) => x + y
@@ -4413,15 +4413,15 @@ func IsEligible(year: int, lower: int, upper: int) -> bool {
     public void MatchExpression_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         const string code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Run(value: Option<(string, int)>) -> int {
+    func Run(value: Optional<(string, int)>) -> int {
         return match value {
             let Some((first, >= 18)) whole => first.Length
             _ => 0

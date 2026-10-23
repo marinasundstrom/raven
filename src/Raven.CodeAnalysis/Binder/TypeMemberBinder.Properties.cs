@@ -14,8 +14,8 @@ internal partial class TypeMemberBinder : Binder
     public Dictionary<SyntaxNode, Binder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
         // NOTE: For extension properties, the container type parameters (e.g. <T, E>) are lowered onto the
-        // accessor methods as *method-owned* type parameters. We must bind the declared property type (e.g. Option<T>)
-        // against that lowered identity, otherwise the property type will leak Option<T> at use sites.
+        // accessor methods as *method-owned* type parameters. We must bind the declared property type (e.g. Optional<T>)
+        // against that lowered identity, otherwise the property type will leak Optional<T> at use sites.
         var propertyTypeSyntax = propertyDecl.Type.Type;
         var hasExplicitTypeAnnotation = HasExplicitPropertyTypeAnnotation(propertyDecl);
         var canInferTypeFromInitializer =
@@ -694,7 +694,7 @@ internal partial class TypeMemberBinder : Binder
                         methodSymbol.SetTypeParameters(extensionTypeParameters);
                 }
 
-                // Ensure lowered extension type parameters are present so we can bind Option<T> / Result<T,E>
+                // Ensure lowered extension type parameters are present so we can bind Optional<T> / Result<T,E>
                 // against the accessor's method-owned type parameters.
                 if (isExtensionMember)
                     EnsureExtensionTypeParametersOnAccessor(methodSymbol);

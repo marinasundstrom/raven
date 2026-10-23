@@ -253,11 +253,11 @@ union Payload<T> {
     public void UnionDeclaration_WithCasesAndMethodBody_ParsesAllMembers()
     {
         var source = """
-            union class Option<T> {
+            union class Optional<T> {
                 case Some(value: T)
                 case None
 
-                func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+                func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
                     None
                 }
             }

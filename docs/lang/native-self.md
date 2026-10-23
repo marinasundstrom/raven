@@ -35,7 +35,7 @@ broader neoCLR target integration follows the separate multi-target refactor.
 
 The five native Self feature commits now build on merged main b40fe495d.
 Existing Self configuration validation follows main's target-owned runtime
-contract. Option copies retain both Self and main's nullable-value policy;
+contract. Optional copies retain both Self and main's nullable-value policy;
 the metadata test covers copies in both directions. The opt-in feature behavior
 and conformance rules are unchanged.
 

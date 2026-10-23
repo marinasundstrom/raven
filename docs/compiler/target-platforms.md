@@ -191,7 +191,7 @@ Raven also makes functional programming patterns practical in embedded code.
 Unions can represent the complete set of device states, protocol messages,
 sensor outcomes, or recoverable failures. Exhaustive patterns then make every
 state transition visible and cause a new case to identify decisions that need
-updating. Immutable values, pure transition functions, `Option`, and `Result`
+updating. Immutable values, pure transition functions, `Optional`, and `Result`
 can keep state-machine logic separate from GPIO, networking, storage, and other
 effects. This is precisely the kind of explicit state handling that embedded
 software benefits from, expressed without requiring a large object hierarchy

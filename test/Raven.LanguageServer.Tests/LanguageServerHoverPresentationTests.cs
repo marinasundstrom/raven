@@ -28,7 +28,7 @@ public class LanguageServerHoverPresentationTests
     [InlineData(true, true)]
     public void NestedUnionHover_SelectsEachAlternativeAndKeepsCombinedDisplayCompact(bool metadata, bool bindFirst)
     {
-        var alternatives = metadata ? "Option<int> | Option<string>" : "StreamError | JsonError | MappingError";
+        var alternatives = metadata ? "Optional<int> | Optional<string>" : "StreamError | JsonError | MappingError";
         var code = """
 import System.*
 import System.Threading.Tasks.*
@@ -205,14 +205,14 @@ class ActivityStore {
         var propertySignature = (string)buildSignature.Invoke(null, [property, propertyDeclaration, semanticModel])!;
 
         propertySignature.ShouldBe("static val Received: ConcurrentQueue<OrderActivity>");
-        propertySignature.ShouldNotContain("Failure");
+        propertySignature.ShouldNotContain("Error");
 
         var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
         var @event = semanticModel.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
         var eventSignature = (string)buildSignature.Invoke(null, [@event, eventDeclaration, semanticModel])!;
 
         eventSignature.ShouldBe("event Updated: ActivityChanged");
-        eventSignature.ShouldNotContain("Failure");
+        eventSignature.ShouldNotContain("Error");
     }
 
     [Fact]
@@ -705,7 +705,7 @@ union ParseError {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var sourceText = syntaxTree.GetText();
-        var offset = code.IndexOf("Failure", StringComparison.Ordinal) + 1;
+        var offset = code.IndexOf("Error", StringComparison.Ordinal) + 1;
         var tryBuild = typeof(HoverHandler)
             .GetMethod("TryBuildAttachedMacroHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -1366,7 +1366,7 @@ class C {
     public void TypePositionHover_ConstructedGenericUnionUsesTypeArguments()
     {
         const string code = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
@@ -1375,12 +1375,12 @@ record Payload(val Value: int)
 
 class C {
     func Test() -> unit {
-        let item: Option<Payload> = null
+        let item: Optional<Payload> = null
     }
 }
 """;
 
-        var (resolution, semanticModel) = ResolveTypeAnnotationAtIdentifier(code, "item", "Option");
+        var (resolution, semanticModel) = ResolveTypeAnnotationAtIdentifier(code, "item", "Optional");
         var root = semanticModel.SyntaxTree.GetRoot();
 
         resolution.ShouldNotBeNull();
@@ -1392,7 +1392,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union class Option<Payload>");
+        signature.ShouldBe("union class Optional<Payload>");
     }
 
     [Fact]
@@ -1403,12 +1403,12 @@ import System.*
 
 class C {
     func Test() -> unit {
-        let item: Option<string> = null
+        let item: Optional<string> = null
     }
 }
 """;
 
-        var (resolution, semanticModel) = ResolveTypeAnnotationAtIdentifier(code, "item", "Option", includeRavenCore: true);
+        var (resolution, semanticModel) = ResolveTypeAnnotationAtIdentifier(code, "item", "Optional", includeRavenCore: true);
         var root = semanticModel.SyntaxTree.GetRoot();
 
         resolution.ShouldNotBeNull();
@@ -1420,7 +1420,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union struct Option<string>: IPropagatable<Option<string>, string, unit>, IRavenStructuredDisplay, IUnion");
+        signature.ShouldBe("union struct Optional<string>: IPropagatable<Optional<string>, string, unit>, IRavenStructuredDisplay, IUnion");
     }
 
     [Fact]
@@ -1568,14 +1568,14 @@ class C {
     public void InvocationTargetHover_TargetTypedMemberBindingUnionCaseUsesInferredUnionArguments()
     {
         const string code = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
 
 record Foo(
     val Name: string,
-    val Item: Option<string>
+    val Item: Optional<string>
 )
 
 class C {
@@ -1925,7 +1925,7 @@ let found = values.TryGetValue("answer")
             [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
 
         signature.ShouldNotStartWith("(extension) ");
-        signature.ShouldContain("func TryGetValue(key: string) -> Option<int>");
+        signature.ShouldContain("func TryGetValue(key: string) -> Optional<int>");
     }
 
     [Fact]
@@ -3044,7 +3044,7 @@ union KettleState {
         waterSignature.ShouldBe("water: System.Foo");
         fuelSignature.ShouldBe("Fuel: Devices.Fuel");
         waterContainingDisplay.ShouldContain("water: System.Foo");
-        waterContainingDisplay.ShouldNotContain("Failure");
+        waterContainingDisplay.ShouldNotContain("Error");
     }
 
     [Fact]
@@ -4740,14 +4740,14 @@ class C {
     public void SymbolResolver_NamedConstructorArgumentHover_ResolvesParameter()
     {
         const string code = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
 
 record Foo(
     val Name: string
-    val Item: Option<string>
+    val Item: Optional<string>
     val Test: int | bool
 )
 
@@ -5025,7 +5025,7 @@ class Runner {
             var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(null, [resolution.Value, semanticModel, root, hoverOffset])!;
             signature.ShouldContain("Where");
             signature.ShouldNotContain("let query");
-            signature.ShouldNotContain("Failure");
+            signature.ShouldNotContain("Error");
         }
     }
 

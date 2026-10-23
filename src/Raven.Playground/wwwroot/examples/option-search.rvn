@@ -1,4 +1,4 @@
-func FindFirstEven(numbers: int[]) -> Option<int> {
+func FindFirstEven(numbers: int[]) -> Optional<int> {
     for number in numbers {
         if number % 2 == 0 {
             return Some(number)

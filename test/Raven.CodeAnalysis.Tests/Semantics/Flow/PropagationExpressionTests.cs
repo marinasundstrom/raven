@@ -62,17 +62,17 @@ func test() -> IntAttempt {
     public void OptionPropagation_InOptionReturningFunction_Binds()
     {
         var code = """
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 }
 
-func test() -> Option<int> {
+func test() -> Optional<int> {
     let r = test2()?
     return .Some(r)
 }
 
-func test2() -> Option<int> {
+func test2() -> Optional<int> {
     return .None
 }
 """;
@@ -96,7 +96,7 @@ union Result<T, E> {
     case Error(E)
 }
 
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 }
@@ -106,7 +106,7 @@ func test() -> Result<int, string> {
     return .Ok(r)
 }
 
-func test2() -> Option<int> {
+func test2() -> Optional<int> {
     return .None
 }
 """;

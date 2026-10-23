@@ -15,7 +15,7 @@ start with the [language tour](../../introduction.md).
 
 [Records](type-declarations-and-initialization.md#records) ·
 [Nullable types and !](type-system.md#nullable-types) ·
-[Option, Result, and ?](async-and-error-propagation.md) ·
+[Optional, Result, and ?](async-and-error-propagation.md) ·
 [Lambdas](functions.md#function-expressions) ·
 [Pattern bindings](fundamental-patterns.md#type-and-binding-patterns) ·
 [Async and await](async-functions.md)
@@ -83,7 +83,7 @@ start with the [language tour](../../introduction.md).
 <li data-reference-topic data-keywords="break continue goto label"><a href="jumps-and-labels.md">Break, continue, and labels</a><p>Control iteration and jump to labels.</p></li>
 <li data-reference-topic data-keywords="async await Task ValueTask"><a href="async-functions.md">Async and await</a><p>Declare asynchronous functions and await work.</p></li>
 <li data-reference-topic data-keywords="throw try catch finally exception cleanup"><a href="error-handling.md">Exceptions: try, catch, finally</a><p>Throw exceptions and handle them with structured blocks.</p></li>
-<li data-reference-topic data-keywords="Option Result Some None Ok Error ? ?. try carrier propagation"><a href="async-and-error-propagation.md">Option, Result, and propagation: ?</a><p>Capture exceptions as values and propagate absence or errors.</p></li>
+<li data-reference-topic data-keywords="Optional Result Some None Ok Error ? ?. try carrier propagation"><a href="async-and-error-propagation.md">Optional, Result, and propagation: ?</a><p>Capture exceptions as values and propagate absence or errors.</p></li>
 </ul>
 </section>
 <section class="raven-reference-group">

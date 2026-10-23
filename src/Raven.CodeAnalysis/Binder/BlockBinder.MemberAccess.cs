@@ -1770,7 +1770,7 @@ partial class BlockBinder
         }
 
         // Generic union case construction can also be target-typed from the enclosing union carrier,
-        // e.g. `val option: Option<T> = Some(payload)`. That target does not match the case type
+        // e.g. `val option: Optional<T> = Some(payload)`. That target does not match the case type
         // directly, so regular target-typed constructor inference cannot see it.
         if (typeSymbol.IsGenericType && needsTypeArguments
             && TryInferConstructedUnionCaseTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedUnionCase)
@@ -2381,7 +2381,7 @@ partial class BlockBinder
 
         if (type is INamedTypeSymbol named &&
             named.Arity == 1 &&
-            string.Equals(named.Name, "Option", StringComparison.Ordinal))
+            string.Equals(named.Name, OptionalFacts.TypeName, StringComparison.Ordinal))
         {
             option = named;
             payload = named.TypeArguments[0];
@@ -2424,7 +2424,7 @@ partial class BlockBinder
 
         // Carrier-aware lookup:
         // - Nullable wrapper: look up on underlying T
-        // - Option<T>: look up on payload T
+        // - Optional<T>: look up on payload T
         // - Result<T,E>: look up on payload T
         if (TryGetOptionType(type, out _, out var optPayload))
             return optPayload.GetNonNullableType();
@@ -2477,7 +2477,7 @@ partial class BlockBinder
         var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
 
         if (TryGetOptionType(receiverType, out var opt, out var optPayload))
-            return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Option, opt, optPayload, errorType: null);
+            return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Optional, opt, optPayload, errorType: null);
 
         if (TryGetResultType(receiverType, out var res, out var resPayload, out var resError))
             return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Result, res, resPayload, errorType: resError);
@@ -2555,7 +2555,7 @@ partial class BlockBinder
     ITypeSymbol payloadType,
     ITypeSymbol? errorType)
     {
-        if ((kind is BoundCarrierKind.Option or BoundCarrierKind.Result) &&
+        if ((kind is BoundCarrierKind.Optional or BoundCarrierKind.Result) &&
             (!UnionFacts.UsesCarrierRepresentation(carrierReceiver.Type) ||
              !UnionFacts.UsesCarrierRepresentation(carrierGeneric)))
         {
@@ -2620,7 +2620,7 @@ partial class BlockBinder
         var u = (accessType.UnwrapLiteralType() ?? accessType).GetNonNullableType();
 
         ITypeSymbol resultType =
-            kind == BoundCarrierKind.Option ? carrierGeneric.Construct(u) :
+            kind == BoundCarrierKind.Optional ? carrierGeneric.Construct(u) :
             kind == BoundCarrierKind.Result ? carrierGeneric.Construct(u, errorType!) :
             throw new InvalidOperationException();
 
@@ -2690,11 +2690,11 @@ partial class BlockBinder
                     resImplErr = FindImplicitConversion(carrierTypeSymbol, resErr);
                 }
             }
-            else if (kind == BoundCarrierKind.Option)
+            else if (kind == BoundCarrierKind.Optional)
             {
                 var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
-                optSome = FindUnionCase(carrierTypeSymbol, "Some");
-                optNone = FindUnionCase(carrierTypeSymbol, "None");
+                optSome = FindUnionCase(carrierTypeSymbol, OptionalFacts.SomeCaseName);
+                optNone = FindUnionCase(carrierTypeSymbol, OptionalFacts.NoneCaseName);
                 optTrySome = FindTryGetValueMethod(receiverNamed, optSome);
 
                 if (optSome is not null)
@@ -2773,7 +2773,7 @@ partial class BlockBinder
         }
 
         if ((kind == BoundCarrierKind.Result && enclosingInfo.Kind != PropagationKind.Result) ||
-            (kind == BoundCarrierKind.Option && enclosingInfo.Kind != PropagationKind.Option))
+            (kind == BoundCarrierKind.Optional && enclosingInfo.Kind != PropagationKind.Optional))
         {
             ReportCannotConvertFromTypeToType(
                 resultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -5051,7 +5051,7 @@ partial class BlockBinder
         if (type is INamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
         {
             // Unwrap common task-like wrappers so target-typed members bind to the underlying value.
-            // This is important for constructs like `return .None` in an `async` method returning `Task<Option<T>>`.
+            // This is important for constructs like `return .None` in an `async` method returning `Task<Optional<T>>`.
             var ns = named.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces));
             if (ns == "System.Threading.Tasks" && (named.Name == "Task" || named.Name == "ValueTask"))

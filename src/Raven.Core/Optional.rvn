@@ -1,10 +1,10 @@
-/// Core Raven value contracts, including Option and Result, alongside extensions
+/// Core Raven value contracts, including Optional and Result, alongside extensions
 /// that integrate these contracts with ordinary .NET APIs.
 namespace System
 
 import System.*
 import System.Collections.Generic.*
-import System.Option.*
+import System.Optional.*
 import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
@@ -12,10 +12,10 @@ import System.Text.Json.Serialization.*
 /// Represents some value, or no value.
 ///
 /// ## Usage
-/// Use `Option` like so:
+/// Use `Optional` like so:
 ///
 /// ```raven
-/// func Test(v: int) -> Option<int> {
+/// func Test(v: int) -> Optional<int> {
 ///     if v > 3 {
 ///         return Some(42)
 ///     }
@@ -45,8 +45,8 @@ import System.Text.Json.Serialization.*
 /// ```
 ///
 /// @typeparam T The type of the optional value.
-[JsonConverter(typeof(OptionJsonConverterFactory))]
-public union Option<T>: IPropagatable<Option<T>, T, ()> {
+[JsonConverter(typeof(OptionalJsonConverterFactory))]
+public union Optional<T>: IPropagatable<Optional<T>, T, ()> {
     /// Represents an available value.
     case Some(T)
 
@@ -70,7 +70,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Constructs an empty option from a propagated residual.
-    static func FromResidual(residual: ()) -> Option<T> => None
+    static func FromResidual(residual: ()) -> Optional<T> => None
 
     /// Gets a value indicating whether this option is `Some`.
     val HasSome: bool => self is Some(val v)
@@ -79,15 +79,15 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     val HasNone: bool => self is None
 
     /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         self match {
             Some(val value) => Some(mapper(value))
             None => None
         }
     }
 
-    /// Monadic bind / flatMap: chains an `Option`-producing function.
-    func Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
+    /// Monadic bind / flatMap: chains an `Optional`-producing function.
+    func Then<TResult>(binder: T -> Optional<TResult>) -> Optional<TResult> {
         self match {
             Some(val value) => binder(value)
             None => None
@@ -95,7 +95,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Keeps the value only if `predicate` returns true.
-    func Where(predicate: T -> bool) -> Option<T> {
+    func Where(predicate: T -> bool) -> Optional<T> {
         self match {
             Some(val value) => if predicate(value) { Some(value) } else { None }
             None => None
@@ -103,12 +103,12 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Alias for `Where`.
-    func Filter(predicate: T -> bool) -> Option<T> {
+    func Filter(predicate: T -> bool) -> Optional<T> {
         self.Where(predicate)
     }
 
     /// Returns this option if it is `Some`, otherwise returns `alternative()`.
-    func OrElse(alternative: () -> Option<T>) -> Option<T> {
+    func OrElse(alternative: () -> Optional<T>) -> Optional<T> {
         self match {
             Some(val value) => Some(value)
             None => alternative()
@@ -132,7 +132,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Runs `action` if this is `Some`, returning the original option.
-    func Tap(action: T -> ()) -> Option<T> {
+    func Tap(action: T -> ()) -> Optional<T> {
         self match {
             Some(val value) => {
                 action(value)
@@ -143,7 +143,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
     }
 
     /// Runs `action` if this is `None`, returning the original option.
-    func TapNone(action: () -> ()) -> Option<T> {
+    func TapNone(action: () -> ()) -> Optional<T> {
         self match {
             Some(val value) => Some(value)
             None => {
@@ -167,7 +167,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
         self.ToEnumerable().GetEnumerator()
     }
 
-    /// Bridges `Option` into a `Result`-producing pipeline.
+    /// Bridges `Optional` into a `Result`-producing pipeline.
     /// If this is `None`, returns `Failure(noneError())`.
     func ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
         self match {
@@ -213,7 +213,7 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
         if self is Some(val value) {
             return value
         }
-        throw InvalidOperationException("Option is None")
+        throw InvalidOperationException("Optional is None")
     }
 
     /// Returns the contained value, or `defaultValue` when this option is `None`.
@@ -226,10 +226,10 @@ public union Option<T>: IPropagatable<Option<T>, T, ()> {
 
 }
 
-/// Defines nullable-reference conversions for `Option`.
-public extension OptionExtensions1<T : class> for Option<T> {
+/// Defines nullable-reference conversions for `Optional`.
+public extension OptionalExtensions1<T : class> for Optional<T> {
     /// Converts an option to its nullable reference representation.
-    static func implicit(opt: Option<T>) -> T? {
+    static func implicit(opt: Optional<T>) -> T? {
         if opt is Some(val value) {
             return value
         }
@@ -237,18 +237,18 @@ public extension OptionExtensions1<T : class> for Option<T> {
     }
 
     /// Converts a nullable reference to `Some`, or to `None` when it is `null`.
-    static func implicit(value: T?) -> Option<T> {
+    static func implicit(value: T?) -> Optional<T> {
         if let present: T = value {
-            return Option<T>.Some(present)
+            return Optional<T>.Some(present)
         }
         None
     }
 }
 
-/// Defines nullable-value conversions for `Option`.
-public extension OptionExtensions2<T : struct> for Option<T> {
+/// Defines nullable-value conversions for `Optional`.
+public extension OptionalExtensions2<T : struct> for Optional<T> {
     /// Converts an option to its nullable value representation.
-    static func implicit(opt: Option<T>) -> T? {
+    static func implicit(opt: Optional<T>) -> T? {
         if opt is Some(val value) {
             return value
         }
@@ -256,37 +256,37 @@ public extension OptionExtensions2<T : struct> for Option<T> {
     }
 
     /// Converts a nullable value to `Some`, or to `None` when it is `null`.
-    static func implicit(value: T?) -> Option<T> {
+    static func implicit(value: T?) -> Optional<T> {
         if let present: T = value {
-            return Option<T>.Some(present)
+            return Optional<T>.Some(present)
         }
         None
     }
 }
 
-/// Converts `Option` values to and from their natural JSON value representation.
-public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+/// Converts `Optional` values to and from their natural JSON value representation.
+public class OptionalJsonConverter<T> : JsonConverter<Optional<T>> {
 
     /// Gets whether the converter handles JSON `null` directly.
     override val HandleNull: bool { get; } = true
 
     /// Reads `null` as `None` and any other JSON value as `Some`.
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Optional<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
         if root.ValueKind == JsonValueKind.Null {
-            val none: Option<T> = None
+            val none: Optional<T> = None
             return none
         }
 
         val payload = JsonSerializer.Deserialize<T>(root, options)
-        val some: Option<T> = Some(payload)
+        val some: Optional<T> = Some(payload)
         some
     }
 
     /// Writes `Some` as its contained value and `None` as JSON `null`.
-    override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
+    override func Write(writer: Utf8JsonWriter, value: Optional<T>, options: JsonSerializerOptions) -> () {
         if value is Some(val someValue) {
             JsonSerializer.Serialize(writer, someValue, options)
         } else {
@@ -295,19 +295,19 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     }
 }
 
-/// Creates JSON converters for constructed `Option` types.
-public class OptionJsonConverterFactory : JsonConverterFactory {
+/// Creates JSON converters for constructed `Optional` types.
+public class OptionalJsonConverterFactory : JsonConverterFactory {
 
-    /// Determines whether the specified type is an `Option` type.
+    /// Determines whether the specified type is an `Optional` type.
     override func CanConvert(typeToConvert: Type) -> bool {
         return typeToConvert.IsGenericType
-            && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Optional<>)
     }
 
-    /// Creates a converter for the specified constructed `Option` type.
+    /// Creates a converter for the specified constructed `Optional` type.
     override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter? {
         val tArg = typeToConvert.GetGenericArguments()[0]
-        val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
+        val converterType = typeof(OptionalJsonConverter<>).MakeGenericType([tArg])
         return (JsonConverter)(
             Activator.CreateInstance(converterType)
                 ?? throw InvalidOperationException("Could not create JsonConverter"))
@@ -315,10 +315,10 @@ public class OptionJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Provides operations for nested options.
-public extension OptionExtensionsNested<T> for Option<Option<T>> {
+public extension OptionalExtensionsNested<T> for Optional<Optional<T>> {
 
-    /// Flattens `Option<Option<T>>` into `Option<T>`.
-    func Flatten() -> Option<T> {
+    /// Flattens `Optional<Optional<T>>` into `Optional<T>`.
+    func Flatten() -> Optional<T> {
         self match {
             Some(val inner) => inner
             None => None

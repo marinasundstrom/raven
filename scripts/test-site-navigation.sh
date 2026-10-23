@@ -27,7 +27,7 @@ assert_contains "$site_root/compiler/index.html" 'class="raven-brand" href="../i
 
 # API references share the main Raven site shell and site-root navigation.
 assert_contains "$site_root/libraries/raven-core/index.html" 'class="raven-brand" href="../../index.html"'
-assert_contains "$site_root/libraries/raven-core/System/Option\`1/index.html" 'class="raven-brand" href="../../../../index.html"'
+assert_contains "$site_root/libraries/raven-core/System/Optional\`1/index.html" 'class="raven-brand" href="../../../../index.html"'
 
 # Blazor applications keep standalone-friendly defaults in their own projects.
 # The combined build replaces only their runtime configuration.

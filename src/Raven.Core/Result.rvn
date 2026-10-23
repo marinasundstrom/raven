@@ -2,7 +2,7 @@ namespace System
 
 import System.*
 import System.Collections.Generic.*
-import System.Option.*
+import System.Optional.*
 import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
@@ -82,7 +82,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     val HasError: bool => self is Failure(val message)
 
     /// Gets the successful value as an option.
-    val IsOk: Option<T> {
+    val IsOk: Optional<T> {
         get {
             self match {
                 Ok(val value) => Some(value)
@@ -92,7 +92,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     }
 
     /// Gets the error value as an option.
-    val IsError: Option<E> {
+    val IsError: Optional<E> {
         get {
             self match {
                 Failure(val e) => Some(e)

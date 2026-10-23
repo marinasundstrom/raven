@@ -260,13 +260,13 @@ union Result {
 namespace System
 
 import System.*
-import System.Option.*
+import System.Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         self match {
             Some(let value) => Some(mapper(value))
             None => None
@@ -297,20 +297,20 @@ union Option<T> {
 namespace System
 
 import System.*
-import System.Option.*
+import System.Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 
-    func Filter(predicate: T -> bool) -> Option<T> {
+    func Filter(predicate: T -> bool) -> Optional<T> {
         self match {
             Some(let value) => if predicate(value) { Some(value) } else { None }
             None => None
         }
     }
 
-    func Tap(action: T -> ()) -> Option<T> {
+    func Tap(action: T -> ()) -> Optional<T> {
         self match {
             Some(let value) => {
                 action(value)
@@ -334,7 +334,7 @@ union Option<T> {
     public void GetDeclaredSymbol_ReturnsCaseSymbol()
     {
         const string source = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -379,7 +379,7 @@ union Option {
     public void NonGenericCase_UsesUnionAsSemanticAndMetadataOwner()
     {
         const string source = """
-        union Option {
+        union Optional {
             case Some(value: int)
             case None
         }
@@ -511,7 +511,7 @@ public union Payload {
     public void UnionDeclaration_WithoutStorageModifier_DefaultsToStructUnionAndStructCases()
     {
         const string source = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -533,7 +533,7 @@ union Option {
     public void UnionDeclaration_WithStructModifier_UsesStructUnionAndStructCases()
     {
         const string source = """
-union struct Option {
+union struct Optional {
     case None
     case Some(value: int)
 }
@@ -554,7 +554,7 @@ union struct Option {
     public void BodyDefinedUnion_DeclaredCaseTypes_MatchVariants()
     {
         const string source = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -1003,10 +1003,10 @@ union MyResult<T>(List<T> | int)
     {
         const string source = """
 func create() {
-    let option = Option.Some(value: 42)
+    let option = Optional.Some(value: 42)
 }
 
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -1026,10 +1026,10 @@ union Option {
     {
         const string source = """
 func build() {
-    let option : Option = .Some(value: 42)
+    let option : Optional = .Some(value: 42)
 }
 
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -1048,12 +1048,12 @@ union Option {
     public void MemberBindingInvocation_TargetTypedGenericCase_BindsWithoutErrors()
     {
         const string source = """
-func build<T>(payload: T) -> Option<T> {
-    let option: Option<T> = .Some(payload)
+func build<T>(payload: T) -> Optional<T> {
+    let option: Optional<T> = .Some(payload)
     return option
 }
 
-union class Option<T> {
+union class Optional<T> {
     case None
     case Some(value: T)
 }
@@ -1104,16 +1104,16 @@ func Describe(value: Payment) -> string {
 namespace System
 
 import System.*
-import System.Option.*
+import System.Optional.*
 
-union struct Option<T> {
+union struct Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C<T> {
-    func M(payload: T) -> Option<T> {
-        let option: Option<T> = Some(payload)
+    func M(payload: T) -> Optional<T> {
+        let option: Optional<T> = Some(payload)
         return option
     }
 }
@@ -1137,14 +1137,14 @@ class C<T> {
     public void UnionMemberBody_UnqualifiedCaseConstructionAndPatterns_BindWithoutErrors()
     {
         const string source = """
-import Option.*
+import Optional.*
 
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 
-    func Normalize(fallback: T) -> Option<T> {
-        let current: Option<T> = Some(fallback)
+    func Normalize(fallback: T) -> Optional<T> {
+        let current: Optional<T> = Some(fallback)
 
         return match self {
             Some(let value) => Some(value)
@@ -1529,14 +1529,14 @@ union Result<T, E> {
     public void ExhaustiveOptionMatch_DoesNotReportMissingCaseDiagnostic()
     {
         const string source = """
-func format(option: Option<int>) -> string {
+func format(option: Optional<int>) -> string {
     return match option {
         .Some(let value) => "some ${value}"
         .None => "none"
     }
 }
 
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
@@ -1769,16 +1769,16 @@ union Response<T, E> {
     {
         const string source = """
 func build() {
-    let s1: Option<int> = .Some(1)
-    let s2: Option<int> = .Some(2)
-    let s3: Option<int> = Option.Some(3)
-    let s4: Option<int> = Option<int>.Some(4)
+    let s1: Optional<int> = .Some(1)
+    let s2: Optional<int> = .Some(2)
+    let s3: Optional<int> = Optional.Some(3)
+    let s4: Optional<int> = Optional<int>.Some(4)
 
-    let n1: Option<int> = .None
-    let n2: Option<int> = .None
+    let n1: Optional<int> = .None
+    let n2: Optional<int> = .None
 }
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -1799,9 +1799,9 @@ func build() {
     let theme2 = Theme(.None)
 }
 
-record Theme(PrimaryColor: Option<string>)
+record Theme(PrimaryColor: Optional<string>)
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -3454,14 +3454,14 @@ union struct Result<T> {
     public void UnionCarrierConstructor_InitializesCaseAndPayload()
     {
         const string source = """
-            union Option {
+            union Optional {
                 case None
                 case Some(value: int)
             }
             public class Runner {
                 static func Run() -> int {
-                    let some: Option = .Some(42)
-                    let empty: Option = .None
+                    let some: Optional = .Some(42)
+                    let empty: Optional = .None
                     if empty is .Some(_) { return 0 }
                     return match some {
                         .Some(let value) => value
@@ -3482,7 +3482,7 @@ union struct Result<T> {
     public void UnionCaseConstructor_HasSynthesizedBody()
     {
         const string source = """
-union Option {
+union Optional {
     case Some(value: int, label: string)
 }
 """;
@@ -3575,7 +3575,7 @@ union Result<T, E> {
     {
         const string source = """
 import Result.*
-import Option.*
+import Optional.*
 
 class C {
     func create() {
@@ -3588,7 +3588,7 @@ union Result<T, E> {
     case Error(message: E)
 }
 
-union Option<T> {
+union Optional<T> {
     case Ok(value: T)
     case None
 }
@@ -3629,7 +3629,7 @@ union Result<T, E> {
     {
         const string source = """
 import Result.*
-import Option.*
+import Optional.*
 
 class C {
     func create() {
@@ -3642,7 +3642,7 @@ union Result<T, E> {
     case Error(message: E)
 }
 
-union Option<T> {
+union Optional<T> {
     case Ok(value: T)
     case None
 }
@@ -3670,14 +3670,14 @@ namespace A {
 }
 
 namespace B {
-    union Option<T> {
+    union Optional<T> {
         case Ok(value: T)
         case None
     }
 }
 
 import A.Result.*
-import B.Option.*
+import B.Optional.*
 
 class C {
     func create() {
@@ -3703,7 +3703,7 @@ class C {
         // "UnionName<TypeParams>.CaseName" rather than just "CaseName<TypeParams>".
         const string source = """
 import Result.*
-import Option.*
+import Optional.*
 
 class C {
     func create() {
@@ -3716,7 +3716,7 @@ union Result<T, E> {
     case Error(message: E)
 }
 
-union Option<T> {
+union Optional<T> {
     case Ok(value: T)
     case None
 }
@@ -3734,7 +3734,7 @@ union Option<T> {
 
         // Both candidates should be displayed as "UnionName<TypeParams>.CaseName"
         Assert.Contains("Result<T, E>.Ok", message, StringComparison.Ordinal);
-        Assert.Contains("Option<T>.Ok", message, StringComparison.Ordinal);
+        Assert.Contains("Optional<T>.Ok", message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -3852,7 +3852,7 @@ union Result<T, E> {
     public void Union_DoesNotDeclareImplicitConversionPerCase()
     {
         const string source = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -4008,7 +4008,7 @@ union Result<T, E> {
     public void CaseParameters_AreExposedAsGetterOnlyProperties()
     {
         const string source = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -4035,7 +4035,7 @@ union Option {
     public void UnitLikeCase_HasNoPayloadPropertiesOrDeconstructMethod()
     {
         const string source = """
-union Option {
+union Optional {
     case None
 }
 """;
@@ -4248,7 +4248,7 @@ class Factory {
     public void SynthesizedUnionMembers_AreRegisteredOnUnionAndCaseSymbols()
     {
         const string source = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -4284,14 +4284,14 @@ union Option {
     public void CaseToUnionConversion_ClassifiedAsDiscriminatedUnion()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case None
     case Some(value: T)
 }
 
 class Container {
-    func Create() -> Option<int> {
-        return Option.Some(value: 1)
+    func Create() -> Optional<int> {
+        return Optional.Some(value: 1)
     }
 }
 """;
@@ -4318,14 +4318,14 @@ class Container {
     public void Lowerer_LowersUnionCaseToConstructorAndConversion()
     {
         const string source = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
 
 class Container {
-    func Create() -> Option {
-        return Option.Some(value: 1)
+    func Create() -> Optional {
+        return Optional.Some(value: 1)
     }
 }
 """;
@@ -4341,7 +4341,7 @@ class Container {
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
         var returnStatement = boundBody.Statements.OfType<BoundReturnStatement>().Single();
         var unionCaseExpression = Assert.IsType<BoundUnionCaseExpression>(returnStatement.Expression);
-        Assert.Equal("Option", unionCaseExpression.UnionType.Name);
+        Assert.Equal("Optional", unionCaseExpression.UnionType.Name);
         Assert.Equal("Some", unionCaseExpression.CaseType.Name);
 
         var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);

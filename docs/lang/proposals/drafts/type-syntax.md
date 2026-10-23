@@ -43,7 +43,7 @@ type Switch = "on" | "off"
 #### Discriminate unions
 
 ```raven
-type Option<T> = Some(value: T) 
+type Optional<T> = Some(value: T)
                 | None
 ```
 

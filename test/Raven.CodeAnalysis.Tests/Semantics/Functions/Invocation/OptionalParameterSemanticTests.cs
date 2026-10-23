@@ -23,7 +23,7 @@ public sealed class OptionalParameterSemanticTests : CompilationTestBase
         const string source = """
 import System.*
 
-func Identity(value: Option<int> = .None) -> Option<int> {
+func Identity(value: Optional<int> = .None) -> Optional<int> {
     value
 }
 
@@ -46,19 +46,19 @@ let result = Identity()
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         var defaultArgument = Assert.IsType<BoundUnionCaseExpression>(Assert.Single(boundInvocation.Arguments));
 
-        Assert.Equal("Option", defaultArgument.UnionType.Name);
+        Assert.Equal("Optional", defaultArgument.UnionType.Name);
         Assert.Equal("None", defaultArgument.CaseType.Name);
         Assert.Empty(defaultArgument.Arguments);
 
         var parameter = Assert.Single(boundInvocation.Method.Parameters);
         Assert.True(parameter.HasExplicitDefaultValue);
         Assert.Equal(
-            "value: Option<int> = .None",
+            "value: Optional<int> = .None",
             parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
     }
 
     [Theory]
-    [InlineData("Option<int>", ".Some(1)")]
+    [InlineData("Optional<int>", ".Some(1)")]
     [InlineData("Mailbox", ".Bounded(100)")]
     public void UnionCaseDefaults_OtherThanOptionNone_AreRejected(string parameterType, string defaultValue)
     {
@@ -91,7 +91,7 @@ class Processor {
 import System.*
 
 public class Provider {
-    static func Identity(value: Option<int> = .None) -> Option<int> {
+    static func Identity(value: Optional<int> = .None) -> Optional<int> {
         value
     }
 }

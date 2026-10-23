@@ -17,7 +17,7 @@ Keep the shared semantic model and make the loader genuinely replaceable.
 
 Separate Raven's language semantics from metadata import, runtime contracts,
 and code generation. Establish .NET as the first supported implementation of
-those boundaries. Adopt unions, `Result`, and `Option` in the C# compiler, then
+those boundaries. Adopt unions, `Result`, and `Optional` in the C# compiler, then
 port the compiler to Raven on .NET. Implement proper neoCLR metadata and
 codegen support after the Raven-authored compiler reaches parity.
 
@@ -172,14 +172,14 @@ including incremental-query and memory-lifetime checks where applicable.
 
 First qualify and freeze bootstrap v1 under the existing release gates. Consume
 its hash-verified Core assemblies without a compiler/Core build cycle. Migrate
-coherent API families using `Option` for expected absence, `Result` for expected
+coherent API families using `Optional` for expected absence, `Result` for expected
 failure, and unions for closed alternatives. Recovery may need both a value and
 diagnostics. Preserve cancellation and invariant failures as exceptional paths,
 and retain nullable shapes where they model a .NET ABI.
 
 Start with internal cross-component contracts; evaluate public API changes
 explicitly and test C# and Raven consumers. Do not mechanically replace all
-nullable values or mutable cache state with `Option`.
+nullable values or mutable cache state with `Optional`.
 
 Exit: bootstrap-v2 gates pass and contract families are stable enough to port.
 The compiler remains C# and .NET-hosted at this milestone.
@@ -220,7 +220,7 @@ on neoCLR remains a separate readiness decision.
 | Imported symbols | `ReflectionTypeLoaderNestedTypeTests`, nullable metadata and union import tests | Nested generic ownership, substitutions, attributes, repeated/concurrent queries, provider-independent lookup |
 | Incremental lifetime | `IncrementalCompilationReuseTests` | Changed file at the same path, target/provider changes, stale symbols, shared-session lifetime, discarded compilation retention |
 | Emitted contracts | `CliMetadataCompatibilityTests`, `TargetMetadataEmissionTests`, `GenericReferenceEmissionTests` | Reference-only dependencies, mixed source/imported generics, member ownership, constraints, byref/pointer shapes, debug data |
-| Observable execution | Feature-owned codegen/runtime tests | Closures, async, exceptions, dispatch, union/Option/Result behavior, entry points |
+| Observable execution | Feature-owned codegen/runtime tests | Closures, async, exceptions, dispatch, union/Optional/Result behavior, entry points |
 | Tooling and bootstrap | Semantic/LSP tests and release/bootstrap gates | Shared semantic answers, cancellation, macro host separation, C#/Raven consumers, artifact provenance |
 
 These are audit targets, not a claim that every listed case is currently absent.

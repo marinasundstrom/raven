@@ -44,7 +44,7 @@ Core purpose of samples (all three at once):
 - Union basics: `samples/unions/union-basic.rav`
 - Generic unions: `samples/unions/union-generic-result-basic.rav`
 - Result basics: `samples/result-and-options/result-basic.rav`
-- Option basics: `samples/result-and-options/option-basic.rav`
+- Optional basics: `samples/result-and-options/option-basic.rav`
 - Propagation (`?`): `samples/result-and-options/result-propagation-basic.rav`
 - Async propagation: `samples/async/async-result-propagation-using-success.rav`
 - Async/await: `samples/async/async-await.rav`

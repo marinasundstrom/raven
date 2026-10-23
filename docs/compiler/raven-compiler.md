@@ -158,7 +158,7 @@ See [Target platforms](target-platforms.md) for the current support levels.
 Nullability is enforced from Raven's static type model. Nullable storage is not
 implicitly refined by branches; use a typed pattern binding to obtain a
 non-null value. See [Nullability and absence](../lang/nullability.md) for the
-complete model and the role of `Option<T>`.
+complete model and the role of `Optional<T>`.
 
 ## `rvn dev`
 

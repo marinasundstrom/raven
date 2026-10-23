@@ -127,7 +127,7 @@ SyntaxNode ──► GetDeclaredSymbol (direct to Binder)
 
 `ToDisplayString` preserves the distinction between named unions and structural
 ad-hoc unions. In a type-use format, a nominal union remains `StreamError` or
-`Option<int>`. Declaration formats can request its `union struct`/`union class`
+`Optional<int>`. Declaration formats can request its `union struct`/`union class`
 keyword and, with `IncludeUnionMemberTypes`, its own cases or member types.
 That option does not recursively expand nominal types used as alternatives or
 as generic arguments.

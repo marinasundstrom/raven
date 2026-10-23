@@ -2526,13 +2526,13 @@ let result = value |> 5
     public void MemberAccess_WithNestedOptionExtension_Flatten_BindsWithoutComparerRecursion()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-extension OptionExtensionsNested<T> for Option<Option<T>> {
-    func Flatten() -> Option<T> {
+extension OptionalExtensionsNested<T> for Optional<Optional<T>> {
+    func Flatten() -> Optional<T> {
         return match self {
             .Some(let inner) => inner
             .None => .None
@@ -2541,8 +2541,8 @@ extension OptionExtensionsNested<T> for Option<Option<T>> {
 }
 
 class Container {
-    func Test() -> Option<int> {
-        let nested: Option<Option<int>> = .Some(.Some(42))
+    func Test() -> Optional<int> {
+        let nested: Optional<Optional<int>> = .Some(.Some(42))
         return nested.Flatten()
     }
 }
@@ -2562,7 +2562,7 @@ class Container {
 
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
         Assert.Equal("Flatten", boundInvocation.Method.Name);
-        Assert.Equal("OptionExtensionsNested", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("OptionalExtensionsNested", boundInvocation.Method.ContainingType?.Name);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
     }
 
@@ -2570,7 +2570,7 @@ class Container {
     public void MemberAccess_WithCompetingGenericExtensionMaps_InfersLambdaFromReceiver()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -2580,8 +2580,8 @@ union Result<T, E> {
     case Error(error: E)
 }
 
-extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+extension OptionExtensions<T> for Optional<T> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         return match self {
             .Some(let value) => .Some(mapper(value))
             .None => .None
@@ -2599,8 +2599,8 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    func Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+    func Test() -> Optional<int> {
+        let option: Optional<int> = .Some(42)
         return option.Map(x => x * 2)
     }
 }
@@ -2629,7 +2629,7 @@ class Container {
     public void MemberAccess_WithCompetingGenericExtensionMaps_InfersLambdaReturnFromConstantBody()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -2639,8 +2639,8 @@ union Result<T, E> {
     case Error(error: E)
 }
 
-extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+extension OptionExtensions<T> for Optional<T> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         return match self {
             .Some(let value) => .Some(mapper(value))
             .None => .None
@@ -2658,8 +2658,8 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    func Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+    func Test() -> Optional<int> {
+        let option: Optional<int> = .Some(42)
         return option.Map(x => 42)
     }
 }
@@ -2686,7 +2686,7 @@ class Container {
     public void MemberAccess_WithCompetingGenericExtensionMaps_AllowsExplicitLambdaParameterType()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -2696,8 +2696,8 @@ union Result<T, E> {
     case Error(error: E)
 }
 
-extension OptionExtensions<T> for Option<T> {
-    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+extension OptionExtensions<T> for Optional<T> {
+    func Map<TResult>(mapper: T -> TResult) -> Optional<TResult> {
         return match self {
             .Some(let value) => .Some(mapper(value))
             .None => .None
@@ -2715,8 +2715,8 @@ extension ResultExtensions<T, E> for Result<T, E> {
 }
 
 class Container {
-    func Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+    func Test() -> Optional<int> {
+        let option: Optional<int> = .Some(42)
         return option.Map((x: int) -> int => x * 2)
     }
 }

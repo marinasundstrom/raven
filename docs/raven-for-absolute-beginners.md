@@ -344,7 +344,7 @@ easier to follow.
 
 ## Values that may be absent
 
-Sometimes not finding a value is normal. `Option<T>` represents either a value
+Sometimes not finding a value is normal. `Optional<T>` represents either a value
 with `Some(...)` or no value with `None`.
 
 A console program receives text, even when the person types a number. Use
@@ -372,7 +372,7 @@ You can use the same idea in your own functions. This one searches an array for
 an even number:
 
 ```raven
-func FindEven(numbers: int[]) -> Option<int> {
+func FindEven(numbers: int[]) -> Optional<int> {
     for number in numbers {
         if number % 2 == 0 {
             return Some(number)
@@ -397,7 +397,7 @@ When the rest of a function needs the contained value, use `let ... else` to
 keep the successful path straight:
 
 ```raven
-func PrintEven(number: Option<int>) -> unit {
+func PrintEven(number: Optional<int>) -> unit {
     let Some(value) = number else {
         WriteLine("No even number found")
         return

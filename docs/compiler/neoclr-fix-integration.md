@@ -329,7 +329,7 @@ Sources: [CLI standard](https://ecma-international.org/publications-and-standard
 ## Imported library nested case ownership (2026-09-19)
 
 The neoCLR library importer now retains lexical nesting for the admitted
-Option/Result companion cases. Raven's emitted CLI nested-type relationship was
+Optional/Result companion cases. Raven's emitted CLI nested-type relationship was
 previously flattened into a dotted neoIL name, losing declaring-type identity.
 The correction is entirely in neoCLR's target importer; no Raven semantic or
 emission change, Runtime Contract option, or general nested-type admission is added.
@@ -447,7 +447,7 @@ No target policies or compiler changes are integrated into main for this slice.
 
 The neoCLR reference/importer/provider contracts now make TypeInfo the fourth sealed
 MemberInfo case. Name, Module and MetadataToken are inherited; DeclaringType returns
-Option<TypeInfo>. Consumers rebuild and update exhaustive matches and owner access.
+Optional<TypeInfo>. Consumers rebuild and update exhaustive matches and owner access.
 All member cases are authored together to satisfy Raven's existing same-source-file
 rule. Runtime Contract configuration, binding and emission rules are unchanged;
 there is no compiler fix or main integration in this slice.
@@ -881,7 +881,7 @@ collections and zero live objects. The TCP client, distinct
 neoCLR listener/client and selected HTTP success/timeout cases pass. Public API metadata
 and documentation are refreshed. The author's next priority is batch migration of
 applicable existing unions before resuming HTTP; Is* properties are not a requirement
-for union recognition, including Option and Result. Generic class-library projection
+for union recognition, including Optional and Result. Generic class-library projection
 and the previously recorded implicit IUnion conversion gap remain open.
 
 
@@ -925,7 +925,7 @@ Ten error-library admission checks pass, including malformed shape/case rejectio
 The larger storage fixture exceeds the default CLI instruction budget with generated
 carrier initialization; its trusted test runner has an explicit larger bound.
 
-Generic Option/Result/TaskOutcome remain handwritten: companion/generic reference
+Generic Optional/Result/TaskOutcome remain handwritten: companion/generic reference
 projection and generated payload-body import are not admitted. The separate generic
 metadata/consumer test passes and explicitly rejects library projection. Payload
 explicit layouts remain rejected. These are tracked bridge work, not permanent
@@ -1055,7 +1055,7 @@ reference; the bridge compares that layout against the selected reference assemb
 Captured and array token addresses are admitted as non-constructor token receivers.
 Internal callback-list helpers remain unavailable to application code. No Runtime
 Contract setting or Raven semantic/emission rule changes. Optional callback storage
-uses Option<Func<Void>>; neoCLR nullable delegate defaults remain unsupported.
+uses Optional<Func<Void>>; neoCLR nullable delegate defaults remain unsupported.
 
 The focused neoCLR sample checks source/token copying and boxing under GC, callback
 ordering/reentrancy/disposal, and request versus operation acknowledgement. It passed
@@ -1072,7 +1072,7 @@ no outcome for such a reduction is claimed here.
 
 ## neoCLR HTTP address overload integration — 2026-09-25
 
-The neoCLR reference/bridge now expose HttpClient.BaseUri as Option<string>, and
+The neoCLR reference/bridge now expose HttpClient.BaseUri as Optional<string>, and
 Get(Uri) alongside Get(string) on HttpClient and HttpRequest. These are ordinary
 property and overload signatures using the existing URI and union contracts. The
 bridge checks the optional-string setter and each overload; no Runtime Contract
@@ -1811,7 +1811,7 @@ hid the defect. Main also returned an error type for a cold semantic query.
 
 Case candidate lookup now includes lexically enclosing union declarations, preserving
 local/parameter/member precedence and the import rules for unrelated unions. Neither
-Option source nor the bootstrap declarations are rewritten. Runtime Contract options,
+Optional source nor the bootstrap declarations are rewritten. Runtime Contract options,
 metadata encodings and target policies are unchanged. C# regressions cover cold queries,
 diagnostics, emission and executed factory results, with and without the explicit
 wildcard import. Existing incompatible expression-body returns remain diagnostics.

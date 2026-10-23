@@ -785,7 +785,7 @@ public partial class SemanticModel
                     if (root is CompilationUnitSyntax topLevelUnit &&
                         Compilation.HasRunnableFileScopeCode(topLevelUnit))
                     {
-                        EnsureTopLevelCompilationUnitBound(topLevelUnit, ensureSourceDeclarations: requireCompleteDeclarations);
+                        EnsureTopLevelCompilationUnitBound(topLevelUnit, ensureSourceDeclarations: requireCompleteDeclarations, inferReturnTypeOnly: true);
                     }
                     Traverse(root, binder);
                     diagnosticInstrumentation.RecordTraverseTicks(Stopwatch.GetTimestamp() - phaseStart);
@@ -7771,8 +7771,8 @@ public partial class SemanticModel
                 ?.ConstructorParameters
                 .SingleOrDefault()
                 ?.Type,
-            "Option" => union.DeclaredCaseTypes
-                .FirstOrDefault(static @case => @case.Name == "Some")
+            OptionalFacts.TypeName => union.DeclaredCaseTypes
+                .FirstOrDefault(static @case => @case.Name == OptionalFacts.SomeCaseName)
                 ?.ConstructorParameters
                 .SingleOrDefault()
                 ?.Type,
@@ -7843,8 +7843,8 @@ public partial class SemanticModel
                 hasPayload = payloadType is not null;
                 return true;
 
-            case "Option":
-                var noneCase = union.DeclaredCaseTypes.FirstOrDefault(static @case => @case.Name == "None");
+            case OptionalFacts.TypeName:
+                var noneCase = union.DeclaredCaseTypes.FirstOrDefault(static @case => @case.Name == OptionalFacts.NoneCaseName);
                 if (noneCase is null)
                     return false;
 
@@ -15141,7 +15141,8 @@ public partial class SemanticModel
 
     private void EnsureTopLevelCompilationUnitBound(
         CompilationUnitSyntax compilationUnit,
-        bool ensureSourceDeclarations = true)
+        bool ensureSourceDeclarations = true,
+        bool inferReturnTypeOnly = false)
     {
         if (TryGetCachedBoundNode(compilationUnit) is not null)
             return;
@@ -15167,7 +15168,10 @@ public partial class SemanticModel
             return;
 
         EnsureTopLevelFunctionDeclarations(compilationUnit, ensureSourceDeclarations);
-        topLevelBinder.BindGlobalStatements(globals);
+        if (inferReturnTypeOnly)
+            topLevelBinder.ApplyInferredTopLevelReturnTypes(globals);
+        else
+            topLevelBinder.BindGlobalStatements(globals);
 
         Binder GetTopLevelCompilationUnitBinder(SyntaxNode node)
             => ensureSourceDeclarations

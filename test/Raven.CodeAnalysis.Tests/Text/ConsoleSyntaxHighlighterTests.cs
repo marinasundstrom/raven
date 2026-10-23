@@ -560,12 +560,12 @@ func Render(result: Result) -> int {
     public void WriteNodeToText_ColorizesUnqualifiedCaseIdentifierInMatchPattern()
     {
         var source = """
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 }
 
-func Render(input: Option<int>) -> int {
+func Render(input: Optional<int>) -> int {
     return match input {
         None => 0
         .Some(let value) => value

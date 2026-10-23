@@ -315,15 +315,15 @@ class C {
     public void GetDeclaredSymbol_MatchWholeDesignation_UsesMatchedCaseType()
     {
         const string code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Run(value: Option<int>) -> int {
+    func Run(value: Optional<int>) -> int {
         return match value {
             let Some(inner) whole => inner
             _ => 0

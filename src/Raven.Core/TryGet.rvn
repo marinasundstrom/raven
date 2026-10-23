@@ -2,7 +2,7 @@ namespace System.Collections.Generic
 
 import System.*
 import System.Collections.Generic.*
-import System.Option.*
+import System.Optional.*
 import System.Runtime.CompilerServices.*
 
 /// Provides option-returning dictionary lookup.
@@ -16,7 +16,7 @@ public extension DictionaryExtensions<TKey, TValue> for Dictionary<TKey, TValue>
     /// @param key The key to locate.
     /// @returns `Some` containing the value when found; otherwise `None`.
     [FrameworkProjection("system.collections.generic.dictionary.trygetvalue.option.v1")]
-    func TryGetValue(key: TKey) -> Option<TValue> {
+    func TryGetValue(key: TKey) -> Optional<TValue> {
         if self.TryGetValue(key, out var value) {
             return Some(value)
         }

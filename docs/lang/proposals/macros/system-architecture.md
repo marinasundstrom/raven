@@ -469,7 +469,7 @@ The Raven-facing API should look like Raven rather than merely transliterating
 nullable C# contracts. Once the explicit stage-0 build boundary can supply
 these types without introducing a `Raven.Core` source-build cycle, use:
 
-* `Option<T>` when the only distinction is presence or absence;
+* `Optional<T>` when the only distinction is presence or absence;
 * `Result<T, TError>` for one expected success/failure boundary;
 * a purpose-built union when callers must handle several meaningful outcomes;
   and

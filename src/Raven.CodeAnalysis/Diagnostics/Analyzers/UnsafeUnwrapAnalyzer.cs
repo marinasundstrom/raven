@@ -22,7 +22,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Unsafe Option or Result extraction",
+        title: "Unsafe Optional or Result extraction",
         description: null,
         helpLinkUri: string.Empty,
         messageFormat: "Call to '{0}' can throw when {1} is {2}. Handle {3} explicitly.",
@@ -62,12 +62,12 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
             invocation.TargetMethod.Name,
             receiverKind,
             GetThrowingState(invocation.TargetMethod.Name, receiverKind, failureCase),
-            receiverKind == ReceiverKind.Option ? "Some and None" : $"{ResultFacts.OkCaseName} and {failureCase}"));
+            receiverKind == ReceiverKind.Optional ? "Some and None" : $"{ResultFacts.OkCaseName} and {failureCase}"));
     }
 
     private static string GetThrowingState(string methodName, ReceiverKind receiverKind, string failureCase)
         => receiverKind == ReceiverKind.Result && methodName == "UnwrapError" ? ResultFacts.OkCaseName :
-            receiverKind == ReceiverKind.Option ? "None" : failureCase;
+            receiverKind == ReceiverKind.Optional ? OptionalFacts.NoneCaseName : failureCase;
 
     private static bool TryGetReceiverKind(IMethodSymbol method, out ReceiverKind receiverKind)
     {
@@ -98,7 +98,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
 
         receiverKind = (definition.Name, definition.Arity) switch
         {
-            ("Option", 1) => ReceiverKind.Option,
+            (OptionalFacts.TypeName, 1) => ReceiverKind.Optional,
             ("Result", 2) => ReceiverKind.Result,
             _ => ReceiverKind.None,
         };
@@ -108,7 +108,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
     private enum ReceiverKind
     {
         None,
-        Option,
+        Optional,
         Result,
     }
 }

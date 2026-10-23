@@ -33,7 +33,7 @@ Nullable types are used across Raven's type system, binding, conversion, and cod
 
 * Introducing new syntax for nullability.
 * Changing the meaning of `T?` in source.
-* Changing the shape of `Option<T>` or union types.
+* Changing the shape of `Optional<T>` or union types.
 * Making `T?` behave as `Nullable<T>` for member lookup without an explicit cast or type annotation.
 
 ## Proposed design
@@ -106,7 +106,7 @@ When emitting conversions to a nullable value type, codegen should consider:
 
 * Wrapping non-nullable values into `Nullable<T>`.
 * Lifting conversions when both source and destination are nullable value types.
-* Nullable union or `Option<T>` conversions, when the language model provides a well-defined lowering to `T?`.
+* Nullable union or `Optional<T>` conversions, when the language model provides a well-defined lowering to `T?`.
 
 ### 6. Normalization consistency
 

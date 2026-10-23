@@ -23,7 +23,7 @@ their qualification is described below.
 | Raven sealed class / record class | Embedded `ClosedHierarchyAttribute(Type[])` | Framework `IsClosedTypeAttribute` with `DerivedTypes` |
 | Raven sealed interface | Raven closed-family metadata | Raven closed-family metadata; no native closed-interface equivalent |
 | Standard `System.Union<...>` JSON | Existing Raven converter and wire format | Native System.Text.Json union contract |
-| `Option<T>` / `Result<T, E>` JSON | Existing type-specific converters | Existing type-specific converters |
+| `Optional<T>` / `Result<T, E>` JSON | Existing type-specific converters | Existing type-specific converters |
 
 The first RC 1 probe showed that replacing only the closed-class attribute name
 was insufficient: C# emits a named `DerivedTypes` property which System.Text.Json

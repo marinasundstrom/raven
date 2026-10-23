@@ -282,7 +282,7 @@ The CLI bridge synthesizes a type default when OptionalAttribute provides no
 explicit constant, retaining the existing decoded value and a type-default flag.
 PE now exposes that flag through `IParameterDefaultValueInfo`; shared optional
 argument binding and display no longer test for PEParameterSymbol. Source syntax,
-Option.None markers, explicit constants and null handling retain their behavior.
+Optional.None markers, explicit constants and null handling retain their behavior.
 
 A native provider can describe a synthesized type default without CLI attributes;
 full native default-value representation and emission remain future work. The

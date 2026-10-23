@@ -2,7 +2,7 @@ namespace System
 
 import System.*
 import System.Globalization.*
-import System.Option.*
+import System.Optional.*
 import System.Result.*
 import System.Runtime.CompilerServices.*
 
@@ -11,7 +11,7 @@ public extension Int32Extensions for Int32 {
 
     /// Parses an integer and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.int32.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<int> {
+    static func TryParse(input: string?) -> Optional<int> {
         if Int32.TryParse(input, out var value) {
             return Some(value)
         }
@@ -21,7 +21,7 @@ public extension Int32Extensions for Int32 {
 
     /// Parses an integer using the specified style and format provider.
     [FrameworkProjection("system.int32.tryparse.string-style-provider.option.v1")]
-    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<int> {
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Optional<int> {
         if Int32.TryParse(input, style, provider, out var value) {
             return Some(value)
         }
@@ -46,7 +46,7 @@ public extension Int32Extensions for Int32 {
 public extension Int64Extensions for Int64 {
     /// Parses a long integer and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.int64.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<long> {
+    static func TryParse(input: string?) -> Optional<long> {
         if Int64.TryParse(input, out var value) {
             return Some(value)
         }
@@ -56,7 +56,7 @@ public extension Int64Extensions for Int64 {
 
     /// Parses a long integer using the specified style and format provider.
     [FrameworkProjection("system.int64.tryparse.string-style-provider.option.v1")]
-    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<long> {
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Optional<long> {
         if Int64.TryParse(input, style, provider, out var value) { return Some(value) }
         return None
     }
@@ -66,7 +66,7 @@ public extension Int64Extensions for Int64 {
 public extension DoubleExtensions for Double {
     /// Parses a double and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.double.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<double> {
+    static func TryParse(input: string?) -> Optional<double> {
         if Double.TryParse(input, out var value) {
             return Some(value)
         }
@@ -76,7 +76,7 @@ public extension DoubleExtensions for Double {
 
     /// Parses a double using the specified style and format provider.
     [FrameworkProjection("system.double.tryparse.string-style-provider.option.v1")]
-    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<double> {
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Optional<double> {
         if Double.TryParse(input, style, provider, out var value) { return Some(value) }
         return None
     }
@@ -86,7 +86,7 @@ public extension DoubleExtensions for Double {
 public extension DecimalExtensions for Decimal {
     /// Parses a decimal and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.decimal.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<decimal> {
+    static func TryParse(input: string?) -> Optional<decimal> {
         if Decimal.TryParse(input, out var value) {
             return Some(value)
         }
@@ -96,7 +96,7 @@ public extension DecimalExtensions for Decimal {
 
     /// Parses a decimal using the specified style and format provider.
     [FrameworkProjection("system.decimal.tryparse.string-style-provider.option.v1")]
-    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<decimal> {
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Optional<decimal> {
         if Decimal.TryParse(input, style, provider, out var value) { return Some(value) }
         return None
     }
@@ -106,7 +106,7 @@ public extension DecimalExtensions for Decimal {
 public extension GuidExtensions for Guid {
     /// Parses a GUID and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.guid.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<Guid> {
+    static func TryParse(input: string?) -> Optional<Guid> {
         if Guid.TryParse(input, out var value) {
             return Some(value)
         }
@@ -129,7 +129,7 @@ public extension GuidExtensions for Guid {
 public extension DateTimeExtensions for DateTime {
     /// Parses a date and time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.datetime.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<DateTime> {
+    static func TryParse(input: string?) -> Optional<DateTime> {
         if DateTime.TryParse(input, out var value) {
             return Some(value)
         }
@@ -139,7 +139,7 @@ public extension DateTimeExtensions for DateTime {
 
     /// Parses a date and time using the specified format provider and styles.
     [FrameworkProjection("system.datetime.tryparse.string-provider-styles.option.v1")]
-    static func TryParse(input: string?, provider: IFormatProvider?, styles: DateTimeStyles) -> Option<DateTime> {
+    static func TryParse(input: string?, provider: IFormatProvider?, styles: DateTimeStyles) -> Optional<DateTime> {
         if DateTime.TryParse(input, provider, styles, out var value) { return Some(value) }
         return None
     }
@@ -149,7 +149,7 @@ public extension DateTimeExtensions for DateTime {
 public extension DateTimeOffsetExtensions for DateTimeOffset {
     /// Parses an offset date and time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.datetimeoffset.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<DateTimeOffset> {
+    static func TryParse(input: string?) -> Optional<DateTimeOffset> {
         if DateTimeOffset.TryParse(input, out var value) { return Some(value) }
         return None
     }
@@ -159,7 +159,7 @@ public extension DateTimeOffsetExtensions for DateTimeOffset {
 public extension DateOnlyExtensions for DateOnly {
     /// Parses a date and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.dateonly.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<DateOnly> {
+    static func TryParse(input: string?) -> Optional<DateOnly> {
         if DateOnly.TryParse(input, out var value) { return Some(value) }
         return None
     }
@@ -169,7 +169,7 @@ public extension DateOnlyExtensions for DateOnly {
 public extension TimeOnlyExtensions for TimeOnly {
     /// Parses a time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.timeonly.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<TimeOnly> {
+    static func TryParse(input: string?) -> Optional<TimeOnly> {
         if TimeOnly.TryParse(input, out var value) { return Some(value) }
         return None
     }
@@ -179,7 +179,7 @@ public extension TimeOnlyExtensions for TimeOnly {
 public extension TimeSpanExtensions for TimeSpan {
     /// Parses a time interval and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.timespan.tryparse.string.option.v1")]
-    static func TryParse(input: string?) -> Option<TimeSpan> {
+    static func TryParse(input: string?) -> Optional<TimeSpan> {
         if TimeSpan.TryParse(input, out var value) { return Some(value) }
         return None
     }

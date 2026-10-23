@@ -1632,23 +1632,23 @@ func Main() -> unit {
     {
         var firstDiagnostic = CreateDiagnosticWithData(
             "RAV9012",
-            "Use Option.",
+            "Use Optional.",
             1,
             4,
             1,
             6,
             DiagnosticSeverity.Information,
-            new JObject { ["suggestedType"] = "Option<string>" });
+            new JObject { ["suggestedType"] = "Optional<string>" });
 
         var secondDiagnostic = CreateDiagnosticWithData(
             "RAV9012",
-            "Use Option.",
+            "Use Optional.",
             1,
             4,
             1,
             6,
             DiagnosticSeverity.Information,
-            new JObject { ["suggestedType"] = "Option<object>" });
+            new JObject { ["suggestedType"] = "Optional<object>" });
 
         RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues([firstDiagnostic])
             .SequenceEqual(RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues([secondDiagnostic]))

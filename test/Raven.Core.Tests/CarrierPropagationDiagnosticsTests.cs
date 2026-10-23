@@ -17,7 +17,7 @@ func test() -> Result<int, string> {
     return .Ok(r)
 }
 
-func test2() -> Option<int> {
+func test2() -> Optional<int> {
     return .Some(1)
 }
 """;
@@ -72,7 +72,7 @@ class Box {
     public val Value: int = 42
 }
 
-func map(opt: Option<Box>) -> Result<int, string> {
+func map(opt: Optional<Box>) -> Result<int, string> {
     return opt?.Value
 }
 """;
@@ -83,7 +83,7 @@ func map(opt: Option<Box>) -> Result<int, string> {
             [
                 new DiagnosticResult("RAV1503")
                     .WithAnySpan()
-                    .WithArguments("Option<int>", "Result<int, string>")
+                    .WithArguments("Optional<int>", "Result<int, string>")
             ]);
 
         verifier.Verify();
@@ -165,13 +165,13 @@ func test2() -> Result<int, string> {
 import System.*
 import System.Threading.Tasks.*
 
-async func test() -> Task<Option<int>> {
+async func test() -> Task<Optional<int>> {
     await Task.FromResult(0)
     let r = test2()?
     return .Some(r)
 }
 
-func test2() -> Option<int> {
+func test2() -> Optional<int> {
     return .Some(1)
 }
 """;

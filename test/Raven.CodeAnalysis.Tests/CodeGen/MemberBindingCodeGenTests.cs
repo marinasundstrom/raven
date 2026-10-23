@@ -46,7 +46,7 @@ class Program {
     public void ExtensionPropertyGetter_ReturnsTargetTypedCaseInvocation_FromReturnStatement(bool success)
     {
         const string code = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -57,7 +57,7 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
-    val IsOk: Option<T> {
+    val IsOk: Optional<T> {
         get {
             if self is .Ok(let value) {
                 return .Some(value)

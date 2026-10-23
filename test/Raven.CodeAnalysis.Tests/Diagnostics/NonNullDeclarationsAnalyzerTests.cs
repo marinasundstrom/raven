@@ -20,7 +20,7 @@ func Test() {
             [
                 new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId)
                     .WithSpan(2, 16, 2, 20)
-                    .WithArguments("Option<int>", "int?")
+                    .WithArguments("Optional<int>", "int?")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -42,7 +42,7 @@ class C {
             [
                 new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId)
                     .WithSpan(2, 16, 2, 20)
-                    .WithArguments("Option<int>", "int?")
+                    .WithArguments("Optional<int>", "int?")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 

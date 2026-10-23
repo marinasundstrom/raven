@@ -70,14 +70,14 @@ class Foo : IDisposable {
     public void FunctionStatementExpressionBody_ReturnsExpectedValue(bool hasValue)
     {
         var code = $$"""
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Program {
     public static func Run() -> string {
-        func GetMessage() -> Option<string> => {{(hasValue ? ".Some(\"Hello, World!\")" : ".None")}}
+        func GetMessage() -> Optional<string> => {{(hasValue ? ".Some(\"Hello, World!\")" : ".None")}}
 
         let message = GetMessage()
         return match message {
@@ -157,13 +157,13 @@ class Program {
     public void PropertyGetterAccessorExpressionBody_ReturnsExpectedValue(bool hasValue)
     {
         var code = $$"""
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Holder {
-    public val Message: Option<string> {
+    public val Message: Optional<string> {
         get => {{(hasValue ? ".Some(\"Hello, World!\")" : ".None")}}
     }
 }
@@ -209,13 +209,13 @@ class Program {
     public void PropertyExpressionBody_ReturnsExpectedValue(bool hasValue)
     {
         var code = $$"""
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Holder {
-    public val Message: Option<string> => {{(hasValue ? ".Some(\"Hello, World!\")" : ".None")}}
+    public val Message: Optional<string> => {{(hasValue ? ".Some(\"Hello, World!\")" : ".None")}}
 }
 
 class Program {

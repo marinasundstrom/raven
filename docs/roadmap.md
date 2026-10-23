@@ -20,7 +20,7 @@ runtime and ecosystem.
 The MVP should demonstrate four promises:
 
 1. **Expressive application modeling.** Records, unions, patterns, functions,
-   `Option`, and `Result` make domain states and transitions explicit.
+   `Optional`, and `Result` make domain states and transitions explicit.
 2. **Practical .NET interoperability.** Raven applications can use established
    .NET libraries, frameworks, project infrastructure, and deployment paths.
 3. **Useful compiler feedback.** Diagnostics and semantic tooling help users
@@ -66,7 +66,7 @@ obligation to promote every one:
 | Workload | Candidate sample | What it should prove |
 | --- | --- | --- |
 | First application or CLI | `samples/projects/hello-world` and `samples/scripts` | Installation, project creation, arguments, build, and run |
-| Domain workflow | `samples/projects/fulfillment-workflow` | Records, unions, patterns, `Option`, `Result`, and explicit state transitions |
+| Domain workflow | `samples/projects/fulfillment-workflow` | Records, unions, patterns, `Optional`, `Result`, and explicit state transitions |
 | Web service | `samples/projects/aspnet-minimal-api` or `samples/projects/efcore-vehicle-costs` | ASP.NET Core, dependency injection, JSON, persistence, and ordinary .NET interop |
 | Data or device workload | `samples/projects/greenhouse-monitor` | Async streams, cancellation, telemetry modeling, and deployment or Native AOT |
 | Mixed ecosystem application | An existing mixed Raven/C# sample, or a focused new one | Gradual adoption and bidirectional Raven/C# boundaries |

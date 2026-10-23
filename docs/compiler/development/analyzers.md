@@ -74,7 +74,7 @@ Raven currently provides analyzers for two different contexts:
   analyzer intentionally starts with conservative local flow and does not attempt ownership
   inference through arbitrary calls.
 - **UnsafeUnwrapAnalyzer** (Raven, `RAV9037`) – reports calls to partial extraction methods
-  on `Option<T>` and `Result<T, E>`: `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, and `Expect`.
+  on `Optional<T>` and `Result<T, E>`: `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, and `Expect`.
   These methods can throw for a valid union state. Fallback-bearing methods such as
   `UnwrapOr`, `UnwrapOrElse`, and `UnwrapOrDefault` are not reported.
 
@@ -149,7 +149,7 @@ Built-in code fixes currently include:
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)
 - `RAV9018` (`Remove unused property`)
-- `RAV9012` (`Use 'Option<T>'`, `Rewrite nullable flow to Option pattern matching`)
+- `RAV9012` (`Use 'Optional<T>'`, `Rewrite nullable flow to Optional pattern matching`)
 - `RAV9015` (`Use strict null check`)
 
 Built-in refactorings currently include:
@@ -161,10 +161,10 @@ Built-in refactorings currently include:
 
 The `RAV9012` split is intentional:
 
-- the diagnostic-backed fixes handle Raven's nullable/`Option<T>` guidance and stop at
-  `Option<T>` plus `if maybeValue is Some(...)` style flow
+- the diagnostic-backed fixes handle Raven's nullable/`Optional<T>` guidance and stop at
+  `Optional<T>` plus `if maybeValue is Some(...)` style flow
 - the separate `Convert if/else to match` refactoring owns control-flow reshaping and can
-  be applied independently to pattern-based `if` statements, including non-`Option` code
+  be applied independently to pattern-based `if` statements, including non-`Optional` code
 
 The `Convert if/else to match` action preserves the exact meaning of `else` by
 emitting a `_` fallback arm. It does not guess that names such as `Some` or
@@ -245,7 +245,7 @@ analyzer mode, and `.editorconfig` controls severity. `.rvnproj` files can use
 non-off mode today is `full`.
 
 For a concrete project sample that disables `RAV9012` (not-use-null), `RAV9013` (don't use
-throw), and `RAV9014` (prefer Result/Option-based extensions), see
+throw), and `RAV9014` (prefer Result/Optional-based extensions), see
 `samples/projects/analyzer-editorconfig/README.md`.
 
 In the future, analyzers may offer code fixes such as suggesting a common base class or type

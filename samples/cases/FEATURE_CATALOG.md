@@ -4,7 +4,7 @@ This catalog groups `samples/*.rav` by feature intent so we can promote them int
 
 ## Spec-aligned case tracks
 - `docs/lang/spec/control-flow.md` -> Control flow and pattern matching cases (`samples/control-flow/*`, `samples/patterns/*`, and control-flow root demos).
-- `docs/lang/spec/error-handling.md` -> Error/exception/propagation cases (`Result`, `Option`, `try`, `throw`, and async propagation samples).
+- `docs/lang/spec/error-handling.md` -> Error/exception/propagation cases (`Result`, `Optional`, `try`, `throw`, and async propagation samples).
 - `docs/lang/spec/type-system.md` -> Type system cases (unions, nullability, tuples, function types, generics, collections, unit).
 - `docs/lang/spec/classes-and-members.md` -> OOP/member/declaration cases (classes, interfaces, records, enums, inheritance, extensions).
 
@@ -185,7 +185,7 @@ No active bug repro samples remain in this folder. Promoted historical repros:
 - `samples/bugs/advanced/tokenizer.rav` -> `samples/runtime/tokenizer-string-reader-basic.rav`
 
 Dropped historical repros with equivalent current coverage:
-- `samples/bugs/prio1/operator-bug.rav` (covered by nullable `Option<T>` conversion samples)
+- `samples/bugs/prio1/operator-bug.rav` (covered by nullable `Optional<T>` conversion samples)
 
 ## 14) Scratch / Legacy / Rename Candidates
 These should not be promoted as feature cases until renamed and scoped:

@@ -22,7 +22,7 @@ internal static class ProjectSystemGeneratedDocumentHelper
         "System.Threading.*",
         "System.Threading.Tasks.*",
         "System.Result.*",
-        "System.Option.*"
+        OptionalFacts.QualifiedTypeName + ".*"
     ];
 
     public static Solution AddGeneratedPreludeDocument(

@@ -2,7 +2,7 @@
 
 `Raven.Core` is the standard library that ships with the compiler. It contains
 foundational types implemented in Raven and compiled into `Raven.Core.dll` so
-programs can rely on a consistent Option/Result vocabulary across projects,
+programs can rely on a consistent Optional/Result vocabulary across projects,
 plus a handful of generated shims the compiler produces automatically when it
 builds the library.
 
@@ -19,7 +19,7 @@ comments.
 ## How Raven.Core is built
 
 The `src/Raven.Core` project builds directly from the Raven sources in
-`Option.rvn` and `Result.rvn`. During a solution build, MSBuild runs the
+`Optional.rvn` and `Result.rvn`. During a solution build, MSBuild runs the
 `CompileRavenCore` target, which:
 
 - Invokes `Raven.Compiler` with `--emit-core-types-only` to compile the Raven
@@ -46,9 +46,9 @@ default. The catalog projects `TryParse(string, out T)` overloads for `int`,
 `DateTime` provider/style forms:
 
 ```raven
-let number = int.TryParse(text) // Option<int>
+let number = int.TryParse(text) // Optional<int>
 let currency = decimal.TryParse(text, NumberStyles.Currency, culture)
-// Option<decimal>
+// Optional<decimal>
 ```
 
 It also replaces `int.Parse(string)` and `Guid.Parse(string)` with
@@ -64,11 +64,11 @@ let id = Guid.Parse(text)
 Dictionary lookup is projected with the same explicit approach:
 
 ```raven
-let value = dictionary.TryGetValue(key) // Option<TValue>
+let value = dictionary.TryGetValue(key) // Optional<TValue>
 ```
 
 `None` means that the key is absent. A nullable declared value remains nullable
-inside `Some`, so `Dictionary<string, string?>` produces `Option<string?>` and
+inside `Some`, so `Dictionary<string, string?>` produces `Optional<string?>` and
 does not conflate a present `null` value with an absent key.
 
 The catalog is an exact, versioned mapping rather than a naming convention.
@@ -142,29 +142,29 @@ authoring convenience for union errors. They expand to a normal `IError`
 implementation; see the [Raven Macro Library](raven-macros-library.md) for the
 authored and expanded forms.
 
-### `Option<T>`
+### `Optional<T>`
 
 A union carrier with two cases:
 
 - `Some(value: T)` holds a value.
 - `None` represents the absence of a value.
 
-`Option<T>` is a plain `union` that uses Raven's standard struct carrier model:
+`Optional<T>` is a plain `union` that uses Raven's standard struct carrier model:
 
-- runtime values are `Option<T>` carriers
+- runtime values are `Optional<T>` carriers
 - case values convert into the carrier
 - the carrier exposes a conventional `Value: object?` property containing the active case value
 - the carrier exposes `HasValue: bool` for initialization-safe inspection across interop boundaries
 - extraction uses `TryGetValue(out Some<T>)` / `TryGetValue(out None)` and pattern matching
 
-For the built-in `Option<T>` struct carrier, `HasValue` is `true` for
+For the built-in `Optional<T>` struct carrier, `HasValue` is `true` for
 constructed values and `false` for the default carrier value. `Value` points at
 the active case object (`Some<T>` or `None`) when initialized. The carrier
 itself is the stable runtime type; `Value` is the authoritative active-case
 projection.
 
-Because `Option<T>` is a struct union, `default(Option<T>)` is an inactive
-carrier state rather than `None`. Raven code that receives an `Option<T>` as a
+Because `Optional<T>` is a struct union, `default(Optional<T>)` is an inactive
+carrier state rather than `None`. Raven code that receives an `Optional<T>` as a
 parameter or `self` can assume an active carrier because the call boundary
 rejects possibly inactive arguments before entry. Fields and properties remain
 storage/interop boundaries until local flow proves them active. Match
@@ -174,7 +174,7 @@ the program intentionally handles a physically possible inactive carrier. Locals
 initialized from `Some(...)` or `None` are known active and report redundant
 catch-all arms.
 
-`Option<T>` extension helpers:
+`Optional<T>` extension helpers:
 
 - State checks: `HasSome`, `HasNone`
 - Mapping and composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
@@ -184,10 +184,10 @@ catch-all arms.
 - Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
   `UnwrapOr(defaultValue)`
 - Sequence helpers: `ToEnumerable`, `GetEnumerator`
-- Nested helper (`Option<Option<T>>`): `Flatten`
+- Nested helper (`Optional<Optional<T>>`): `Flatten`
 - Nullable conversions:
-  - `Option<T : class> <-> T?`
-  - `Option<T : struct> <-> T?`
+  - `Optional<T : class> <-> T?`
+  - `Optional<T : struct> <-> T?`
 
 ### `Result<T, E>`
 
@@ -196,7 +196,7 @@ catch-all arms.
 - `Ok(value: T)` for success.
 - `Failure(data: E)` for failure.
 
-Like `Option<T>`, `Result<T, E>` uses carrier semantics rather than inheritance semantics. Case values convert into the carrier, and extraction happens through `TryGetValue(out CaseType)` or pattern matching.
+Like `Optional<T>`, `Result<T, E>` uses carrier semantics rather than inheritance semantics. Case values convert into the carrier, and extraction happens through `TryGetValue(out CaseType)` or pattern matching.
 The carrier also exposes a conventional `Value: object?` property
 containing the active case value.
 The carrier also exposes `HasValue: bool`, where constructed values report
@@ -228,7 +228,7 @@ that flow analysis knows is active.
 
 `IEnumerable<T>` gets Raven.Core helpers for carrier-friendly queries:
 
-- Option-returning:
+- Optional-returning:
   - `FirstOrNone()`, `FirstOrNone(predicate)`
   - `LastOrNone()`, `LastOrNone(predicate)`
   - `SingleOrNone()`, `SingleOrNone(predicate)`
@@ -268,7 +268,7 @@ default. This keeps the ABI aligned with the C# generated-union direction:
 - `union class` remains available for reference-type carrier semantics and is
   the right choice when a union must satisfy `class` constraints or intentionally
   behave like an object hierarchy at runtime.
-- `default(Option<T>)`, `default(Result<T, E>)`, and default values of standard
+- `default(Optional<T>)`, `default(Result<T, E>)`, and default values of standard
   `Union<...>` carriers are inactive carrier states. They are not semantic
   `None`, `Error`, or `null` cases.
 - Raven.Core helpers should rely on the active `self` contract rather than
@@ -329,13 +329,13 @@ compiler work should focus on:
   should not reintroduce `null` as a pseudo member type in the core union ABI.
 - Analyzer support: add lightweight Raven.Core audits that flag helper methods
   returning raw boundary carriers or unconstrained `default` values from
-  `Option`, `Result`, or `Union<...>` APIs.
+  `Optional`, `Result`, or `Union<...>` APIs.
 - Extension coverage: continue adding focused runtime tests for Raven.Core
   extension helpers that accept union receivers, especially helpers that forward
-  `self`, return nested unions, or bridge `Option` and `Result`.
+  `self`, return nested unions, or bridge `Optional` and `Result`.
 
 Project builds include a generated prelude source file that globally imports
-the standard `System` namespaces, `System.Result.*`, and `System.Option.*`.
+the standard `System` namespaces, `System.Result.*`, and `System.Optional.*`.
 That prelude is why standard cases such as `Ok`, `Failure`, `Some`, and `None`
 are usually available as simple names in project code. User-defined union cases
 require qualification, target-typed member syntax, or an explicit
@@ -345,7 +345,7 @@ the imported type or nested type to be available to the compilation.
 
 When you want OOP-style subtype semantics, prefer Raven sealed hierarchies instead of unions.
 
-JSON serialization behavior for `Option<T>`, `Result<T, E>`, standard type
+JSON serialization behavior for `Optional<T>`, `Result<T, E>`, standard type
 unions, and opt-in tagged Raven unions is documented in
 [Raven Core JSON serialization](json-serialization.md).
 

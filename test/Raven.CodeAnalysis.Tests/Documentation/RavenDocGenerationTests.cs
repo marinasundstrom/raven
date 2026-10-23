@@ -581,21 +581,21 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             public extension ResultExtras<T, E: IContract> for Result<T, E> {
                 func WithContext(message: string) -> string => message
             }
-            public class Option<T> { }
-            public extension OptionExtras<T> for Option<T> {
+            public class Optional<T> { }
+            public extension OptionExtras<T> for Optional<T> {
                 func ReadOption(value: T) -> T => value
             }
-            public extension NestedOptionExtras<T> for Option<Option<T>> {
+            public extension NestedOptionExtras<T> for Optional<Optional<T>> {
                 func Flatten(value: T) -> T => value
             }
-            public extension ReferenceOptionExtras<T: class> for Option<T> {
+            public extension ReferenceOptionExtras<T: class> for Optional<T> {
                 func ReferenceValue(value: T) -> T => value
             }
             internal extension InternalExtras for Derived {
                 func InternalOnly() -> int => 0
                 static func InternalFactory() -> int => 0
             }
-            internal extension InternalOptionExtras<T> for Option<Option<T>> {
+            internal extension InternalOptionExtras<T> for Optional<Optional<T>> {
                 func InternalFlatten(value: T) -> T => value
             }
             public extension Extras for Derived {
@@ -648,12 +648,12 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 System.Text.RegularExpressions.RegexOptions.Singleline).Value;
             extensionGroup.ShouldContain("GenericExtras");
             extensionGroup.ShouldNotContain("Factory");
-            var optionPage = File.ReadAllText(Path.Combine(output, "Relationships/Option`1/index.html"));
+            var optionPage = File.ReadAllText(Path.Combine(output, "Relationships/Optional`1/index.html"));
             optionPage.ShouldNotContain("InternalFlatten");
             optionPage.ShouldContain("ReadOption(value: T)");
             optionPage.ShouldContain("Flatten");
             optionPage.ShouldContain("ReferenceValue");
-            optionPage.ShouldContain("Option&lt;Option&lt;T&gt;&gt;");
+            optionPage.ShouldContain("Optional&lt;Optional&lt;T&gt;&gt;");
             optionPage.ShouldContain("Applies to <code>");
             optionPage.ShouldContain("where T: class");
             var resultPage = File.ReadAllText(Path.Combine(output, "Relationships/Result`2/index.html"));

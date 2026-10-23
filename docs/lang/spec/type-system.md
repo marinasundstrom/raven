@@ -299,7 +299,7 @@ throws `InvalidOperationException` when no value is present. C#'s `!` alone
 does not perform that extraction. See the
 [C# null-forgiving operator reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-forgiving).
 
-Raven recommends `Option<T>` when absence is an intentional part of a domain
+Raven recommends `Optional<T>` when absence is an intentional part of a domain
 API. Nullable types remain useful for .NET interoperability and gradual
 adoption. See [Nullability and absence](../nullability.md).
 

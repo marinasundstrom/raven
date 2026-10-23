@@ -40,9 +40,9 @@ title: A fresh language for .NET.
 </section>
 
 <section class="raven-feature-section">
-  <div class="raven-section-heading"><p class="raven-eyebrow">Readable workflows</p><h2>Make absence and failure explicit.</h2><p><code>Option</code> represents absence; <code>Result</code> carries a success or an error. Propagate with <code>?</code> when the current operation cannot continue, or use <code>match</code> to handle each case.</p><p><a href="lang/features/option-and-result.md">Learn Option and Result</a></p></div>
+  <div class="raven-section-heading"><p class="raven-eyebrow">Readable workflows</p><h2>Make absence and failure explicit.</h2><p><code>Optional</code> represents absence; <code>Result</code> carries a success or an error. Propagate with <code>?</code> when the current operation cannot continue, or use <code>match</code> to handle each case.</p><p><a href="lang/features/option-and-result.md">Learn Optional and Result</a></p></div>
   <div class="raven-example-panel"><div data-raven-playground="source"></div>
-<pre><code class="lang-raven">import&#32;System.Console.*&#10;&#10;func&#32;readPort(text:&#32;string)&#32;-&gt;&#32;Option&lt;int&gt;&#32;{&#10;&#32;&#32;&#32;&#32;let&#32;port&#32;=&#32;int.TryParse(text)?&#10;&#32;&#32;&#32;&#32;if&#32;port&#32;&lt;=&#32;0&#32;||&#32;port&#32;&gt;&#32;65535&#32;{&#32;return&#32;.None&#32;}&#10;&#32;&#32;&#32;&#32;return&#32;.Some(port)&#10;}&#10;&#10;WriteLine(readPort(&quot;8080&quot;))&#10;WriteLine(readPort(&quot;invalid&quot;))</code></pre></div>
+<pre><code class="lang-raven">import&#32;System.Console.*&#10;&#10;func&#32;readPort(text:&#32;string)&#32;-&gt;&#32;Optional&lt;int&gt;&#32;{&#10;&#32;&#32;&#32;&#32;let&#32;port&#32;=&#32;int.TryParse(text)?&#10;&#32;&#32;&#32;&#32;if&#32;port&#32;&lt;=&#32;0&#32;||&#32;port&#32;&gt;&#32;65535&#32;{&#32;return&#32;.None&#32;}&#10;&#32;&#32;&#32;&#32;return&#32;.Some(port)&#10;}&#10;&#10;WriteLine(readPort(&quot;8080&quot;))&#10;WriteLine(readPort(&quot;invalid&quot;))</code></pre></div>
 </section>
 
 <section class="raven-feature-section">

@@ -49,7 +49,7 @@ record class ShipmentRequest(
     val Id: string,
     val Carrier: string,
     val WeightKg: int,
-    val PromoCode: Option<string>)
+    val PromoCode: Optional<string>)
 
 record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
 record class Quote(val Id: string, val TotalCents: int, val Decision: Decision)

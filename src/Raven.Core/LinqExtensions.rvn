@@ -3,10 +3,10 @@ namespace System.Linq
 import System.*
 import System.Linq.*
 import System.Collections.Generic.*
-import System.Option.*
+import System.Optional.*
 import System.Result.*
 
-/// Provides `Option`- and `Result`-returning sequence operations.
+/// Provides `Optional`- and `Result`-returning sequence operations.
 ///
 /// @typeparam T The sequence element type.
 public extension EnumerableOption<T> for IEnumerable<T> {
@@ -16,7 +16,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     /// Returns the first element as `Some`, or `None` for an empty sequence.
-    func FirstOrNone() -> Option<T> {
+    func FirstOrNone() -> Optional<T> {
         val values = self.Take(1).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -25,7 +25,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     }
 
     /// Returns the first matching element as `Some`, or `None` when no element matches.
-    func FirstOrNone(predicate: T -> bool) -> Option<T> {
+    func FirstOrNone(predicate: T -> bool) -> Optional<T> {
         val values = self.Where(predicate).Take(1).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -56,7 +56,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     /// Returns the last element as `Some`, or `None` for an empty sequence.
-    func LastOrNone() -> Option<T> {
+    func LastOrNone() -> Optional<T> {
         val values = self.ToList()
         if values.Count == 0 {
             return None
@@ -65,7 +65,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     }
 
     /// Returns the last matching element as `Some`, or `None` when no element matches.
-    func LastOrNone(predicate: T -> bool) -> Option<T> {
+    func LastOrNone(predicate: T -> bool) -> Optional<T> {
         val values = self.Where(predicate).ToList()
         if values.Count == 0 {
             return None
@@ -96,7 +96,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     /// Returns the only element as `Some`, or `None` unless exactly one element exists.
-    func SingleOrNone() -> Option<T> {
+    func SingleOrNone() -> Optional<T> {
         val values = self.Take(2).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -105,7 +105,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     }
 
     /// Returns the only matching element as `Some`, or `None` unless exactly one element matches.
-    func SingleOrNone(predicate: T -> bool) -> Option<T> {
+    func SingleOrNone(predicate: T -> bool) -> Optional<T> {
         val values = self.Where(predicate).Take(2).ToList()
         if values.Count == 1 {
             return Some(values[0])
@@ -160,7 +160,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     /// Returns the element at `index` as `Some`, or `None` when the index is out of range.
-    func ElementAtOrNone(index: int) -> Option<T> {
+    func ElementAtOrNone(index: int) -> Optional<T> {
         if index < 0 {
             return None
         }

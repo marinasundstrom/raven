@@ -7,7 +7,7 @@
 ## Context
 
 Raven is approaching the point where its compiler APIs should use Raven-native
-domain shapes such as `Option<T>`, `Result<T, TError>`, nominal unions, and ad hoc
+domain shapes such as `Optional<T>`, `Result<T, TError>`, nominal unions, and ad hoc
 unions. Those types are authored in `Raven.Core`. Standard macro providers are
 in the version-matched `Raven.Macros` library and increasingly exercise the
 same public compiler APIs that external tools use.
@@ -39,7 +39,7 @@ compiler component is ported to Raven:
    discover its own foundational inputs.
 3. Prove `Raven.Core` assembly identity, loading, packaging, and provenance
    before exposing its types from compiler APIs.
-4. Migrate coherent API families incrementally to `Option`, `Result`, or unions
+4. Migrate coherent API families incrementally to `Optional`, `Result`, or unions
    according to the semantic meaning of each outcome.
 5. Exercise every migrated contract from both Raven and C#, including standard
    macros, language services, analyzers, packaging, and clean public consumers.
@@ -86,7 +86,7 @@ adoption](../../api/result-shapes.md).
 - Internal compiler cleanup is not implied by a public contract migration.
   Broad internal Raven-style refactoring remains separate from both API
   adoption and source porting.
-- Optional macro inputs should move toward `Option<SyntaxType>` rather than
+- Optional macro inputs should move toward `Optional<SyntaxType>` rather than
   nullable default parameters that obscure meaning or violate Raven parameter
   ordering expectations.
 - Release and bootstrap validation takes longer because it includes the full
@@ -105,7 +105,7 @@ regressions harder to classify.
 ### Keep nullable C#-shaped APIs until self-hosting is complete
 
 Rejected because implementation language does not require a C#-shaped public
-model. Raven-authored `Option`, `Result`, and union types are ordinary CLR types
+model. Raven-authored `Optional`, `Result`, and union types are ordinary CLR types
 and can be returned by the existing C# implementation once the build boundary
 is sound.
 

@@ -68,7 +68,7 @@ class Sample {
     public void TypeDisplay_GenericDefinitionUsesTypeParameters()
     {
         const string source = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
@@ -79,21 +79,21 @@ union class Option<T> {
         var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var optionType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        Assert.Equal("Option<T>", optionType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<T>", optionType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
     public void TypeDisplay_ConstructedGenericUsesTypeArguments()
     {
         const string source = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Sample {
     func test() -> unit {
-        let item: Option<string> = null
+        let item: Optional<string> = null
     }
 }
 """;
@@ -103,7 +103,7 @@ class Sample {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
 
-        Assert.Equal("Option<string>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -140,14 +140,14 @@ class Reader {
     public void TypeInfo_GenericNameSyntaxUsesTypeArguments()
     {
         const string source = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Sample {
     func test() -> unit {
-        let item: Option<string> = null
+        let item: Optional<string> = null
     }
 }
 """;
@@ -157,7 +157,7 @@ class Sample {
         var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
         var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
 
-        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -201,10 +201,10 @@ class Sample {
             .ToArray();
         var compilation = CreateCompilation(references: references);
         var optionDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Option`1"));
+            compilation.GetTypeByMetadataName("System.Optional`1"));
         var constructedOption = optionDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
-        Assert.Equal("Option<string>", constructedOption.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", constructedOption.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -215,7 +215,7 @@ import System.*
 
 class Sample {
     func test() -> unit {
-        let item: Option<string> = null
+        let item: Optional<string> = null
     }
 }
 """;
@@ -228,7 +228,7 @@ class Sample {
         var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
         var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
 
-        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -244,7 +244,7 @@ let foo = Foo(
 
 record Foo(
     val Name: string,
-    val Item: Option<string>
+    val Item: Optional<string>
 )
 
 class C {
@@ -284,7 +284,7 @@ class C {
             Assert.True(actualType == "Some<string>", $"Expected Some<string> for '{invocation}' on line {line}, got '{actualType}'.");
             var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
 
-            Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         }
     }
 
@@ -301,7 +301,7 @@ let foo = Foo(
 
 record Foo(
     val Name: string,
-    val Item: Option<string>
+    val Item: Optional<string>
 )
 """;
 
@@ -323,7 +323,7 @@ record Foo(
 
         var typeInfo = model.GetTypeInfo(invocation);
         Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.Equal("Option<string>", typeInfo.ConvertedType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", typeInfo.ConvertedType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, diagnostic =>
@@ -335,14 +335,14 @@ record Foo(
     public void TypeInfo_TargetTypedSourceOptionCaseInConstructorArgumentProjectsUnionTypeArguments()
     {
         const string source = """
-union class Option<T> {
+union class Optional<T> {
     case Some(value: T)
     case None
 }
 
 record Foo(
     val Name: string,
-    val Item: Option<string>
+    val Item: Optional<string>
 )
 
 class C {
@@ -366,7 +366,7 @@ class C {
 
         Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
-        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]

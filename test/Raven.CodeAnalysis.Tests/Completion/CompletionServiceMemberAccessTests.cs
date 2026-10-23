@@ -50,7 +50,7 @@ int.
 
         Assert.Equal("Int32", method.ContainingType?.Name);
         Assert.False(method.IsExtensionMethod);
-        Assert.Equal("Option<int>", method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -1315,12 +1315,12 @@ value.
     public void GetCompletions_AfterDot_OnDiscriminatedUnionCaseInvocation_IncludesInheritedObjectMembers()
     {
         var code = """
-union Option<T> {
+union Optional<T> {
     case None
     case Some(value: T)
 }
 
-let x = Option<int>.Some(value: 2)
+let x = Optional<int>.Some(value: 2)
 x.
 """;
 

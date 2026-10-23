@@ -135,8 +135,8 @@ public sealed class CSharpUnionInteropTests
                 if (ok is not RavenProduced.Result.Ok<int>(var matchedValue) || matchedValue != 42)
                     return Fail("Generic companion case should participate in C# union patterns.");
 
-                RavenProduced.Result<int, string> error = new RavenProduced.Result.Failureor<string>("bad");
-                if (!error.TryGetValue(out RavenProduced.Result.Failureor<string> extractedError) || extractedError.Error != "bad")
+                RavenProduced.Result<int, string> error = new RavenProduced.Result.Error<string>("bad");
+                if (!error.TryGetValue(out RavenProduced.Result.Error<string> extractedError) || extractedError.Error != "bad")
                     return Fail("Generic companion case should preserve only its required generic parameter.");
 
                 var unionOptions = new System.Text.Json.JsonSerializerOptions

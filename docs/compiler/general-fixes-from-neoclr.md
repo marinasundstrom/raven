@@ -69,7 +69,7 @@ The author authorized integrating proven fixes into main. This branch is eligibl
 for that integration without the neoCLR backend or metadata format experiments.
 Shared vector-loop/transfer lowering (`a9defade8`), field-initialization plans and
 backend abstractions remain candidates for separate isolation and validation.
-The Option constructor mismatch exposed by the order-collections application is
+The Optional constructor mismatch exposed by the order-collections application is
 still unfixed; it needs an independent compiler regression before integration.
 
 ## Concrete union-case argument target typing (2026-10-01)

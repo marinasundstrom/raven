@@ -1734,7 +1734,7 @@ Next: audit runtime-specific type predicates outside the provider implementation
 Replace PE parameter checks in optional-argument binding and symbol display with
 `IParameterDefaultValueInfo`. PE owns lazy optional/default decoding; shared
 consumers distinguish type defaults from literals through a semantic fact.
-Source syntax, Option.None, constants and null handling keep their existing paths.
+Source syntax, Optional.None, constants and null handling keep their existing paths.
 This does not redesign default representations or constructed parameter wrappers.
 
 Five non-PE regressions cover default-vs-literal display, struct default binding

@@ -117,7 +117,7 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
             return false;
 
         action = CodeAction.Create(
-            "Rewrite nullable handling to Option pattern matching",
+            "Rewrite nullable handling to Optional pattern matching",
             (solution, cancellationToken) =>
             {
                 var updatedDocument = solution.GetDocument(document.Id);

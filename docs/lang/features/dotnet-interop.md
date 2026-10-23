@@ -36,7 +36,7 @@ Framework-facing functions should normally use the types expected by the
 framework. Translate into richer Raven domain shapes behind that boundary:
 
 - accept nullable values where a .NET API is nullable
-- use `Option` when absence becomes a domain state
+- use `Optional` when absence becomes a domain state
 - accept or return tasks for asynchronous .NET APIs
 - use records and unions for application models where serializers and
   framework integration support them

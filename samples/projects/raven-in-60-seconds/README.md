@@ -6,7 +6,7 @@ shows Raven's core proposition in one domain workflow:
 - immutable lexical bindings with `let`
 - records and discriminated unions for domain modeling
 - exhaustive pattern matching with payload extraction
-- `Option<T>` instead of nullable domain state
+- `Optional<T>` instead of nullable domain state
 - `Result<T, E>` and `?` instead of exceptions for expected failure
 - expression-oriented `if` and `match`
 - direct reuse of .NET collections and console APIs

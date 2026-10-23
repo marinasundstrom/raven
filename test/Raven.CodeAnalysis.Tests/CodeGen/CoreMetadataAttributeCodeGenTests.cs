@@ -23,7 +23,7 @@ public sealed class CoreMetadataAttributeCodeGenTests
                 .WithFrameworkProjectionMode(FrameworkProjectionMode.None));
         var hostCompilation = Compilation.Create("host").AddReferences(TestMetadataReferences.DefaultWithRavenCore);
         Assert.NotNull(hostCompilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute"));
-        var hostOption = Assert.IsAssignableFrom<PENamedTypeSymbol>(hostCompilation.GetTypeByMetadataName("System.Option`1"));
+        var hostOption = Assert.IsAssignableFrom<PENamedTypeSymbol>(hostCompilation.GetTypeByMetadataName("System.Optional`1"));
         Assert.NotNull(compilation.DotNetHostRuntime.ResolveRuntimeType(hostOption));
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);

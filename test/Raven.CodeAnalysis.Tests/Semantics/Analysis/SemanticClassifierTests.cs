@@ -136,12 +136,12 @@ label:
     public void MatchCasePattern_UnqualifiedCaseIdentifier_ClassifiesAsType()
     {
         var source = """
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 }
 
-func Render(input: Option<int>) -> int {
+func Render(input: Optional<int>) -> int {
     return match input {
         None => 0
         .Some(let value) => value

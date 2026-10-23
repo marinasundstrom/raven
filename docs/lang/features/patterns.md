@@ -1,7 +1,7 @@
 # Make decisions with patterns
 
 Patterns let a decision test a value's shape and introduce the data proven by
-that test. They are especially useful with unions, `Option`, and `Result`.
+that test. They are especially useful with unions, `Optional`, and `Result`.
 
 ## Interpret every union case
 

@@ -105,7 +105,7 @@ ordinary mutable .NET collections and objects.
 
 ## Keep expected failure in the function's signature
 
-Raven uses `Result<T, E>` for an expected success or failure, and `Option<T>`
+Raven uses `Result<T, E>` for an expected success or failure, and `Optional<T>`
 for presence or absence. The caller can handle those cases or propagate them.
 
 <div data-raven-playground="source"></div>
@@ -131,17 +131,17 @@ WriteLine(endpoint("invalid"))
 ```
 
 `?` yields the success payload or returns the failure from `endpoint`.
-It requires a compatible enclosing return type. With `Option`, the same
+It requires a compatible enclosing return type. With `Optional`, the same
 operator propagates absence.
 
 There is a deliberate .NET boundary choice here: Raven projects selected
 framework APIs, including `int.Parse(string)`, into `Result`. The CLR method
 has not changed; Raven supplies the source-level view and handling. Likewise,
-`int.TryParse(string)` can produce an `Option<int>` without an `out` variable.
+`int.TryParse(string)` can produce an `Optional<int>` without an `out` variable.
 This is a defined set of projections, not a blanket conversion of every
 throwing method. Use `try expression` to capture another throwing call.
 
-[Option, Result, and propagation](lang/spec/async-and-error-propagation.md) ·
+[Optional, Result, and propagation](lang/spec/async-and-error-propagation.md) ·
 [Framework interoperability](lang/features/dotnet-interop.md)
 
 ## Compare a value or capture it explicitly

@@ -60,7 +60,7 @@ record struct OrderId private (Value: Guid) {
     static func From(value: Guid) -> OrderId => OrderId(value)
 }
 
-func LoadOrder(customerId: CustomerId, orderId: OrderId) -> Option<Order> {
+func LoadOrder(customerId: CustomerId, orderId: OrderId) -> Optional<Order> {
     // The two arguments cannot be swapped even though both IDs store a Guid.
     return None
 }
@@ -478,7 +478,7 @@ called a **functional core with an imperative shell**.
 
 ## Model expected outcomes as data
 
-Use `Option<T>` when a value may legitimately be absent and `Result<T, E>` when
+Use `Optional<T>` when a value may legitimately be absent and `Result<T, E>` when
 an operation has an expected failure mode. Define a domain error union when
 callers need to make decisions based on the failure.
 

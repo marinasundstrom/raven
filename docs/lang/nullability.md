@@ -4,16 +4,16 @@ Raven treats nullability as part of an expression's static type. A value of
 type `T?` must be explicitly unwrapped, pattern-bound, converted, or suppressed
 before it can be used as `T`.
 
-Raven encourages programs to model intentional domain absence with `Option<T>`
+Raven encourages programs to model intentional domain absence with `Optional<T>`
 and expected failure with `Result<T, E>`. Nullable types remain important for
 .NET interoperability, reference state, and gradual adoption.
 
 In Raven's modeling vocabulary, `null` describes runtime null state rather
-than a domain-level “possibly absent” case. Use `Option<T>` when absence is a
+than a domain-level “possibly absent” case. Use `Optional<T>` when absence is a
 meaningful state of the application instead of carrying that meaning in a null
 reference.
 
-> Use `Option<T>` when absence is part of the domain. Use `T?` when null is part
+> Use `Optional<T>` when absence is part of the domain. Use `T?` when null is part
 > of an interoperability or storage contract. Handle either form explicitly.
 
 This distinction does not remove the practical tools needed at a nullable
@@ -22,7 +22,7 @@ and extract its value similarly to handling an option or union case. The
 similarity is in how the cases are eliminated, not in their representation or
 meaning. Raven also supports conditional access, explicit suppression, and
 opt-in `is not null` narrowing. `T?` describes a CLR null state, while
-`Option<T>` makes domain absence an explicit case in the program's model.
+`Optional<T>` makes domain absence an explicit case in the program's model.
 Raven can enforce that distinction strictly because it does not need to
 preserve a legacy nullable-unaware source model.
 
@@ -135,7 +135,7 @@ strictness of nullable types. Code must still establish the `T` case before it
 can use a `T?` as `T`; Raven does not adopt C#'s broader flow-based flexibility.
 
 This remains an interop/storage facility, not a domain-modeling recommendation.
-Use `Option<T>` when a Raven value may meaningfully be present or absent; use
+Use `Optional<T>` when a Raven value may meaningfully be present or absent; use
 nullable types when the underlying contract genuinely permits a null reference.
 Code that only needs to continue through a nullable member chain can use `?.`
 without enabling compatibility narrowing.
@@ -251,12 +251,12 @@ their CLR projections differ. `SymbolEqualityComparer.IgnoringNullability`
 additionally ignores the nullable decoration. Emitters and other CLR-boundary
 consumers must query the projection explicitly.
 
-## Prefer `Option` for domain absence
+## Prefer `Optional` for domain absence
 
 If a missing value is an expected application state, represent it in the API:
 
 ```raven
-func FindCustomer(id: CustomerId) -> Option<Customer> {
+func FindCustomer(id: CustomerId) -> Optional<Customer> {
     // ...
     None
 }
@@ -267,18 +267,18 @@ let message = match FindCustomer(id) {
 }
 ```
 
-`Option<T>` gives absence a named, closed shape and supports exhaustive
+`Optional<T>` gives absence a named, closed shape and supports exhaustive
 matching. `Result<T, E>` serves the corresponding role when an operation can
 fail with useful error information.
 
 Do not mechanically replace every nullable type at a .NET boundary. A program
 can accept `string?`, handle it once with a pattern, and pass a `string` or
-`Option<string>` into the rest of its domain code.
+`Optional<string>` into the rest of its domain code.
 
 The built-in `RAV9012` analyzer identifies simple nullable code that may be
-better expressed with `Option`. Analyzer severity is configurable through
+better expressed with `Optional`. Analyzer severity is configurable through
 `.editorconfig`; the meaning of `T?` is not configurable.
 
 Continue with [Pattern matching](features/patterns.md),
-[Raven.Core and `Option`](../compiler/raven-core-library.md), and
+[Raven.Core and `Optional`](../compiler/raven-core-library.md), and
 [Analyzer configuration](../compiler/analyzers/configuration.md).

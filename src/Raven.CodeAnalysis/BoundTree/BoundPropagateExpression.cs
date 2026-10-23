@@ -78,7 +78,7 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     public ITypeSymbol OkType { get; }
 
     /// <summary>
-    /// The error payload type of the operand (for Result). Null when the short-circuit case has no payload (Option.None).
+    /// The error payload type of the operand (for Result). Null when the short-circuit case has no payload (Optional.None).
     /// </summary>
     public ITypeSymbol? ErrorType { get; }
 

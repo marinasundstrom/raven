@@ -156,7 +156,7 @@ func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
     return Failure(error)
 }
 
-func ToOption(text: string?) -> Option<string> {
+func ToOption(text: string?) -> Optional<string> {
     let value: string = text else {
         return None
     }
@@ -286,7 +286,7 @@ func DecideOrder(
 func LookupInventory(
     inventoryBySku: IReadOnlyDictionary<string, InventoryItem>,
     sku: string
-) -> Option<InventoryItem> {
+) -> Optional<InventoryItem> {
     if inventoryBySku.ContainsKey(sku) {
         return Some(inventoryBySku[sku])
     }
@@ -371,7 +371,7 @@ record class Order(
     val Id: string,
     val CustomerName: string,
     val Priority: Priority,
-    val RequestedWarehouse: Option<string>,
+    val RequestedWarehouse: Optional<string>,
     val Lines: OrderLine[]
 )
 

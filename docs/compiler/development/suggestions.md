@@ -49,12 +49,12 @@ requires an `else` branch and a pattern condition (`if value is pattern` or
 `if let pattern = value`); it is not offered for an arbitrary Boolean
 condition.
 
-The nullable-to-`Option<T>` migration is intentionally split across the two mechanisms:
+The nullable-to-`Optional<T>` migration is intentionally split across the two mechanisms:
 
 - the `RAV9012` code fixes keep the semantic migration on the diagnostic side
-  (`Use 'Option<T>'` and `Rewrite nullable flow to Option pattern matching`)
+  (`Use 'Optional<T>'` and `Rewrite nullable flow to Optional pattern matching`)
 - the general `Convert if/else to match` action is a context-driven refactoring so it can
-  be applied to pattern-based `if` statements broadly, not only to `Option<T>` flows
+  be applied to pattern-based `if` statements broadly, not only to `Optional<T>` flows
 
 `Convert if/else to match` preserves the original catch-all `else` semantics
 with a `_` arm. A refactoring must not infer a complementary union case from a
@@ -78,7 +78,7 @@ Use `/Users/marina/Projects/Raven/src/Raven.CodeAnalysis/Diagnostics/Infrastruct
 - `TryGetRewriteSuggestion(diagnostic, out originalCode, out rewrittenCode)`
 - `IsSuggestionModeEnabled(compilation)`
 
-## Option Gating
+## Optional Gating
 
 Suggestion behavior is gated by compilation option `EnableSuggestions` (CLI: `--suggestions`).
 

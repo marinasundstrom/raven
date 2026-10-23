@@ -40,7 +40,7 @@ type remains the caller's contract; refutable extraction belongs in the body.
 Function and lambda parameter patterns must be irrefutable for their resolved
 input types. Reject refutable patterns with a compiler error: ordinary
 invocation has no pattern-failure result channel. There is no implicit throw,
-neoCLR fault, filtering, default return, or synthesized `Option`/`Result` return
+neoCLR fault, filtering, default return, or synthesized `Optional`/`Result` return
 for a parameter mismatch. Code that needs conditional extraction binds the
 complete input and explicitly handles the match inside the body.
 
@@ -72,14 +72,14 @@ name, and the function retains one `Foo` input parameter.
 
 Conversely, if the input is `object`, a base type admitting other values, or
 `Foo?`, the same pattern can reject an input. `Some(let value)` against
-`Option<int>` excludes `None`. Nested patterns must also be analyzed: a total
+`Optional<int>` excludes `None`. Nested patterns must also be analyzed: a total
 outer deconstruction does not make a refutable payload pattern total.
 
 | Pattern | Input type | Intended result |
 | --- | --- | --- |
 | `Foo(let name)` | Non-nullable ordinary `Foo` | Accept when deconstruction and nested binding are total |
 | `Foo(let name)` | `object` or `Foo?` | Error: other types/null are not covered |
-| `Some(let value)` | `Option<int>` | Error: `None` is not covered |
+| `Some(let value)` | `Optional<int>` | Error: `None` is not covered |
 | `(let x, _)` | `(int, int)` | Accept |
 | `[let x, let y]` | Non-nullable fixed-length `int[2]` | Accept when the input's length contract guarantees two elements |
 | `[let x, let y]` | `int[]` | Error: other lengths are not covered |
@@ -98,7 +98,7 @@ Report an error on the parameter pattern, preferably highlighting the smallest
 responsible refutable subpattern. Include an uncovered case or shape when
 available. Suggested diagnostic:
 
-> Parameter pattern is refutable for type 'Option<int>': 'None' is not covered.
+> Parameter pattern is refutable for type 'Optional<int>': 'None' is not covered.
 > Bind the complete argument and handle the missing case in the function body.
 
 Prefer one actionable coverage diagnostic per parameter rather than repeating

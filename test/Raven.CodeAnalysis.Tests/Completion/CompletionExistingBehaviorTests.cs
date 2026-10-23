@@ -523,12 +523,12 @@ result?.
     public void GetCompletions_AfterConditionalAccess_OnOptionCarrier_UsesSomePayloadMembers()
     {
         var code = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-let option: Option<string> = .Some("hello")
+let option: Optional<string> = .Some("hello")
 option?.
 """;
 

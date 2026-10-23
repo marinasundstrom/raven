@@ -66,7 +66,7 @@ public class LanguageServerDiagnosticTagTests
             descriptor,
             CodeLocation.None,
             CodeDiagnosticSeverity.Hidden,
-            "System.Option.*");
+            "System.Optional.*");
 
         var tags = DocumentStore.MapTags(diagnostic);
 

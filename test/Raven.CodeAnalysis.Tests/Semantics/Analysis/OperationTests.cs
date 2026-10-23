@@ -1036,7 +1036,7 @@ let error: Error = MissingName("x")
 
         var operation = Assert.IsAssignableFrom<IUnionCaseOperation>(model.GetOperation(invocationSyntax));
         operation.Kind.ShouldBe(OperationKind.UnionCase);
-        operation.UnionType.Name.ShouldBe("Failure");
+        operation.UnionType.Name.ShouldBe("Error");
         operation.CaseType.Name.ShouldBe("MissingName");
         operation.Constructor.ShouldNotBeNull();
         operation.Arguments.Length.ShouldBe(1);
@@ -1096,17 +1096,17 @@ func M(name: string?) -> string {
     public void GetOperation_PropagationExpression_ReturnsPropagationOperation()
     {
         const string source = """
-union Option<T> {
+union Optional<T> {
     case Some(T)
     case None
 }
 
-func test() -> Option<int> {
+func test() -> Optional<int> {
     let r = test2()?
     return .Some(r)
 }
 
-func test2() -> Option<int> {
+func test2() -> Optional<int> {
     return .Some(1)
 }
 """;

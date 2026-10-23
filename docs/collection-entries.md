@@ -26,7 +26,7 @@ its MutableMap/MutableSet contracts, without renaming the concrete collections.
 | `MapEntry(map, key)` / `map.Entry(key)` | Retains the map and supplied key; no lookup, insertion or reservation. Null map throws ArgumentNullException. |
 | `Key` | The supplied lookup key, not necessarily the stored equivalent key. |
 | `Value` | Reads current state through the indexer; missing-key exceptions propagate. |
-| `Find()` | Returns Option<V>; Some(null) is distinct from None. |
+| `Find()` | Returns Optional<V>; Some(null) is distinct from None. |
 | `Set(value)` | Inserts/replaces and returns the same entry. |
 | `OrInsert(value)` | Returns the existing value or inserts/returns the eager candidate. |
 | `OrInsertWith(factory)` | Runs the synchronous factory once only if absent, then inserts only if still absent. Callback insertion wins. |

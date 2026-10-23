@@ -40,3 +40,7 @@ optimization separately affect stack-trace detail; they do not imply stack captu
 The neoCLR runtime integration and any native metadata restrictions are tracked in
 [the native bridge document](neoclr-cli-bridge.md). .NET execution tests do not prove
 .NET Framework, NanoFramework or native runtime execution.
+
+Detached syntax used by macro-fragment semantic queries inherits caller symbols
+from the owning semantic model when it has no syntax tree of its own. This keeps
+conditional-call checks usable during hover and incomplete macro editing.
