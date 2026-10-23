@@ -270,8 +270,7 @@ internal static class MacroLowering
         MacroDeclarationSyntax declaration,
         SemanticModel semanticModel)
     {
-        var suffix = declaration.Span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var providerName = $"__RavenMacro_{declaration.Identifier.ValueText}_{suffix}";
+        var providerName = MacroNaming.GetImplementationTypeName(declaration.Identifier.ValueText);
         var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
         var isAttached = symbol?.ApplicationKind == MacroApplicationKind.Attached ||
             declaration.ParameterList.Parameters.Any(static parameter =>

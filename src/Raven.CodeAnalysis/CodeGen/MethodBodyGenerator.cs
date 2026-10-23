@@ -2360,7 +2360,9 @@ internal partial class MethodBodyGenerator
             return AsyncLowerer.Rewrite(sourceMethod, originalBody);
         }
 
-        return Lowerer.LowerBlock(MethodSymbol, originalBody);
+        var loweredBody = Lowerer.LowerBlock(MethodSymbol, originalBody);
+        semanticModel.RegisterLoweredSyntaxMappings(loweredBody, expressionBody.Expression);
+        return loweredBody;
     }
 
     private void EmitExpressionStatement(BoundExpression expression)

@@ -317,6 +317,22 @@ alias with `MacroAlias`. Macro lookup uses the invocation's namespace and
 imports. A canonical fully qualified name remains available independently of a
 wildcard-imported alias.
 
+### Macro names and implementation types
+
+A `macro Error` declaration emits an implementation class named `ErrorMacro`,
+while its declared macro name and symbol presentation remain `Error`. The
+`Macro` suffix is appended to the authored identifier, including identifiers
+that already end in `Macro`. In attached positions, both `#[Error]` and
+`#[ErrorMacro]` resolve that declaration. Qualified names follow the same rule,
+and unqualified names still require the macro namespace to be in scope. If
+multiple declarations match, lookup reports ambiguity. Macro aliases retain
+their exact spelling; no suffix is added or removed for aliases. Freestanding
+invocation lookup retains its existing names and aliases.
+
+Suffix lookup uses the exported macro name, independently of the provider class
+name, so previously compiled providers remain discoverable without rebuilding.
+Explicitly authored provider classes retain their authored class names.
+
 Aliases do not become lexical keywords. They resolve contextually through the
 macro registry and can be shadowed by an ordinary local name. After successful
 resolution, IDEs present the alias token with the contextual-keyword semantic

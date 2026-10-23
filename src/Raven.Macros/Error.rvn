@@ -38,7 +38,7 @@ public macro Error(
                 for attribute in attributeList.Attributes {
                     var isErrorMessage = false
                     if attribute.TryGetMacroName(out var macroName) {
-                        isErrorMessage = (macroName == "ErrorMessage" || macroName.EndsWith(".ErrorMessage", StringComparison.Ordinal))
+                        isErrorMessage = (macroName == "ErrorMessage" || macroName.EndsWith(".ErrorMessage", StringComparison.Ordinal) || macroName == "ErrorMessageMacro" || macroName.EndsWith(".ErrorMessageMacro", StringComparison.Ordinal))
                     }
 
                     if isErrorMessage {

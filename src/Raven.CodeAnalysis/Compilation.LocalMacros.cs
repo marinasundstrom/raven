@@ -167,13 +167,14 @@ public partial class Compilation
                 if (candidate.Arity != arity)
                     continue;
 
+                var allowSuffix = context is AttributeSyntax && candidate.ApplicationKind == MacroApplicationKind.Attached;
                 var isMatch = MacroRegistry.IsQualifiedName(macroName)
-                    ? string.Equals(candidate.CanonicalName, normalizedName, StringComparison.Ordinal)
+                    ? MacroNaming.MatchesDeclaredName(candidate.CanonicalName, normalizedName, allowSuffix)
                     : MacroRegistry.IsNamespaceInScope(
                           this,
                           context,
                           MacroRegistry.GetNamespace(candidate.CanonicalName)) &&
-                      (string.Equals(candidate.Name, macroName, StringComparison.Ordinal) ||
+                      (MacroNaming.MatchesDeclaredName(candidate.Name, macroName, allowSuffix) ||
                        string.Equals(
                            MacroLowering.GetMacroAlias(declaration),
                            macroName,

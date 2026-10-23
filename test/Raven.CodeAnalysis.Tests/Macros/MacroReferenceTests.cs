@@ -11,21 +11,26 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 
 public sealed class MacroReferenceTests
 {
-    [Fact]
-    public void StandardErrorMacro_RetainsErrorNameAndDerivesErrorContract()
+    [Theory]
+    [InlineData("Error")]
+    [InlineData("ErrorMacro")]
+    [InlineData("Raven.Macros.ErrorMacro")]
+    public void StandardErrorMacro_RetainsErrorNameAndDerivesErrorContract(string name)
     {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText($$"""
             import Raven.Macros.*
+            import System.*
 
-            #[Error]
+            #[{{name}}]
             union ParseError {
                 case InvalidValue(value: string)
+                case Nested(error: Error)
             }
             """);
         var compilation = Compilation.Create(
                 "ErrorMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(tree)
+            .AddSyntaxTrees(tree, SyntaxTree.ParseText("namespace System { public class Error {} }"))
             .AddReferences([.. TestMetadataReferences.DefaultWithRavenMacros, TestMetadataReferences.RavenCore])
             .AddMacroReferences(MacroReference.CreateFromFile(
                 ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
@@ -39,6 +44,38 @@ public sealed class MacroReferenceTests
         var errorType = compilation.GetTypeByMetadataName("ParseError");
         Assert.NotNull(errorType);
         Assert.Contains(errorType.AllInterfaces, type => type.Name == "IError");
+    }
+
+    [Theory]
+    [InlineData("Legacy", true, "Legacy")]
+    [InlineData("LegacyMacro", true, "Legacy")]
+    [InlineData("Example.Macros.LegacyMacro", true, "Legacy")]
+    [InlineData("legacyAlias", true, "legacyAlias")]
+    [InlineData("legacyAliasMacro", false, null)]
+    public void AttachedLookup_UsesExportedNameIndependentlyOfProviderType(string name, bool expected, string? symbolName)
+    {
+        var tree = SyntaxTree.ParseText("import Example.Macros.*\n#[" + name + "] class C {}");
+        var compilation = Compilation.Create("Consumer", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default).AddSyntaxTrees(tree);
+        var registry = MacroRegistry.Create([new MacroReference(typeof(LegacyProviderWithUnrelatedTypeName))]);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        Assert.Equal(expected, registry.TryResolveAttachedMacro(compilation, attribute, name, out _, out var ambiguous));
+        Assert.False(ambiguous);
+        if (expected)
+        {
+            _ = compilation.GetSourceGlobalNamespace();
+            Assert.True(registry.TryResolveMacroSymbol(compilation, attribute, name, out var symbol, out _));
+            Assert.Equal(symbolName, symbol.Name);
+        }
+    }
+
+    public sealed class LegacyProviderWithUnrelatedTypeName : IMacroDefinition
+    {
+        public string Name => "Legacy";
+        public string Namespace => "Example.Macros";
+        public string Alias => "legacyAlias";
+        public MacroExpansionResult Expand(AttachedMacroContext context) => MacroExpansionResult.Empty;
     }
 
     [Fact]
@@ -608,6 +645,10 @@ public sealed class MacroReferenceTests
             emitResult.Success,
             string.Join(System.Environment.NewLine, emitResult.Diagnostics));
         Assert.Equal(0, instrumentation.Macros.LocalPartitionCompilations);
+        var metadataConsumer = Compilation.Create("MetadataConsumer")
+            .AddReferences([.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(image.ToArray())]);
+        Assert.NotNull(metadataConsumer.GetTypeByMetadataName("Example.Macros.AnswerMacro"));
+        Assert.Null(metadataConsumer.GetTypeByMetadataName("Example.Macros.Answer"));
 
         var macroReference = MacroReference.CreateFromImage(
             image.ToArray(),

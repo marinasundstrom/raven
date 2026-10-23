@@ -719,7 +719,7 @@ internal sealed class HoverHandler : IHoverHandler
             : $"#[{macroName}(...)]";
         var parts = new List<string> { $"Macro `{invocationDisplay}`." };
 
-        if (TryGetMacroHint(semanticModel.Compilation, macroName, out var macroHint))
+        if (TryGetMacroHint(semanticModel.Compilation, macroSymbol.CanonicalName, out var macroHint))
             parts.Add(macroHint);
 
         var documentation = FormatDocumentation(macroSymbol.GetDocumentationComment());
@@ -893,7 +893,11 @@ internal sealed class HoverHandler : IHoverHandler
 
             foreach (var macro in macros)
             {
-                if (!string.Equals(macro.Name, macroName, StringComparison.Ordinal))
+                var canonicalName = string.IsNullOrEmpty(macro.Namespace)
+                    ? macro.Name
+                    : $"{macro.Namespace}.{macro.Name}";
+                if (!string.Equals(macro.Name, macroName, StringComparison.Ordinal) &&
+                    !string.Equals(canonicalName, macroName, StringComparison.Ordinal))
                     continue;
 
                 var kindDisplay = MacroFacts.GetKind(macro) switch
