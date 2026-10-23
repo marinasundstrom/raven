@@ -50,7 +50,7 @@ The qualifying release must:
 
 After that freeze:
 
-- bootstrap v2 may adopt foundation-built `Option`, `Result`, and
+- bootstrap v2 may adopt foundation-built `Optional`, `Result`, and
   union contracts while remaining implemented in C#;
 - normal bootstrap-v2 builds consume the hash-verified v1 Core binaries checked
   into the repository and do not rerun the v1 compiler; and

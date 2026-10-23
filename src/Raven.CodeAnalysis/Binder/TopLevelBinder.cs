@@ -134,7 +134,7 @@ class TopLevelBinder : BlockBinder
         boundStatements[^1] = new BoundExpressionStatement(assignment);
     }
 
-    private void ApplyInferredTopLevelReturnTypes(IReadOnlyList<GlobalStatementSyntax> globalStatements)
+    internal void ApplyInferredTopLevelReturnTypes(IReadOnlyList<GlobalStatementSyntax> globalStatements)
     {
         if (!TryInferTopLevelResultType(globalStatements, out var inferredResultType))
             return;

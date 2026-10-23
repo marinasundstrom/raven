@@ -917,7 +917,7 @@
                 },
                 {
                     "name": "support.type.builtin.raven",
-                    "match": "\\b(Option|Result|Task|ValueTask)\\b"
+                    "match": "\\b(Optional|Result|Task|ValueTask)\\b"
                 },
                 {
                     "name": "entity.name.type.raven",

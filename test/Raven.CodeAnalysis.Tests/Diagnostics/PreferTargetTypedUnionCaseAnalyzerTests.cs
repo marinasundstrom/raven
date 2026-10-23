@@ -10,10 +10,10 @@ public class PreferTargetTypedUnionCaseAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 func Test() {
-    let v = Option<int>.Some(0)
+    let v = Optional<int>.Some(0)
 }
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }

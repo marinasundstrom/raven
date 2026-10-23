@@ -57,10 +57,10 @@ member accesses.
 | Typing | `RAV9003` | Default | Warning | Make an event delegate nullable when the event can be empty. |
 | Typing | `RAV9004` | Opt-in | Warning | Use `let` when a local declared with `var` is never reassigned. |
 | Initialization | `RAV9006` | Default | Warning | Initialize a property in storage or on every normal constructor path. |
-| Typing | `RAV9012` | Opt-in | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Option` pattern. |
+| Typing | `RAV9012` | Opt-in | Info | Prefer `Optional<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Optional` pattern. |
 | Error handling | `RAV9013` | Opt-in | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
-| Error handling | `RAV9014` | Opt-in | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
-| Typing | `RAV9015` | Default | Warning | Replace `== null` or `!= null`, which may invoke user-defined equality, with an identity-based `is null` or `is not null` check. Neither form refines the checked storage. This is a safety transformation, not a preference over pattern bindings or `Option<T>`. |
+| Error handling | `RAV9014` | Opt-in | Warning | Prefer Raven's `Optional`/`Result` LINQ alternatives where applicable. |
+| Typing | `RAV9015` | Default | Warning | Replace `== null` or `!= null`, which may invoke user-defined equality, with an identity-based `is null` or `is not null` check. Neither form refines the checked storage. This is a safety transformation, not a preference over pattern bindings or `Optional<T>`. |
 | Design | `RAV9016` | Opt-in | Info | Make an unexposed member private. |
 | Design | `RAV9017` | Opt-in | Info | Make a method static when it does not use instance data. |
 | Usage | `RAV9018` | Opt-in | Warning | Remove or use a property that is never referenced. |
@@ -72,7 +72,7 @@ member accesses.
 | Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or on every normal constructor path. |
 | Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
 | Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
-| Error handling | `RAV9037` | Default | Warning | Avoid partial `Option` and `Result` extraction with `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, or `Expect`; handle both cases explicitly. |
+| Error handling | `RAV9037` | Default | Warning | Avoid partial `Optional` and `Result` extraction with `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, or `Expect`; handle both cases explicitly. |
 | Usage | `RAV9038` | Default | Warning | Await an ignored task-returning call, handle its task, or explicitly discard it with `_ =`. |
 
 ### Recommended analyzer package
@@ -115,7 +115,7 @@ Prefer committing `.editorconfig` with the project so command-line builds and
 the Raven language server present the same policy to every contributor.
 
 For nullable code, `RAV9012` expresses Raven's configurable preference for
-`Option<T>` or `Result<T, E>` in domain flow. `RAV9015` has a narrower purpose:
+`Optional<T>` or `Result<T, E>` in domain flow. `RAV9015` has a narrower purpose:
 it makes an existing equality-based null check strict so user-defined equality
 is not involved. It does not make the checked value non-null in either branch.
 The language still recommends explicit pattern bindings and matches as the

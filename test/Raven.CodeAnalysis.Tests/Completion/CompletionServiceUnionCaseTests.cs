@@ -34,7 +34,7 @@ Result.
         var err = Assert.Single(items.Where(i => i.DisplayText == "Result.Failure"));
 
         Assert.Equal("Ok", ok.InsertionText);
-        Assert.Equal("Err", err.InsertionText);
+        Assert.Equal("Failure", err.InsertionText);
     }
 
     [Fact]

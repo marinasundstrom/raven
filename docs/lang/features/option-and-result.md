@@ -1,16 +1,16 @@
 # Handle absence and failure
 
 Raven uses two common carrier types to make expected control flow visible:
-`Option<T>` for meaningful absence and `Result<T, E>` for an operation that can
+`Optional<T>` for meaningful absence and `Result<T, E>` for an operation that can
 succeed or fail with useful information.
 
-## Represent absence with `Option`
+## Represent absence with `Optional`
 
 Return `Some(value)` when a value exists and `None` when absence is an expected
 outcome:
 
 ```raven
-func FindPlan(code: string) -> Option<RatePlan> {
+func FindPlan(code: string) -> Optional<RatePlan> {
     return plans.FirstOrNone(plan => plan.Code == code)
 }
 
@@ -61,8 +61,8 @@ error, or choose another path.
 The operator is extensible: a custom class, struct, record, or union can opt in
 by implementing `IPropagatable<TSelf, TOutput, TResidual>`. The contract
 provides success extraction, residual extraction, and static reconstruction of
-an enclosing carrier from a residual. `Result` and `Option` use this same
+an enclosing carrier from a residual. `Result` and `Optional` use this same
 contract rather than compiler-only representation rules.
 
 See [Raven.Core](../../compiler/raven-core-library.md) for the available
-`Option` and `Result` operations.
+`Optional` and `Result` operations.

@@ -12,8 +12,8 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Option/Result over nullable types",
-        description: "Nullable types are allowed, but Option/Result usually makes absence and failure clearer.",
+        title: "Optional/Result over nullable types",
+        description: "Nullable types are allowed, but Optional/Result usually makes absence and failure clearer.",
         helpLinkUri: string.Empty,
         messageFormat: "Use '{0}' instead of '{1}'.",
         category: "Typing",
@@ -151,7 +151,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             ? nonNullableAlternatives[0]
             : string.Join(" | ", nonNullableAlternatives);
 
-        optionSuggestion = $"Option<{payload}>";
+        optionSuggestion = $"Optional<{payload}>";
         return true;
     }
 

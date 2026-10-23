@@ -121,7 +121,7 @@
   },
   {
     "id": "linq-outcomes",
-    "title": "LINQ queries returning Option and Result",
+    "title": "LINQ queries returning Optional and Result",
     "file": "linq-outcomes.rvn",
     "category": "Queries and async"
   },
@@ -157,7 +157,7 @@
   },
   {
     "id": "option-result-methods",
-    "title": "Option and Result methods",
+    "title": "Optional and Result methods",
     "file": "option-result-methods.rvn",
     "category": "Options and results"
   },
@@ -169,7 +169,7 @@
   },
   {
     "id": "option-search",
-    "title": "Option and let…else",
+    "title": "Optional and let…else",
     "file": "option-search.rvn",
     "category": "Options and results"
   },

@@ -815,7 +815,7 @@ class Container {
 import System.*
 import System.Linq.*
 
-public union Option<T> {
+public union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -824,9 +824,9 @@ class Container {
     func Run() -> unit {
         let arr = [1, -1, 3]
         let result = arr.Select(n => if n < 0 {
-            Option<int>.None
+            Optional<int>.None
         } else {
-            Option<int>.Some(n * 2)
+            Optional<int>.Some(n * 2)
         })
     }
 }
@@ -847,7 +847,7 @@ class Container {
         var elementType = Assert.Single(resultType.TypeArguments);
 
         var expectedOption = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Option`1"))
+            compilation.GetTypeByMetadataName("Optional`1"))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(
@@ -1260,18 +1260,18 @@ let makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
         const string code = """
 import System.*
 
-public union Option<T> {
+public union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class Container {
-    func Map(value: int, selector: Func<int, Option<int>>) -> Option<int> {
+    func Map(value: int, selector: Func<int, Optional<int>>) -> Optional<int> {
         return selector(value)
     }
 
-    func Test() -> Option<int> {
-        return Map(1, n => if n < 0 { Option<int>.None } else { Option<int>.Some(n * 2) })
+    func Test() -> Optional<int> {
+        return Map(1, n => if n < 0 { Optional<int>.None } else { Optional<int>.Some(n * 2) })
     }
 }
 """;

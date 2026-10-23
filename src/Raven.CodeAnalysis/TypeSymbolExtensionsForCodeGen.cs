@@ -429,8 +429,8 @@ public static class TypeSymbolExtensionsForCodeGen
             var runtimeType = GetClrTypeTreatingUnitAsVoid(containingType, codeGen);
             if (runtimeType.IsGenericType)
             {
-                // Prefer constructed arguments when available (e.g. Option<!!T>), otherwise fall back
-                // to generic definition parameters (e.g. Option<!0>).
+                // Prefer constructed arguments when available (e.g. Optional<!!T>), otherwise fall back
+                // to generic definition parameters (e.g. Optional<!0>).
                 var constructedArguments = runtimeType.GetGenericArguments();
                 if ((uint)symbol.Ordinal < (uint)constructedArguments.Length)
                 {

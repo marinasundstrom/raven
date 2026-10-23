@@ -4681,7 +4681,7 @@ partial class BlockBinder : Binder
                     allowReturn: allowReturnInArmExpressions);
 
             // Case-only arm expressions like `None` can bind as open generic case carriers
-            // (`Option<T>`) when no explicit target exists. If the arm pattern already
+            // (`Optional<T>`) when no explicit target exists. If the arm pattern already
             // establishes the scrutinee union, retarget only union-case expressions to that
             // concrete scrutinee carrier.
             if (expressionTargetType is null &&
@@ -5081,7 +5081,7 @@ partial class BlockBinder : Binder
     {
         Contract,
         Result,
-        Option
+        Optional
     }
 
     private sealed record PropagationInfo(
@@ -5160,7 +5160,7 @@ partial class BlockBinder : Binder
                 var kind = typeSymbol.Name switch
                 {
                     "Result" => PropagationKind.Result,
-                    "Option" => PropagationKind.Option,
+                    OptionalFacts.TypeName => PropagationKind.Optional,
                     _ => PropagationKind.Contract,
                 };
 
@@ -5219,10 +5219,10 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (typeSymbol.Name == "Option")
+        if (typeSymbol.Name == OptionalFacts.TypeName)
         {
-            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Some");
-            var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "None");
+            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == OptionalFacts.SomeCaseName);
+            var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == OptionalFacts.NoneCaseName);
             if (okCase is null || errorCase is null)
                 return false;
 
@@ -5230,7 +5230,7 @@ partial class BlockBinder : Binder
                 return false;
 
             info = new PropagationInfo(
-                PropagationKind.Option,
+                PropagationKind.Optional,
                 typeSymbol,
                 union,
                 okCase,
@@ -10563,7 +10563,7 @@ partial class BlockBinder : Binder
         if (expression is BoundConditionalAccessExpression access)
             return access.Update(access.Receiver, ApplyConditionalCallPolicy(access.WhenNotNull, syntax), access.Type!);
         if (expression is BoundInvocationExpression call &&
-            ConditionalAttributeFacts.IsOmitted(call.Method, syntax.SyntaxTree.Options.PreprocessorSymbolNames))
+            ConditionalAttributeFacts.IsOmitted(call.Method, (syntax.SyntaxTree ?? SemanticModel.SyntaxTree).Options.PreprocessorSymbolNames))
         {
             return new BoundInvocationExpression(call.Method, call.Arguments, call.Receiver,
                 call.ExtensionReceiver, call.RequiresReceiverAddress, isConditionallyOmitted: true);
@@ -13831,7 +13831,7 @@ partial class BlockBinder : Binder
 
         if (value is OptionNoneParameterDefaultValue)
         {
-            return TryBindDiscriminatedUnionCase(parameterType, "None", parameter.Locations.FirstOrDefault() ?? Location.None)
+            return TryBindDiscriminatedUnionCase(parameterType, OptionalFacts.NoneCaseName, parameter.Locations.FirstOrDefault() ?? Location.None)
                 ?? new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
         }
 

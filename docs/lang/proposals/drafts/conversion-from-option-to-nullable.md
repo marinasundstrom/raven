@@ -1,28 +1,28 @@
-# Proposal: Conversion from `Option<T>` to `T?`
+# Proposal: Conversion from `Optional<T>` to `T?`
 
 ## Summary
 
-Allow `Option<T>` values to be converted to nullable `T?` so they can be passed directly to APIs that accept nullable value types. For example:
+Allow `Optional<T>` values to be converted to nullable `T?` so they can be passed directly to APIs that accept nullable value types. For example:
 
 ```raven
 import System.Console.*
 
-let val: Option<int> = .Some(42)
+let val: Optional<int> = .Some(42)
 receivesNullable(val)
 
 func receivesNullable(value?: int) -> () { }
 ```
 
-desugars to a conversion from `Option<int>` to `int?` provided by a user- or library-defined conversion operator:
+desugars to a conversion from `Optional<int>` to `int?` provided by a user- or library-defined conversion operator:
 
 ```raven
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-extension OptionExtensions<T> for Option<T> {
-    public static explicit operator(self: Option<T>) -> T? {
+extension OptionExtensions<T> for Optional<T> {
+    public static explicit operator(self: Optional<T>) -> T? {
         if self is .Some(value) {
             return value
         }
@@ -43,21 +43,21 @@ This proposal depends on separate features: user-defined conversion operators an
 
 ## Motivation
 
-`Option<T>` represents “value or no value” in a structured way. Nullable value types (`T?`) and nullable symbol declarations (`x? : T`) represent the same concept at the .NET/nullability level.
+`Optional<T>` represents “value or no value” in a structured way. Nullable value types (`T?`) and nullable symbol declarations (`x? : T`) represent the same concept at the .NET/nullability level.
 
 In practice:
 
-* .NET APIs commonly use `T?` rather than `Option<T>`.
-* Raven code that prefers `Option<T>` for expressiveness still needs to call `T?`-based APIs.
-* Manually pattern matching `Option<T>` to produce a `T?` at every call site is verbose and error-prone.
+* .NET APIs commonly use `T?` rather than `Optional<T>`.
+* Raven code that prefers `Optional<T>` for expressiveness still needs to call `T?`-based APIs.
+* Manually pattern matching `Optional<T>` to produce a `T?` at every call site is verbose and error-prone.
 
-A single, well-defined conversion from `Option<T>` to `T?`:
+A single, well-defined conversion from `Optional<T>` to `T?`:
 
 * Centralizes the semantics of “None → null, Some → value”.
 * Makes interop with nullable-based APIs easier.
-* Preserves Raven’s functional-style `Option<T>` at the source level while mapping smoothly to .NET’s nullable model.
+* Preserves Raven’s functional-style `Optional<T>` at the source level while mapping smoothly to .NET’s nullable model.
 
-We want that ergonomic conversion without silently hiding the fact that we’re collapsing a richer type (`Option<T>`) into a nullable scalar.
+We want that ergonomic conversion without silently hiding the fact that we’re collapsing a richer type (`Optional<T>`) into a nullable scalar.
 
 ## Design
 
@@ -66,13 +66,13 @@ We want that ergonomic conversion without silently hiding the fact that we’re 
 Library shape:
 
 ```raven
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-extension OptionExtensions<T> for Option<T> {
-    public static explicit operator(self: Option<T>) -> T? {
+extension OptionExtensions<T> for Optional<T> {
+    public static explicit operator(self: Optional<T>) -> T? {
         if self is .Some(value) {
             return value
         }
@@ -83,14 +83,14 @@ extension OptionExtensions<T> for Option<T> {
 
 Key points:
 
-* Conversion operator is declared as a `static` member in an extension for `Option<T>`.
+* Conversion operator is declared as a `static` member in an extension for `Optional<T>`.
 * The method name is the keyword pair `explicit operator` (later we may allow `implicit operator`), avoiding a new `conversion` keyword.
-* `self` is the source value (`Option<T>`), whose type is implied by the `for Option<T>` on the extension.
+* `self` is the source value (`Optional<T>`), whose type is implied by the `for Optional<T>` on the extension.
 
 Call sites:
 
 ```raven
-let opt: Option<int> = .Some(42)
+let opt: Optional<int> = .Some(42)
 
 // Explicit cast
 let v: int? = (int?)opt
@@ -105,7 +105,7 @@ The conversion is found and applied when the user writes an explicit cast to `T?
 
 ### Conversion semantics
 
-The conversion `Option<T> -> T?` is straightforward:
+The conversion `Optional<T> -> T?` is straightforward:
 
 * If the source is `.Some(value)`, return `value` (lifted to `T?`).
 * If the source is `.None`, return `null`.
@@ -113,7 +113,7 @@ The conversion `Option<T> -> T?` is straightforward:
 Pseudo-implementation:
 
 ```raven
-public static explicit operator(self: Option<T>) -> T? {
+public static explicit operator(self: Optional<T>) -> T? {
     if self is .Some(value) {
         return value
     }
@@ -132,34 +132,34 @@ This matches the intuitive semantics: `Some` means “has value”; `None` becom
 An implicit conversion:
 
 ```raven
-extension OptionExtensions<T> for Option<T> {
-    public static implicit operator(self: Option<T>) -> T? { ... }
+extension OptionExtensions<T> for Optional<T> {
+    public static implicit operator(self: Optional<T>) -> T? { ... }
 }
 ```
 
 would let you write:
 
 ```raven
-receivesNullable(opt)  // Ok via implicit Option<int> -> int?
+receivesNullable(opt)  // Ok via implicit Optional<int> -> int?
 ```
 
 but creates several risks:
 
 * **Overload resolution surprises**
-  Methods overloaded on `Option<T>` vs `T?` could pick the nullable overload unexpectedly due to the implicit conversion.
+  Methods overloaded on `Optional<T>` vs `T?` could pick the nullable overload unexpectedly due to the implicit conversion.
 
 * **Loss of clarity**
-  Call sites stop making it obvious that you’re collapsing an `Option<T>` into a nullable scalar. This is especially problematic in APIs where you *want* the caller to acknowledge that loss.
+  Call sites stop making it obvious that you’re collapsing an `Optional<T>` into a nullable scalar. This is especially problematic in APIs where you *want* the caller to acknowledge that loss.
 
 * **Nullability reasoning**
-  Implicit conversion makes it easier to accidentally treat `Option<T>` as just “another nullable value”, undermining the semantic distinction that `Option` was meant to enforce.
+  Implicit conversion makes it easier to accidentally treat `Optional<T>` as just “another nullable value”, undermining the semantic distinction that `Optional` was meant to enforce.
 
 Given those tradeoffs, it’s safer to start with **explicit** conversions only:
 
 * Call sites must opt-in via `(T?)opt` or `opt as T?`.
 * The compiler can assist with code-fixes and suggestions, so the friction remains low.
 
-Implicit conversion can be revisited in a separate proposal once we have more experience with how `Option<T>` and `T?` interact in real code.
+Implicit conversion can be revisited in a separate proposal once we have more experience with how `Optional<T>` and `T?` interact in real code.
 
 ### Overload resolution and diagnostics
 
@@ -168,12 +168,12 @@ The compiler should treat this like C#:
 * Only **implicit** conversions participate automatically in overload resolution.
 * **Explicit** conversions are considered only when the user writes a cast or `as` expression.
 
-When a user tries to pass `Option<T>` where `T?` is required and only an explicit conversion exists:
+When a user tries to pass `Optional<T>` where `T?` is required and only an explicit conversion exists:
 
 ```raven
 func receivesNullable(value?: int) -> () { }
 
-let opt: Option<int> = .Some(42)
+let opt: Optional<int> = .Some(42)
 receivesNullable(opt) // error
 ```
 
@@ -181,7 +181,7 @@ The compiler should:
 
 * Produce a diagnostic explaining that a conversion exists but must be explicit:
 
-  > Cannot convert from `Option<int>` to `int?`. An explicit conversion exists: cast to `int?`.
+  > Cannot convert from `Optional<int>` to `int?`. An explicit conversion exists: cast to `int?`.
 
 * Offer a quick fix to insert the cast:
 
@@ -227,5 +227,5 @@ Without those, this proposal is not implementable, but it serves as a concrete m
 
 * **Tooling**
 
-  * Quick Info on `Option<T>` could mention “explicit conversion to `T?` available.”
+  * Quick Info on `Optional<T>` could mention “explicit conversion to `T?` available.”
   * Diagnostics should guide the user to the appropriate cast or `as` expression when a nullable is required.

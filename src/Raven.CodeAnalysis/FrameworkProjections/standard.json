@@ -6,7 +6,7 @@
       "receiverType": "System.Int32",
       "source": "System.Boolean System.Int32.TryParse(System.String, out System.Int32)",
       "projectedContainer": "System.Int32Extensions",
-      "projectedSignature": "System.Option<System.Int32> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.Int32> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -15,7 +15,7 @@
       "receiverType": "System.Int32",
       "source": "System.Boolean System.Int32.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int32)",
       "projectedContainer": "System.Int32Extensions",
-      "projectedSignature": "System.Option<System.Int32> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "projectedSignature": "System.Optional<System.Int32> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -46,7 +46,7 @@
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",
-      "projectedSignature": "System.Option<System.Int64> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.Int64> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -55,7 +55,7 @@
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",
-      "projectedSignature": "System.Option<System.Int64> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "projectedSignature": "System.Optional<System.Int64> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -64,7 +64,7 @@
       "receiverType": "System.Double",
       "source": "System.Boolean System.Double.TryParse(System.String, out System.Double)",
       "projectedContainer": "System.DoubleExtensions",
-      "projectedSignature": "System.Option<System.Double> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.Double> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -73,7 +73,7 @@
       "receiverType": "System.Double",
       "source": "System.Boolean System.Double.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Double)",
       "projectedContainer": "System.DoubleExtensions",
-      "projectedSignature": "System.Option<System.Double> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "projectedSignature": "System.Optional<System.Double> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -82,7 +82,7 @@
       "receiverType": "System.Decimal",
       "source": "System.Boolean System.Decimal.TryParse(System.String, out System.Decimal)",
       "projectedContainer": "System.DecimalExtensions",
-      "projectedSignature": "System.Option<System.Decimal> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.Decimal> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -91,7 +91,7 @@
       "receiverType": "System.Decimal",
       "source": "System.Boolean System.Decimal.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Decimal)",
       "projectedContainer": "System.DecimalExtensions",
-      "projectedSignature": "System.Option<System.Decimal> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "projectedSignature": "System.Optional<System.Decimal> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -100,7 +100,7 @@
       "receiverType": "System.Guid",
       "source": "System.Boolean System.Guid.TryParse(System.String, out System.Guid)",
       "projectedContainer": "System.GuidExtensions",
-      "projectedSignature": "System.Option<System.Guid> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.Guid> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -127,7 +127,7 @@
       "receiverType": "System.DateTime",
       "source": "System.Boolean System.DateTime.TryParse(System.String, out System.DateTime)",
       "projectedContainer": "System.DateTimeExtensions",
-      "projectedSignature": "System.Option<System.DateTime> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.DateTime> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -136,7 +136,7 @@
       "receiverType": "System.DateTime",
       "source": "System.Boolean System.DateTime.TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles, out System.DateTime)",
       "projectedContainer": "System.DateTimeExtensions",
-      "projectedSignature": "System.Option<System.DateTime> TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles)",
+      "projectedSignature": "System.Optional<System.DateTime> TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -145,7 +145,7 @@
       "receiverType": "System.DateTimeOffset",
       "source": "System.Boolean System.DateTimeOffset.TryParse(System.String, out System.DateTimeOffset)",
       "projectedContainer": "System.DateTimeOffsetExtensions",
-      "projectedSignature": "System.Option<System.DateTimeOffset> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.DateTimeOffset> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -154,7 +154,7 @@
       "receiverType": "System.DateOnly",
       "source": "System.Boolean System.DateOnly.TryParse(System.String, out System.DateOnly)",
       "projectedContainer": "System.DateOnlyExtensions",
-      "projectedSignature": "System.Option<System.DateOnly> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.DateOnly> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -163,7 +163,7 @@
       "receiverType": "System.TimeOnly",
       "source": "System.Boolean System.TimeOnly.TryParse(System.String, out System.TimeOnly)",
       "projectedContainer": "System.TimeOnlyExtensions",
-      "projectedSignature": "System.Option<System.TimeOnly> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.TimeOnly> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -172,7 +172,7 @@
       "receiverType": "System.TimeSpan",
       "source": "System.Boolean System.TimeSpan.TryParse(System.String, out System.TimeSpan)",
       "projectedContainer": "System.TimeSpanExtensions",
-      "projectedSignature": "System.Option<System.TimeSpan> TryParse(System.String)",
+      "projectedSignature": "System.Optional<System.TimeSpan> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -181,7 +181,7 @@
       "receiverType": "System.Collections.Generic.Dictionary`2",
       "source": "System.Boolean System.Collections.Generic.Dictionary`2.TryGetValue(TKey, out TValue)",
       "projectedContainer": "System.Collections.Generic.DictionaryExtensions",
-      "projectedSignature": "System.Option<TValue> TryGetValue(System.Collections.Generic.Dictionary<TKey, TValue>, TKey)",
+      "projectedSignature": "System.Optional<TValue> TryGetValue(System.Collections.Generic.Dictionary<TKey, TValue>, TKey)",
       "lowering": "false-returns-none",
       "exceptions": [
         {

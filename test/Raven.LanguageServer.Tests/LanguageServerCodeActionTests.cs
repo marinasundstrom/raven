@@ -526,8 +526,8 @@ func Test() {
             .Where(action => action.CodeAction is not null)
             .Select(action => action.CodeAction!.Title)
             .ToArray();
-        titles.ShouldContain("Use 'Option<string>'");
-        titles.ShouldContain("Rewrite nullable handling to Option pattern matching");
+        titles.ShouldContain("Use 'Optional<string>'");
+        titles.ShouldContain("Rewrite nullable handling to Optional pattern matching");
     }
 
     [Fact]
@@ -589,7 +589,7 @@ func Test(value: string?) {
         var filePath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(filePath);
         const string code = """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {

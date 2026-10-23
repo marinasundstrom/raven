@@ -41,7 +41,7 @@ public class ImportDirectiveTriviaTests
                        import System.*
                        // Standard union case imports
                        import System.Result.*
-                       import System.Option.*
+                       import System.Optional.*
                    }
                    """;
 
@@ -54,6 +54,6 @@ public class ImportDirectiveTriviaTests
         block.Imports.Count.ShouldBe(3);
         block.Imports[0].Name.ToString().ShouldBe("System.*");
         block.Imports[1].Name.ToString().ShouldBe("System.Result.*");
-        block.Imports[2].Name.ToString().ShouldBe("System.Option.*");
+        block.Imports[2].Name.ToString().ShouldBe("System.Optional.*");
     }
 }

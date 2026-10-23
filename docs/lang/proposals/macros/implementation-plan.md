@@ -1512,7 +1512,7 @@ for the diagnostic, while detached generated nodes fall back to the invocation.
 
 The nullable result is transitional while `Raven.CodeAnalysis` cannot depend
 on Raven's bootstrapped core unions. The intended Raven-facing projection is
-`Option<TSyntax>` for this two-state helper. Richer helpers should use
+`Optional<TSyntax>` for this two-state helper. Richer helpers should use
 `Result<T, TError>` or purpose-built unions when distinct failure/recovery
 cases add value, rather than accumulating ad hoc nullable fields.
 

@@ -662,7 +662,7 @@ unaffected. This portable-planner fix is a deferred general candidate, not a bin
 independent main-line validation must establish a caller requiring this planner path.
 
 The native driver gate now compiles a minimal Count/mutation regression and unchanged
-Option, Option propagation and collection-capabilities samples against the separately
+Optional, Optional propagation and collection-capabilities samples against the separately
 built source library. It verifies and executes each, checking exact output/status. The
 unchanged broad order-collections application still passes. Wider sample assessment
 finds separate remaining gaps: no-result callback import, captured function emission,

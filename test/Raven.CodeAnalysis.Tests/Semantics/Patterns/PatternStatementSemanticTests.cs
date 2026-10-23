@@ -98,14 +98,14 @@ class C {
     public void IfPatternStatement_WithOuterValNominalPattern_BindsImplicitCaptures()
     {
         var code = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Test(input: Option<string>) {
-        if let Option<string>.Some(value) = input {
+    func Test(input: Optional<string>) {
+        if let Optional<string>.Some(value) = input {
             ()
         }
     }
@@ -252,15 +252,15 @@ class C {
     public void IfPatternStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         var code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Test(input: Option<(string, int)>) {
+    func Test(input: Optional<(string, int)>) {
         if let Some((first, >= 18)) whole = input {
             first.Length
             whole

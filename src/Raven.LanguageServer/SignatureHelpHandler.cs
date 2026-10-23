@@ -1020,7 +1020,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         type = type.UnwrapLiteralType() ?? type;
         if (type is INamedTypeSymbol named &&
             named.Arity == 1 &&
-            string.Equals(named.Name, "Option", StringComparison.Ordinal))
+            string.Equals(named.Name, "Optional", StringComparison.Ordinal))
         {
             payload = named.TypeArguments[0];
             return true;

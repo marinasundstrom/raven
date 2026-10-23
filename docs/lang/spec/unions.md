@@ -245,7 +245,7 @@ In pattern position:
   already determines the union.
 * Parenthesized unions use ordinary patterns over their declared variant types.
 
-The generated prelude imports the standard `Result` and `Option` case types
+The generated prelude imports the standard `Result` and `Optional` case types
 into scope. In ordinary Raven files, prefer the unqualified forms `Ok`,
 `Error`, `Some`, and `None`. Use `Union.Case` for explicit qualification or
 `.Case` when target-typed member binding is useful. Projects that disable the

@@ -167,7 +167,7 @@ each of these boundaries independently:
    the contracts through the packaged SDK rather than repository-only paths.
 4. **C# consumption** — .NET consumers can load and use public Raven carriers
    and macro/compiler contracts without hidden Raven-only assumptions.
-5. **Runtime behavior** — `Option`, `Result`, unions, propagation, parsing,
+5. **Runtime behavior** — `Optional`, `Result`, unions, propagation, parsing,
    serialization, and standard macro expansions behave as specified after
    emit and reload.
 6. **IL validity** — `dotnet-ilverify` accepts the exact checked-in
@@ -205,8 +205,8 @@ meaning differs, an idiomatic Raven probe:
 
 | C# compiler pattern | Likely Raven form | Stabilization pressure |
 | --- | --- | --- |
-| `Try*` plus `out` and nullable lookup helpers | `Option<T>`, `Result<T, E>`, or a recovery union | generic cases, pattern extraction, overloads, metadata round trips |
-| nullable lazy caches and `??`/`??=` | explicit `Option<T>` or encapsulated mutable state | initialization, mutation, concurrency, public type information |
+| `Try*` plus `out` and nullable lookup helpers | `Optional<T>`, `Result<T, E>`, or a recovery union | generic cases, pattern extraction, overloads, metadata round trips |
+| nullable lazy caches and `??`/`??=` | explicit `Optional<T>` or encapsulated mutable state | initialization, mutation, concurrency, public type information |
 | nested switch/type/property patterns | unions and exhaustive `match` | parsing, binding, exhaustiveness, narrowing, lowering |
 | immutable arrays, dictionaries, builders, and LINQ | Raven collection expressions and .NET immutable collections | generic inference, extensions, lambdas, iteration, allocation behavior |
 | syntax/bound visitors and rewriters | interfaces/classes plus generated dispatch or union matching | inheritance, overrides, generic return types, recursive traversal |
@@ -233,8 +233,8 @@ following allocation is the default:
 | Missing compiler-writing capability | Add now only when essential and sufficiently specified; otherwise record an explicit subset exclusion | Re-evaluate before API adoption depends on it | Implement only after the rule is stable | Expand convenience surface later |
 | Core public contract correction | **Do now** when bootstrap v2 will depend on it | Consume the frozen contract | Preserve ABI/semantics | Evolve through normal versioning later |
 | Macro public contract correction | Do now when needed for reliable validation, but do not add it to the bootstrap closure | Exercise migrated compiler APIs from the version-matched library | Preserve behavior as a higher layer | Evolve through normal versioning later |
-| `Raven.CodeAnalysis` API returning `Option`, `Result`, or unions | Prove the carriers and version boundary; do not create an implicit build cycle | **Primary version for this work** | Consume the established contract | Refine only with an explicit API decision |
-| Optional macro API inputs using `Option<SyntaxType>` | Ensure Core and macro authoring can express and consume the shape | **Migrate coherent API families here** | Use the migrated API | — |
+| `Raven.CodeAnalysis` API returning `Optional`, `Result`, or unions | Prove the carriers and version boundary; do not create an implicit build cycle | **Primary version for this work** | Consume the established contract | Refine only with an explicit API decision |
+| Optional macro API inputs using `Optional<SyntaxType>` | Ensure Core and macro authoring can express and consume the shape | **Migrate coherent API families here** | Use the migrated API | — |
 | Internal C# nullable/out/exception cleanup with no public effect | Do only when required for correctness or a reliable oracle | Small cleanup may accompany an owned API migration | Prefer idiomatic Raven in the port | Broad cleanup belongs here |
 | Port a compiler component from C# to Raven | Do not start | Do not start merely to exercise a new contract | **Primary version for this work**, one boundary at a time | Remove retired C# implementation after sustained parity |
 | Broad compiler architecture redesign | Only when current structure prevents correctness | Only when required to make a stable API boundary | Avoid during initial parity | **Primary version for this work** |
@@ -305,7 +305,7 @@ but coherent public and cross-component API families may use types authored in
 
 Adopt contracts by meaning:
 
-- expected absence becomes `Option<T>`;
+- expected absence becomes `Optional<T>`;
 - expected success/failure becomes `Result<T, E>`;
 - closed compiler states become named or ad hoc unions;
 - recovered syntax plus diagnostics uses a purpose-built recovery result;
@@ -343,7 +343,7 @@ For every component:
    default.
 
 Direct, reviewable translation is preferred during parity. Idiomatic Raven is
-appropriate where `Option`, `Result`, unions, records, functions, or patterns
+appropriate where `Optional`, `Result`, unions, records, functions, or patterns
 are already established contracts and clearly reduce ambiguity. Broad
 architectural cleanup waits until the component agrees with the C# oracle.
 

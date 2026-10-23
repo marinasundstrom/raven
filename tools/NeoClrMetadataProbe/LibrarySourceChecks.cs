@@ -61,7 +61,7 @@ internal static class LibrarySourceChecks
         Directory.CreateDirectory(output);
         var cases = new[] {
             (Name: "growth-copy-iterator", Source: """
-                import System.Option.*
+                import System.Optional.*
 
                 func Main() -> int {
                     let values = System.Collections.ArrayList<int>()
@@ -157,7 +157,7 @@ internal static class LibrarySourceChecks
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
         var cases = new[] { (Name: "collisions-growth-update", Source: """
-            import System.Option.*
+            import System.Optional.*
 
             func Main() -> int {
                 let map = System.Collections.HashMap<int, int>((left, right) => left == right, value => 1)
@@ -207,7 +207,7 @@ internal static class LibrarySourceChecks
                 return equivalent
             }
             """, Message: (string?)null), (Name: "reference-identity", Source: """
-            import System.Option.*
+            import System.Optional.*
 
             class Order {
                 var Number: int

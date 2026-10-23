@@ -4,7 +4,7 @@ This sample showcases a realistic Raven domain workflow around warehouse fulfill
 It uses:
 
 - domain records and discriminated unions
-- `Option<T>` and `Result<T, E>` instead of `null` / thrown domain errors
+- `Optional<T>` and `Result<T, E>` instead of `null` / thrown domain errors
 - result propagation in async flows
 - pattern matching over domain decisions
 - list and dictionary comprehensions, including pattern-targeted comprehensions

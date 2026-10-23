@@ -183,7 +183,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     {
         var source = """
             class Foo {
-                public func self(flag: bool) -> Task<Option<int>> {
+                public func self(flag: bool) -> Task<Optional<int>> {
                     return Test(flag)
                 }
             }
@@ -290,7 +290,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     {
         var source = """
             class Foo {
-                public func self(flag: bool) -> Task<Option<int>> {
+                public func self(flag: bool) -> Task<Optional<int>> {
                     return Test(flag)
                 }
             }

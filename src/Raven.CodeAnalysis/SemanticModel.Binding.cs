@@ -2856,7 +2856,7 @@ public partial class SemanticModel
                 "System.Threading" or
                 "System.Threading.Tasks" or
                 "System.Result" or
-                "System.Option";
+                OptionalFacts.QualifiedTypeName;
         }
 
         static bool IsGeneratedPreludeFile(string? filePath)

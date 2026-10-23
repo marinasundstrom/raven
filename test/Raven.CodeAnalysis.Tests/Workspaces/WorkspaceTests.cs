@@ -569,7 +569,7 @@ class A {
         solution = solution.AddProject(projectId, "P");
 
         var code = """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {
@@ -593,7 +593,7 @@ func Test(maybeText: Option<string>) {
 
         Assert.Equal(
             """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     match maybeText {
         Some(let text) => {
             Console.WriteLine(text)
@@ -665,7 +665,7 @@ func Test(person: Person) {
         solution = solution.AddProject(projectId, "P");
 
         var code = """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     if let Some(text) = maybeText {
         Console.WriteLine(text)
     } else {
@@ -689,7 +689,7 @@ func Test(maybeText: Option<string>) {
 
         Assert.Equal(
             """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     match maybeText {
         let Some(text) => {
             Console.WriteLine(text)
@@ -809,7 +809,7 @@ func Test(result: Result<string, string>) {
         solution = solution.AddProject(projectId, "P");
 
         var code = """
-func Test(maybeText: Option<string>) {
+func Test(maybeText: Optional<string>) {
     if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {

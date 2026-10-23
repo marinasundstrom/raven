@@ -11,14 +11,14 @@ namespace Raven.CodeAnalysis;
 internal enum BoundCarrierKind
 {
     Nullable,
-    Option,
+    Optional,
     Result
 }
 
 internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }                 // the carrier expression
-    public BoundCarrierKind CarrierKind { get; }             // Nullable/Option/Result
+    public BoundCarrierKind CarrierKind { get; }             // Nullable/Optional/Result
     public ITypeSymbol PayloadType { get; }                  // T
     public BoundExpression WhenPresent { get; }              // expression bound against a payload local
     public ITypeSymbol ResultType { get; }                   // carrier(U) or U?
@@ -27,7 +27,7 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
     public ILocalSymbol PayloadLocal { get; }
 
     // Resolved carrier API (preferred over reflection in codegen).
-    // These are populated by binding for Option/Result carriers.
+    // These are populated by binding for Optional/Result carriers.
     public INamedTypeSymbol? CarrierType { get; }
 
     // Result<T,E>
@@ -48,7 +48,7 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
     public IMethodSymbol? ReceiverResultOkValueGetter { get; }
     public IMethodSymbol? ReceiverResultErrorDataGetter { get; }
 
-    // Option<T>
+    // Optional<T>
     public INamedTypeSymbol? OptionSomeCaseType { get; }
     public INamedTypeSymbol? OptionNoneCaseType { get; }
     public IMethodSymbol? OptionTryGetValueMethod { get; }

@@ -13,7 +13,7 @@ public sealed class TryGetExtensionsTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Collections.Generic.*
 
-func Find(values: Dictionary<string, int>, key: string) -> Option<int> {
+func Find(values: Dictionary<string, int>, key: string) -> Optional<int> {
     return values.TryGetValue(key)
 }
 """;

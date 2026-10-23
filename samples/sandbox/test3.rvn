@@ -3,9 +3,9 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let r: Option<int> = Some(42)
+let r: Optional<int> = Some(42)
 let w = match r {
-    Some(let x) => Option<int>.Some(x * 2)
+    Some(let x) => Optional<int>.Some(x * 2)
     None => None
 }
 
@@ -21,7 +21,7 @@ for x in r {
     WriteLine(x)
 }
 
-func tap(value: Option<int>) -> Option<int> {
+func tap(value: Optional<int>) -> Optional<int> {
     if value is Some(let x) {
         WriteLine(x)
     }

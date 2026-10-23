@@ -5,7 +5,7 @@ Roslyn treats constructed types and substituted members as first-class symbols: 
 
 ## Baseline
 - Refreshed generated sources (syntax, bound nodes, diagnostics) before building.
-- `dotnet build --property WarningLevel=0` currently fails while restoring/running `ravc` for `Raven.Core` (the generated Option/Result library), so no tests ran. The failure happens after the sample/fixture projects succeed, leaving the solution in a non-buildable state for this investigation.【678907†L1-L4】
+- `dotnet build --property WarningLevel=0` currently fails while restoring/running `ravc` for `Raven.Core` (the generated Optional/Result library), so no tests ran. The failure happens after the sample/fixture projects succeed, leaving the solution in a non-buildable state for this investigation.【678907†L1-L4】
 
 ## Findings
 1. **Constructed types drop inherited type arguments.** `ConstructedNamedTypeSymbol` stores only the explicit type arguments passed to the current type in its `TypeArguments` array and derives `Arity` from that truncated list, so nested instantiations (e.g., `Outer<int>.Inner<string>`) report `Arity == 1` and `TypeArguments == [string]` even though the definition declares two type parameters.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L28-L29】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L343-L347】

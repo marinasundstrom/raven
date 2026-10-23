@@ -514,7 +514,7 @@ the macro to recover or end without destabilizing the compiler or language
 server.
 
 The nullable return is a bootstrap-era compiler API shape. Raven's eventual
-authoring facade should project simple absence to `Option<TSyntax>`, binary
+authoring facade should project simple absence to `Optional<TSyntax>`, binary
 failure to `Result`, and genuinely multi-case outcomes to purpose-built unions.
 Those union types remain consumable from C# while giving Raven authors normal
 exhaustive matching.
@@ -1221,7 +1221,7 @@ This admits both `timer! { ... }` and `timer! message { ... }`. A
 context-owned expression header is intentionally raw syntax; typed and
 semantically constrained headers should remain declared `ExpressionSyntax<T>`
 inputs when the header is required. A future optional-input projection should
-model this as `Option<ExpressionSyntax<T>>` rather than using a null default or
+model this as `Optional<ExpressionSyntax<T>>` rather than using a null default or
 weakening Raven's ordinary default-parameter ordering rules.
 
 The application is statement-shaped source:

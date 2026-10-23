@@ -12,7 +12,7 @@ to the .NET runtime and ecosystem.
 
 Raven is under active development. Its language and compiler combine an
 expression-oriented surface, explicit mutability, structural pattern matching,
-`Option`/`Result`-based flow, and direct interoperability with existing .NET
+`Optional`/`Result`-based flow, and direct interoperability with existing .NET
 libraries.
 
 Raven is not defined by a single programming paradigm. It provides syntax,
@@ -54,7 +54,7 @@ or browse the Markdown sources under [`docs/`](docs/).
 - [Domain Modeling](docs/lang/domain-modeling.md) - patterns for values, states,
   behavior, dependencies, and object-oriented models.
 - [Nullability and Absence](docs/lang/nullability.md) - unified nullable types,
-  explicit pattern binding, and `Option<T>` guidance.
+  explicit pattern binding, and `Optional<T>` guidance.
 - [Language reference](docs/lang/spec/index.md) - current language specification and feature reference
   normative language docs and grammar links.
 - [Compiler Docs](docs/compiler/index.md) - architecture, APIs, diagnostics,
@@ -70,7 +70,7 @@ Raven favors:
   `case`, and related keywords say what is being declared
 - explicit immutable and mutable lexical bindings with `let` and `var`
 - explicit pattern bindings in `match`, `if`, `while`, `for`, and deconstruction
-- `Option<T>` for absence and `Result<T, E>` for expected failure
+- `Optional<T>` for absence and `Result<T, E>` for expected failure
 - records, primary constructors, unions, and target-typed shorthand
 - direct use of .NET libraries, async APIs, collections, and IL tooling
 
@@ -132,7 +132,7 @@ polymorphism is actually part of the answer.
 | --- | --- |
 | Static helper classes used only to hold methods | Plain top-level functions |
 | Context-dependent declarations where shape is inferred from placement | Declaration keywords such as `func`, `let`, `var`, `event`, and `union` |
-| `null` as absence in domain data | `Option<T>` with `Some(...)` and `None` |
+| `null` as absence in domain data | `Optional<T>` with `Some(...)` and `None` |
 | Exceptions for expected lookup or validation failure | `Result<T, E>` with `Ok(...)` and `Error(...)` |
 | `enum` plus nullable detail fields | `union` cases with typed payloads |
 | `switch` plus type/null checks spread across methods | `match` expressions over values and patterns |

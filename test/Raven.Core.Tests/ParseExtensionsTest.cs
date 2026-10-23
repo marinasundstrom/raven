@@ -15,31 +15,31 @@ public sealed class ParseExtensionsTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Globalization.*
 
-func TryParseProjected(text: string) -> Option<int> {
+func TryParseProjected(text: string) -> Optional<int> {
     return int.TryParse(text)
 }
 
-func TryParseProjectedWithStyle(text: string) -> Option<int> {
+func TryParseProjectedWithStyle(text: string) -> Optional<int> {
     return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture)
 }
 
-func TryParseDateTimeProjectedWithStyles(text: string) -> Option<DateTime> {
+func TryParseDateTimeProjectedWithStyles(text: string) -> Optional<DateTime> {
     return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
 }
 
-func TryParseDateTimeOffsetProjected(text: string) -> Option<DateTimeOffset> {
+func TryParseDateTimeOffsetProjected(text: string) -> Optional<DateTimeOffset> {
     return DateTimeOffset.TryParse(text)
 }
 
-func TryParseDateOnlyProjected(text: string) -> Option<DateOnly> {
+func TryParseDateOnlyProjected(text: string) -> Optional<DateOnly> {
     return DateOnly.TryParse(text)
 }
 
-func TryParseTimeOnlyProjected(text: string) -> Option<TimeOnly> {
+func TryParseTimeOnlyProjected(text: string) -> Optional<TimeOnly> {
     return TimeOnly.TryParse(text)
 }
 
-func TryParseTimeSpanProjected(text: string) -> Option<TimeSpan> {
+func TryParseTimeSpanProjected(text: string) -> Optional<TimeSpan> {
     return TimeSpan.TryParse(text)
 }
 

@@ -44,7 +44,7 @@ internal static class ReadinessInventory
             ("sequence-contract", [..contracts, "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn"]),
             ("language", ["System/Globalization/Language.rvn"]),
             ("array-list", ["System/Collections/ArrayList.rvn"]),
-            ("option", ["System/Option.rvn"]),
+            ("option", ["System/Optional.rvn"]),
             ("result", ["System/Result.rvn"]),
             ("math", ["System/Math/Functions.rvn"]),
             ("gc", ["System/Runtime/GC.rvn"])

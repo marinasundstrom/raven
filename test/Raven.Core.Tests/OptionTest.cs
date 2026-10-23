@@ -13,7 +13,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void Option_IsStructCarrier_WithDefaultUninitializedState()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var defaultOption = Activator.CreateInstance(optionType)!;
 
         Assert.True(optionType.IsValueType);
@@ -25,7 +25,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void JsonSerializer_SerializesAndDeserializes_Some()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
         var some = Activator.CreateInstance(someType, 42)!;
         var option = ConvertCaseToCarrier(optionType, some);
@@ -52,7 +52,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void JsonSerializer_Serializes_NoneAsJsonNull()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var noneType = GetCaseTypeFromTryGetValue(optionType, "None");
         var none = Activator.CreateInstance(noneType)!;
         var option = ConvertCaseToCarrier(optionType, none);
@@ -68,7 +68,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void JsonSerializer_Serializes_DefaultCarrierAsJsonNull()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var defaultOption = Activator.CreateInstance(optionType)!;
 
         var json = JsonSerializer.Serialize(defaultOption, optionType);
@@ -80,7 +80,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void CarrierProperties_ReportActiveCase_ForSome()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
         var some = Activator.CreateInstance(someType, 42)!;
         var option = ConvertCaseToCarrier(optionType, some);
@@ -99,7 +99,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void CarrierProperties_ReportActiveCase_ForNone()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var noneType = GetCaseTypeFromTryGetValue(optionType, "None");
         var none = Activator.CreateInstance(noneType)!;
         var option = ConvertCaseToCarrier(optionType, none);
@@ -118,7 +118,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     public void DefaultReceiver_CombinatorsThrowFromMatchFallback()
     {
         var asm = LoadRavenCoreAssembly();
-        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var optionType = GetConstructedType(asm, "System.Optional`1", typeof(int));
         var defaultOption = Activator.CreateInstance(optionType)!;
 
         var mappedException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Map")!
@@ -143,7 +143,7 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Linq.*
 
-let nested: Option<Option<int>> = default
+let nested: Optional<Optional<int>> = default
 let flattened = nested.Flatten()
 let value = flattened.UnwrapOr(0)
 """;
@@ -154,7 +154,7 @@ let value = flattened.UnwrapOr(0)
             [
                 new DiagnosticResult("RAV0405")
                     .WithAnySpan()
-                    .WithArguments("self", "Option<Option<int>>")
+                    .WithArguments("self", "Optional<Optional<int>>")
             ]);
 
         verifier.Verify();
@@ -167,7 +167,7 @@ let value = flattened.UnwrapOr(0)
 import System.*
 import System.Linq.*
 
-let input: Option<int> = .Some(20)
+let input: Optional<int> = .Some(20)
 let mapped = input.Map(v => v + 1)
 let filtered = mapped.Where(v => v > 10)
 let output = filtered.UnwrapOr(0)
@@ -183,7 +183,7 @@ let output = filtered.UnwrapOr(0)
 import System.*
 import System.Linq.*
 
-let input: Option<int> = .Some(20)
+let input: Optional<int> = .Some(20)
 let _ = input.Map((v: string) => v)
 """;
 

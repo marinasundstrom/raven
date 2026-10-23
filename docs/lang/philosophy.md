@@ -49,7 +49,7 @@ ideas:
 - explicit declaration keywords for functions, bindings, events, types, and
   union cases
 - explicit bindings when patterns introduce new names
-- `Option<T>` and `Result<T, E>` as normal control-flow shapes
+- `Optional<T>` and `Result<T, E>` as normal control-flow shapes
 - one reusable pattern system across branching, iteration, and deconstruction
 - direct, ergonomic interop with the .NET ecosystem
 
@@ -126,7 +126,7 @@ fits their codebase.
 
 ## Flow should stay visible
 
-Raven wants happy-path code to stay linear while still making failure and absence honest. That is why `Option<T>` and `Result<T, E>` are central to the language story instead of being treated as niche library patterns.
+Raven wants happy-path code to stay linear while still making failure and absence honest. That is why `Optional<T>` and `Result<T, E>` are central to the language story instead of being treated as niche library patterns.
 
 ```raven
 func BuildQuote(id: string) -> Result<string, string> {
@@ -140,7 +140,7 @@ func BuildQuote(id: string) -> Result<string, string> {
 
 Raven therefore leans toward:
 
-- modeling absence with `Option<T>` instead of raw nulls in domain code
+- modeling absence with `Optional<T>` instead of raw nulls in domain code
 - modeling expected failures with `Result<T, E>` instead of exceptions alone
 - using `match` when a decision deserves to be seen, not hidden
 
@@ -149,7 +149,7 @@ keeps their runtime shape compatible with the expected .NET struct-union
 contract, including the explicit default/uninitialized carrier state.
 
 `null` is still part of the language because .NET interop demands it, but Raven’s
-preferred design direction is explicit domain flow through `Option<T>` and
+preferred design direction is explicit domain flow through `Optional<T>` and
 `Result<T, E>`, not nullable-heavy application logic.
 
 When nullable interop values must be handled directly, Raven documentation
@@ -329,7 +329,7 @@ driven helper APIs instead of copying C# surface syntax wholesale.
 
 ## Extensions over special cases
 
-Raven prefers to push common behavior into ordinary libraries and extension surfaces instead of baking every convenience into the compiler. Features like `Option`/`Result` helpers, collection adapters, and domain-specific APIs should compose through normal method calls, imports, and extension lookup.
+Raven prefers to push common behavior into ordinary libraries and extension surfaces instead of baking every convenience into the compiler. Features like `Optional`/`Result` helpers, collection adapters, and domain-specific APIs should compose through normal method calls, imports, and extension lookup.
 
 ```raven
 extension StringExt for string {
@@ -380,7 +380,7 @@ Then scale into:
 - classes, interfaces, and encapsulated object models
 - async workflows
 - extensions and traits
-- richer `Option`/`Result` pipelines
+- richer `Optional`/`Result` pipelines
 
 The preferred path is depth through composing functions, data, and objects, not
 depth through syntax inflation.

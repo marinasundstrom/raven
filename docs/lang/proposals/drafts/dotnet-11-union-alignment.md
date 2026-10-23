@@ -124,7 +124,7 @@ References:
 * Do not physically nest body-declared cases in a generic union carrier, where
   CLR nested types inherit the carrier's complete generic parameter list.
 * Do not require Raven to use C#'s exact storage layout.
-* Do not change `Option<T>` or `Result<T, E>` semantics beyond interop surface
+* Do not change `Optional<T>` or `Result<T, E>` semantics beyond interop surface
   alignment.
 * Do not introduce Raven-only metadata that C# must understand for basic union
   construction, conversion, pattern matching, exhaustiveness, or nullability.
@@ -497,7 +497,7 @@ paths for source-exhaustive matches.
 
 Raven's `?` propagation and carrier conditional access are part of the same
 interop surface as pattern matching. When the receiver is a Raven.Core
-`Result<T, E>` or `Option<T>` imported from metadata, the compiler should use
+`Result<T, E>` or `Optional<T>` imported from metadata, the compiler should use
 the carrier's logical case set to find the constructed PE case type:
 
 ```raven
@@ -637,7 +637,7 @@ Add focused tests in these areas:
 * Consume custom C# unions marked with `[Union]`.
 * Preserve Raven construction syntax for body-form and parenthesized unions.
 * Verify wildcard imports such as `import System.Result.*` and
-  `import System.Option.*` bring logical case names into unqualified scope from
+  `import System.Optional.*` bring logical case names into unqualified scope from
   metadata.
 * Validate `TryGetValue(out T)` extraction for nested case types.
 * Verify pattern matching over consumed C# unions and Raven body-form unions

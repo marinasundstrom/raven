@@ -37,7 +37,7 @@ release version numbers:
 1. **Bootstrap v1** is the qualified and frozen full C# compiler plus the first
    trusted `Raven.Core` it compiles.
 2. **Bootstrap v2** remains the full C# compiler, but exposes selected public
-   contracts using the Raven-authored `Option`, `Result`, and union runtime
+   contracts using the Raven-authored `Optional`, `Result`, and union runtime
    representations produced by bootstrap v1.
 3. **Bootstrap v3** is the full compiler implemented in Raven. It may be reached
    one stable component boundary at a time while the C# compiler remains the
@@ -71,7 +71,7 @@ Migrate one coherent API family at a time:
 
 1. State the meaning of every nullable, boolean-plus-out-value, exception, or
    weakly typed result in that family.
-2. Select `Option`, `Result`, an ad hoc union, or a purpose-built union according
+2. Select `Optional`, `Result`, an ad hoc union, or a purpose-built union according
    to that meaning.
 3. Add Raven and C# consumer tests for metadata shape, construction, matching,
    diagnostics, and ordinary runtime behavior.
@@ -81,7 +81,7 @@ Migrate one coherent API family at a time:
    long-lived APIs that encode the same outcome differently.
 
 Optional macro inputs are an early, concrete candidate. An absent syntax input
-should eventually be modeled as `Option<ExpressionSyntax<T>>`, not as a
+should eventually be modeled as `Optional<ExpressionSyntax<T>>`, not as a
 required parameter followed by a nullable parameter with a default value. This
 keeps the contract meaningful and respects Raven's ordinary parameter-ordering
 rules. The same reasoning applies beyond macros wherever absence is expected
@@ -99,7 +99,7 @@ must handle:
 
 | Meaning | Desired Raven shape |
 | --- | --- |
-| A value may legitimately be absent | `Option<T>` |
+| A value may legitimately be absent | `Optional<T>` |
 | An expected operation either succeeds or fails | `Result<T, TError>` |
 | Several closed outcomes carry different data | A purpose-built union |
 | An advanced outcome has structured subcategories | Payload or nested unions |
@@ -109,13 +109,13 @@ must handle:
 Do not force every API into `Result`. For example, a parser may return recovered
 syntax and diagnostics at the same time; a binary success/error split would
 discard useful information. Model that as its own result domain. Conversely,
-do not create a custom union when `Option<T>` already says everything callers
+do not create a custom union when `Optional<T>` already says everything callers
 need to know.
 
 Nullable references remain appropriate when the API faithfully projects a .NET
 metadata, reflection, or framework contract whose ABI is nullable. At that
 boundary, a Raven-facing convenience can explicitly project the platform shape
-into `Option` or another union. Null should not become the default representation
+into `Optional` or another union. Null should not become the default representation
 of absence merely because the compiler implementation is currently written in
 C#.
 
@@ -172,7 +172,7 @@ parenthesized or case-declaration form.
 
 ## Interoperability
 
-`Option`, `Result`, and Raven-declared unions compile to ordinary .NET types.
+`Optional`, `Result`, and Raven-declared unions compile to ordinary .NET types.
 They therefore remain callable from C# and other .NET languages. The C# usage
 may be more explicit than Raven's exhaustive `match`, but interoperability does
 not require the primary Raven API to erase its semantic distinctions.
@@ -194,7 +194,7 @@ foundation rather than an implicit cycle:
    checked-in Core rather than resolving it from a repository output, package
    cache, or global installation by accident.
 3. Identify nullable and ad hoc result contracts by their intended meaning.
-4. Pilot `Option`, `Result`, and union contracts in small, high-value compiler
+4. Pilot `Optional`, `Result`, and union contracts in small, high-value compiler
    API families while the implementation remains in C#.
 5. Exercise those contracts from Raven-authored macros and tools, and from C#
    interoperability tests.
@@ -229,7 +229,7 @@ Before any Raven-authored compiler component becomes authoritative, require:
 
 Macro APIs dogfood this direction. A syntax-category requirement currently
 returns `TSyntax?` because it lives in the bootstrap compiler assembly; its
-eventual Raven-facing shape is `Option<TSyntax>`. Diagnostic-bearing fragment
+eventual Raven-facing shape is `Optional<TSyntax>`. Diagnostic-bearing fragment
 parsers retain recovered syntax, the consumed source span, and diagnostics and
 therefore need a richer recovery result rather than a plain `Result`.
 

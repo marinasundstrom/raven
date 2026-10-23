@@ -22,7 +22,7 @@ internal abstract partial class Binder
             return exact;
 
         // Expression receivers may name an open generic definition before the
-        // enclosing invocation infers its arguments (for example Option.None()).
+        // enclosing invocation infers its arguments (for example Optional.None()).
         // Keep metadata lookup exact and avoid choosing between distinct arities.
         var genericArities = owner.GetMembers(name).OfType<INamedTypeSymbol>()
             .Select(type => type.Arity).Where(candidate => candidate > 0).Distinct().Take(2).ToArray();

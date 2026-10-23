@@ -339,7 +339,7 @@ Next: preserve namespace identity for native ownerless functions and define its 
 projection explicitly, then emit and execute the selected real Math declarations.
 Use neoCLR's order-collections application as the broader acceptance case: it spans
 constructors/properties, generic collections/interfaces, arrays/iteration,
-lambdas/delegates, Option/Result/patterns and shared reference identity. Compile its
+lambdas/delegates, Optional/Result/patterns and shared reference identity. Compile its
 actual library dependency sources as coverage grows; do not substitute fake library
 contracts. JSON is a complementary UTF-8/inheritance case; neither sample covers
 all language/runtime features. Metadata importer expansion remains deferred.
@@ -512,7 +512,7 @@ noncapturing callbacks through concrete and interface receivers.
 `--hash-map-source-runtime <neo-root> <fresh-output> <implementation-seed.dll> <System.neox> <runtime>`
 compiles unchanged HashMap with its source collection/policy dependencies and checks
 collisions, growth, duplicate rejection, update/insert, independent key snapshots,
-interface dispatch and Option lookups. Success returns 42 after native verification.
+interface dispatch and Optional lookups. Success returns 42 after native verification.
 
 The HashMap source checkpoint also checks internal Order reference payloads, mutation
 visibility across map/list/filtered-list storage, replacement independence and iterator

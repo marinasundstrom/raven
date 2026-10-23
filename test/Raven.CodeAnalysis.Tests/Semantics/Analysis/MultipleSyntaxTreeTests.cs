@@ -51,18 +51,18 @@ namespace System
 
 import System.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-extension OptionExtensions<T> for Option<T> {
+extension OptionExtensions<T> for Optional<T> {
     func OkOr<E>(error: E) -> Result<T, E> {
         if self is .Some(let value) {
             return .Ok(value)
         }
 
-        .Failure(error)
+        .Error(error)
     }
 }
 """);

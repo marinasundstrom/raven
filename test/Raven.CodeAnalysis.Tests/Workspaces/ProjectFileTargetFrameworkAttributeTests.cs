@@ -197,7 +197,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
                 import System.Threading.*
                 import System.Threading.Tasks.*
                 import System.Result.*
-                import System.Option.*
+                import System.Optional.*
             }
             """,
             generated.Text.ToString().TrimEnd());
@@ -215,7 +215,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             import => Assert.Equal("System.Threading.*", import.Name.ToString()),
             import => Assert.Equal("System.Threading.Tasks.*", import.Name.ToString()),
             import => Assert.Equal("System.Result.*", import.Name.ToString()),
-            import => Assert.Equal("System.Option.*", import.Name.ToString()));
+            import => Assert.Equal("System.Optional.*", import.Name.ToString()));
     }
 
     [Fact]

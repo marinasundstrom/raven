@@ -2730,7 +2730,7 @@ let foo = Foo(
 record Foo(
     val Name: string,
     val Status: Status
-    val Item: Option<string>
+    val Item: Optional<string>
 )
 
 union Status {

@@ -5,7 +5,7 @@
 ## Summary
 
 Allow Raven to present a curated set of well-known .NET framework methods as
-Raven-native APIs that return `Option<T>` or `Result<T, E>` while preserving
+Raven-native APIs that return `Optional<T>` or `Result<T, E>` while preserving
 access to the underlying CLR methods.
 
 The initial feature projects selected `TryParse` methods on known framework
@@ -13,7 +13,7 @@ types and proves the exception-based model with `Int32.Parse(string)`:
 
 ```raven
 let port = int.TryParse(text)
-// Option<int>
+// Optional<int>
 
 match port {
     Some(let value) => Console.WriteLine($"Port: {value}")
@@ -37,7 +37,7 @@ generated or supplied for additional APIs.
 ## Motivation
 
 .NET exposes several recurring API patterns that predate or cannot depend on
-Raven's `Option<T>` and `Result<T, E>` types. For example, parsing commonly uses
+Raven's `Optional<T>` and `Result<T, E>` types. For example, parsing commonly uses
 a Boolean return value plus an `out` parameter:
 
 ```csharp
@@ -49,7 +49,7 @@ related results as separate values. Raven already has a standard vocabulary for
 this contract:
 
 ```raven
-func TryParse(text: string?) -> Option<int>
+func TryParse(text: string?) -> Optional<int>
 ```
 
 A framework projection lets Raven code use that vocabulary without replacing
@@ -68,7 +68,7 @@ The feature should provide:
 ## Goals
 
 * Project an explicit allowlist of known framework members.
-* Use `Option<T>` when failure means only that no value was produced.
+* Use `Optional<T>` when failure means only that no value was produced.
 * Leave room for `Result<T, E>` when failure information is stable and useful.
 * Preserve the source and binary behavior of the underlying framework method.
 * Preserve ordinary CLR overloads and interop when projections are disabled.
@@ -85,7 +85,7 @@ The initial feature does not:
 * project every method named `TryParse`, `TryGet`, `Find`, or `Parse`;
 * infer semantics from `bool` plus an `out` parameter alone;
 * modify framework assemblies or emit new members onto framework types;
-* make `Option<T>` or `Result<T, E>` part of the CLR framework contract;
+* make `Optional<T>` or `Result<T, E>` part of the CLR framework contract;
 * add source-generator support to Raven;
 * allow arbitrary referenced assemblies to inject compiler behavior;
 * project exception-throwing `Parse` methods without an explicit reviewed
@@ -140,7 +140,7 @@ The MVP supports this primary semantic transformation:
 ```text
 static bool TryParse(string? input, out T value)
     =>
-static Option<T> TryParse(string? input)
+static Optional<T> TryParse(string? input)
 ```
 
 It also includes reviewed same-signature exception projections:
@@ -167,7 +167,7 @@ In the standard view, each cataloged source signature is replaced by its
 projected signature for Raven member lookup:
 
 ```raven
-let projected = int.TryParse(text) // Option<int>
+let projected = int.TryParse(text) // Optional<int>
 ```
 
 With projections set to `None`, the projected member is absent and the ordinary
@@ -179,12 +179,12 @@ The first useful vertical slice should cover:
 
 | Raven type | Framework type | Projected result |
 | --- | --- | --- |
-| `int` | `System.Int32` | `Option<int>` |
-| `long` | `System.Int64` | `Option<long>` |
-| `double` | `System.Double` | `Option<double>` |
-| `decimal` | `System.Decimal` | `Option<decimal>` |
-| `Guid` | `System.Guid` | `Option<Guid>` |
-| `DateTime` | `System.DateTime` | `Option<DateTime>` |
+| `int` | `System.Int32` | `Optional<int>` |
+| `long` | `System.Int64` | `Optional<long>` |
+| `double` | `System.Double` | `Optional<double>` |
+| `decimal` | `System.Decimal` | `Optional<decimal>` |
+| `Guid` | `System.Guid` | `Optional<Guid>` |
+| `DateTime` | `System.DateTime` | `Optional<DateTime>` |
 
 The catalog contains the simplest string-input overload for each type. It also
 preserves the common type-specific parsing inputs: numeric `NumberStyles` plus
@@ -224,7 +224,7 @@ The bridge and emitted call must preserve:
 * argument evaluation order;
 * single evaluation of side-effecting expressions;
 * the source method's overload and target-framework identity;
-* correct construction of `Option<T>`; and
+* correct construction of `Optional<T>`; and
 * diagnostics rather than exceptions if `Raven.Core` or the required option
   cases are unavailable.
 
@@ -245,7 +245,7 @@ The compiler should represent a projected method as a method symbol with:
 
 The projected symbol appears to belong to the projected receiver type, not to
 an adapter or extension container. For example, symbol display for the standard
-integer projection describes `int.TryParse(string?) -> Option<int>` and its
+integer projection describes `int.TryParse(string?) -> Optional<int>` and its
 containing type is `System.Int32`.
 
 Framework projections are not extension methods and do not participate through
@@ -305,29 +305,29 @@ versioned and documented like other language behavior.
 The following cases motivate the wider feature. They are candidates, not all
 part of the MVP.
 
-### Parsing to `Option<T>`
+### Parsing to `Optional<T>`
 
 These APIs normally communicate only success or failure and discard the reason
-for failure, which makes `Option<T>` a natural projection.
+for failure, which makes `Optional<T>` a natural projection.
 
 | API family | Possible Raven surface | Notes |
 | --- | --- | --- |
-| Numeric `TryParse` | `T.TryParse(text) -> Option<T>` | Primary MVP family. |
-| `Guid.TryParse` | `Guid.TryParse(text) -> Option<Guid>` | Primary MVP member. |
-| `DateTime.TryParse` | `DateTime.TryParse(text) -> Option<DateTime>` | Culture-dependent behavior remains that of the selected source overload. |
-| `DateTimeOffset.TryParse` | `DateTimeOffset.TryParse(text) -> Option<DateTimeOffset>` | Straightforward follow-up. |
-| `DateOnly.TryParse` | `DateOnly.TryParse(text) -> Option<DateOnly>` | Target-framework dependent. |
-| `TimeOnly.TryParse` | `TimeOnly.TryParse(text) -> Option<TimeOnly>` | Target-framework dependent. |
-| `TimeSpan.TryParse` | `TimeSpan.TryParse(text) -> Option<TimeSpan>` | Straightforward follow-up. |
-| `Version.TryParse` | `Version.TryParse(text) -> Option<Version>` | Produces a reference type; the option still distinguishes failure explicitly. |
-| `IPAddress.TryParse` | `IPAddress.TryParse(text) -> Option<IPAddress>` | Requires the networking assembly/reference. |
+| Numeric `TryParse` | `T.TryParse(text) -> Optional<T>` | Primary MVP family. |
+| `Guid.TryParse` | `Guid.TryParse(text) -> Optional<Guid>` | Primary MVP member. |
+| `DateTime.TryParse` | `DateTime.TryParse(text) -> Optional<DateTime>` | Culture-dependent behavior remains that of the selected source overload. |
+| `DateTimeOffset.TryParse` | `DateTimeOffset.TryParse(text) -> Optional<DateTimeOffset>` | Straightforward follow-up. |
+| `DateOnly.TryParse` | `DateOnly.TryParse(text) -> Optional<DateOnly>` | Target-framework dependent. |
+| `TimeOnly.TryParse` | `TimeOnly.TryParse(text) -> Optional<TimeOnly>` | Target-framework dependent. |
+| `TimeSpan.TryParse` | `TimeSpan.TryParse(text) -> Optional<TimeSpan>` | Straightforward follow-up. |
+| `Version.TryParse` | `Version.TryParse(text) -> Optional<Version>` | Produces a reference type; the option still distinguishes failure explicitly. |
+| `IPAddress.TryParse` | `IPAddress.TryParse(text) -> Optional<IPAddress>` | Requires the networking assembly/reference. |
 
 The initial catalog also preserves the common style- and provider-aware inputs
 while removing only the projected result parameter:
 
 ```raven
 let value = decimal.TryParse(text, NumberStyles.Currency, culture)
-// Option<decimal>
+// Optional<decimal>
 ```
 
 Each such overload still requires an explicit catalog entry. The compiler must
@@ -339,7 +339,7 @@ Enum parsing is useful but should be a separate implementation slice:
 
 ```raven
 let color = Color.TryParse(text)
-// Option<Color>
+// Optional<Color>
 ```
 
 The underlying API is a generic static method on `System.Enum`, while the
@@ -351,22 +351,22 @@ The case-sensitivity overload could become:
 
 ```raven
 let color = Color.TryParse(text, ignoreCase: true)
-// Option<Color>
+// Optional<Color>
 ```
 
 The compiler must preserve the source method's enum constraints and should not
 offer the projection for a non-enum type.
 
-### Lookup to `Option<T>`
+### Lookup to `Optional<T>`
 
 Some well-known lookup methods also have a value-or-absence contract:
 
 | API family | Possible Raven surface | Design concern |
 | --- | --- | --- |
-| `Dictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Option<TValue>` | Must project an instance generic method and preserve comparer behavior. |
-| `IReadOnlyDictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Option<TValue>` | Interface dispatch must remain visible in lowering and symbol identity. |
-| `ConditionalWeakTable<TKey, TValue>.TryGetValue` | `table.TryGetValue(key) -> Option<TValue>` | Reference and lifetime semantics must remain unchanged. |
-| `ConcurrentDictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Option<TValue>` | A read projection is reasonable; mutating `Try*` methods are not equivalent. |
+| `Dictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Optional<TValue>` | Must project an instance generic method and preserve comparer behavior. |
+| `IReadOnlyDictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Optional<TValue>` | Interface dispatch must remain visible in lowering and symbol identity. |
+| `ConditionalWeakTable<TKey, TValue>.TryGetValue` | `table.TryGetValue(key) -> Optional<TValue>` | Reference and lifetime semantics must remain unchanged. |
+| `ConcurrentDictionary<TKey, TValue>.TryGetValue` | `dictionary.TryGetValue(key) -> Optional<TValue>` | A read projection is reasonable; mutating `Try*` methods are not equivalent. |
 
 These should not be generalized to all `TryGetValue` methods. Some methods
 have multiple outputs, distinguish several states, mutate the receiver, or use
@@ -383,13 +383,13 @@ Some framework APIs can be considered individually:
 
 | API family | Possible projection | Design concern |
 | --- | --- | --- |
-| `Uri.TryCreate` | `Uri.TryCreate(...) -> Option<Uri>` | Has multiple overload families and creation modes. |
-| `Activator.CreateInstance` | `Option<object>` or `Result<object, E>` | Failure is exception-rich; `Option` may discard too much information. |
-| Reflection `Get*` methods returning `null` | `Option<MemberInfo>` | A nullable-to-option projection may be useful but changes many signatures. |
-| Environment/configuration lookup | `Option<string>` | Often already represented by nullable returns rather than `Try*` methods. |
+| `Uri.TryCreate` | `Uri.TryCreate(...) -> Optional<Uri>` | Has multiple overload families and creation modes. |
+| `Activator.CreateInstance` | `Optional<object>` or `Result<object, E>` | Failure is exception-rich; `Optional` may discard too much information. |
+| Reflection `Get*` methods returning `null` | `Optional<MemberInfo>` | A nullable-to-option projection may be useful but changes many signatures. |
+| Environment/configuration lookup | `Optional<string>` | Often already represented by nullable returns rather than `Try*` methods. |
 
 Nullable-return projections deserve a separate design because nullability
-annotations, oblivious metadata, and `Option<T>` conversions already interact
+annotations, oblivious metadata, and `Optional<T>` conversions already interact
 with Raven's nullable semantics.
 
 ### Methods better represented by `Result<T, E>`
@@ -441,7 +441,7 @@ Other designs remain possible for future catalogs:
    views, with exact syntax decided separately.
 4. **Use contextual return-type resolution.** This is a significant departure
    from the normal overload model and could make untyped calls unstable.
-5. **Expose only `TryParse -> Option` as the native parsing API.** `Parse`
+5. **Expose only `TryParse -> Optional` as the native parsing API.** `Parse`
    remains unchanged and throwing by design.
 
 Each projected family still needs an explicit error-model decision. Direct exception unions such as
@@ -465,7 +465,7 @@ the initial behavior:
 * `Monitor.TryEnter` returns whether a lock was acquired and has synchronization
   side effects; it is not a value lookup.
 * `ConcurrentDictionary.TryAdd` and `TryUpdate` report whether a mutation took
-  place; `Option<T>` would not express their contract naturally.
+  place; `Optional<T>` would not express their contract naturally.
 * `Queue<T>.TryDequeue` and `Stack<T>.TryPop` both retrieve and mutate. An
   option-returning view may be useful, but it requires an explicit semantic
   choice rather than a global rule.
@@ -501,7 +501,7 @@ projected:
   name: TryParse
   parameters:
     - source-parameter[0]
-  return: System.Option<System.Int32>
+  return: System.Optional<System.Int32>
 lowering:
   kind: bool-out-to-option
   valueParameter: 1
@@ -543,7 +543,7 @@ arity-only matches are insufficient.
 ### Exception mappings
 
 Every descriptor declares its exception behavior, including descriptors whose
-expected exception list is empty. For `TryParse -> Option`, `false` maps to
+expected exception list is empty. For `TryParse -> Optional`, `false` maps to
 `None` and the mapping catches no exceptions. Exceptions that the source method
 can still throw remain exceptions.
 
@@ -610,7 +610,7 @@ authoring mechanism.
 A future generator could search an assembly for configured shapes such as:
 
 ```text
-bool TryX(A..., out T value) => Option<T>
+bool TryX(A..., out T value) => Optional<T>
 ```
 
 It should generate the executable bridge implementation, mark that bridge as a
@@ -623,7 +623,7 @@ For example, a library might describe:
 
 ```text
 projection MyParser.TryRead(string, out Item)
-    as MyParser.TryRead(string) -> Option<Item>
+    as MyParser.TryRead(string) -> Optional<Item>
     using bool-out-to-option
 ```
 
@@ -668,11 +668,11 @@ After `bool-out-to-option`, future validated recipes might include:
 
 | Source contract | Projected contract | Notes |
 | --- | --- | --- |
-| `bool + out T` | `Option<T>` | MVP recipe. |
-| nullable `T?` return | `Option<T>` | Requires nullability policy. |
+| `bool + out T` | `Optional<T>` | MVP recipe. |
+| nullable `T?` return | `Optional<T>` | Requires nullability policy. |
 | `bool + out T + out E` | `Result<T, E>` | Requires exact success/error mapping. |
 | throwing `T` return | `Result<T, E>` | Requires explicit caught exception set and raw-call access. |
-| sentinel return | `Option<T>` | Requires an explicit sentinel and comparison rule. |
+| sentinel return | `Optional<T>` | Requires an explicit sentinel and comparison rule. |
 | `Task<bool> + out T`-like pattern | asynchronous option/result | CLR cannot use `out` across `async`; real APIs use other carrier shapes. |
 
 Recipes should preserve source exceptions that are outside the explicitly

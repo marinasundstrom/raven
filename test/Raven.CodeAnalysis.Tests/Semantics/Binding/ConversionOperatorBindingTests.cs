@@ -46,13 +46,13 @@ public class ConversionOperatorBindingTests : CompilationTestBase
         const string fixtureSource = """
 namespace System
 
-public union Option<T> {
+public union Optional<T> {
     case Some(value: T)
     case None
 }
 
-public extension OptionExtensions1<T : class> for Option<T> {
-    static func implicit(opt: Option<T>) -> T? {
+public extension OptionalExtensions1<T : class> for Optional<T> {
+    static func implicit(opt: Optional<T>) -> T? {
         if opt is .Some(let value) {
             return value
         }
@@ -60,8 +60,8 @@ public extension OptionExtensions1<T : class> for Option<T> {
     }
 }
 
-public extension OptionExtensions2<T : struct> for Option<T> {
-    static func implicit(opt: Option<T>) -> T? {
+public extension OptionalExtensions2<T : struct> for Optional<T> {
+    static func implicit(opt: Optional<T>) -> T? {
         if opt is .Some(let value) {
             return value
         }
@@ -77,7 +77,7 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         const string source = """
 import System.*
 
-let value = Option<int>.None
+let value = Optional<int>.None
 let result: int? = value
 """;
 
@@ -101,7 +101,7 @@ let result: int? = value
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsUserDefined);
         Assert.NotNull(conversion.MethodSymbol);
-        Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+        Assert.Equal("OptionalExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
     }
 
     [Fact]
@@ -110,15 +110,15 @@ let result: int? = value
         const string fixtureSource = """
 namespace System
 
-public union Option<T> {
+public union Optional<T> {
     case Some(value: T)
     case None
 }
 
-extension OptionExtensions1<T : class> for Option<T> {
-    static func implicit(value: T?) -> Option<T> {
+extension OptionalExtensions1<T : class> for Optional<T> {
+    static func implicit(value: T?) -> Optional<T> {
         if let present: T = value {
-            return Option<T>.Some(present)
+            return Optional<T>.Some(present)
         }
 
         .None
@@ -134,7 +134,7 @@ extension OptionExtensions1<T : class> for Option<T> {
 import System.*
 
 let raw: string? = null
-let result: Option<string> = raw
+let result: Optional<string> = raw
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -154,7 +154,7 @@ let result: Option<string> = raw
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsUserDefined);
-        Assert.Equal("OptionExtensions1", conversion.MethodSymbol?.ContainingType?.Name);
+        Assert.Equal("OptionalExtensions1", conversion.MethodSymbol?.ContainingType?.Name);
         Assert.IsType<NullableTypeSymbol>(conversion.MethodSymbol!.Parameters[0].Type);
     }
 
@@ -178,15 +178,15 @@ let result: Option<string> = raw
         const string fixtureSource = """
 namespace System
 
-public union Option<T> {
+public union Optional<T> {
     case Some(value: T)
     case None
 }
 
-public extension OptionExtensions1<T : class> for Option<T> {
-    static func implicit(value: T?) -> Option<T> {
+public extension OptionalExtensions1<T : class> for Optional<T> {
+    static func implicit(value: T?) -> Optional<T> {
         if let present: T = value {
-            return Option<T>.Some(present)
+            return Optional<T>.Some(present)
         }
 
         .None
@@ -206,10 +206,10 @@ public union Result<T, E> {
         const string source = """
 import System.*
 
-func format<T>(result: Result<T, string>) -> Option<string> {
+func format<T>(result: Result<T, string>) -> Optional<string> {
     return match result {
         .Ok(let value) => value.ToString()
-        .Failure(_) => .None
+        .Error(_) => .None
     }
 }
 """;

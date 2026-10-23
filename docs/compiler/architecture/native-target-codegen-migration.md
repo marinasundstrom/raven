@@ -112,7 +112,7 @@ preserving match-arm results. This general correction adds no target policy or b
 change. Its focused Debug/Release fixture validates shared planning with explicit pattern
 and managed-local admission, and ordinary .NET execution returns 42. The Reflection.Emit
 shared profile still delegates patterns to its existing backend. Native ArrayList search
-consumers independently exercise the wrapper with Option case results.
+consumers independently exercise the wrapper with Optional case results.
 
 ## Interface signature capability propagation (2026-10-02)
 
@@ -122,4 +122,4 @@ an omission rather than adding a target policy. Explicit external reference/valu
 admission is respected; the ordinary Reflection.Emit shared profile remains restricted
 and its existing emission fallback preserves CLR metadata. Independent C# tests inspect
 DateTime and Exception interface contracts, and reject them under the unchanged shared
-.NET profile. Native Map<K,V>.Find can consequently retain its imported Option<V> result.
+.NET profile. Native Map<K,V>.Find can consequently retain its imported Optional<V> result.

@@ -105,7 +105,7 @@ global {
     import System.Threading.*
     import System.Threading.Tasks.*
     import System.Result.*
-    import System.Option.*
+    import System.Optional.*
 }
 ```
 
@@ -117,7 +117,7 @@ imports such as `System.Result.Ok` require the imported type or nested type to
 be available to the compilation; they are supported, but are best reserved for
 stable library/prelude cases.
 
-The standard `Result` and `Option` case imports make `Ok`, `Error`,
+The standard `Result` and `Optional` case imports make `Ok`, `Error`,
 `Some`, and `None` available by simple name in project code. User-defined union
 cases are not automatically available as simple names; use a qualified case
 name, target-typed member syntax, or an explicit wildcard type import such as

@@ -201,7 +201,7 @@ public union Choice(string | int)
     {
         var reference = TestMetadataFactory.CreateFileReferenceFromSource(
             """
-public union Option {
+public union Optional {
     case None
     case Some(value: int)
 }
@@ -215,7 +215,7 @@ public union Option {
                 .AddReferences([.. TestMetadataReferences.Default, reference]);
 
             var option = compilation.GlobalNamespace
-                .GetMembers("Option")
+                .GetMembers("Optional")
                 .OfType<IUnionSymbol>()
                 .Single();
 
@@ -239,7 +239,7 @@ public union Option {
             const string source = """
 import System.*
 import System.Result.*
-import System.Option.*
+import System.Optional.*
 
 func BuildResult(value: int) -> Result<int, string> {
     if value > 0 {
@@ -249,7 +249,7 @@ func BuildResult(value: int) -> Result<int, string> {
     Failure("missing")
 }
 
-func BuildOption(value: int) -> Option<int> {
+func BuildOption(value: int) -> Optional<int> {
     if value > 0 {
         return Some(value)
     }
@@ -286,10 +286,10 @@ func BuildOption(value: int) -> Option<int> {
             const string source = """
 import System.*
 import System.Result.*
-import System.Option.*
+import System.Optional.*
 
 extension ResultExt<T, E> for Result<T, E> {
-    val Probe: Option<T> {
+    val Probe: Optional<T> {
         get {
             if self is Ok(let value) {
                 return Some(value)
@@ -301,7 +301,7 @@ extension ResultExt<T, E> for Result<T, E> {
 }
 
 class Container {
-    static func ProbeValue<T, E>(value: T) -> Option<T> {
+    static func ProbeValue<T, E>(value: T) -> Optional<T> {
         let result: Result<T, E> = Ok(value)
         return result.Probe
     }
@@ -332,7 +332,7 @@ class Container {
             switch (bound)
             {
                 case BoundUnionCaseExpression unionCase:
-                    Assert.Equal("Option", unionCase.UnionType.Name);
+                    Assert.Equal("Optional", unionCase.UnionType.Name);
                     Assert.Equal("Some", unionCase.CaseType.Name);
                     Assert.Single(unionCase.Arguments);
                     break;
@@ -358,7 +358,7 @@ class Container {
             "..", "..", "..", "..", "..", "src", "Raven.Core"));
         var errorTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Error.rvn")));
         var propagationTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Propagation.rvn")));
-        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rvn")));
+        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Optional.rvn")));
         var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rvn")));
         var compilation = Compilation.Create(
             "raven-core-result-fixture",

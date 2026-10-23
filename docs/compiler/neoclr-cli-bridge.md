@@ -16361,3 +16361,14 @@ case identity follows the authored name, so rebuild libraries and consumers.
 The CLI reference projects the same Failure case; payload-oriented Error contracts
 remain unchanged. 184 focused .NET 11 compiler tests pass on this branch; native
 error-context consumers also pass in interpreter/JIT/AOT with the matching library.
+
+## Optional naming (2026-10-23)
+
+Deliberately carries shared Raven main `694bbeae8`, including OptionalFacts, SDK
+imports, None defaults, projections and detached-macro conditional-call queries.
+No Runtime Contract setting changes. Both native identities and the temporary
+CLI carrier now use System.Optional; consumers and libraries must rebuild.
+Some/None, propagation and carrier layout stay unchanged. All 183 final compiler
+regressions, 84 Raven.Core tests and 18 conditional tests pass here. Native
+error-context and method-state suites pass in interpreter/JIT/AOT (42 executions).
+Two baseline lowering-trace failures are documented in optional-naming.md.

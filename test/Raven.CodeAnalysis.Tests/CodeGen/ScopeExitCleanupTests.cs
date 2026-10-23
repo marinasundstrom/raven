@@ -160,8 +160,8 @@ public sealed class ScopeExitCleanupTests
             """, valueResource: true), 7, 21);
 
     [Theory]
-    [InlineData("Result<Resource, string>", ".Error(\"failure\")", "Result<int, string>", ".Ok(7)")]
-    [InlineData("Option<Resource>", ".None", "Option<int>", ".Some(7)")]
+    [InlineData("Result<Resource, string>", ".Failure(\"failure\")", "Result<int, string>", ".Ok(7)")]
+    [InlineData("Optional<Resource>", ".None", "Optional<int>", ".Some(7)")]
     public void FailedResourceInitializerDisposesOnlyEarlierResources(string carrier, string failure, string result, string success)
     {
         var compilation = Create($$"""
@@ -181,8 +181,8 @@ public sealed class ScopeExitCleanupTests
     }
 
     [Theory]
-    [InlineData("Result<int, string>", ".Error(\"failure\")", ".Ok(value)")]
-    [InlineData("Option<int>", ".None", ".Some(value)")]
+    [InlineData("Result<int, string>", ".Failure(\"failure\")", ".Ok(value)")]
+    [InlineData("Optional<int>", ".None", ".Some(value)")]
     public void PropagationDisposesAllActiveScopes(string carrier, string failure, string success)
     {
         var compilation = Create($$"""

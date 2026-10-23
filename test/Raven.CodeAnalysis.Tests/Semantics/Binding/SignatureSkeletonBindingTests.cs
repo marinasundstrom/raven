@@ -15,7 +15,7 @@ public sealed class SignatureSkeletonBindingTests : CompilationTestBase
 import System.*
 import System.Threading.Tasks.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -24,7 +24,7 @@ let foo = Foo(42)
 let result = await foo(true)
 
 class Foo(value: int) {
-    async func Test(flag: bool) -> Task<Option<int>> {
+    async func Test(flag: bool) -> Task<Optional<int>> {
         await Task.Delay(20)
 
         if flag {
@@ -34,7 +34,7 @@ class Foo(value: int) {
         return .None
     }
 
-    func self(flag: bool) -> Task<Option<int>> {
+    func self(flag: bool) -> Task<Optional<int>> {
         return Test(flag)
     }
 }

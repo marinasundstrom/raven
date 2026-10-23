@@ -266,7 +266,7 @@ in the compiler host. A missing/unusable core cannot initialize MetadataLoadCont
 is a configuration error; this option does not synthesize a substitute core library.
 
 The default is `null`, preserving host-assisted .NET reference discovery. Set the option
-to null to return to that mode. Option-copy methods preserve the policy, and changing it
+to null to return to that mode. Optional-copy methods preserve the policy, and changing it
 prevents incremental metadata/semantic state transfer from the prior compilation.
 
 This is a compiler API building block for restricted targets, not a complete target
@@ -363,7 +363,7 @@ behavior when the emission setting is absent. Discovered-core mode, including
 emission and explicit
 `--target-core-library` use without a project selection remain available.
 
-Option copies preserve the selection; incremental semantic reuse accounts for changes.
+Optional copies preserve the selection; incremental semantic reuse accounts for changes.
 The existing public CompilationOptions constructor signature is retained. Editor and
 compiler configuration diagnostics come from the same compilation rather than an LSP
 special case. A new compiler is required to interpret the new project property.

@@ -430,17 +430,17 @@ class Harness {
         const string code = """
 interface IOptional {}
 
-union Option<T>: IOptional {
+union Optional<T>: IOptional {
     case Some(value: T)
     case None
 }
 
 class Harness {
-    private static func NoneValue() -> Option<int> {
+    private static func NoneValue() -> Optional<int> {
         return .None
     }
 
-    private static func PropagateNone() -> Option<int> {
+    private static func PropagateNone() -> Optional<int> {
         let value = NoneValue()?
         return .Some(value)
     }

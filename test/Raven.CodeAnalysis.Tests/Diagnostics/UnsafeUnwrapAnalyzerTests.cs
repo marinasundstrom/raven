@@ -11,7 +11,7 @@ public class UnsafeUnwrapAnalyzerTests : AnalyzerTestBase
         const string code = """
 import System.*
 
-func Test(result: Result<int, string>, option: Option<int>) {
+func Test(result: Result<int, string>, option: Optional<int>) {
     let value = result.UnwrapOrThrow()
     let error = result.UnwrapError()
     let optionalValue = option.UnwrapOrThrow()
@@ -30,7 +30,7 @@ func Test(result: Result<int, string>, option: Option<int>) {
                     .WithArguments("UnwrapError", "Result", "Ok", "Ok and Failure"),
                 new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
                     .WithSpan(6, 32, 6, 45)
-                    .WithArguments("UnwrapOrThrow", "Option", "None", "Some and None"),
+                    .WithArguments("UnwrapOrThrow", "Optional", "None", "Some and None"),
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
             additionalReferences: [TestMetadataReferences.RavenCore]);
@@ -44,7 +44,7 @@ func Test(result: Result<int, string>, option: Option<int>) {
         const string code = """
 import System.*
 
-func Test(result: Result<int, string>, option: Option<int>) {
+func Test(result: Result<int, string>, option: Optional<int>) {
     let a = result.UnwrapOr(0)
     let b = result.UnwrapOrDefault()
     let c = result.UnwrapOrElse(() => 0)

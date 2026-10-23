@@ -4724,10 +4724,10 @@ internal partial class TypeMemberBinder : Binder
         value = null;
 
         parameterType = UnwrapParameterDefaultType(parameterType);
-        if (parameterType is not INamedTypeSymbol { Name: "Option", Arity: 1 } optionType ||
+        if (parameterType is not INamedTypeSymbol { Name: OptionalFacts.TypeName, Arity: 1 } optionType ||
             optionType.ContainingNamespace?.ToMetadataName() != "System" ||
             optionType.TryGetUnion() is null ||
-            expression is not MemberBindingExpressionSyntax { Name.Identifier.ValueText: "None" })
+            expression is not MemberBindingExpressionSyntax { Name.Identifier.ValueText: OptionalFacts.NoneCaseName })
         {
             return false;
         }

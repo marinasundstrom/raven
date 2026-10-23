@@ -390,15 +390,15 @@ func Route(ticket: SupportTicket, target: object) -> unit {
     public void MatchStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsWithoutDiagnostics()
     {
         const string code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
 class C {
-    func Run(value: Option<(string, int)>) {
+    func Run(value: Optional<(string, int)>) {
         match value {
             let Some((first, >= 18)) whole => {
                 first.Length

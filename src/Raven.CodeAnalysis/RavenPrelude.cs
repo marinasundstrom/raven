@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 public static class RavenPrelude
 {
-    public const string DefaultSource = """
+    public const string DefaultSource = $$"""
         global {
             import System.*
             import System.Collections.*
@@ -15,7 +15,7 @@ public static class RavenPrelude
             import System.Threading.*
             import System.Threading.Tasks.*
             import System.Result.*
-            import System.Option.*
+            import {{OptionalFacts.QualifiedTypeName}}.*
         }
         """;
 

@@ -180,8 +180,8 @@ let parsed = int.TryParse("")
 
         result.ShouldNotBeNull();
         var labels = result.Signatures.Select(signature => signature.Label).ToArray();
-        labels.ShouldContain("func TryParse(input: string?) -> Option<int>");
-        labels.ShouldContain("func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<int>");
+        labels.ShouldContain("func TryParse(input: string?) -> Optional<int>");
+        labels.ShouldContain("func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Optional<int>");
         labels.ShouldNotContain(label => label.Contains("out", StringComparison.Ordinal));
     }
 

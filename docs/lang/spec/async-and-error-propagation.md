@@ -1,6 +1,6 @@
 # Error propagation and carrier types
 
-`Result` and `Option` let a function report failure or a missing value without
+`Result` and `Optional` let a function report failure or a missing value without
 throwing an exception. Raven provides short forms for returning those cases
 early so the main path stays easy to read.
 
@@ -64,7 +64,7 @@ that failure immediately.
 | Form | Result type | Success case | Failure case |
 | --- | --- | --- | --- |
 | `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Failure(exception)` |
-| `try expr?` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
+| `try expr?` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Optional` |
 
 `try expr` evaluates `expr` exactly once and converts the outcome to
 `Result<T, Exception>`, where `T` is the operand type. If the operand has type
@@ -72,7 +72,7 @@ that failure immediately.
 
 `try expr?` composes exception capture with ordinary propagation. It is valid
 only when the enclosing
-function or lambda returns a compatible `Result<_, _>` or `Option<_>`.
+function or lambda returns a compatible `Result<_, _>` or `Optional<_>`.
 
 Propagation wraps the complete `try` expression: `try Foo()?` means
 `(try Foo())?`, not `try (Foo()?)`. Parentheses can still explicitly place
@@ -146,18 +146,18 @@ trailers (`?.`, `?(`, `?[`) retain their existing operand grouping. Calls, membe
 access, and indexing also remain part of the operand. Propagation inside an
 argument or explicit parentheses stays inside that nested expression.
 
-## Result and Option carrier operators
+## Result and Optional carrier operators
 
-`Result<T, E>` and `Option<T>` share the same carrier terminology throughout the
+`Result<T, E>` and `Optional<T>` share the same carrier terminology throughout the
 spec: `?` unwraps or propagates, and `?.` conditionally maps over the success
 case.
 
 | Form | Receiver | Result | Empty or error case |
 | --- | --- | --- | --- |
 | `expr?` | `Result<T, E>` | `T` | propagates `Failure(error)` |
-| `expr?` | `Option<T>` | `T` | propagates `None` |
+| `expr?` | `Optional<T>` | `T` | propagates `None` |
 | `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `Failure(error)` |
-| `expr?.Member` | `Option<T>` | `Option<U>` | preserves `None` |
+| `expr?.Member` | `Optional<T>` | `Optional<U>` | preserves `None` |
 
 ### Propagation (`?`)
 
@@ -173,7 +173,7 @@ func loadAndParse(path: string) -> Result<int, Exception> {
     return Ok(value)
 }
 
-func firstEven(values: int[]) -> Option<int> {
+func firstEven(values: int[]) -> Optional<int> {
     let value = FindFirstEven(values)?
     return Some(value)
 }
@@ -183,7 +183,7 @@ func firstEven(values: int[]) -> Option<int> {
 
 * For `Result<T, E>`, `Ok(value)` yields `value` and `Failure(error)`
   immediately returns `Failure(error)` from the enclosing context.
-* For `Option<T>`, `Some(value)` yields `value` and `None` immediately returns
+* For `Optional<T>`, `Some(value)` yields `value` and `None` immediately returns
   `None` from the enclosing context.
 * `expr?` is valid only when both the operand and the enclosing function or
   lambda return type implement compatible `IPropagatable` contracts.
@@ -193,7 +193,7 @@ func firstEven(values: int[]) -> Option<int> {
   postfix position, `expr?.Member`, `expr?(...)`, and `expr?[...]` are parsed as
   conditional-access forms instead. For a custom `IPropagatable` carrier,
   `expr?.Member` propagates the receiver and then accesses `Member` on its
-  output. (`Result` and `Option` retain the lifted mapping behavior described
+  output. (`Result` and `Optional` retain the lifted mapping behavior described
   below.)
 
 If propagation relies on a user-defined implicit conversion on the error
@@ -224,7 +224,7 @@ the early return. The operand is evaluated exactly once.
 which Raven does not currently expose in interface declarations. It must be the
 concrete implementing carrier. Different carrier types may interoperate when
 their residual types are implicitly convertible. `Result<T, E>` implements the
-contract with output `T` and residual `E`; `Option<T>` implements it with output
+contract with output `T` and residual `E`; `Optional<T>` implements it with output
 `T` and the unit residual `()`.
 
 ### Conditional member access (`?.`)
@@ -235,7 +235,7 @@ carrier without unwrapping the carrier itself.
 #### Examples
 
 ```raven
-record class User(Name: string, Item: Option<Item>)
+record class User(Name: string, Item: Optional<Item>)
 record class Item(Name: string)
 
 union LookupError {
@@ -266,10 +266,10 @@ func selectedItemName() -> Result<string, LookupError> {
 
 * For `Result<T, E>`, `expr?.Member` evaluates `Member` only when `expr` is
   `Ok(payload)` and returns `Result<U, E>`.
-* For `Option<T>`, `expr?.Member` evaluates `Member` only when `expr` is
-  `Some(payload)` and returns `Option<U>`.
+* For `Optional<T>`, `expr?.Member` evaluates `Member` only when `expr` is
+  `Some(payload)` and returns `Optional<U>`.
 * The member-access form is the only lifted carrier conditional-access form.
-* `expr?[index]` and `expr?(args)` are not lifted for `Result` or `Option`.
+* `expr?[index]` and `expr?(args)` are not lifted for `Result` or `Optional`.
 * If indexing or invocation is required, unwrap first with `?`, pattern
   matching, or an explicit helper API.
 
@@ -318,16 +318,16 @@ func parseUser(text: string) -> Result<User, LookupError> {
 
 ## Standard carrier helper APIs (Raven.Core)
 
-Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
+Raven ships `Optional<T>`, `Result<T, E>`, and related extension helpers in
 `Raven.Core`. These are library APIs (not syntax), but they are part of the
 standard language experience and are expected by diagnostics, samples, and
 tooling.
 
-`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as plain `union`
+`Optional<T>` and `Result<T, E>` are defined in `Raven.Core` as plain `union`
 carriers, so they use Raven's default struct-union representation and follow the
 conventional `.NET` union contract.
 
-Raven.Core also provides `System.Text.Json` converters for `Option<T>`,
+Raven.Core also provides `System.Text.Json` converters for `Optional<T>`,
 `Result<T, E>`, and ad-hoc `System.Union<...>` values. These converters prefer plain JSON
 when the JSON shape can be recovered from the declared target type. Parenthesized
 unions use value-union conversion because their members can be arbitrary types,
@@ -335,7 +335,7 @@ including primitives; case-declaration unions may opt into a tagged case format.
 See
 [Raven Core JSON serialization](../../compiler/json-serialization.md).
 
-### `Option<T>` helpers
+### `Optional<T>` helpers
 
 - State checks: `HasSome`, `HasNone`
 - Mapping/composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
@@ -345,10 +345,10 @@ See
 - Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
   `UnwrapOr(defaultValue)`
 - Enumeration helpers: `ToEnumerable`, `GetEnumerator`
-- Nested carrier helper: `Flatten` for `Option<Option<T>>`
+- Nested carrier helper: `Flatten` for `Optional<Optional<T>>`
 - Nullable conversions:
-  - `Option<T : class> <-> T?`
-  - `Option<T : struct> <-> T?`
+  - `Optional<T : class> <-> T?`
+  - `Optional<T : struct> <-> T?`
 
 ### `Result<T, E>` helpers
 
@@ -362,7 +362,7 @@ See
 
 ### Carrier LINQ extensions on `IEnumerable<T>` (`System.Linq`)
 
-- Option-returning:
+- Optional-returning:
   - `FirstOrNone()`, `FirstOrNone(predicate)`
   - `LastOrNone()`, `LastOrNone(predicate)`
   - `SingleOrNone()`, `SingleOrNone(predicate)`

@@ -18,7 +18,7 @@ asset. The target framework, not the compiler host, selects that behavior.
 The built-in carrier converters are not one shared union format. Each converter
 maps its carrier to the JSON shape that best matches the carrier's role:
 
-- `Option<T>` maps to the usual JSON optionality pattern: either the value or
+- `Optional<T>` maps to the usual JSON optionality pattern: either the value or
   `null`.
 - `Result<T, E>` needs an explicit success/error shape, so it uses its own
   tagged object format.
@@ -27,7 +27,7 @@ maps its carrier to the JSON shape that best matches the carrier's role:
   special treatment when their JSON shape cannot identify the member on read.
 
 This payload-first behavior is the standard serialization contract of the
-built-in `Option<T>`, `Result<T, E>`, and `System.Union<...>` types and is
+built-in `Optional<T>`, `Result<T, E>`, and `System.Union<...>` types and is
 available to C# through ordinary `System.Text.Json` calls. Tagged Raven union
 serialization is different: it is special behavior and is enabled only by an
 explicit `[RavenTaggedUnionJsonConverter]` attribute or by registering
@@ -39,9 +39,9 @@ The current converters use reflection to inspect carrier fields, constructors,
 case objects, and payload types. A future macro could generate equivalent
 union-specific JSON converters and avoid reflection on hot serialization paths.
 
-## `Option<T>`
+## `Optional<T>`
 
-`Option<T>` uses `OptionJsonConverterFactory`.
+`Optional<T>` uses `OptionalJsonConverterFactory`.
 
 JSON shape:
 
@@ -53,8 +53,8 @@ JSON shape:
 Example:
 
 ```raven
-let name: Option<string> = Some("Raven")
-let missing: Option<string> = None
+let name: Optional<string> = Some("Raven")
+let missing: Optional<string> = None
 ```
 
 ```json
@@ -69,11 +69,11 @@ Read behavior:
 
 - `null` reads as `None`.
 - Any non-null JSON value is deserialized as `T` and wrapped as `Some(value)`.
-- `Option<T>` overrides `HandleNull`, so `null` reaches the converter instead
+- `Optional<T>` overrides `HandleNull`, so `null` reaches the converter instead
   of being handled by `System.Text.Json` before converter dispatch.
 
 Nested payloads are serialized by the serializer for `T`. For example,
-`Option<Result<T, E>>` delegates the non-null payload to the `Result<T, E>`
+`Optional<Result<T, E>>` delegates the non-null payload to the `Result<T, E>`
 converter.
 
 ## `Result<T, E>`
@@ -158,7 +158,7 @@ legacy first-match policy. For nominal object unions, `[JsonUnion]` can select
 the framework's structural classifier when case property names distinguish the
 objects. See Microsoft's [union serialization guidance](https://devblogs.microsoft.com/dotnet/unions-and-closed-hierarchies-in-aspnetcore/).
 
-`Option<T>` and `Result<T, E>` retain their documented, type-specific converters;
+`Optional<T>` and `Result<T, E>` retain their documented, type-specific converters;
 this change concerns the standard parenthesized union carriers. Explicit Raven
 converter attributes and registrations remain opt-in policies.
 
@@ -386,7 +386,7 @@ Read behavior:
 
 | Type | Converter | Plain JSON when possible | Metadata shape |
 | --- | --- | --- | --- |
-| `Option<T>` | `OptionJsonConverter<T>` | Yes | `None` is `null`; `Some` is the payload |
+| `Optional<T>` | `OptionalJsonConverter<T>` | Yes | `None` is `null`; `Some` is the payload |
 | `Result<T, E>` | `ResultJsonConverter<T, E>` | No | `{ "case": "Ok", "value": ... }` or `{ "case": "Failure", "data": ... }` |
 | `T1 | T2` / `System.Union<...>` targeting .NET 11 | Native System.Text.Json union converter | Yes | Active case JSON; ambiguous cases need classification |
 | `T1 | T2` / `System.Union<...>` targeting .NET 10 | `RavenParenthesizedUnionJsonConverter<TUnion>` | Yes | Object members get `$type`; arrays currently remain plain arrays |

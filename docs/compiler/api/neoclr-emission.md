@@ -289,7 +289,7 @@ external-signature runtime probe verifies and returns 42. The generic-library pr
 also passed against the initial definition slice. Compiler source was `55a29312f` on
 `codex/metadata-consumer`; runtime SHA256 was
 `193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D`.
-The unchanged collections sample's Option<Order> import/union/native identity gaps
+The unchanged collections sample's Optional<Order> import/union/native identity gaps
 remain open. These validations establish facade compatibility, not completion of the
 compiler or general metadata editing API.
 
@@ -346,7 +346,7 @@ metadata, not become a language restriction. Imported instance members, generic-
 member resolution, arbitrary cross-dependency TypeRefs and union body lowering remain
 open. The probe `--imported-value-runtime` verifies/runs a Raven consumer of a
 metadata-authored library with result 42 and checks missing dependency rejection.
-The unchanged collections sample now passes Option<Order> declaration admission and
+The unchanged collections sample now passes Optional<Order> declaration admission and
 stops at invocation lowering; it has not executed.
 
 ## Imported constructed dispatch (development, 2026-10-02)
@@ -385,7 +385,7 @@ slice. They are implementation limits, not neoCLR language rules.
 ## Concrete case lowering checkpoint (2026-10-02)
 
 The unchanged collections sample's apparent propagation rejection was caused by a
-shared lowering exception in a later `Option<Order>(None())` expression. A concrete
+shared lowering exception in a later `Optional<Order>(None())` expression. A concrete
 case target must construct the case directly, matching the existing .NET fallback
 emitter. Shared lowering now honors that target; binding and Runtime Propagation,
 Self and Unit configuration remain unchanged. The fix is independently committed

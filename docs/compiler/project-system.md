@@ -204,7 +204,7 @@ application-model SDK.
 
 Raven projects generate a `<ProjectName>.Prelude.g.rvn` source file by default.
 `Raven.Sdk` supplies the common `System` namespaces plus `System.Result.*` and
-`System.Option.*` as evaluated MSBuild `Import` items. Other SDKs selected by
+`System.Optional.*` as evaluated MSBuild `Import` items. Other SDKs selected by
 the project's `Sdk="..."` attribute can contribute additional items, so the
 generated prelude follows the selected application model without compiler-side
 SDK-name checks. `Raven.Sdk.Web` composes `Microsoft.NET.Sdk.Web` and contributes

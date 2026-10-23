@@ -14,8 +14,8 @@ public class UnionCaptureCodeGenTests
     public void UnionPayload_PreservesCapturedLocal_AndRuns(string expression)
     {
         var source = $$"""
-import Option.*
-union Option<T> {
+import Optional.*
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -23,7 +23,7 @@ class Harness {
     static func Wrap(value: string) -> string => value
     public static func Run() -> string {
         let value = "captured"
-        let make: () -> Option<object> = () => {{expression}}
+        let make: () -> Optional<object> = () => {{expression}}
         return match make() {
             Some(let result) => (string)result
             None => "missing"

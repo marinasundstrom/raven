@@ -15,7 +15,7 @@ public sealed class SymbolDisplayTests : CompilationTestBase
     public void AdHocUnionDisplay_ImportedNominalArgumentsStayCompact()
     {
         var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
-        var option = compilation.GetTypeByMetadataName("System.Option`1")!;
+        var option = compilation.GetTypeByMetadataName("System.Optional`1")!;
         var left = option.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
         var right = option.Construct(compilation.GetSpecialType(SpecialType.System_String));
         var union = compilation.GetTypeByMetadataName("System.Union`2")!.Construct(left, right);
@@ -23,8 +23,8 @@ public sealed class SymbolDisplayTests : CompilationTestBase
             SymbolDisplayFormat.RavenTooltipFormat.MiscellaneousOptions |
             SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
 
-        union.ToDisplayString(format).ShouldBe("Option<int> | Option<string>");
-        left.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Option<int>");
+        union.ToDisplayString(format).ShouldBe("Optional<int> | Optional<string>");
+        left.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Optional<int>");
     }
 
     [Fact]

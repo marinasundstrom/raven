@@ -161,11 +161,11 @@ parameters must appear after required parameters.
 Default expressions must be compile-time constants and must be implicitly
 convertible to the parameter type. This includes literals such as numbers,
 strings, and `null`, parenthesized literals, and unary `+` or `-` applied to
-numeric literals. As a deliberately narrow union exception, an `Option<T>`
+numeric literals. As a deliberately narrow union exception, an `Optional<T>`
 parameter may default to `.None`:
 
 ```raven
-func find(name: string, fallback: Option<int> = .None) -> Option<int> {
+func find(name: string, fallback: Optional<int> = .None) -> Optional<int> {
     // ...
 }
 ```

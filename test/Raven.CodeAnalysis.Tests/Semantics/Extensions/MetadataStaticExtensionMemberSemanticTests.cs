@@ -103,16 +103,16 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
     }
 
     [Theory]
-    [InlineData("int", "Option<int>", "Int32", "system.int32.tryparse.string.option.v1")]
-    [InlineData("long", "Option<long>", "Int64", "system.int64.tryparse.string.option.v1")]
-    [InlineData("double", "Option<double>", "Double", "system.double.tryparse.string.option.v1")]
-    [InlineData("decimal", "Option<decimal>", "Decimal", "system.decimal.tryparse.string.option.v1")]
-    [InlineData("Guid", "Option<Guid>", "Guid", "system.guid.tryparse.string.option.v1")]
-    [InlineData("DateTime", "Option<DateTime>", "DateTime", "system.datetime.tryparse.string.option.v1")]
-    [InlineData("DateTimeOffset", "Option<DateTimeOffset>", "DateTimeOffset", "system.datetimeoffset.tryparse.string.option.v1")]
-    [InlineData("DateOnly", "Option<DateOnly>", "DateOnly", "system.dateonly.tryparse.string.option.v1")]
-    [InlineData("TimeOnly", "Option<TimeOnly>", "TimeOnly", "system.timeonly.tryparse.string.option.v1")]
-    [InlineData("TimeSpan", "Option<TimeSpan>", "TimeSpan", "system.timespan.tryparse.string.option.v1")]
+    [InlineData("int", "Optional<int>", "Int32", "system.int32.tryparse.string.option.v1")]
+    [InlineData("long", "Optional<long>", "Int64", "system.int64.tryparse.string.option.v1")]
+    [InlineData("double", "Optional<double>", "Double", "system.double.tryparse.string.option.v1")]
+    [InlineData("decimal", "Optional<decimal>", "Decimal", "system.decimal.tryparse.string.option.v1")]
+    [InlineData("Guid", "Optional<Guid>", "Guid", "system.guid.tryparse.string.option.v1")]
+    [InlineData("DateTime", "Optional<DateTime>", "DateTime", "system.datetime.tryparse.string.option.v1")]
+    [InlineData("DateTimeOffset", "Optional<DateTimeOffset>", "DateTimeOffset", "system.datetimeoffset.tryparse.string.option.v1")]
+    [InlineData("DateOnly", "Optional<DateOnly>", "DateOnly", "system.dateonly.tryparse.string.option.v1")]
+    [InlineData("TimeOnly", "Optional<TimeOnly>", "TimeOnly", "system.timeonly.tryparse.string.option.v1")]
+    [InlineData("TimeSpan", "Optional<TimeSpan>", "TimeSpan", "system.timespan.tryparse.string.option.v1")]
     public void FrameworkTryParseProjection_IsEnabledByDefault(
         string typeName,
         string expectedReturnType,
@@ -223,7 +223,7 @@ let parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCultu
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
         Assert.Equal(3, boundInvocation.Method.Parameters.Length);
-        Assert.Equal("Option<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
     }
 
@@ -250,7 +250,7 @@ let parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateT
             parameter => Assert.Equal("string?", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)),
             parameter => Assert.Equal("IFormatProvider?", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)),
             parameter => Assert.Equal("DateTimeStyles", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
-        Assert.Equal("Option<DateTime>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<DateTime>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
     }
 
@@ -274,7 +274,7 @@ let found = values.TryGetValue("answer")
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
         Assert.Equal("Dictionary", boundInvocation.Method.ContainingType?.Name);
-        Assert.Equal("Option<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Collection(
             boundInvocation.Method.Parameters,
             parameter => Assert.Equal("string", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
@@ -326,7 +326,7 @@ let found = values.TryGetValue("answer")
 
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
-        Assert.Equal("Option<string?>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<string?>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -449,14 +449,14 @@ let created = WidgetExtensions.Create(42)
         var systemNamespace = compilation.GetNamespaceSymbol("System");
         Assert.NotNull(systemNamespace);
 
-        var optionType = systemNamespace!.LookupType("Option") as INamedTypeSymbol;
+        var optionType = systemNamespace!.LookupType("Optional") as INamedTypeSymbol;
         Assert.NotNull(optionType);
 
         var unwrapOrMethod = optionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
         Assert.NotNull(unwrapOrMethod);
         Assert.False(unwrapOrMethod!.IsExtensionMethod);
         Assert.Equal(ExtensionMemberKind.None, unwrapOrMethod.ExtensionMemberKind);
-        Assert.Equal("Option", unwrapOrMethod.ContainingType?.Name);
+        Assert.Equal("Optional", unwrapOrMethod.ContainingType?.Name);
     }
 
     [Fact]
@@ -466,11 +466,11 @@ let created = WidgetExtensions.Create(42)
             """
 import System.*
 
-let value = Option<int>.Some(42)
+let value = Optional<int>.Some(42)
 let result: int? = value
 AcceptNumber(value)
 
-let textValue = Option<string>.Some("OK")
+let textValue = Optional<string>.Some("OK")
 let textResult: string? = textValue
 AcceptText(textValue)
 
@@ -495,8 +495,8 @@ func AcceptText(value: string?) -> unit {
         var valueConversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
         var textConversion = compilation.ClassifyConversion(textValueSymbol.Type, textResultSymbol.Type, includeUserDefined: true);
 
-        AssertOptionConversion(valueConversion, "OptionExtensions2");
-        AssertOptionConversion(textConversion, "OptionExtensions1");
+        AssertOptionConversion(valueConversion, "OptionalExtensions2");
+        AssertOptionConversion(textConversion, "OptionalExtensions1");
 
         var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Where(static invocation => invocation.Expression is IdentifierNameSyntax)
@@ -514,7 +514,7 @@ func AcceptText(value: string?) -> unit {
         const string source = """
 import System.*
 
-let option: Option<int> = .Some(2)
+let option: Optional<int> = .Some(2)
 let optionHasSome = option.HasSome
 let optionHasNone = option.HasNone
 let optionCarrierHasValue = option.HasValue
@@ -556,7 +556,7 @@ record class CustomError(message: string)
         Assert.Equal("bool", locals["resultHasError"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("bool", locals["resultCarrierHasValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("object?", locals["resultCarrierValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.Equal("Option<int>", locals["resultIsOk"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Optional<int>", locals["resultIsOk"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -634,7 +634,7 @@ union Err {
     case MissingName
 }
 
-record class User(Name: string, Item: Option<Item>)
+record class User(Name: string, Item: Optional<Item>)
 record class Item(Name: string)
 """;
 

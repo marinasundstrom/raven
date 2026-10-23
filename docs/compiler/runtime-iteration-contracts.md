@@ -30,7 +30,7 @@ yield iterators are outside this option.
 
 The bound loop stores the resolved method symbols and element type. Existing codegen
 emits their calls, so no target-specific opcode rewrite is needed. Semantic queries
-see the same inferred loop element type. Option copies retain the contract, and changing
+see the same inferred loop element type. Optional copies retain the contract, and changing
 it blocks transfer of previous semantic state. No syntax or TextMate grammar changed.
 
 ## Known discrepancy: iterator disposal

@@ -146,7 +146,7 @@ loader details into compiler APIs.
 
 Each submission also includes the standard generated Raven prelude as a
 separate syntax tree. This gives scripts and the REPL the same common namespace,
-LINQ extension, `Result`, and `Option` imports as a regular Raven project while
+LINQ extension, `Result`, and `Optional` imports as a regular Raven project while
 preserving source locations in the user's submission.
 
 For a submission ending in a value-producing expression, `TopLevelBinder`

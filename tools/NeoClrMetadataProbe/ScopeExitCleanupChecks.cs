@@ -75,14 +75,14 @@ internal static class ScopeExitCleanupChecks
                 use a = Resource(owner, 1)
                 use b = Resource(owner, 2)
                 let value = Read()?
-                return Option()
-                """, 21, "Option", """
-                public struct Option : Contracts.Propagatable<Option, int, int> {
+                return Optional()
+                """, 21, "Optional", """
+                public struct Optional : Contracts.Propagatable<Optional, int, int> {
                     func TryGetOutput(out value: int) -> bool { value = 0; return false }
                     func TryGetResidual(out value: int) -> bool { value = 0; return true }
-                    static func FromResidual(value: int) -> Option => Option()
+                    static func FromResidual(value: int) -> Optional => Optional()
                 }
-                func Read() -> Option => Option()
+                func Read() -> Optional => Optional()
                 """, "return 42"),
             ("Error", """
                 use a = Resource(owner, 1)

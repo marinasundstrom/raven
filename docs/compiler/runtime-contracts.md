@@ -137,7 +137,7 @@ expression emission acquires Current, loads the type token and invokes the
 resolver. The receiver precedes the handle on the CLI stack. Existing generic
 type-token handling is retained. Default .NET projects still use System.Type's
 static factory. Compiler-synthesized System.Type expressions and sizeof retain
-their existing behavior. Option copies preserve the contract, and changes to it
+their existing behavior. Optional copies preserve the contract, and changes to it
 prevent reuse of incompatible incremental semantic state.
 
 No syntax, grammar or TextMate change is required; editor semantic requests see the
@@ -216,7 +216,7 @@ The corresponding evaluated project properties are:
 
 The compiler and project-backed language server consume the same options. Partial,
 missing, reference-type, or stateful unit selections produce `RAVT003`; they do not
-fall back to `System.Unit`. Option copies retain the contract, and changes invalidate
+fall back to `System.Unit`. Optional copies retain the contract, and changes invalidate
 incremental semantic-state transfer.
 
 The language still has a unit expression `()`. When its value is needed, storage,
@@ -440,7 +440,7 @@ Raven's ordinary .NET out assignment rules. Five declaration admission checks pa
 
 ## Experimental generic union authoring (2026-09-19)
 
-neoCLR now authors Option/Result carrier and case bodies in Raven. The importer
+neoCLR now authors Optional/Result carrier and case bodies in Raven. The importer
 checks complete generic families, matches storage and method signatures, preserves
 public runtime case Value fields, and lowers checked constructors to the existing
 value ABI. Compiler-only consumer recognition members remain metadata protocol
@@ -695,7 +695,7 @@ System.Exception catch; builder-member discovery does not request SetException.
 Dispatch, await rewriting and ordinary completion are unchanged. T is opaque:
 Task<Result<V,E>> receives no special lowering. Propagation already exposes early
 returns before await rewriting; the same completion path handles those returns.
-Option copies retain the policy and changes prevent incompatible incremental-state
+Optional copies retain the policy and changes prevent incompatible incremental-state
 transfer. No syntax, TextMate or editor presentation changes are needed.
 
 This switch alone is not an exception-free target profile. It does not remove
@@ -732,7 +732,7 @@ formatted with dotnet format whitespace.
 
 `CompilationOptions.WithHeapAsyncStateMachines(true)` makes synthesized async
 state machines reference types with an object constructor. The default remains a
-value type. Option copies preserve this setting and incremental reuse rejects
+value type. Optional copies preserve this setting and incremental reuse rejects
 changes. Binding and Task payload semantics are unchanged; generated state metadata
 and field receiver emission follow the selected storage kind.
 
@@ -2014,7 +2014,7 @@ relationship and is not guessed here.
 from an ordinary constant. Optional-argument binding and parameter display consume
 the fact without inspecting PE symbols. `HasExplicitDefaultValue` still controls
 whether the parameter has a default; the capability cannot make a required
-parameter optional. Source default syntax and Option.None behavior are unchanged.
+parameter optional. Source default syntax and Optional.None behavior are unchanged.
 
 PE retains CLI optional/default attribute decoding and lazy default-value
 construction. The capability does not prescribe CLI attributes or boxed default
@@ -3445,7 +3445,7 @@ Omitting that field preserves the selected profile's disposal contract.
 
 The shared pass runs after propagation and structural control-flow lowering and before
 optimization. Resources become active after successful initialization. Normal block
-completion, explicit/implicit returns, Result error and Option None propagation, and
+completion, explicit/implicit returns, Result error and Optional None propagation, and
 loop break/continue dispose the resources whose lifetimes end, in reverse acquisition
 order. Return and value-block results are evaluated and saved before cleanup. A failed
 later initializer disposes earlier resources only. Nested function bodies own separate
@@ -4342,7 +4342,7 @@ Validation: 80 focused constant-binding/conversion tests pass.
 
 Parameter-default completion now uses a scoped BlockBinder and the same typed
 evaluator; syntax-only skeleton declarations remain provisional until completion.
-Existing Option.None/enum/default special forms retain their handling. Unsupported
+Existing Optional.None/enum/default special forms retain their handling. Unsupported
 nonconstant defaults retain the existing parameter diagnostic; arithmetic faults
 retain RAV0374/RAV0375. No Runtime Contract change; CLI parameter constants retain
 their standard encoding. Focused default and constant tests validate invocation and
@@ -4450,3 +4450,6 @@ omission; each target supplies its System.Diagnostics.ConditionalAttribute type.
 
 Result case naming is shared across targets: see [Ok and Failure](result-case-names.md).
 It does not change the propagation protocol or add a Runtime Contract switch.
+
+See [Optional naming](optional-naming.md) for the shared platform type rename;
+this does not add a Runtime Contract switch.

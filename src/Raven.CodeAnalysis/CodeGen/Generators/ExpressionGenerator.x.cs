@@ -28,7 +28,7 @@ internal partial class ExpressionGenerator
                 EmitResultCarrierConditionalAccess(expr, receiverClrType, tmp);
                 return;
 
-            case BoundCarrierKind.Option:
+            case BoundCarrierKind.Optional:
                 EmitOptionCarrierConditionalAccess(expr, receiverClrType, tmp);
                 return;
 
@@ -425,19 +425,19 @@ internal partial class ExpressionGenerator
         Type receiverClrType,
         IILocal receiverTmp)
     {
-        // Option<T>?.X  => Option<U>
-        var optionClrType = Generator.InstantiateType(ResolveClrType(expr.Type));          // Option<U>
+        // Optional<T>?.X  => Optional<U>
+        var optionClrType = Generator.InstantiateType(ResolveClrType(expr.Type));          // Optional<U>
         var payloadClrType = Generator.InstantiateType(ResolveClrType(expr.PayloadType)); // T (payload local type)
 
         // Try to find a "has payload" method. Prefer TryGetSome(out ...), then common alternates.
         var tryGetSomeSym = expr.OptionTryGetValueMethod;
         if (tryGetSomeSym is null)
-            throw new InvalidOperationException("Missing Option.TryGetValue symbol");
+            throw new InvalidOperationException("Missing Optional.TryGetValue symbol");
 
         var tryGetSome = GetMethodInfo(tryGetSomeSym);
 
         var someCaseSym = expr.OptionSomeCaseType
-            ?? throw new InvalidOperationException("Missing Option.Some case symbol");
+            ?? throw new InvalidOperationException("Missing Optional.Some case symbol");
         var someOutType = Generator.InstantiateType(ResolveClrType(someCaseSym));
         var someOutLocal = ILGenerator.DeclareLocal(someOutType);
 
@@ -450,7 +450,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Call, tryGetSome);
         ILGenerator.Emit(OpCodes.Brtrue, someLabel);
 
-        // NONE PATH: push Option<U>.None on stack, then construct Option<U>.
+        // NONE PATH: push Optional<U>.None on stack, then construct Optional<U>.
         var noneCtorSym = expr.OptionNoneCtorOrFactory
             ?? throw new InvalidOperationException("Missing None ctor/factory symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(noneCtorSym)!);
@@ -489,7 +489,7 @@ internal partial class ExpressionGenerator
         try { EmitExpression(expr.WhenPresent); }
         finally { _carrierPayloadSymbol = prevSym; _carrierPayloadLocal = prevLoc; }
 
-        // Stack now has U. Wrap into Option<U>.Some and then construct Option<U>.
+        // Stack now has U. Wrap into Optional<U>.Some and then construct Optional<U>.
         var someCtorSym = expr.OptionSomeCtor
             ?? throw new InvalidOperationException("Missing Some ctor symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(someCtorSym)!);
@@ -502,7 +502,7 @@ internal partial class ExpressionGenerator
 
     private void EmitOptionSomeWrap(Type optionClrType)
     {
-        var someCaseType = FindNestedCaseTypeSafe(optionClrType, "Some");
+        var someCaseType = FindNestedCaseTypeSafe(optionClrType, OptionalFacts.SomeCaseName);
         var someCtor = FindSingleArgCtorSafe(someCaseType);
 
         ILGenerator.Emit(OpCodes.Newobj, someCtor);
@@ -513,8 +513,8 @@ internal partial class ExpressionGenerator
 
     private void EmitOptionNoneWrap(Type optionClrType)
     {
-        // Push Option<U>.None (case) then implicitly convert to Option<U>
-        var noneCaseType = FindNestedCaseTypeSafe(optionClrType, "None");
+        // Push Optional<U>.None (case) then implicitly convert to Optional<U>
+        var noneCaseType = FindNestedCaseTypeSafe(optionClrType, OptionalFacts.NoneCaseName);
 
         // Prefer a static field/property (common for singleton none), otherwise a parameterless ctor.
         var noneField = noneCaseType.GetField("Value", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)

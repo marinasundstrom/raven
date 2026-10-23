@@ -23,7 +23,7 @@
     <Import Include="System.Threading" IsImplicitlyDefined="true" />
     <Import Include="System.Threading.Tasks" IsImplicitlyDefined="true" />
     <Import Include="System.Result" Static="true" IsImplicitlyDefined="true" />
-    <Import Include="System.Option" Static="true" IsImplicitlyDefined="true" />
+    <Import Include="System.Optional" Static="true" IsImplicitlyDefined="true" />
     <Import Include="System.Net.Http.Json" IsImplicitlyDefined="true" />
     <Import Include="Microsoft.AspNetCore.Builder" IsImplicitlyDefined="true" />
     <Import Include="Microsoft.AspNetCore.Hosting" IsImplicitlyDefined="true" />

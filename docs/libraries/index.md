@@ -7,7 +7,7 @@ comments, and share this website’s navigation and search.
 ## Core extensions
 
 `Raven.Core` provides the standard runtime vocabulary used by ordinary Raven
-programs, including `Option`, `Result`, error helpers, parsing projections,
+programs, including `Optional`, `Result`, error helpers, parsing projections,
 sequence extensions, unions, and JSON integration.
 
 - [Learn how Raven.Core fits into the language](../compiler/raven-core-library.md)

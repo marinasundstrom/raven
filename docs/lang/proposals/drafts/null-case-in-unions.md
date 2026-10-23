@@ -45,7 +45,7 @@ union LabelText(string | Expression<() -> object> | null)
 ```
 
 Without a first-class rule for `null` in union declaration syntax, users must
-choose between less precise overloads, ad hoc `Option<T>` wrapping, or a nullable
+choose between less precise overloads, ad hoc `Optional<T>` wrapping, or a nullable
 annotation whose relationship to the union is unclear.
 
 C# 15 union types in .NET 11 previews already allow nullable case types and
@@ -108,7 +108,7 @@ failed conversion, or default carrier.
 * Do not introduce a second general nullable type spelling; `T?` remains the
   nullable type annotation spelling.
 * Do not remove `T?` from Raven source syntax.
-* Do not change `Option<T>` semantics.
+* Do not change `Optional<T>` semantics.
 * Do not define the .NET 11 union compatibility surface here; that belongs to
   the alignment proposal.
 
@@ -482,7 +482,7 @@ Source that already wrote `(A | B)?` remains valid. The current implementation
 does not canonicalize it to `A | B | null`, because that source spelling is
 deferred outside parenthesized union declarations.
 
-`Option<T>` remains the explicit algebraic absence model. Nullable-content unions
-remain the .NET/nullability interop model. Conversions between `Option<T>` and
+`Optional<T>` remains the explicit algebraic absence model. Nullable-content unions
+remain the .NET/nullability interop model. Conversions between `Optional<T>` and
 nullable unions should remain governed by the separate option-to-nullable
 conversion proposal.

@@ -1,7 +1,7 @@
 # Exceptions and structured handling
 
 Raven uses exceptions for unexpected failures and `Result<T, E>` or
-`Option<T>` for failures and missing values that are part of an operation's
+`Optional<T>` for failures and missing values that are part of an operation's
 ordinary outcome.
 
 ```raven
@@ -14,7 +14,7 @@ When an error value already describes the failure correctly, `WithContext`
 adds the operation that was in progress and preserves the original error as
 its cause. Use `MapError` when a boundary needs to translate one error model
 into another. See [Error propagation and carrier
-types](async-and-error-propagation.md) for `Result`, `Option`, `?`, `?.`, and
+types](async-and-error-propagation.md) for `Result`, `Optional`, `?`, `?.`, and
 exception-capturing `try` expressions.
 
 ## Throwing an exception

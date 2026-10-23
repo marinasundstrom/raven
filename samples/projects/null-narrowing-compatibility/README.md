@@ -30,7 +30,7 @@ The compatibility option is disabled by default. It does not enable general
 nullable flow analysis across assignments, loops, early exits, equality
 operators, or arbitrary boolean expressions.
 
-This is not Raven's model for domain absence. Use `Option<T>` when a value may
+This is not Raven's model for domain absence. Use `Optional<T>` when a value may
 meaningfully be present or absent; reserve `T?` for null references in interop
 or storage contracts. Nullable boundaries still support Raven's regular tools,
 including patterns and conditional access; enabling this option only adds the

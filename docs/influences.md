@@ -42,7 +42,7 @@ Raven draws from several languages, but combines them into its own model and sty
 Raven is not a clone of any single language. Its current style intentionally combines:
 
 - C#/.NET tooling and runtime pragmatism,
-- F#/Rust-like explicit flow modeling (`Result`/`Option`),
+- F#/Rust-like explicit flow modeling (`Result`/`Optional`),
 - Kotlin/Swift-like syntax ergonomics and mutability clarity.
 
 That combination results in Raven's own identity: expression-first code, public-by-default members, explicit lexical `let`/`var`, and carrier-based control flow.

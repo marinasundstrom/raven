@@ -20,8 +20,8 @@ These examples target Raven 0.1.13; see [release compatibility](status.md).
 | Objects and data | Classes, interfaces, structs, records, generics, and mutable objects | Ordinary classes require `open` or `abstract` to permit inheritance |
 | Locals | Type inference and reassignment | `let` prevents reassignment; `var` permits it |
 | Decisions | Conditions and structural patterns | Blocks and `if` expressions can produce values; the final expression can supply the function result |
-| Absence and failure | Nullable types and exception handling | `Option<T>`, `Result<T, E>`, and postfix `?` make absence and expected failure explicit |
-| Framework calls | The same .NET libraries and CLR methods | Selected APIs have Raven projections, such as `TryParse` returning `Option` |
+| Absence and failure | Nullable types and exception handling | `Optional<T>`, `Result<T, E>`, and postfix `?` make absence and expected failure explicit |
+| Framework calls | The same .NET libraries and CLR methods | Selected APIs have Raven projections, such as `TryParse` returning `Optional` |
 | Patterns | Constants, comparisons, destructuring, and guards | `let` introduces a capture; `== existingValue` compares with an existing variable |
 | Async and resources | `Task`, `await`, and disposal | `use` scopes disposal; `try expression` captures exceptions as a result |
 
@@ -112,9 +112,9 @@ record struct Year private (Value: int) {
 See [data modeling](lang/features/data-modeling.md) for the choice between
 records, ordinary classes, and unions.
 
-## Absence becomes `Option`
+## Absence becomes `Optional`
 
-Use `Option<T>` when absence is part of the domain contract. Nullable types
+Use `Optional<T>` when absence is part of the domain contract. Nullable types
 remain available for APIs that use null. `None` and `Some(null)` describe
 different states when the payload type itself permits null.
 
@@ -132,7 +132,7 @@ WriteLine(message)
 ```
 
 This call demonstrates a Raven-specific framework projection: the selected
-`TryParse` overload returns `Option<int>` without an `out` variable. Projections
+`TryParse` overload returns `Optional<int>` without an `out` variable. Projections
 use explicit mappings backed by Raven.Core; they do not rewrite every method
 whose name starts with `Try`. Set `RavenFrameworkProjections` to `None` in the
 project file to use the ordinary CLR signatures instead.
@@ -236,7 +236,7 @@ subclassing altogether.
 
 Start with the shape the application needs: a function for an operation, a record
 for structural data, a union for alternatives, or a class for identity and state.
-Use `Option` and `Result` when absence and failure belong in the public contract.
+Use `Optional` and `Result` when absence and failure belong in the public contract.
 These choices can coexist with ASP.NET Core, LINQ, NuGet libraries, and existing
 C# assemblies.
 

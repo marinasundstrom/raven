@@ -23,11 +23,11 @@ made portable by selecting this contract. A target importer must reject unsuppor
 exception handling and validate the admitted metadata/operations.
 
 With no descriptor, existing .NET interface discovery, union conventions and exception
-behavior are unchanged. Option copies and incremental semantic reuse account for the
+behavior are unchanged. Optional copies and incremental semantic reuse account for the
 selection. There is no new language syntax. This is an experimental target hook, not
 an automatic retargeting of arbitrary .NET programs.
 
-The neoCLR bridge demonstrates `Result<int, OverflowError>`, `Option<int>` and
+The neoCLR bridge demonstrates `Result<int, OverflowError>`, `Optional<int>` and
 `Result<Void, OverflowError>` success and early residual return. Discarding a selected
 Void-output propagation does not leave storage on the evaluation stack. The installed `0.1.12-neoclr.3` tools predate this feature; use a
 source build of the experimental branch. Void as a type denotes a unit value; ordinary void-returning calls retain the

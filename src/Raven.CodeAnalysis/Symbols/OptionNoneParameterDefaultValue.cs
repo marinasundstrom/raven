@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis.Symbols;
 
 /// <summary>
-/// Raven metadata representation for an <c>Option&lt;T&gt;</c> parameter whose
+/// Raven metadata representation for an <c>Optional&lt;T&gt;</c> parameter whose
 /// declaration-time default is <c>.None</c>.
 /// </summary>
 internal sealed class OptionNoneParameterDefaultValue

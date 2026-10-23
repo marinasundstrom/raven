@@ -274,11 +274,11 @@ public class ParserRecoveryTests
     {
         var source = """
             WriteLine(1)
-            union Option<T> {
+            union Optional<T> {
                 case Some(value: T)
                 case None
             }
-            func tapIfPositive(opt: Option<int>) -> Option<int> {
+            func tapIfPositive(opt: Optional<int>) -> Optional<int> {
                 return opt
             }
             """;
@@ -300,11 +300,11 @@ public class ParserRecoveryTests
         var source = """
             namespace N;
             WriteLine(1)
-            union Option<T> {
+            union Optional<T> {
                 case Some(value: T)
                 case None
             }
-            func tapIfPositive(opt: Option<int>) -> Option<int> {
+            func tapIfPositive(opt: Optional<int>) -> Optional<int> {
                 return opt
             }
             """;
@@ -485,7 +485,7 @@ public class ParserRecoveryTests
     public void ExtensionMemberRecovery_MissingBlockClose_DoesNotHangOnFollowingForKeyword()
     {
         var source = """
-            extension OptionExtensions<T> for Option<T> {
+            extension OptionExtensions<T> for Optional<T> {
                 public func UnwrapOr(defaultValue: T) -> T {
                     if self is .Some(let value) {
                         return value
@@ -493,7 +493,7 @@ public class ParserRecoveryTests
                 }
             }
 
-            extension OptionExtensionsNested<T> for Option<Option<T>> {
+            extension OptionalExtensionsNested<T> for Optional<Optional<T>> {
             }
             """;
 

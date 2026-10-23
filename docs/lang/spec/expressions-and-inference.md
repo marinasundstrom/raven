@@ -32,7 +32,7 @@ func Save() -> Result<(), Error> {
 
 The target-typed member form `.Ok` is also valid when the target type is known.
 
-This rule applies uniformly to **all** discriminated unions, not only `Result` or `Option`. The case must declare exactly one constructor parameter whose type is `unit`; cases with additional parameters or non-`unit` payloads still require an explicit argument list.
+This rule applies uniformly to **all** discriminated unions, not only `Result` or `Optional`. The case must declare exactly one constructor parameter whose type is `unit`; cases with additional parameters or non-`unit` payloads still require an explicit argument list.
 
 This mirrors the pattern-matching rule where a bare case such as `Ok` matches
 `Ok(())` when the payload is `unit`, with `.Ok` remaining available as the

@@ -172,13 +172,13 @@ public union Failure: IFailure {
     public void UnionCaseConstructor_AssignsFields()
     {
         var code = """
-union Option {
+union Optional {
     case Some(value: int, label: string)
 }
 
 class Container {
-    public func Create() -> Option {
-        return Option.Some(value: 42, label: "ok")
+    public func Create() -> Optional {
+        return Optional.Some(value: 42, label: "ok")
     }
 }
 """;
@@ -207,7 +207,7 @@ class Container {
 
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
-        Assert.Equal("Option", caseValue!.GetType().Name);
+        Assert.Equal("Optional", caseValue!.GetType().Name);
         Assert.Contains("Some", caseValue.ToString(), StringComparison.Ordinal);
     }
 
@@ -215,7 +215,7 @@ class Container {
     public void Union_DoesNotEmitImplicitConversionOperators()
     {
         const string code = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -233,7 +233,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var assembly = loaded.Assembly;
-        var optionType = assembly.GetType("Option", throwOnError: true)!;
+        var optionType = assembly.GetType("Optional", throwOnError: true)!;
         var conversionMethods = optionType
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(method => method.Name == "op_Implicit")
@@ -283,13 +283,13 @@ public union Result<T> {
     public void GenericOptionCases_PreservePayloadAndEmptyState()
     {
         const string code = """
-import Option.*
+import Optional.*
 
 class Runner {
     public static func Run(flag: bool) -> int {
-        let input: Option<int> = if flag { .Some(42) } else { .None }
-        let output: Option<int> = match input {
-            Some(let value) => Option<int>.Some(value)
+        let input: Optional<int> = if flag { .Some(42) } else { .None }
+        let output: Optional<int> = match input {
+            Some(let value) => Optional<int>.Some(value)
             None => None
         }
         return match output {
@@ -299,7 +299,7 @@ class Runner {
     }
 }
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -403,7 +403,7 @@ union Hidden<T> {
     public void DiscriminatedUnionStruct_AnnotatedWithMarkerAttribute()
     {
         var code = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -426,7 +426,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
 
         Assert.Contains(
             unionType.GetCustomAttributesData(),
@@ -437,7 +437,7 @@ union Option {
     public void DiscriminatedUnion_ImplementsGeneratedIUnionWhenRuntimeDoesNotProvideIt()
     {
         var code = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -460,7 +460,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
         var generatedInterface = runtimeAssembly.GetType("System.Runtime.CompilerServices.IUnion", throwOnError: true)!;
 
         Assert.Contains(generatedInterface, unionType.GetInterfaces());
@@ -474,7 +474,7 @@ union Option {
             return;
 
         var code = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -499,7 +499,7 @@ union Option {
         var metadata = peReader.GetMetadataReader();
         var optionDefinition = metadata.TypeDefinitions
             .Select(metadata.GetTypeDefinition)
-            .Single(type => metadata.StringComparer.Equals(type.Name, "Option"));
+            .Single(type => metadata.StringComparer.Equals(type.Name, "Optional"));
 
         Assert.Contains(optionDefinition.GetInterfaceImplementations(), handle =>
         {
@@ -518,7 +518,7 @@ union Option {
     {
         var syntaxTree = SyntaxTree.ParseText(
             """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """);
@@ -543,7 +543,7 @@ union Option {
         var metadata = peReader.GetMetadataReader();
         var optionDefinition = metadata.TypeDefinitions
             .Select(metadata.GetTypeDefinition)
-            .Single(type => metadata.StringComparer.Equals(type.Name, "Option"));
+            .Single(type => metadata.StringComparer.Equals(type.Name, "Optional"));
         var unionReferenceHandle = optionDefinition.GetInterfaceImplementations()
             .Select(metadata.GetInterfaceImplementation)
             .Select(static implementation => implementation.Interface)
@@ -620,7 +620,7 @@ namespace System.Runtime.CompilerServices
     public void UnionWithoutStorageModifier_EmitsValueTypeCarrier()
     {
         var code = """
-union Option {
+union Optional {
     case Some(value: int)
 }
 """;
@@ -643,7 +643,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
 
         Assert.False(unionType.IsClass);
         Assert.True(unionType.IsValueType);
@@ -653,7 +653,7 @@ union Option {
     public void UnionStruct_EmitsValueTypeCarrier()
     {
         var code = """
-union struct Option {
+union struct Optional {
     case Some(value: int)
 }
 """;
@@ -676,7 +676,7 @@ union struct Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
 
         Assert.True(unionType.IsValueType);
     }
@@ -713,7 +713,7 @@ union Payment(int | string)
     public void GenericStructUnion_InstancePropertyCanPatternMatchSelf()
     {
         const string code = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 
@@ -722,7 +722,7 @@ union Option<T> {
 
 class Harness {
     public static func Check() -> bool {
-        let option: Option<int> = .Some(42)
+        let option: Optional<int> = .Some(42)
         return option.HasSome
     }
 }
@@ -752,7 +752,7 @@ class Harness {
     public void Union_EmitsConventionalValueProperty()
     {
         var code = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -776,7 +776,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
         var valueProperty = unionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
 
         Assert.NotNull(valueProperty);
@@ -1678,7 +1678,7 @@ union Payment(Cash | Card)
     public void DiscriminatedUnionCaseTypes_AreRecordedOnCarrierWithRavenMetadata()
     {
         var code = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -1702,7 +1702,7 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
         Assert.DoesNotContain(runtimeAssembly.GetTypes(), type =>
             type.GetCustomAttributesData().Any(a =>
                 a.AttributeType.FullName is
@@ -1721,22 +1721,22 @@ union Option {
         Assert.Equal("Some", caseAttributes[1].ConstructorArguments[1].Value);
         Assert.Equal(1, caseAttributes[1].ConstructorArguments[2].Value);
 
-        Assert.Equal("Option+None", caseAttributes[0].ConstructorArguments[0].Value);
-        Assert.Equal("Option+Some", caseAttributes[1].ConstructorArguments[0].Value);
+        Assert.Equal("Optional+None", caseAttributes[0].ConstructorArguments[0].Value);
+        Assert.Equal("Optional+Some", caseAttributes[1].ConstructorArguments[0].Value);
     }
 
     [Fact]
     public void DiscriminatedUnionConversion_SetsTagAndPayload()
     {
         var code = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
 
 class Container {
-    public func Create() -> Option {
-        return Option.Some(value: 42)
+    public func Create() -> Optional {
+        return Optional.Some(value: 42)
     }
 }
 """;
@@ -1766,7 +1766,7 @@ class Container {
         var unionValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(unionValue);
 
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var payloadField = unionType.GetField("<SomePayload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -1775,7 +1775,7 @@ class Container {
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
 
-        var caseType = runtimeAssembly.GetType("Option+Some", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Optional+Some", throwOnError: true)!;
         Assert.Equal(caseType, payload!.GetType());
 
         var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
@@ -1827,7 +1827,7 @@ class Container {
     public void DiscriminatedUnion_UsesCaseTypedConstructors()
     {
         var code = """
-union Option {
+union Optional {
     case None
     case Some(value: int)
 }
@@ -1851,8 +1851,8 @@ union Option {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = runtimeAssembly.GetType("Option+Some", throwOnError: true)!;
+        var unionType = runtimeAssembly.GetType("Optional", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Optional+Some", throwOnError: true)!;
 
         var unionCtor = unionType.GetConstructor(new[] { caseType })!;
 
@@ -1911,7 +1911,7 @@ union Result {
     public void DiscriminatedUnion_GenericUsesSequentialLayout()
     {
         var code = """
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
@@ -1935,7 +1935,7 @@ union Option<T> {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var unionDefinition = runtimeAssembly.GetType("Option`1", throwOnError: true)!;
+        var unionDefinition = runtimeAssembly.GetType("Optional`1", throwOnError: true)!;
         var unionType = unionDefinition.MakeGenericType(typeof(int));
 
         var layout = unionType.StructLayoutAttribute;
@@ -1949,7 +1949,7 @@ union Option<T> {
         var code = """
 import System.*
 
-union Option {
+union Optional {
     case Some(value: int)
     case None
 }
@@ -1957,7 +1957,7 @@ union Option {
 class Container {
     public static func Measure() -> long {
         let before = GC.GetAllocatedBytesForCurrentThread()
-        let opt: Option = .Some(123)
+        let opt: Optional = .Some(123)
         let after = GC.GetAllocatedBytesForCurrentThread()
         return after - before
     }
@@ -2004,7 +2004,7 @@ class Container {
     }
 
     public func GetError() -> Result {
-        return Result.Failureor(message: "boom")
+        return Result.Error(message: "boom")
     }
 }
 """;
@@ -2603,45 +2603,45 @@ class Container {
     public void TargetTypedParameterlessUnionCase_EmitsInNestedConstructorArgument()
     {
         var code = """
-import Option.*
+import Optional.*
 
-union Option<T> {
+union Optional<T> {
     case Some(value: T)
     case None
 }
 
-record User(Profile: Option<Profile>)
-record Profile(Settings: Option<Settings>)
-record Settings(Theme: Option<Theme>)
-record Theme(PrimaryColor: Option<string>)
+record User(Profile: Optional<Profile>)
+record Profile(Settings: Optional<Settings>)
+record Settings(Theme: Optional<Theme>)
+record Theme(PrimaryColor: Optional<string>)
 
 class Container {
     public static func DescribeMissing() -> string {
-        let theme: Option<Theme> = Some(Theme(None))
-        let settings: Option<Settings> = Some(Settings(theme))
-        let profile: Option<Profile> = Some(Profile(settings))
-        let value: Option<User> = Some(User(profile))
+        let theme: Optional<Theme> = Some(Theme(None))
+        let settings: Optional<Settings> = Some(Settings(theme))
+        let profile: Optional<Profile> = Some(Profile(settings))
+        let value: Optional<User> = Some(User(profile))
         return describe(value)
     }
 
     public static func DescribeTargetTypedMissing() -> string {
-        let theme: Option<Theme> = Some(Theme(.None))
-        let settings: Option<Settings> = Some(Settings(theme))
-        let profile: Option<Profile> = Some(Profile(settings))
-        let value: Option<User> = Some(User(profile))
+        let theme: Optional<Theme> = Some(Theme(.None))
+        let settings: Optional<Settings> = Some(Settings(theme))
+        let profile: Optional<Profile> = Some(Profile(settings))
+        let value: Optional<User> = Some(User(profile))
         return describe(value)
     }
 
     public static func DescribePresent() -> string {
-        let color: Option<string> = Some("blue")
-        let theme: Option<Theme> = Some(Theme(color))
-        let settings: Option<Settings> = Some(Settings(theme))
-        let profile: Option<Profile> = Some(Profile(settings))
-        let value: Option<User> = Some(User(profile))
+        let color: Optional<string> = Some("blue")
+        let theme: Optional<Theme> = Some(Theme(color))
+        let settings: Optional<Settings> = Some(Settings(theme))
+        let profile: Optional<Profile> = Some(Profile(settings))
+        let value: Optional<User> = Some(User(profile))
         return describe(value)
     }
 
-    static func describe(user: Option<User>) -> string {
+    static func describe(user: Optional<User>) -> string {
         return match user {
             Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(let color)))))))) => "Primary color: $color"
             _ => "Could not access primary color"
@@ -3042,7 +3042,7 @@ class Container {
         var empty = Array.Empty<int>();
         var value = create.Invoke(null, [empty])!;
 
-        Assert.Equal("Result.Failureor(\"oops\")", value.ToString());
+        Assert.Equal("Result.Error(\"oops\")", value.ToString());
     }
 
     [Fact]
@@ -3166,7 +3166,7 @@ union Result<T, E> {
 
 union Outcome<T, E> {
     case Success(value: T)
-    case Failure(data: E)
+    case Error(data: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {

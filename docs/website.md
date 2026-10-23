@@ -31,7 +31,7 @@ libraries: `System`, `System.Collections.Generic`, `System.Linq`,
 `Raven.CodeAnalysis`, `Raven.CodeAnalysis.Syntax` and `Raven.CodeAnalysis.Text`.
 RavenDoc uses semantic applicability, including generic receiver shapes and
 constraints, and only contributes members from the documented assembly. This
-keeps `Option<T>` and compiler API member lists connected to their extensions
+keeps `Optional<T>` and compiler API member lists connected to their extensions
 without importing unrelated framework extensions. Extensions of external .NET
 types remain browsable on their extension pages; the site does not publish a copy
 of the entire .NET API reference.

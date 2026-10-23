@@ -1597,7 +1597,7 @@ match foo.Test {
 record Foo(
     val Name: string,
     val Status: Status
-    val Item: Option<string>
+    val Item: Optional<string>
     val Test: int | bool
 )
 

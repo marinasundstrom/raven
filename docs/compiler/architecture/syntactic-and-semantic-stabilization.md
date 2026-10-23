@@ -84,7 +84,7 @@ Three semantic areas are explicit gates for porting compiler code:
 Nullability is primarily a type-system and .NET-boundary soundness gate, not
 the preferred domain model for compiler code. Raven code should normally
 eliminate nullable states with patterns and project meaningful absence or
-failure into `Option`, `Result`, or a domain union. Stabilization therefore
+failure into `Optional`, `Result`, or a domain union. Stabilization therefore
 prioritizes sound imported/emitted contracts, a single static semantic answer,
 and explicit unwrapping paths. It must not reintroduce contextual null-state
 caches in binders, public semantic APIs, or the language server.
@@ -155,7 +155,7 @@ idiomatic Raven constructs are welcome when they are obviously equivalent,
 well tested, and reduce risk, but broad cleanup or architectural invention
 should remain limited. Public compiler API contracts are a separate boundary:
 the [pre-bootstrap adoption plan](../api/result-shapes.md) may introduce
-`Option`, `Result`, and unions through the existing C# implementation before a
+`Optional`, `Result`, and unions through the existing C# implementation before a
 source port begins. Once a port starts, those already-established contracts are
 part of the oracle rather than port-time cleanup. Broader internal reshaping
 still belongs in a distinct idiomatic cleanup phase after the Raven compiler
@@ -247,7 +247,7 @@ to attribute.
 ### Idiomatic absence in a Raven-authored compiler
 
 A Raven port should not mechanically preserve C#'s internal use of `null`.
-Expected absence should normally use `Option`, recoverable failure should use
+Expected absence should normally use `Optional`, recoverable failure should use
 `Result`, and closed compiler states should use unions. This makes the compiler
 exercise Raven's own flow, pattern, and exhaustiveness model and avoids carrying
 ambiguous nullable state into Raven-native component boundaries.
@@ -260,7 +260,7 @@ idiomatic Raven carrier for internal use; they should not falsify the external
 contract merely to eliminate `null` from its signature.
 
 This does not require Raven-designed Compiler APIs to expose nullable C# shapes.
-`Option`, `Result`, and custom Raven unions are ordinary .NET ABI types and can
+`Optional`, `Result`, and custom Raven unions are ordinary .NET ABI types and can
 be consumed from C#. Under the pre-bootstrap adoption plan, APIs owned by Raven
 can begin using those carriers through the existing C# implementation when they
 express the outcome more precisely; platform projections should retain
@@ -1004,7 +1004,7 @@ helpers compensate by checking `IsUnion` and `IsUnionCase`, but a compiler API
 consumer can reasonably interpret the interfaces themselves as category
 markers. A focused subtype-splitting experiment could not yet isolate that
 change because the current Raven Core source fixture already fails around
-generic `Option`/`Result` case projection. Restore and lock that integration
+generic `Optional`/`Result` case projection. Restore and lock that integration
 baseline before changing the wrapper categories. The eventual fix must then
 route all named-type construction and nested reanchoring through a
 category-preserving factory, cover ordinary types and generic unions from both

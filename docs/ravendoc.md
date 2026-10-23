@@ -735,7 +735,7 @@ extension container and declaration signature preserve the full generic contract
 Generic definition pages also list extensions for specialized or constrained
 constructions in the same member lists and grouping controls. Each specialized
 entry identifies its receiver and generic constraints. For example, `Flatten` for
-`Option<Option<T>>` is discoverable from `Option<T>` without claiming that it is
+`Optional<Optional<T>>` is discoverable from `Optional<T>` without claiming that it is
 callable on every option. The entries retain links to the defining extension.
 
 Set `"apiContent": "api-content"` in the site configuration to merge a separate

@@ -130,7 +130,7 @@ class Program {
 
         var output = CompileAndRun(code);
         Assert.Equal("Result.Ok(42)", output[0]);
-        Assert.Contains("Error", output[1], StringComparison.Ordinal);
+        Assert.Contains("Failure", output[1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -232,11 +232,6 @@ import System.*
 import System.Text.Json.*
 import System.Threading.Tasks.*
 
-union Result<T, E> {
-    case Ok(value: T)
-    case Error(error: E)
-}
-
 class Program {
     static async func Run() -> Task<int> {
         await Task.Delay(1)
@@ -247,7 +242,7 @@ class Program {
             return value
         }
 
-        if result is .Error(Exception ex) {
+        if result is .Failure(Exception ex) {
             Console.WriteLine(ex.Message)
             return -1
         }
@@ -540,7 +535,7 @@ union Err {
 
 class User {
     public var Name: string { get; set; } = ""
-    public var Item: Option<Item> { get; set; } = .None
+    public var Item: Optional<Item> { get; set; } = .None
 }
 
 record class Item(Name: string)
@@ -575,11 +570,11 @@ class Program {
     {
         const string code = """
 import System.*
-import System.Option.*
+import System.Optional.*
 import System.Threading.Tasks.*
 
 class Program {
-    static async func Fetch(flag: bool) -> Task<Option<int>> {
+    static async func Fetch(flag: bool) -> Task<Optional<int>> {
         await Task.Delay(1)
 
         if flag {
@@ -647,11 +642,11 @@ class Program {
     {
         const string code = """
 import System.*
-import System.Option.*
+import System.Optional.*
 import System.Threading.Tasks.*
 
 class Program {
-    static async func Read(input: Option<int>) -> Task<int> {
+    static async func Read(input: Optional<int>) -> Task<int> {
         let Some(value) = input else { return -1 }
         await Task.Yield()
         return value
@@ -673,11 +668,11 @@ class Program {
     {
         const string code = """
 import System.*
-import System.Option.*
+import System.Optional.*
 
-let input: Option<int> = Some(42)
+let input: Optional<int> = Some(42)
 let result = match input {
-    Some(let value) => Option<int>.Some(value * 2)
+    Some(let value) => Optional<int>.Some(value * 2)
     None => None
 }
 
@@ -685,7 +680,7 @@ Console.WriteLine(result)
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Option.Some(84)" }, output);
+        Assert.Equal(new[] { "Optional.Some(84)" }, output);
     }
 
     [Fact]

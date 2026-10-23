@@ -5,8 +5,8 @@ namespace Raven.CodeAnalysis.Tests;
 public class CarrierMemberInvocationTests
 {
     [Theory]
-    [InlineData("Option<string>", "Missing")]
-    [InlineData("Option<string>", "Length")]
+    [InlineData("Optional<string>", "Missing")]
+    [InlineData("Optional<string>", "Length")]
     [InlineData("Result<string, string>", "Missing")]
     [InlineData("Result<string, string>", "Length")]
     public void InvalidPayloadMemberCall_ReportsDiagnostic(string carrier, string member)

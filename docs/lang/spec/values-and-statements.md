@@ -66,13 +66,13 @@ func save() {
 
 * `unit` or `()` means a computation has no meaningful result.
 * `T?` means a value of type `T` may be `null`.
-* `Option<T>` represents explicit domain-level presence or absence.
+* `Optional<T>` represents explicit domain-level presence or absence.
 * `Result<T, E>` represents success or an expected error.
 
 See the [Type system](type-system.md#nullable-types) for nullable types and
 [Error propagation and carrier
 types](async-and-error-propagation.md#result-and-option-carrier-operators) for
-`Option` and `Result`.
+`Optional` and `Result`.
 
 ## Declarations and file-scope code
 
