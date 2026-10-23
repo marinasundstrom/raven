@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-23 — neoCLR execution metadata:** document the neoCLR backend’s compact native-GC point schema and separation from full diagnostic plans, guided by CLR metadata design. Raven Runtime Contract configuration and CLI emission remain unchanged; matching bundle 1128b98cf remains supported. See docs/compiler/neoclr-cli-bridge.md and neoCLR’s allocation-metadata experiment for validation and limits.
+
 - **2026-10-23:** Document neoCLR’s opt-in compiled worker safepoints and shared-heap GC integration, native helper/type-initializer restrictions and optimized/UBSan evidence. Raven Runtime Contract configuration, language semantics and CLI metadata remain unchanged; shared async HTTP is still unqualified.
 
 - **2026-10-23:** Preserve source mappings when lowering arrow-bodied members, including constant-result macro expansions, so debugger sequence points retain the authored fragment or invocation.

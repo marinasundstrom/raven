@@ -16397,3 +16397,30 @@ optimized/UBSan native tests reach four active participants with live cross-work
 roots through over 24,000 collections. Evidence and reproduction are in neoCLR's
 `docs/experiments/native-worker-pool/README.md` and
 `compiled-parallel-validation.json`. Default code generation is unchanged.
+
+
+## Native GC execution-point metadata separation (2026-10-23)
+
+Author direction: use .NET's metadata architecture to guide HTTP runtime efficiency.
+The neoCLR native backend now separates its native-GC point payload from the rich
+inspection plan: `neoclr-gc-point-v1` carries the ordered `requiredSpillLanes`, while
+published slot/lane arrays remain the executable root contract. Diagnostic probes
+and inspection retain complete plans. Native-GC frame consumers must recognize the
+compact schema rather than expect full type/layout JSON there.
+
+Runtime Contract configuration, Raven CLI metadata/emission and managed semantics
+are unchanged. Owner: neoCLR runtime/codegen/src/gc_probe.rs and native root adapter;
+Raven codex/neoclr bundle 1128b98cf remains the matching input. This is a temporary
+JSON representation, not native CLR GCInfo or the eventual binary metadata ABI.
+The native replacement needs versioned maps, image lifetime/unload ownership and
+separate diagnostic data. Do not cache validation of arbitrary mutable plan addresses.
+The change leaves spill values/order, storage maps, safepoints, fault propagation,
+worker exclusion and GC validation intact. Full-plan detail is intentionally absent
+only from the native-GC point payload. Validation and measured CPU/object-size
+results are recorded in neoCLR benchmarks/http-server/primitive-comparison/allocation-metadata.
+
+Validation: six focused codegen/root-probe tests, forced-GC sanitized HTTP, and
+optimized/UBSan compiled shared-worker graph/fault tests pass. Paired one/four-owner
+HTTP trials improve throughput about 10% and CPU per response about 9%; application
+object size falls 17.3%. These are local observations, not cross-platform capacity
+guarantees. Allocation-loop experiments were rejected and are not integrated.
