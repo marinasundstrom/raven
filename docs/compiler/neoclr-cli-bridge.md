@@ -16424,3 +16424,23 @@ optimized/UBSan compiled shared-worker graph/fault tests pass. Paired one/four-o
 HTTP trials improve throughput about 10% and CPU per response about 9%; application
 object size falls 17.3%. These are local observations, not cross-platform capacity
 guarantees. Allocation-loop experiments were rejected and are not integrated.
+
+
+### Native GC storage/transient metadata follow-up (2026-10-23)
+
+neoCLR main extends compact execution metadata to function storage and transient
+payloads: `neoclr-gc-storage-v1` and `neoclr-gc-transient-v1` describe `slotCount`.
+Published slot addresses, widths, flags, phases and spill maps remain authoritative
+and unchanged. Diagnostic probe/inspection mode retains full entries/layouts.
+Native-GC frame readers must use the compact schemas or select diagnostic mode
+for full layout detail. No Runtime Contract configuration, Raven CLI semantic
+emission or native callback ABI change is introduced. Raven codex/neoclr bundle
+1128b98cf remains the tested compiler input; neoCLR runtime/codegen/src/gc_probe.rs
+owns this lowering. This is still temporary JSON, not the eventual versioned
+binary map/image lifetime contract. See neoCLR's slot-metadata experiment for
+focused tests, forced-GC HTTP, shared-worker stress and paired throughput evidence.
+
+Validation passes: seven focused metadata/probe tests, forced-GC sanitized HTTP,
+and optimized/UBSan compiled shared-worker graph/fault stress. Paired one/four-owner
+HTTP throughput improves about 4.4%/7.5% with lower CPU per response; four-owner
+p99 is higher in these trials. The application object is a further 17.7% smaller.
