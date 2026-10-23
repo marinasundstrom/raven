@@ -11,6 +11,9 @@ internal sealed partial class Lowerer
 {
     public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
     {
+        if (node.IsConditionallyOmitted)
+            return new BoundUnitExpression(GetCompilation().GetSpecialType(SpecialType.System_Unit));
+
         var receiver = (BoundExpression?)VisitExpression(node.Receiver);
         var arguments = node.Arguments.Select(a => (BoundExpression)VisitExpression(a)!).ToArray();
         var staticQualifiedExtensionCall =

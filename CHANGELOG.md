@@ -6,6 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-22**.
 
 ### 2026-10-23
 
+- Recognize `System.Diagnostics.ConditionalAttribute`: caller symbols control call omission before argument/receiver evaluation, including precompiled methods; retain semantic binding and method metadata. Validate declarations and delegate conversions, and conditionally emit attribute applications. See `docs/compiler/conditional-methods.md` for the shared compiler contract and validation scope.
+- Preserve expression-bodied property getter identity when declarations are rebound, preventing duplicate accessor declarations on unions.
+
 - Preserve inherited virtual slots for abstract overrides, including authored `ToString` on closed record hierarchies. Calls through Object, the abstract base and interpolation now dispatch to the derived implementation. Supply the synthesized zero-parameter Deconstruct body for empty records, including closed bases and parameterless cases, so body consumers do not fall back to binding a type declaration as executable code. Add executed coverage for nested closed record cases, exhaustive deconstruction patterns and Object display; 51 focused hierarchy/record tests pass.
 
 ### Breaking changes

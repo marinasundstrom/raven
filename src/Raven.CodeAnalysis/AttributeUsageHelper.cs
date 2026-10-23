@@ -146,6 +146,12 @@ internal static class AttributeUsageHelper
             return false;
         }
 
+        if (ConditionalAttributeFacts.GetDeclarationError(owner, data) is { } error)
+        {
+            binder?.Diagnostics.ReportInvalidConditionalUsage(error, attributeSyntax.GetLocation());
+            return false;
+        }
+
         return true;
     }
 

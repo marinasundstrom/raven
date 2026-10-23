@@ -1110,6 +1110,7 @@ public partial class SemanticModel
                         CacheBinderForNode(method, methodBinder);
                         if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
                             RegisterMethodSymbol(method, methodSymbol);
+                        BindDeclarationAttributes(method, methodBinder);
                         TraverseMethodLikeBody(method, methodBinder);
                     }
 

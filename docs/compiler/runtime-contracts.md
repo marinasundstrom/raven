@@ -2480,3 +2480,9 @@ Focused regression coverage passes a default pointer through a void-pointer argu
 and verifies the returned address is zero under .NET, for explicit int/void pointers
 and target-typed defaults. Native target validation is recorded separately when the
 shared repair is carried; this does not add native allocation or pinning support.
+
+## Conditional diagnostics
+
+[ConditionalAttribute support](conditional-methods.md) is shared compiler behavior,
+not a target capability or Runtime Contract mapping. Caller parse symbols decide
+omission; each target supplies its System.Diagnostics.ConditionalAttribute type.

@@ -2466,6 +2466,9 @@ partial class BlockBinder
     // ============================
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
+        => ApplyConditionalCallPolicy(BindConditionalAccessExpressionCore(syntax), syntax);
+
+    private BoundExpression BindConditionalAccessExpressionCore(ConditionalAccessExpressionSyntax syntax)
     {
         var receiver = BindExpressionAllowingEvent(syntax.Expression);
         if (receiver is BoundErrorExpression) return receiver;

@@ -29,6 +29,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     public static BoundBlockStatement LowerBlock(ISymbol containingSymbol, BoundBlockStatement block)
     {
+        block = ConditionalCallRewriter.Rewrite(block);
         block = RewriteIteratorsIfNeeded(containingSymbol, block);
 
         // Promote implicit returns (last expression or if/else in a value-returning method)
@@ -62,6 +63,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     public static BoundStatement LowerStatement(ISymbol containingSymbol, BoundStatement statement)
     {
+        statement = ConditionalCallRewriter.Rewrite(statement);
         if (statement is BoundBlockStatement block)
             statement = RewriteIteratorsIfNeeded(containingSymbol, block);
 
@@ -72,6 +74,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     public static BoundExpression LowerExpression(ISymbol containingSymbol, BoundExpression expression)
     {
+        expression = ConditionalCallRewriter.Rewrite(expression);
         var lowerer = CreateLowerer(containingSymbol);
         var lowered = (BoundExpression)lowerer.VisitExpression(expression)!;
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);

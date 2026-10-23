@@ -357,6 +357,9 @@ internal class CodeGenerator
         if (attribute is null)
             return null;
 
+        if (ConditionalAttributeFacts.IsAttributeOmitted(attribute))
+            return null;
+
         var constructor = ResolveAttributeConstructor(attribute);
         if (constructor is null)
             return null;

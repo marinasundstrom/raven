@@ -4320,6 +4320,9 @@ partial class BlockBinder : Binder
             }
         }
 
+        if (selectedMethod is not null && ConditionalAttributeFacts.HasConditions(selectedMethod) && syntax is not null)
+            _diagnostics.ReportInvalidConditionalUsage("Conditional methods cannot be converted to delegates", syntax.GetLocation());
+
         var reason = methodGroup.Reason != BoundExpressionReason.None ? methodGroup.Reason : computedReason;
         var reportReason = methodGroup.Reason == BoundExpressionReason.None ? computedReason : BoundExpressionReason.None;
 
@@ -9449,6 +9452,9 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindPipeExpression(BoundExpression left, InfixOperatorExpressionSyntax syntax)
+        => ApplyConditionalCallPolicy(BindPipeExpressionCore(left, syntax), syntax);
+
+    private BoundExpression BindPipeExpressionCore(BoundExpression left, InfixOperatorExpressionSyntax syntax)
     {
         if (left is BoundErrorExpression)
             return left;
@@ -10518,6 +10524,24 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
+    {
+        return ApplyConditionalCallPolicy(BindInvocationExpressionCore(syntax), syntax);
+    }
+
+    private BoundExpression ApplyConditionalCallPolicy(BoundExpression expression, SyntaxNode syntax)
+    {
+        if (expression is BoundConditionalAccessExpression access)
+            return access.Update(access.Receiver, ApplyConditionalCallPolicy(access.WhenNotNull, syntax), access.Type!);
+        if (expression is BoundInvocationExpression call &&
+            ConditionalAttributeFacts.IsOmitted(call.Method, syntax.SyntaxTree.Options.PreprocessorSymbolNames))
+        {
+            return new BoundInvocationExpression(call.Method, call.Arguments, call.Receiver,
+                call.ExtensionReceiver, call.RequiresReceiverAddress, isConditionallyOmitted: true);
+        }
+        return expression;
+    }
+
+    private BoundExpression BindInvocationExpressionCore(InvocationExpressionSyntax syntax)
     {
         BoundExpression? receiver;
         string methodName;

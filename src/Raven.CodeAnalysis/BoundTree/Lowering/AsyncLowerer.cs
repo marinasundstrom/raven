@@ -248,6 +248,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
+        body = ConditionalCallRewriter.Rewrite(body);
         body = AsyncForLowerer.Rewrite(symbol, body);
         var compilation = GetCompilation(symbol);
         if (!compilation.IsRuntimeAsyncEnabled)

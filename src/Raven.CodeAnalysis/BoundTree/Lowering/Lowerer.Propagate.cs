@@ -94,7 +94,7 @@ internal sealed partial class Lowerer
 
         // Spill value arguments in source order before a residual can return.
         // Address-taking receivers and ref arguments need location-preserving lowering.
-        if (expression is BoundInvocationExpression call && !call.RequiresReceiverAddress &&
+        if (expression is BoundInvocationExpression call && !call.IsConditionallyOmitted && !call.RequiresReceiverAddress &&
             call.ExtensionReceiver is null && (call.Receiver is null || call.Receiver.Type.IsReferenceType) &&
             call.Method.Parameters.All(parameter => parameter.RefKind == RefKind.None))
         {
@@ -114,7 +114,7 @@ internal sealed partial class Lowerer
                 }
                 var spilledReceiver = call.Receiver is null ? null : Spill(call.Receiver, receiver);
                 var spilledArguments = arguments.Select((argument, index) => Spill(argument, lowered[index])).ToArray();
-                return new PropagateLowering(prefix, call.Update(call.Method, spilledArguments, spilledReceiver, null, false));
+                return new PropagateLowering(prefix, call.Update(call.Method, spilledArguments, spilledReceiver, null, false, call.IsConditionallyOmitted));
             }
         }
 
