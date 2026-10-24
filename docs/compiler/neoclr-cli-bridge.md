@@ -17013,3 +17013,19 @@ advance past the callable gate but still reject unaudited native replacement bod
 The admission error now names the selected function; full HTTP execution/performance
 and default enablement remain unqualified. Evidence: neoCLR concurrent-store
 `callable-arrays-validation.json.gz` and README.
+
+
+neoCLR internal live-GC admission now includes explicit memory-view bounds faults
+and exact read-only/borrowed conversions. Existing binding checks enforce capability
+and lifetime restrictions; generated stores publish owner/bounds and fault bodies
+restore rooted frames. Six hundred forced/paced JIT and optimized/UBSan AOT cycles
+cover aliasing, bounds, fault recovery, fresh-owner publication and retention; 45
+focused compiler/binding checks pass. Runtime Contract configuration, temporary CLI
+representation, native ownership and ordinary emission remain unchanged. neoCLR owns
+backend qualification and the eventual native metadata/codegen replacement. Full
+HTTP execution/performance remains open; all-body admission diagnostics now expose
+remaining selected dependencies together rather than one failed body per build.
+Evidence: neoCLR concurrent-store `view-admission-validation.json.gz` and README.
+The resulting inventory is 20 interface dispatchers for plaintext; JSON has
+84 dispatchers, ObjectTypeHandle and six boxing/query helpers. Qualify those shared
+generated paths next; provider import coverage is not complete-body qualification.
