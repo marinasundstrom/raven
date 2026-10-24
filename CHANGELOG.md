@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-25:** Document neoCLR live-GC stack provenance across single incoming instruction edges, preserving bounds, ambiguous/byref guards and root/fault semantics. Forty-two compiler checks, 600 JIT/AOT entry cycles and 13,600 matched HTTP responses pass; observed live throughput/CPU improve 7–8% with equal allocations. Runtime Contract, CLI encoding and Raven emission are unchanged; retained bundle hashes and diagnostic limitations are documented.
+
 - **2026-10-25:** Document neoCLR live-GC primitive boxing/type-query qualification and guarded box publication into aliased results: 720 JIT/AOT cycles and 38 focused compiler checks pass. Runtime Contract, CLI representation, Raven emission and native ownership are unchanged; default/performance qualification remains open. Full plaintext/JSON JIT/AOT execution passes 1,024 checked responses with completed concurrent epochs and clean shutdown. The private JIT route rejects incompatible hosts; the harness samples counters on the invoking owner rather than from a destructor. This completes the bounded integration slice, with optimization/comparison and broader default acceptance next.
 
 - **2026-10-24:** Document neoCLR reference interface-dispatch live-GC qualification: 840 JIT/AOT cycles and 37 compiler checks pass; full plaintext live AOT execution then passes 512 checked requests with clean shutdown and completed concurrent collections. JSON helpers, full-server JIT and performance qualification remain open. Runtime Contract, CLI representation, ownership and Raven emission are unchanged.

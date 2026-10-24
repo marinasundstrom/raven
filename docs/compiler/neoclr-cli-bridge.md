@@ -17074,3 +17074,23 @@ This qualifies the single owned-heap macOS ARM64 integration slice, not worker/s
 heaps or default/performance acceptance. Archives and corrected diagnostic evidence
 are linked from the neoCLR concurrent-store README. Optimization/comparison may
 resume; the production default remains synchronous.
+
+
+### Stack provenance across native instruction blocks (2026-10-25)
+
+The private neoCLR live-GC backend now preserves compiler-owned stack addresses
+through block parameters with one incoming edge, retaining declared-slot bounds.
+Multiple-edge joins (including two arms from one predecessor), external/loaded
+pointers, cycles and offset overflow remain guarded. Root publication, changing
+root-value tracing and framed fault cleanup are unchanged. This is a general native
+SSA proof, not special handling of Result, Optional, records or other Raven types.
+Forty-two compiler tests and 600 forced/paced JIT/AOT native-consumer cycles pass;
+O2/UBSan refer to C host builds, with Cranelift settings unchanged. Matched retained
+plaintext/JSON AOT controls pass 13,600 responses with equal allocations and observed
+7–8% higher live throughput/lower CPU; standalone count reductions have much smaller
+CPU effects. See neoCLR `benchmarks/execution/concurrent-workloads/transfer-results.md`
+for attribution, controls and limitations. Runtime Contract configuration, temporary
+CLI representation and Raven emission remain unchanged; the retained URI-efficiency
+bundle was reused with recorded hashes, not rebuilt. neoCLR owns backend qualification
+and eventual native metadata/codegen replacement. Ordinary sync remains faster and
+the production default; shared-worker/default and pause/scaling acceptance stay open.
