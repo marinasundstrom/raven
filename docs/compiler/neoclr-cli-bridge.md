@@ -16720,3 +16720,15 @@ Raven Runtime Contract configuration, language semantics and temporary CLI metad
 are unchanged. neoCLR owns the provider variant and remaining native/entry admission;
 context-scoped statics retain their existing semantics. See neoCLR
 `benchmarks/execution/concurrent-store/statics-validation.json.gz` and its README.
+
+
+Generated initializer guards now participate in internal live-GC store lowering and
+whole-body call-closure checking. They use the caller's published roots and context-rooted
+static owner; ordinary initializer bodies retain normal frames. Reentry and cached-status
+semantics are unchanged. Live forced/paced JIT and optimized/UBSan AOT pass 600 cycles,
+and the existing six-case interpreter/default-JIT/AOT initializer integration test passes.
+See neoCLR `benchmarks/execution/concurrent-store/initializers-validation.json.gz` and
+its README for the recorded pre-main test-runner launch issue and successful retry.
+Raven Runtime Contract settings, semantics and temporary CLI metadata remain unchanged.
+neoCLR owns guard/provider qualification; shared-worker initialization, broader native
+services and full HTTP entry remain open. No default switch or throughput gain is claimed.
