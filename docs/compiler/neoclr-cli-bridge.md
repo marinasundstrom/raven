@@ -16696,3 +16696,15 @@ layout/provenance replacement remains open, along with broader services/full HTT
 Evidence: neoCLR `benchmarks/execution/concurrent-store/arrays-validation.json.gz`
 records 600 actual managed JIT/AOT cycles; the README separates native wide-element
 qualification from managed reference-array coverage and records stack/copy costs.
+
+
+The internal live path now admits rooted strings-array allocation and grouped
+String/Char pointer-array stores. Ordinary slots publish a pointer; reserved slots
+publish pointer plus initialization marker under one gate. The helper cannot collect;
+overflow cancels before writing. String-array JIT/AOT tests cover 600 cycles including
+bounds faults and bounded-log cancellation; Char-specific behavior is not independently
+qualified. Callable array stores still reject. Matching experimental hosts need the
+new private helper. Raven Runtime Contract configuration, semantics and temporary CLI
+metadata remain unchanged. neoCLR owns native-provider qualification; other text/byte,
+static, async/socket and full-entry integration remain open. See neoCLR
+`benchmarks/execution/concurrent-store/README.md` and `text-arrays-validation.json.gz`.
