@@ -16985,3 +16985,16 @@ unchanged. neoCLR owns backend/native qualification and eventual native metadata
 replacement. The retained HTTP import audit has no missing names, but host-I/O entry,
 full selected execution, end-to-end HTTPS and performance remain unqualified. Evidence:
 neoCLR `benchmarks/execution/concurrent-store/tls-wrappers-validation.json.gz` and README.
+
+
+neoCLR internal live compilation now permits host-I/O entry only through the admitted
+modern async pump and its callback/queue prerequisites. Six hundred real-scheduler
+JIT/AOT cycles include missing-socket-scope rejection/recovery and 450 loopback accepts;
+35 focused compiler checks pass. Native scheduler/ownership, Runtime Contract and
+CLI/native semantics remain unchanged. A private AOT-only driver qualification route
+builds the full retained HTTP cohort: ordinary plaintext (1,131 functions) and JSON
+(1,559) succeed, while both live builds explicitly reject callable-array stores.
+No public option/default or JIT route is enabled. neoCLR owns further generated-code
+qualification/native metadata replacement. Evidence: neoCLR concurrent-store
+`network-pump-host-io-validation.json.gz` and `full-http-selection-initial.json.gz`.
+Full HTTP execution/performance remains open; callable-array safety is the next gate.
