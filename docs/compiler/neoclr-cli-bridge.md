@@ -16792,3 +16792,16 @@ callbacks, broader native services and full HTTP qualification remain open. The
 native typed-result/backend replacement remains as described above; this fallback
 adds no permanent language restriction. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/scoped-slice-validation.json.gz` and README.
+
+
+The internal live compiler now includes the ordinary generated host-callback dispatcher
+in store lowering and call-closure validation before definition. The noncollecting
+callback-reader ABI is explicit; a strong host handle retains the descriptor/receiver
+until the callee publishes its managed frame. Seven hundred twenty forced/paced JIT
+and optimized/UBSan AOT cycles and 20 focused compiler tests cover unit/no-result
+callbacks, pressure allocation/publication, faults, rejection and lifetime. Ordinary
+emission, Runtime Contract configuration, semantic model and temporary CLI callable
+encoding are unchanged. neoCLR owns backend admission; entry pumps, queue draining,
+native async replacement wrappers and full HTTP entry remain unqualified. Existing
+native callable metadata/backend replacement plans are unchanged. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/callbacks-validation.json.gz` and README.
