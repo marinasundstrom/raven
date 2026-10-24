@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR live-GC qualification of canonical/case-insensitive comparison and ordinal-prefix providers, with Unicode, Boolean/scalar publication and fault tests across JIT/AOT. Existing Runtime Contract, UTF-8 and CLI semantics remain unchanged; HTTP entry/performance qualification is still open.
+
 - **2026-10-24:** Document neoCLR's live-GC text replacement integration: common frame/store/closure finalization, guarded native result publication and 1,200 JIT/AOT qualification cycles. Record remaining HTTP/native-service scope; Runtime Contract, language and temporary CLI metadata semantics are unchanged.
 
 - **2026-10-24:** Document neoCLR's live-GC initializer guard lowering/closure integration, reentry and cached-failure qualification, plus default interpreter/JIT/AOT regressions. Runtime Contract and CLI semantics remain unchanged; full native-service/HTTP admission is still open.

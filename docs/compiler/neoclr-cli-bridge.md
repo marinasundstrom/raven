@@ -16742,3 +16742,14 @@ Runtime Contract configuration, Raven semantics and temporary CLI metadata are u
 neoCLR owns provider and execution qualification; broader native/async/socket services,
 shared heaps and full HTTP entry remain open. See neoCLR
 `benchmarks/execution/concurrent-store/README.md` for validation and remaining scope.
+
+
+The same live replacement path now qualifies canonical comparison, ordinal
+case-insensitive comparison and ordinal prefix matching used by the plaintext HTTP
+sample. Existing UTF-8 policies and Runtime Contract/CLI metadata are unchanged.
+Real C/Rust providers pass Unicode/fault and scalar/Boolean heap-result publication
+checks across forced/paced JIT and optimized/UBSan AOT (1,200 cycles); 17 focused compiler
+checks pass. neoCLR owns this provider qualification. Broader mutable-buffer, async
+and HTTP entry work remains open; there is no default switch or throughput claim.
+Evidence: neoCLR `benchmarks/execution/concurrent-store/text-comparisons-validation.json.gz`
+and its README. Native provider bodies remain unchanged.
