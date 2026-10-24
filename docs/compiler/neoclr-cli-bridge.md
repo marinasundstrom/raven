@@ -16778,3 +16778,17 @@ and reserved reads, bounds faults and heap-output lifetime; 19 focused compiler 
 pass. neoCLR owns admission and remaining capability/native/async/full-entry qualification.
 Evidence: neoCLR `benchmarks/execution/concurrent-store/primitive-arrays-validation.json.gz`
 and README. There is no HTTP throughput or default-change claim.
+
+
+The internal live compiler now routes StringSliceUtf8 through a private owned-thread
+native fallback adapter, balanced on success and failure, and sizes temporary result
+storage from its type (two lanes for the existing erased Value tag/payload). Checked
+stores publish the result only after success. Seven hundred twenty forced/paced
+JIT and optimized/UBSan AOT cycles plus 19 focused compiler tests pass. This uses the
+existing CLI Value representation; Runtime Contract configuration, semantic model,
+metadata encoding and ordinary compilation are unchanged. neoCLR owns this experimental
+backend/provider admission. Matching hosts must export the scoped adapter; async
+callbacks, broader native services and full HTTP qualification remain open. The
+native typed-result/backend replacement remains as described above; this fallback
+adds no permanent language restriction. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/scoped-slice-validation.json.gz` and README.
