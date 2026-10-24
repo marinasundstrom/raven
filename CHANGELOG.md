@@ -13,7 +13,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
-- **2026-10-24:** Document neoCLR's isolated scalar-store lowering for its live-GC experiment. Bit-preserving stores and fault exits pass focused compiler and real native-collector JIT/AOT tests; Windows coverage is object emission only. Ordinary compilation, Raven Runtime Contract/CLI semantics and the synchronous default remain unchanged. Host/writer admission and managed workload qualification remain open; see the paired neoCLR concurrent-store evidence.
+- **2026-10-24:** Document neoCLR's isolated scalar-store lowering for its live-GC experiment. Bit-preserving stores and fault exits pass focused compiler and real native-collector JIT/AOT tests; Windows coverage is object emission only. Generic stores proven inside compiler stack slots stay direct, covering pre-frame argument copies; uncertain byrefs remain checked, with executable value/hook-count and extent-rejection tests. Ordinary compilation, Raven Runtime Contract/CLI semantics and the synchronous default remain unchanged. Host/writer admission and managed workload qualification remain open; see the paired neoCLR concurrent-store evidence.
 
 - **2026-10-24:** Document neoCLR scoped native execution-state imports and compiler-owned handle storage. Matching hosts are required; owner-thread suspension/reentry is supported, migration/escape is forbidden. Raven Runtime Contract settings, semantic model and NEOX/CLI emission remain unchanged. Record compiler/native/HTTP qualification and measured stack/code-size/CPU tradeoffs in the paired neoCLR evidence.
 

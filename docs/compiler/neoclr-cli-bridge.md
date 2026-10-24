@@ -16617,3 +16617,10 @@ Future native layout/provenance contracts should reduce conservative scalar barr
 these prototype costs are not permanent language rules. Raven codex/neoclr receives
 documentation only and remains separate from main. Qualification and limitations are
 recorded in neoCLR `benchmarks/execution/concurrent-store/README.md`.
+
+The isolated lowering also preserves generic stores proven to lie within an explicit
+compiler stack slot, including constant-offset addresses, and rejects known invalid
+extents before edits. This covers argument copies emitted before GC frame entry and
+avoids introducing fallible hooks there. Caller-provided byrefs remain checked;
+full frame-entry/return-cleanup integration remains required. No Runtime Contract,
+CLI or ordinary compilation behavior changes.
