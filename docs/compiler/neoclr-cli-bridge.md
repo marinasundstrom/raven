@@ -16876,3 +16876,15 @@ semantics, temporary CLI encoding and ordinary emission remain unchanged. neoCLR
 owns backend qualification and native metadata replacement. Unit/async pumps,
 bootstrap/arguments and full HTTP qualification remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/entry-validation.json.gz` and README.
+
+
+neoCLR's generated default-queue dispatcher now joins internal live-GC store lowering
+and call-closure checks. Its exact noncollecting native reader relies on the real
+task scope's strong ownership until managed Drain publishes roots. Six hundred
+forced/paced JIT and optimized/UBSan AOT cycles and 25 focused compiler checks pass,
+covering child allocation, empty queues, rejection, faults and cleanup. The controlled
+fixture selects a drain index; full System TaskQueue selection is not claimed.
+Runtime Contract, semantic model, temporary CLI/native queue representation and
+ordinary emission are unchanged. neoCLR owns qualification/native backend replacement;
+pumps, bootstrap and full HTTP remain open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/queue-validation.json.gz` and README.
