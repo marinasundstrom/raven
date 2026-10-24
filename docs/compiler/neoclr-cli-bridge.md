@@ -16973,3 +16973,15 @@ these macOS tests. neoCLR owns backend/native qualification and eventual native
 metadata replacement. Retained HTTP imports now leave TLS alone, with full host-entry
 and execution qualification still open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/text-finish-validation.json.gz` and README.
+
+
+All six TLS operation wrappers now join neoCLR's internal live-GC admission with an
+exact provider ABI and guarded publication of native status results. Six hundred
+forced/paced JIT and optimized/UBSan AOT cycles use the real Rust provider for
+client/server configuration, sessions, buffered pumping, invalid buffers, heap aliases,
+GC resource cleanup and explicit teardown; 34 compiler checks pass. Native ownership,
+Runtime Contract configuration, CLI/native representation and ordinary emission are
+unchanged. neoCLR owns backend/native qualification and eventual native metadata
+replacement. The retained HTTP import audit has no missing names, but host-I/O entry,
+full selected execution, end-to-end HTTPS and performance remain unqualified. Evidence:
+neoCLR `benchmarks/execution/concurrent-store/tls-wrappers-validation.json.gz` and README.

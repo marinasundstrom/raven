@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR live TLS wrapper qualification and guarded status publication: 600 real-provider JIT/AOT cycles and 34 compiler checks pass. Native ownership, Runtime Contract/CLI behavior and ordinary emission are unchanged. Retained HTTP imports have no missing providers; full host-entry/execution and performance qualification remain open.
+
 - **2026-10-24:** Document neoCLR live intern/ordinal/POSIX console qualification with 720 JIT/AOT cycles and 33 compiler checks. Existing invocation-scoped ownership, Runtime Contract/CLI behavior and ordinary emission remain unchanged. Retained HTTP import audits leave TLS alone; full host-entry/execution qualification remains open.
 
 - **2026-10-24:** Document neoCLR live inline value-array allocation qualification with 840 JIT/AOT cycles and 32 compiler checks. Historical record storage names describe layout, not special record semantics; existing conservative tracing, Runtime Contract/CLI behavior and ownership remain unchanged. Full HTTP qualification remains open.
