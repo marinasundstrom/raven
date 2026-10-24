@@ -16922,3 +16922,15 @@ backend indices directly; full System selection and HTTP remain unqualified. Run
 Contract, semantics, temporary CLI/native representation and ordinary emission are
 unchanged. neoCLR owns backend qualification/native replacement. Evidence:
 `benchmarks/execution/concurrent-store/queue-timers-validation.json.gz` and README.
+
+
+Int32/Int64/UInt64 formatting now joins neoCLR internal live-GC admission. Generated
+wrappers use stack result scratch and guarded publication instead of passing heap
+result aliases into native helpers. Seven hundred twenty forced/paced JIT and
+optimized/UBSan AOT cycles cover extrema, pressure/exhaustion, unchanged failed
+outputs and retained results; 30 focused compiler checks pass. Native ownership,
+Runtime Contract configuration, formatting semantics, temporary CLI/native
+representation and ordinary emission are unchanged. neoCLR owns backend/native
+qualification and eventual native metadata replacement. Float formatting and full
+HTTP qualification remain open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/integer-format-validation.json.gz` and README.
