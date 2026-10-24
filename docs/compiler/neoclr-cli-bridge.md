@@ -16732,3 +16732,13 @@ its README for the recorded pre-main test-runner launch issue and successful ret
 Raven Runtime Contract settings, semantics and temporary CLI metadata remain unchanged.
 neoCLR owns guard/provider qualification; shared-worker initialization, broader native
 services and full HTTP entry remain open. No default switch or throughput gain is claimed.
+
+
+The internal live compiler now admits rooted StringConcat and StringByteCount replacement
+bodies through common frame cleanup, store lowering and call-closure validation. Their
+native result pointers refer to compiler-owned scratch; successful results are copied
+through the checked publication path, including heap aliases. Production binding validation,
+Runtime Contract configuration, Raven semantics and temporary CLI metadata are unchanged.
+neoCLR owns provider and execution qualification; broader native/async/socket services,
+shared heaps and full HTTP entry remain open. See neoCLR
+`benchmarks/execution/concurrent-store/README.md` for validation and remaining scope.

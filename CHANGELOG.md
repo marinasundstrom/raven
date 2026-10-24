@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR's live-GC text replacement integration: common frame/store/closure finalization, guarded native result publication and 1,200 JIT/AOT qualification cycles. Record remaining HTTP/native-service scope; Runtime Contract, language and temporary CLI metadata semantics are unchanged.
+
 - **2026-10-24:** Document neoCLR's live-GC initializer guard lowering/closure integration, reentry and cached-failure qualification, plus default interpreter/JIT/AOT regressions. Runtime Contract and CLI semantics remain unchanged; full native-service/HTTP admission is still open.
 
 - **2026-10-24:** Document neoCLR's distinct experimental static-storage provider, guarded table publication and JIT/AOT pressure/lifetime qualification. Ordinary emission and Runtime Contract/CLI semantics remain unchanged; initializer guards and broader HTTP integration remain open.
