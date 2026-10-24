@@ -16888,3 +16888,15 @@ Runtime Contract, semantic model, temporary CLI/native queue representation and
 ordinary emission are unchanged. neoCLR owns qualification/native backend replacement;
 pumps, bootstrap and full HTTP remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/queue-validation.json.gz` and README.
+
+
+neoCLR now admits generated async entry-task pumping in the internal live profile
+only with async dispatch and generated queue drain selected. The exact native pump
+contract joins the existing frame/store and call-closure pipeline. Six hundred
+forced/paced JIT and optimized/UBSan AOT cycles cover 450 resumptions, 150 abandoned
+owners, faults and pressure; 27 compiler checks include prerequisite rejection.
+The fixture uses real carriers/task scopes but an idle scheduler stub and directly
+selected backend indices. Network delivery, host-I/O/bootstrap/full HTTP remain
+open. Runtime Contract, language semantics, temporary CLI/native async representation
+and ordinary emission remain unchanged. neoCLR owns qualification/native replacement.
+Evidence: `benchmarks/execution/concurrent-store/async-pump-validation.json.gz` and README.
