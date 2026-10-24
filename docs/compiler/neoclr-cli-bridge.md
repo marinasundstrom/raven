@@ -16864,3 +16864,15 @@ remain unchanged. neoCLR owns backend admission and qualification; generated pum
 full entry, remaining services and HTTP throughput remain open. Native metadata/
 backend replacement plans are unchanged. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/socket-memory-validation.json.gz` and README.
+
+
+neoCLR's internal live-mode public entry now selects its coordinated owned-arena
+reset provider and participates in store lowering/call-closure validation. Matching
+automatic candidate hosts are required for the new private import. Six hundred
+forced/paced JIT and optimized/UBSan AOT integer-entry cycles cover allocation,
+repeat reset, ownership rejection, faults and recovery; 24 compiler checks and
+existing mutation/host regressions pass. Runtime Contract configuration, language
+semantics, temporary CLI encoding and ordinary emission remain unchanged. neoCLR
+owns backend qualification and native metadata replacement. Unit/async pumps,
+bootstrap/arguments and full HTTP qualification remain open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/entry-validation.json.gz` and README.
