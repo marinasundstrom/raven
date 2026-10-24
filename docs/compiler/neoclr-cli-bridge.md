@@ -16649,3 +16649,23 @@ matching native JIT/AOT consumers pass. This is a trusted compatibility declarat
 not provider implementation proof or admission of shared heaps/HTTP. Runtime
 Contract options, CLI metadata and Raven semantics are unchanged; neoCLR owns the
 query and must qualify full execution integration before enabling it generally.
+
+
+### Internal managed live-GC qualification (2026-10-24)
+
+neoCLR now offers an internal value-compiler option for guarded scalar stores with
+frame-readiness checks, shared fault/return cleanup and whole-body call-closure checks.
+It is disabled by default and has no CLI/Runtime Contract switch. Native replacements,
+shared workers, host services and initialization guards remain unqualified. Matching
+hosts must additionally advertise published-boundary epoch completion (feature bit 8).
+Forced/paced collection passes actual assembled nested reference writes in JIT and
+optimized/UBSan AOT; see neoCLR `benchmarks/execution/concurrent-store/README.md` and
+its managed validation archives. These tests invoke a private compiled body from a
+trusted native fixture, not the full application entry or HTTP host.
+
+Raven source semantics, emitted CLI metadata and Runtime Contract configuration are
+unchanged. neoCLR owns lowering, the temporary host protocol and native-provider
+qualification. Conservative scalar-store coverage remains a provisional limitation;
+native layout/provenance metadata should narrow barriers when safety is established.
+Automatic epoch scheduling and native-service coverage precede HTTP qualification.
+No application throughput gain or default switch is established by these tests.
