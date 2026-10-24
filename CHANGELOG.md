@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR's binary storage/transient execution headers, completing the versioned count-header path while preserving rich diagnostics and checked legacy hooks. New native objects require matching helpers; frame layout, GC tracing, Raven Runtime Contract settings, CLI representation and .NET semantics remain unchanged. Record focused generated/native validation and the scheduling-sensitive worker-concurrency gate with successful replays in the linked neoCLR evidence.
+
 - **2026-10-24:** Document neoCLR's typed native boundary headers: versioned eight-byte lane-count metadata replaces runtime boundary JSON scanning, with checked legacy hooks and byte-identical rich inspection retained. New native objects require matching runtime symbols and private frame readers must discriminate the format flag. Raven CLI/Runtime Contract behavior stays unchanged. Thirty focused tests plus native header, HTTP, worker and async-consumer checks pass; Windows qualification is object emission only.
 
 - **2026-10-24:** Document neoCLR compiler-owned transient descriptor publication: validate fixed descriptors once per published lifetime while tracing changing slot values and preserving the checked native fallback. New native objects need the matching runtime hook. Raven CLI emission, Runtime Contract configuration and .NET semantics remain unchanged; forced-GC HTTP, shared-worker checks and 40 async-consumer invocations pass.

@@ -16546,3 +16546,31 @@ transient maps and image-level format admission remain future work. Thirty focus
 tests, optimized/sanitized header cases, forced/paced HTTP, shared workers and 40
 async-consumer invocations pass. Windows coverage is object emission on macOS,
 not Windows runtime execution. Evidence: neoCLR `benchmarks/http-server/primitive-comparison/root-map/README.md`.
+
+### Typed storage and transient execution headers — 2026-10-24
+
+This completes the slot-header part of the earlier boundary-map change. Native GC
+lowering now emits eight-byte little-endian `NGS1`/slot-count and `NGT1`/slot-count
+records and imports `neoclr_gc_enter_map_v1` and `neoclr_gc_transient_map_v1`.
+Every entry/publication checks length, version/kind and count without scanning a
+string. Address/width admission and ownership lifetimes remain unchanged; GC still
+traces changing values from explicit descriptor tables. This is not image-level
+admission and does not cache arbitrary descriptor pointers. Frame size is unchanged.
+
+Private frame readers must inspect `NEOCLR_GC_STORAGE_MAP` and
+`NEOCLR_GC_TRANSIENT_MAP` before treating their respective plan pointers as binary.
+The existing typed-boundary flag remains separate. Legacy string hooks retain their
+checks; diagnostic probes retain rich JSON and `--inspect` is byte-identical.
+Generated GC plans no longer construct diagnostic field layouts just to discard them.
+New native objects require matching native helpers. No managed API, Raven Runtime
+Contract option, CLI representation, source semantics or ordinary .NET behavior changes.
+
+The neoCLR native backend/runtime own this contract. Raven `codex/neoclr` is kept
+separate from main; no Raven compiler binary is rebuilt. Inputs use the previously
+qualified neoCLR bundle, with exact identities in the evidence. Image registration,
+unloading/version admission, static shared slot layouts and native PC/register maps
+remain future backend work; the temporary CLI metadata bridge itself is unchanged.
+Windows qualification covers object emission on macOS, not Windows runtime execution.
+See neoCLR `benchmarks/execution/slot-maps/README.md` for measurements, malformed-header/live-root tests, generated consumers,
+forced-GC JIT/AOT plain/JSON checks and shared-worker stress, including a retained
+scheduling-sensitive minimum-concurrency assertion failure and successful replays.
