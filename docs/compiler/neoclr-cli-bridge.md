@@ -16960,3 +16960,16 @@ array.reserve semantics, native ownership and ordinary emission are unchanged.
 neoCLR owns backend qualification/native replacement. Full HTTP/default qualification
 remains open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/record-arrays-validation.json.gz` and README.
+
+
+Rooted interning, ordinal comparison and POSIX UTF-8 line output now join neoCLR's
+internal live-GC admission. Seven hundred twenty forced/paced JIT and optimized/UBSan
+AOT cycles cover pool identity/lifetime/retirement, pressure/limits, heap result aliases,
+exact console output, unit/no-result contracts and write failures; 33 compiler checks
+pass. Existing typed publication, invocation-scoped interning and owner-thread
+boundaries suffice. Runtime Contract configuration, temporary CLI/native encoding,
+semantics and ordinary emission are unchanged; Windows output is not qualified by
+these macOS tests. neoCLR owns backend/native qualification and eventual native
+metadata replacement. Retained HTTP imports now leave TLS alone, with full host-entry
+and execution qualification still open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/text-finish-validation.json.gz` and README.
