@@ -16829,3 +16829,15 @@ async encoding and ordinary emission remain unchanged. neoCLR owns qualification
 CreateOwned/CurrentOwner/StartManaged, generated pumps and full HTTP entry remain open.
 This does not alter native async metadata replacement plans. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/async-start-validation.json.gz` and README.
+
+
+CreateOwned, CurrentOwner and StartManaged now join neoCLR's internal live-GC async
+provider set, completing all ten service wrappers in the controlled owned-heap profile.
+Production signature binding and explicit Object-base/derived receiver shapes feed
+600 forced/paced JIT and optimized/UBSan AOT cycles, covering 450 resumed and 150
+abandoned callbacks, self-referential owners, late completion, rejection and cleanup.
+Twenty-one focused compiler tests pass. Runtime Contract, semantic model, temporary
+CLI async encoding, inherited layout and default emission are unchanged. neoCLR owns
+backend admission; generated pumps/entry, socket results and full HTTP remain open.
+Native async metadata replacement plans are unchanged. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/async-owned-validation.json.gz` and README.
