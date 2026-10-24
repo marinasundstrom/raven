@@ -16641,3 +16641,11 @@ This verifies call coverage/ABI, not provider implementation or host capability;
 ordinary compilation is still unchanged. Raven Runtime Contract, CLI metadata and
 source semantics remain unchanged. neoCLR owns this internal gate and must complete
 host capability and writer qualification before enabling managed workloads.
+
+The isolated host path now requires version-1 live-GC capabilities before provider
+binding/JIT definition or AOT-driver invocation: noncollecting scalar stores,
+old/new logging and owned nonmoving epochs. Missing/legacy/partial hosts fail checks;
+matching native JIT/AOT consumers pass. This is a trusted compatibility declaration,
+not provider implementation proof or admission of shared heaps/HTTP. Runtime
+Contract options, CLI metadata and Raven semantics are unchanged; neoCLR owns the
+query and must qualify full execution integration before enabling it generally.

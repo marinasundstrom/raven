@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR's versioned experimental live-GC host handshake and rejection of missing/legacy/partial hosts before isolated execution. Matching native JIT/AOT consumers pass. The query is trusted compatibility metadata, not implementation proof or general HTTP admission; Raven Runtime Contract/CLI semantics remain unchanged.
+
 - **2026-10-24:** Document neoCLR's isolated live-GC call-closure gate: direct targets require supplied generated bodies or explicit matching provider ABIs; indirect/tail/exceptional calls remain unadmitted. JIT/AOT fixtures use the gate and check emitted AOT imports. Provider implementation/capability and ordinary pipeline admission remain open; Raven Runtime Contract, CLI metadata and language semantics are unchanged.
 
 - **2026-10-24:** Document neoCLR's isolated scalar-store lowering for its live-GC experiment. Bit-preserving stores and fault exits pass focused compiler and real native-collector JIT/AOT tests; Windows coverage is object emission only. Generic stores proven inside compiler stack slots stay direct, covering pre-frame argument copies; uncertain byrefs remain checked, with executable value/hook-count and extent-rejection tests. Framed lowering checks initialization dominance and uses shared production cleanup; real-runtime JIT/AOT consumers verify root-chain restoration on success and rejected writes. Ordinary compilation, Raven Runtime Contract/CLI semantics and the synchronous default remain unchanged. Host/writer admission and managed workload qualification remain open; see the paired neoCLR concurrent-store evidence.
