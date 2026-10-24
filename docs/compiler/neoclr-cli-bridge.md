@@ -17047,3 +17047,30 @@ and 235 cancellations in the paced run. JSON remains rejected on seven type/boxi
 helpers. This is correctness/lifecycle evidence, not a throughput/default conclusion;
 full-server JIT and matched performance qualification remain open. See neoCLR
 `plain-live-execution.json.gz` and `full-http-selection-dispatch.json.gz`.
+
+
+neoCLR internal live-GC emission now qualifies Int32/Boolean boxing, exact-type
+queries/unboxing and ObjectTypeHandle. Preserve existing .NET-style boxed value
+identity and exact-type unboxing: the change concerns publication, not semantics.
+The native allocator writes to stack scratch, generated initialization completes,
+then a guarded store publishes the result. This fixes caller-supplied heap aliases
+without changing native ownership. Seven hundred twenty forced/paced JIT and
+optimized/UBSan AOT cycles cover scalar limits, faults, aliases, invalid extents,
+pressure/exhaustion, type identity (including callable descriptors) and cleanup;
+38 focused compiler checks pass. Int64 and compound boxing remain gated.
+Runtime Contract configuration, temporary CLI encoding, Raven emission and ordinary
+GC defaults are unchanged. neoCLR owns backend qualification and eventual native
+metadata/codegen replacement. Evidence: neoCLR concurrent-store
+`json-helpers-validation.json.gz` and README. Default/performance qualification is
+still open.
+
+Full retained plaintext/JSON selection and execution now pass through both JIT and
+AOT: 1,024 checked HTTP responses across forced/paced hosts, clean owned-heap shutdown
+and completed concurrent epochs. The private managed JIT route checks live-host
+capabilities before binding; four incompatible hosts are rejected. The harness now
+reads thread-local counters on the invoking owner after cleanup, correcting initial
+zero destructor observations, and checks guest status independently of runner status.
+This qualifies the single owned-heap macOS ARM64 integration slice, not worker/shared
+heaps or default/performance acceptance. Archives and corrected diagnostic evidence
+are linked from the neoCLR concurrent-store README. Optimization/comparison may
+resume; the production default remains synchronous.
