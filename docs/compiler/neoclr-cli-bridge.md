@@ -16911,3 +16911,14 @@ semantic model, temporary CLI/native representation and ordinary emission are un
 neoCLR owns qualification and native replacement. Full System selection, payload
 exchange, host-I/O/bootstrap and HTTP performance remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/network-pump-validation.json.gz` and README.
+
+
+Five queue/timer providers now join neoCLR internal live admission through existing
+scratch/guarded result publication: RegisterTaskQueue, GetDefaultTaskQueue,
+GetCurrentTaskQueue, TimerStart and TimerCancel. Six hundred forced/paced JIT and
+optimized/UBSan AOT cycles and 29 compiler checks pass. Native task/socket scopes
+retain ownership; boundary/lifetime contracts were not changed. Fixtures select
+backend indices directly; full System selection and HTTP remain unqualified. Runtime
+Contract, semantics, temporary CLI/native representation and ordinary emission are
+unchanged. neoCLR owns backend qualification/native replacement. Evidence:
+`benchmarks/execution/concurrent-store/queue-timers-validation.json.gz` and README.

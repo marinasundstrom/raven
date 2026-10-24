@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR live queue/timer service admission with 600 JIT/AOT cycles covering result publication, current/default ownership, cancellation, expiry and rejection. Native ownership/boundary contracts, Runtime Contract/CLI semantics and ordinary emission are unchanged; full HTTP qualification remains open.
+
 - **2026-10-24:** Document neoCLR generated default-queue live-GC dispatch qualification: 600 real task-scope JIT/AOT cycles cover managed allocation, ownership, rejection and faults. Also document prerequisite-gated generated async pumping: 600 JIT/AOT cycles cover 450 resumptions and 150 abandoned owners with real carriers/task scopes and an idle scheduler stub. A real-scheduler follow-up passes 600 cycles including 450 loopback accepts with generated result consumption. Runtime Contract/CLI semantics and ordinary emission are unchanged; payload exchange and full HTTP integration remain open.
 
 - **2026-10-24:** Document neoCLR live public-entry reset and generated-wrapper qualification: 600 JIT/AOT cycles cover allocation, repeated invocation, rejection and fault recovery. Runtime Contract/CLI semantics are unchanged; matching experimental hosts are required, with async pumps/bootstrap/full HTTP still open.
