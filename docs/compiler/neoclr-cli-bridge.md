@@ -16900,3 +16900,14 @@ selected backend indices. Network delivery, host-I/O/bootstrap/full HTTP remain
 open. Runtime Contract, language semantics, temporary CLI/native async representation
 and ordinary emission remain unchanged. neoCLR owns qualification/native replacement.
 Evidence: `benchmarks/execution/concurrent-store/async-pump-validation.json.gz` and README.
+
+
+A follow-up neoCLR live-pump fixture now uses the real socket scheduler and task/socket
+scopes: 600 forced/paced JIT and optimized/UBSan AOT cycles include 450 loopback accepts.
+Generated callbacks consume results through the validated SocketConnectResult binding;
+28 compiler checks pass. The first fixture waited for pump return before consuming
+results and correctly timed out; no scheduler fix was required. Runtime Contract,
+semantic model, temporary CLI/native representation and ordinary emission are unchanged.
+neoCLR owns qualification and native replacement. Full System selection, payload
+exchange, host-I/O/bootstrap and HTTP performance remain open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/network-pump-validation.json.gz` and README.
