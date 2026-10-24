@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR's distinct experimental static-storage provider, guarded table publication and JIT/AOT pressure/lifetime qualification. Ordinary emission and Runtime Contract/CLI semantics remain unchanged; initializer guards and broader HTTP integration remain open.
+
 - **2026-10-24:** Document neoCLR's grouped text-array live-GC stores and rooted array allocation, with JIT/AOT bounds/overflow qualification. Callable arrays and broader native services remain open; Raven Runtime Contract/CLI semantics are unchanged.
 
 - **2026-10-24:** Document neoCLR's internal grouped array-element/marker publication and rooted reference-array allocation qualification in JIT/AOT. Matching experimental hosts need the new private helper; text/callable array stores remain unqualified. Runtime Contract and CLI semantics are unchanged.

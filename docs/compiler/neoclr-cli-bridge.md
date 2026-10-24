@@ -16708,3 +16708,15 @@ new private helper. Raven Runtime Contract configuration, semantics and temporar
 metadata remain unchanged. neoCLR owns native-provider qualification; other text/byte,
 static, async/socket and full-entry integration remain open. See neoCLR
 `benchmarks/execution/concurrent-store/README.md` and `text-arrays-validation.json.gz`.
+
+
+The internal live compiler now selects `experiment_gc_static_storage_rooted_v1` for
+static-field storage. A generated experimental native provider routes owner-pointer
+publication into existing context tables through the noncollecting barrier; ordinary
+emission and production providers are unchanged. The distinct import rejects the old
+unguarded provider at link time. JIT/AOT tests cover 600 cold/warm, pressure/exhaustion
+and static-root lifetime cycles; static initializer guards remain unqualified.
+Raven Runtime Contract configuration, language semantics and temporary CLI metadata
+are unchanged. neoCLR owns the provider variant and remaining native/entry admission;
+context-scoped statics retain their existing semantics. See neoCLR
+`benchmarks/execution/concurrent-store/statics-validation.json.gz` and its README.
