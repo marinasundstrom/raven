@@ -16624,3 +16624,12 @@ extents before edits. This covers argument copies emitted before GC frame entry 
 avoids introducing fallible hooks there. Caller-provided byrefs remain checked;
 full frame-entry/return-cleanup integration remains required. No Runtime Contract,
 CLI or ordinary compilation behavior changes.
+
+The framed experimental entry now requires completed frame initialization to
+dominate every fallible store and return before modifying IR. A shared private
+return-cleanup helper preserves production emission and permits exact-path tests.
+Mock legacy/state frames and real state-frame JIT/AOT consumers qualify success
+and rejected-write cleanup; the native fixture restores the root-chain head before
+collection. This remains isolated backend qualification, with no Raven Runtime
+Contract/CLI change or ordinary compiler enablement. Managed slots, nested/suspended
+frames and complete native-writer/host admission remain outstanding.
