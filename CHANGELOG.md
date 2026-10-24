@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR reference interface-dispatch live-GC qualification: 840 JIT/AOT cycles and 37 compiler checks pass; full plaintext live AOT execution then passes 512 checked requests with clean shutdown and completed concurrent collections. JSON helpers, full-server JIT and performance qualification remain open. Runtime Contract, CLI representation, ownership and Raven emission are unchanged.
+
 - **2026-10-24:** Document neoCLR memory-view conversion/bounds-fault live-GC qualification: 600 JIT/AOT cycles and 45 focused checks pass using existing ownership and publication contracts. Full HTTP qualification remains open; Runtime Contract, CLI encoding and Raven emission are unchanged.
 
 - **2026-10-24:** Document neoCLR callable-array live-GC qualification: existing descriptor/reference storage passes 720 JIT/AOT cycles, while full HTTP native-body admission remains open. Runtime Contract, CLI encoding and Raven emission remain unchanged; see the compiler bridge notes.

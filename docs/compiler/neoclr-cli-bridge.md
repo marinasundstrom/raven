@@ -17029,3 +17029,21 @@ Evidence: neoCLR concurrent-store `view-admission-validation.json.gz` and README
 The resulting inventory is 20 interface dispatchers for plaintext; JSON has
 84 dispatchers, ObjectTypeHandle and six boxing/query helpers. Qualify those shared
 generated paths next; provider import coverage is not complete-body qualification.
+
+
+neoCLR internal live-GC admission now covers ordinary reference interface dispatch
+through existing rooted generated bodies and checked call closure. Eight hundred forty
+forced/paced JIT and optimized/UBSan AOT cycles cover public/private targets, allocating
+calls, receiver/result lifetime, faults, pressure/exhaustion and cleanup; 37 focused
+compiler checks pass. Display/value intrinsics, string-specific dispatch and boxed/byref
+adaptation remain gated. Runtime Contract configuration, temporary CLI representation,
+native ownership and ordinary emission are unchanged. neoCLR owns backend qualification
+and eventual native metadata/codegen replacement. Full HTTP execution/performance and
+default enablement remain open. Evidence: neoCLR concurrent-store
+`interface-dispatch-validation.json.gz` and README.
+Full plaintext live AOT compilation and owned-host execution now pass: 512 checked
+requests across forced/paced hosts, clean shutdown, six completed concurrent collections
+and 235 cancellations in the paced run. JSON remains rejected on seven type/boxing
+helpers. This is correctness/lifecycle evidence, not a throughput/default conclusion;
+full-server JIT and matched performance qualification remain open. See neoCLR
+`plain-live-execution.json.gz` and `full-http-selection-dispatch.json.gz`.
