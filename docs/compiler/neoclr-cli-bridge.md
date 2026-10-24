@@ -16574,3 +16574,27 @@ Windows qualification covers object emission on macOS, not Windows runtime execu
 See neoCLR `benchmarks/execution/slot-maps/README.md` for measurements, malformed-header/live-root tests, generated consumers,
 forced-GC JIT/AOT plain/JSON checks and shared-worker stress, including a retained
 scheduling-sensitive minimum-concurrency assertion failure and successful replays.
+
+
+## neoCLR scoped execution-state imports — 2026-10-24
+
+neoCLR native GC lowering outside shared-worker safepoints now emits private
+`neoclr_gc_state_*_v1` imports. Entry returns the state already resolved for admission;
+publication and normal/fault leave reuse a compiler-owned eight-byte stack slot.
+The collector-visible frame stays 104 bytes. New native objects require matching
+helpers; old-host missing-symbol rejection is checked before guest execution.
+The handle is owner-thread/runtime-instance scoped: same-thread cooperative
+suspension and nested reentry work, but migration or escape is forbidden. These
+backend/provider restrictions are not new Raven language rules.
+
+Raven Runtime Contract configuration, semantic model, emitted NEOX/CLI metadata and
+ordinary .NET behavior are unchanged; no temporary bridge encoding or information
+loss is added. neoCLR owns the native import/stack-budget implementation. Future
+native root/PC maps and migrating schedulers must replace the lifetime assumptions
+explicitly. Raven codex/neoclr remains separate from main; this update changes docs,
+not the Raven compiler binary. Fourteen compiler/generated tests plus native
+lifetime/rejection, rebuilt worker/async, forced-GC JIT/AOT HTTP and old-host checks
+pass. Windows validation covers object generation only. Local plaintext CPU savings
+are modest (1.1–1.6%), with larger objects and mixed latency tails.
+See neoCLR `benchmarks/execution/state-integration/README.md` for exact artifacts,
+initial duplicate-TLS regression and the retained fused-admission measurements.
