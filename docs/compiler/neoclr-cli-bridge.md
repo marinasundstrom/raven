@@ -16683,3 +16683,16 @@ This qualifies the object-allocation provider for the internal path, not arbitra
 native output aliases, array/service writers or full HTTP execution. Runtime Contract
 configuration, Raven semantics and temporary CLI metadata remain unchanged. neoCLR
 owns provider admission; native metadata/provenance replacement remains as above.
+
+
+Grouped traced-array stores now use an internal noncollecting native helper with a
+zero-padded compiler stack snapshot. Payload and initialization marker publish in one
+gate transaction; log overflow cancels the marker before copying. Rooted nominal
+reference-array allocation is admitted, while text/character/callable array stores
+are rejected pending integration. Default emission, Runtime Contract configuration,
+Raven semantics and temporary CLI metadata are unchanged; experimental objects require
+the matching new helper. neoCLR owns this protocol and qualification. Native precise
+layout/provenance replacement remains open, along with broader services/full HTTP entry.
+Evidence: neoCLR `benchmarks/execution/concurrent-store/arrays-validation.json.gz`
+records 600 actual managed JIT/AOT cycles; the README separates native wide-element
+qualification from managed reference-array coverage and records stack/copy costs.
