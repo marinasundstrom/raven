@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR live-GC async operation wrappers, guarded results and actual generated suspension/resumption qualification across JIT/AOT. Runtime Contract and CLI semantics remain unchanged; owned/start wrappers, pumps and HTTP integration remain open.
+
 - **2026-10-24:** Document neoCLR ordinary host-callback live-GC store/closure integration and JIT/AOT pressure, fault and lifetime qualification. Runtime Contract and CLI semantics remain unchanged; entry pumps and full HTTP integration stay open.
 
 - **2026-10-24:** Document neoCLR scoped UTF-8 slicing integration, correctly sized two-lane result storage and 720 JIT/AOT qualification cycles. Runtime Contract, CLI semantics and ordinary emission remain unchanged; async/full HTTP qualification remains open.

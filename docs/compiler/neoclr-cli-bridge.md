@@ -16805,3 +16805,16 @@ encoding are unchanged. neoCLR owns backend admission; entry pumps, queue draini
 native async replacement wrappers and full HTTP entry remain unqualified. Existing
 native callable metadata/backend replacement plans are unchanged. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/callbacks-validation.json.gz` and README.
+
+
+Internal live compilation now admits RuntimeAsyncCreate/CompleteUnit/AwaitUnit/Release/
+IsCompleted/WaitCompletion through exact provider contracts and stack-local native
+results followed by checked publication. No-result await does not read scratch.
+Generated callbacks suspend and resume on the actual native carrier in 600 forced/
+paced JIT and optimized/UBSan AOT cycles, including parked-root collection, pressure,
+heap aliases, faults and shutdown; 21 focused compiler tests pass. Runtime Contract,
+semantic model, temporary CLI async encoding and default emission are unchanged.
+neoCLR owns native backend/provider qualification. Owned/start wrappers, generated
+pump/entry and HTTP remain unqualified; this does not replace native async metadata
+plans with a permanent CLI restriction. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/async-wrappers-validation.json.gz` and README.
