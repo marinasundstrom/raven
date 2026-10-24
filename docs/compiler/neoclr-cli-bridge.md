@@ -16633,3 +16633,11 @@ and rejected-write cleanup; the native fixture restores the root-chain head befo
 collection. This remains isolated backend qualification, with no Raven Runtime
 Contract/CLI change or ordinary compiler enablement. Managed slots, nested/suspended
 frames and complete native-writer/host admission remain outstanding.
+
+The isolated pipeline now checks call closure against supplied generated bodies
+and explicit provider signatures before defining code. Missing bodies, unaudited
+imports, signature mismatches and indirect/tail/exceptional calls fail this gate.
+This verifies call coverage/ABI, not provider implementation or host capability;
+ordinary compilation is still unchanged. Raven Runtime Contract, CLI metadata and
+source semantics remain unchanged. neoCLR owns this internal gate and must complete
+host capability and writer qualification before enabling managed workloads.
