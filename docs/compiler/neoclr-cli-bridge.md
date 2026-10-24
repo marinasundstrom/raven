@@ -16841,3 +16841,15 @@ CLI async encoding, inherited layout and default emission are unchanged. neoCLR 
 backend admission; generated pumps/entry, socket results and full HTTP remain open.
 Native async metadata replacement plans are unchanged. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/async-owned-validation.json.gz` and README.
+
+
+Thirteen socket primitive/array-transfer wrappers now join internal live-GC admission
+with exact provider ABIs and protected scalar/two-lane native result publication.
+Production signature binding and 192 real loopback forced/paced JIT and optimized/
+UBSan AOT cases cover heap aliases, partial transfer, byte initialization, send snapshots,
+errors, close and teardown; 22 focused compiler tests pass. Runtime Contract, semantic
+model, private CLI Value tags, native socket behavior and ordinary emission are
+unchanged. neoCLR owns backend/provider qualification. Memory-view transfer symbols,
+remaining services, generated pump/full entry and HTTP performance remain open; native
+metadata/backend replacement plans are unchanged. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/socket-wrappers-validation.json.gz` and README.

@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR generated socket primitive/array-transfer live-GC qualification with protected heap results and real loopback JIT/AOT cases. Runtime Contract/CLI semantics remain unchanged; memory-view transfers and full HTTP entry remain open.
+
 - **2026-10-24:** Document neoCLR generated owned async startup and current-owner live-GC qualification, including self-reference, abandonment and late completion across JIT/AOT. Runtime Contract/CLI semantics remain unchanged; pumps and full HTTP entry remain open.
 
 - **2026-10-24:** Document neoCLR generated strong async startup under live GC, including suspended parent frames, guarded handles, callback failures and shutdown qualification. Runtime Contract/CLI semantics remain unchanged; owned startup and full HTTP entry remain open.
