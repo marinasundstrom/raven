@@ -16818,3 +16818,14 @@ neoCLR owns native backend/provider qualification. Owned/start wrappers, generat
 pump/entry and HTTP remain unqualified; this does not replace native async metadata
 plans with a permanent CLI restriction. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/async-wrappers-validation.json.gz` and README.
+
+
+RuntimeAsyncStart now joins the internal live-GC provider set, reusing protected native
+result publication and generated callback closure checks. Six hundred forced/paced
+JIT and optimized/UBSan AOT cycles alternate generated strong startup with native
+owned startup and cover suspension, faults, unchanged rejected outputs and shutdown.
+Twenty-one focused compiler tests pass. Runtime Contract, semantic model, CLI callable/
+async encoding and ordinary emission remain unchanged. neoCLR owns qualification;
+CreateOwned/CurrentOwner/StartManaged, generated pumps and full HTTP entry remain open.
+This does not alter native async metadata replacement plans. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/async-start-validation.json.gz` and README.
