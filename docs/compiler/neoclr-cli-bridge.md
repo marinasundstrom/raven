@@ -16934,3 +16934,16 @@ representation and ordinary emission are unchanged. neoCLR owns backend/native
 qualification and eventual native metadata replacement. Float formatting and full
 HTTP qualification remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/integer-format-validation.json.gz` and README.
+
+
+Rooted UTF-8 encode, array decode and read-only slice decode now join neoCLR's
+internal live-GC admission using existing typed scratch/guarded result publication.
+Seven hundred twenty forced/paced JIT and optimized/UBSan AOT cycles cover roundtrips,
+malformed/uninitialized input, text windows, empty/null, bounds, pressure/exhaustion
+and retained heap results; 31 focused compiler checks pass. Production binding
+validation checks the exact source signatures before direct backend selection.
+Native ownership, Runtime Contract configuration, existing UTF-8/Value semantics,
+temporary CLI/native representation and ordinary emission are unchanged. neoCLR owns
+backend qualification and eventual native metadata replacement. Whole HTTP execution
+and default selection remain open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/utf8-conversion-validation.json.gz` and README.

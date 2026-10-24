@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR live UTF-8 encode/decode and read-only slice qualification with 720 JIT/AOT cycles and 31 focused compiler checks. Exact native binding validation and existing result publication/ownership suffice; Runtime Contract/CLI semantics and ordinary emission remain unchanged. Full HTTP qualification remains open.
+
 - **2026-10-24:** Document neoCLR live integer-formatting admission and guarded native result publication, qualified by 720 JIT/AOT cycles and 30 focused compiler checks. Native ownership, Runtime Contract/CLI semantics and ordinary emission are unchanged; full HTTP qualification remains open.
 
 - **2026-10-24:** Document neoCLR live queue/timer service admission with 600 JIT/AOT cycles covering result publication, current/default ownership, cancellation, expiry and rejection. Native ownership/boundary contracts, Runtime Contract/CLI semantics and ordinary emission are unchanged; full HTTP qualification remains open.
