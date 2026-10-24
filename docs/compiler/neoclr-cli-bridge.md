@@ -16853,3 +16853,14 @@ unchanged. neoCLR owns backend/provider qualification. Memory-view transfer symb
 remaining services, generated pump/full entry and HTTP performance remain open; native
 metadata/backend replacement plans are unchanged. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/socket-wrappers-validation.json.gz` and README.
+
+
+The four persistent-memory socket transfer variants now join internal live-GC
+admission. Retained Memory<Byte>/ReadOnlyMemory<Byte> metadata is checked by the
+production binder before flattening; 192 forced/paced JIT and optimized/UBSan AOT
+loopback cases and 24 focused compiler/binding tests pass. Runtime Contract, language
+semantics, temporary CLI memory encoding, native validation and ordinary emission
+remain unchanged. neoCLR owns backend admission and qualification; generated pump/
+full entry, remaining services and HTTP throughput remain open. Native metadata/
+backend replacement plans are unchanged. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/socket-memory-validation.json.gz` and README.
