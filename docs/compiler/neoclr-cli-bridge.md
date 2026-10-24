@@ -16998,3 +16998,18 @@ No public option/default or JIT route is enabled. neoCLR owns further generated-
 qualification/native metadata replacement. Evidence: neoCLR concurrent-store
 `network-pump-host-io-validation.json.gz` and `full-http-selection-initial.json.gz`.
 Full HTTP execution/performance remains open; callable-array safety is the next gate.
+
+
+neoCLR internal live compilation now admits callable-array stores through existing
+pointer-array grouped publication. A bound callable descriptor retains its receiver
+through ordinary object tracing; this adds no record-specific semantics or storage
+category. Seven hundred twenty forced/paced JIT and optimized/UBSan AOT cycles cover
+normal/reserved construction, uninitialized reads, bounds, pressure/exhaustion,
+receiver retention, invocation after collection, replacement and cleanup. Runtime
+Contract configuration, temporary CLI encoding, native ownership and ordinary emission
+are unchanged. neoCLR owns backend qualification and eventual native metadata/codegen
+replacement; no Raven compiler emission change is required. Full HTTP live builds
+advance past the callable gate but still reject unaudited native replacement bodies.
+The admission error now names the selected function; full HTTP execution/performance
+and default enablement remain unqualified. Evidence: neoCLR concurrent-store
+`callable-arrays-validation.json.gz` and README.

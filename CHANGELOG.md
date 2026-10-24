@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### Changes
 
+- **2026-10-24:** Document neoCLR callable-array live-GC qualification: existing descriptor/reference storage passes 720 JIT/AOT cycles, while full HTTP native-body admission remains open. Runtime Contract, CLI encoding and Raven emission remain unchanged; see the compiler bridge notes.
+
 - **2026-10-24:** Document neoCLR live host-I/O pump qualification (600 JIT/AOT cycles, 35 compiler checks) and private full HTTP AOT selection harness. Ordinary plaintext/JSON builds succeed; both live builds explicitly reject callable arrays. Runtime Contract/CLI semantics, public defaults and native ownership are unchanged; callable-array qualification is next.
 
 - **2026-10-24:** Document neoCLR live TLS wrapper qualification and guarded status publication: 600 real-provider JIT/AOT cycles and 34 compiler checks pass. Native ownership, Runtime Contract/CLI behavior and ordinary emission are unchanged. Retained HTTP imports have no missing providers; full host-entry/execution and performance qualification remain open.
