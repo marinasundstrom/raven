@@ -16669,3 +16669,17 @@ qualification. Conservative scalar-store coverage remains a provisional limitati
 native layout/provenance metadata should narrow barriers when safety is established.
 Automatic epoch scheduling and native-service coverage precede HTTP qualification.
 No application throughput gain or default switch is established by these tests.
+
+
+The internal live-GC provider set now admits rooted object allocation. Generated
+constructor calls publish their live inputs and use stack result slots; the native
+provider initializes fresh storage without callbacks after reservation. The marker
+excludes new allocations until remark; managed constructor fields and publication
+into old objects retain guarded stores. Forced/paced JIT and optimized/UBSan AOT
+pass 600 cycles including garbage-pressure recovery and all-live allocation failure,
+with root-chain cleanup and unchanged outputs on failure. Evidence is in neoCLR
+`benchmarks/execution/concurrent-store/construction-validation.json.gz` and its README.
+This qualifies the object-allocation provider for the internal path, not arbitrary
+native output aliases, array/service writers or full HTTP execution. Runtime Contract
+configuration, Raven semantics and temporary CLI metadata remain unchanged. neoCLR
+owns provider admission; native metadata/provenance replacement remains as above.
