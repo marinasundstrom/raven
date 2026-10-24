@@ -17094,3 +17094,29 @@ CLI representation and Raven emission remain unchanged; the retained URI-efficie
 bundle was reused with recorded hashes, not rebuilt. neoCLR owns backend qualification
 and eventual native metadata/codegen replacement. Ordinary sync remains faster and
 the production default; shared-worker/default and pause/scaling acceptance stay open.
+
+## Generated-code optimization qualification (2026-10-25)
+
+neoCLR now has a private test-build optimization setting shared by scalar/value
+AOT, native libraries, managed/scalar JIT and native fixtures. Ordinary builds keep
+Cranelift defaults. The `speed` experiment recompiles both synchronous and live
+selections, retaining the same ABI, Runtime Contract configuration, temporary CLI
+representation, Raven emission, root/store rules and native ownership. It is not
+a new Raven capability or a production/default GC switch.
+
+All 183 nonignored backend tests pass, plus 2,160 forced/paced native fixture cycles
+across JIT/AOT and O2/UBSan C hosts. Correct obsolete `Option<TypeInfo>` diagnostic
+text to the existing `Optional<TypeInfo>` contract without changing validation.
+The retained URI-efficiency bundle is reused, with hashes, rather than rebuilt.
+neoCLR owns backend qualification and eventual native metadata/codegen replacement.
+See neoCLR `benchmarks/execution/concurrent-workloads/optimizer-results.md` for
+matched execution evidence, compile-time tradeoffs and remaining acceptance gaps.
+
+Matched optimized runs pass 45 standalone executions and 13,600 HTTP responses,
+with unchanged managed allocations. Observed live HTTP throughput improves 4–5%
+and CPU 2–4%; ordinary sync remains much faster. Compilation cost is recorded
+separately. Substantial guarded-sync overhead motivates further native-store
+profiling without weakening ownership or claiming concurrent-default acceptance.
+
+Fresh optimized plaintext/JSON JIT consumers additionally pass 256 checked responses
+and clean shutdown, with 134 completed concurrent epochs per invocation.
