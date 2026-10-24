@@ -16766,3 +16766,15 @@ encoding and borrowed-view/UTF-8 semantics are unchanged. neoCLR owns qualificat
 capability conversion wrappers, byte allocation/reservation, other native services
 and full HTTP entry remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/managed-byte-views-validation.json.gz` and README.
+
+
+The internal live call closure now admits rooted byte allocation/reservation and
+scalar-array allocation. Existing generated roots protect locals across allocation;
+providers initialize fresh primitive storage and return into stack slots before
+checked managed publication. Production providers, default emission, Runtime Contract
+configuration and temporary CLI semantics are unchanged. Seven hundred twenty forced/
+paced JIT and optimized/UBSan AOT cycles cover pressure recovery/exhaustion, initialized
+and reserved reads, bounds faults and heap-output lifetime; 19 focused compiler tests
+pass. neoCLR owns admission and remaining capability/native/async/full-entry qualification.
+Evidence: neoCLR `benchmarks/execution/concurrent-store/primitive-arrays-validation.json.gz`
+and README. There is no HTTP throughput or default-change claim.
