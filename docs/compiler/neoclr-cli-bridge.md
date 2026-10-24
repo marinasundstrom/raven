@@ -16947,3 +16947,16 @@ temporary CLI/native representation and ordinary emission are unchanged. neoCLR 
 backend qualification and eventual native metadata replacement. Whole HTTP execution
 and default selection remain open. Evidence: neoCLR
 `benchmarks/execution/concurrent-store/utf8-conversion-validation.json.gz` and README.
+
+
+The existing rooted multi-lane array reservation provider is now admitted to neoCLR's
+internal live-GC call closure. Historical “record” storage names describe array layout,
+not special language-record semantics. Eight hundred forty forced/paced JIT and
+optimized/UBSan AOT cycles validate reference-bearing inline values, initialization,
+bounds, pressure/exhaustion and graph retention; 32 compiler checks pass. Existing
+conservative initialized-lane tracing remains unchanged; precise reference maps are
+still a limitation. Runtime Contract configuration, CLI/native representation,
+array.reserve semantics, native ownership and ordinary emission are unchanged.
+neoCLR owns backend qualification/native replacement. Full HTTP/default qualification
+remains open. Evidence: neoCLR
+`benchmarks/execution/concurrent-store/record-arrays-validation.json.gz` and README.
