@@ -16598,3 +16598,22 @@ pass. Windows validation covers object generation only. Local plaintext CPU savi
 are modest (1.1–1.6%), with larger objects and mixed latency tails.
 See neoCLR `benchmarks/execution/state-integration/README.md` for exact artifacts,
 initial duplicate-TLS regression and the retained fused-admission measurements.
+
+
+## Isolated live-GC scalar-store lowering — 2026-10-24
+
+neoCLR has a private, test-driven Cranelift pass that replaces admitted scalar stores
+with the experimental noncollecting `experiment_gc_store` hook. Widths and floating
+bit patterns are preserved; rejected writes return the native status before later
+stores. Proven stack stores stay direct. The pass must run before return-frame
+cleanup, and cannot by itself admit callees, native providers or array publication.
+It is not wired into ordinary compilation and adds no public CLI enable switch.
+
+Raven Runtime Contract configuration, source semantics, CLI/NEOX metadata and
+ordinary .NET behavior are unchanged; there is no new temporary encoding or lost
+metadata. neoCLR owns the pass and matching experimental native host. Broader
+integration needs explicit host/image admission and complete writer coverage.
+Future native layout/provenance contracts should reduce conservative scalar barriers;
+these prototype costs are not permanent language rules. Raven codex/neoclr receives
+documentation only and remains separate from main. Qualification and limitations are
+recorded in neoCLR `benchmarks/execution/concurrent-store/README.md`.
