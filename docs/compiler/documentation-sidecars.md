@@ -43,3 +43,11 @@ Focused .NET tests cover cold file/block namespace queries, split declarations,
 independent edited snapshots, Markdown/XML sidecar round trips, merged
 source/metadata views and rendered namespace content. This does not validate
 execution on .NET Framework, NanoFramework or native neoCLR.
+
+## Invocation operators in generated API references
+
+RavenDoc applies the `self`/`Invoke` invocation-operator convention only to
+instance methods. Static `Invoke` methods retain their name and appear under
+Methods with ordinary method links. This applies to source and imported metadata;
+instance invocation operators continue to appear as `self(...)` under Operators.
+This presentation rule does not change semantic binding or emitted metadata.

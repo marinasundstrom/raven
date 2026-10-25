@@ -1227,6 +1227,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
 
 ### Changes
 
+- **2026-10-25:** Fix RavenDoc classifying static `Invoke` methods as `self(...)` invocation operators. Only instance `Invoke`/`self` methods follow this convention, for both source and imported metadata.
+
 - **2026-09-27:** Include namespaces in expression completion and retain separate
   generic arities for type and function suggestions, with type parameters in
   their labels. Resolve imported member-union pattern heads to their constructed

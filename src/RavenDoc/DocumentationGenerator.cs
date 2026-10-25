@@ -641,7 +641,7 @@ public static partial class DocumentationGenerator
 
     private static bool IsInvocationOperator(IMethodSymbol ms)
     {
-        return ms.Name is "self" or "Invoke";
+        return !ms.IsStatic && ms.Name is "self" or "Invoke";
     }
 
     private static string GetOperatorGroupName(IMethodSymbol ms)

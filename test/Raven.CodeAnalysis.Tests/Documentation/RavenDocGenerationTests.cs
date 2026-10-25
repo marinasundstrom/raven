@@ -6,6 +6,59 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, "static func Invoke", false)]
+    [InlineData(true, "static func Invoke", false)]
+    [InlineData(false, "func Invoke", true)]
+    [InlineData(true, "func Invoke", true)]
+    [InlineData(false, "func self", true)]
+    [InlineData(true, "func self", true)]
+    public void InvocationOperatorConventionOnlyAppliesToInstanceMethods(bool metadata, string declaration, bool isOperator)
+    {
+        var source = $$"""
+            namespace InvocationDocs
+            public class Callable {
+                public {{declaration}}(value: int) -> int => value
+            }
+            """;
+        var (compilation, _) = CreateCompilation(source, assemblyName: "InvocationDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "InvocationDocs");
+            compilation = Compilation.Create("Host", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            if (assembly is null)
+                DocumentationGenerator.ProcessCompilation(compilation, output);
+            else
+                DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+
+            var typeDirectory = Path.Combine(output, "InvocationDocs", "Callable");
+            var html = System.Net.WebUtility.HtmlDecode(File.ReadAllText(Path.Combine(typeDirectory, "index.html")));
+            html.Contains("self(...)", StringComparison.Ordinal).ShouldBe(isOperator);
+            File.Exists(Path.Combine(typeDirectory, "method_Invoke.html")).ShouldBe(!isOperator);
+            if (!isOperator)
+            {
+                html.ShouldContain("Methods");
+                html.ShouldNotContain("Operators");
+                html.ShouldContain("method_Invoke.html");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(output))
+                Directory.Delete(output, true);
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void InterfaceSignaturesPreserveVariance(bool metadata)
