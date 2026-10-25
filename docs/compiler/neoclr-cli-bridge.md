@@ -17151,3 +17151,20 @@ see neoCLR `benchmarks/execution/concurrent-workloads/stack-jit-results.md` for
 counts, hashes and the discovered limitations of existing pause timers. Runtime
 Contract, Raven emission and CLI encoding remain unchanged. Complete owner-pause,
 broader boundary and shared-worker/default qualification remain open.
+
+### 2026-10-25: explicit borrowed-store lowering tests
+
+The neoCLR backend now qualifies a test-selected same-thread candidate-state borrow
+for framed scalar-store functions: one acquisition after linkage, an internal SSA
+handle, and existing fault/return cleanup. Ordinary provider admission and complete
+managed/HTTP emission remain unchanged. The native version-1 host query adds bit 16
+only for hosts compiled with borrowed-store support; test consumers require it
+before binding. Native pointer lifetime remains owner-thread-only, with heap/context
+and destination checks retained. This adds no Runtime Contract option, CLI encoding
+or Raven semantic/emission change. Existing temporary bridge limits and future
+native metadata/backend replacement remain unchanged. The backend owns emission;
+the native host owns lifetime and compatibility. Four focused tests, 50 regression
+tests and 300 AOT/sanitized-AOT/JIT concurrent cycles qualify this bounded path;
+whole managed call-closure admission, migration exclusion and HTTP CPU/throughput
+comparison remain open. See neoCLR's
+`benchmarks/execution/concurrent-workloads/borrowed-lowering-results.md`.
