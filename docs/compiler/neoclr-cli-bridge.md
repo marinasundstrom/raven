@@ -17219,3 +17219,34 @@ JIT fixtures and complete workloads. See neoCLR
 `benchmarks/execution/concurrent-workloads/forward-elision-results.md` for exact
 counts, source/bundle/object hashes, stale-count driver correction, admission gaps
 and outstanding shared-worker/pause/default acceptance.
+
+
+## Worker read-phase native contract (2026-10-25)
+
+neoCLR's experimental `--native-worker-safepoints` backend now separates worker
+lease classification from GC-point selection. A field/array/indirect write can
+lack an allocation point while still requiring exclusive heap access. Mutation
+and unreviewed operations now take the exclusive lease; reviewed local operations
+and reads may use the shared lease. This is conservative scheduling, not a new
+Raven semantic restriction or a complete concurrent-GC admission contract.
+
+The backend emits `neoclr_gc_worker_read_phase_map_v1` and the native adapter marks
+its frames distinctly from the legacy allocation-only worker map. Rebuild native
+images and hosts together; an old host lacks the new import, and old images must
+not be treated as read-phase-qualified merely because the runtime accepts their
+legacy callbacks for synchronous execution. Runtime Contract configuration,
+Raven semantic model, emitted CLI metadata and temporary bridge encoding are
+unchanged. Ownership is in neoCLR native codegen/root publication; eventual native
+metadata admission must carry the stronger scheduling capability explicitly.
+
+Validation is recorded in neoCLR `benchmarks/execution/concurrent-read-phases/README.md`:
+rebuilt compiled graph/fault/shutdown consumers, copied-root owner controls and
+old/new native boundary-tag tests. The forced worker fixture now collects at more
+exclusive boundaries; this is safety preparation, not a throughput gain. A future
+live epoch must audit all provider paths and finish before any mutation resumes.
+No shared-worker concurrent/default or HTTP performance acceptance is implied.
+
+This integration is on neoCLR `main` with documentation on Raven `codex/neoclr`;
+no Raven main merge or Raven compiler binary rebuild is implied. Validation uses
+the retained Raven-produced sample assembly and newly rebuilt neoCLR native AOT
+objects recorded in the linked manifests. JIT worker admission remains open.
