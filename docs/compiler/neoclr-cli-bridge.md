@@ -17305,3 +17305,20 @@ pass, without stable-capacity or default claims. Retained JSON/standalone/JIT pr
 qualification is reused, not presented as a new multi-owner matrix. Evidence:
 neoCLR `benchmarks/execution/concurrent-http-owners/forward-results.md` on main.
 Raven remains `codex/neoclr`; no compiler binary update is required.
+
+## Immutable-byref SSA prototype (2026-10-25)
+
+neoCLR has a test-only `NEOCLR_LIVE_SSA_BYREF_ARGUMENTS` prototype for experimental
+live lowering. It reuses the incoming SSA pointer only for byref arguments whose
+binding is never reassigned or addressed, retaining their published root storage.
+The existing complete-closure stack-extent proof can then remove guards hidden by
+spill/reload. No Raven semantic/emission, Runtime Contract, native provider ABI or
+CLI/native metadata encoding changes; native metadata replacement is unaffected.
+This relies on nonmoving collection and remains disabled by default.
+
+The binding-policy test, 52 focused tests and six managed-JIT standalone runs pass.
+104,511 paired plaintext responses show +16.2% throughput/-12.8% CPU with similar
+allocations. Mutable/alias execution, intervening-GC retention, broader sanitized,
+JSON and multi-owner qualification remain open before regular pipeline selection.
+Evidence: neoCLR `benchmarks/execution/concurrent-workloads/stable-byref-results.md`
+on main; Raven remains `codex/neoclr` with no compiler binary changes.
