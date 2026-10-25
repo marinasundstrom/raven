@@ -17120,3 +17120,24 @@ profiling without weakening ownership or claiming concurrent-default acceptance.
 
 Fresh optimized plaintext/JSON JIT consumers additionally pass 256 checked responses
 and clean shutdown, with 134 completed concurrent epochs per invocation.
+
+## Test-only bounded stack-store experiment — 2026-10-25
+
+neoCLR's internal live compiler can opt into removing scalar-store guards only
+for bounded direct stack arguments across the complete generated closure. Local
+non-address-taken functions require known stack storage at every caller; native
+aliases, exports, loaded/unknown pointers and callback targets remain guarded.
+The driver uses explicit IR function addresses, not function pointers embedded
+in data. This is an internal native codegen experiment, not a Runtime Contract,
+Raven semantic/emission or temporary CLI representation change. Existing bridge
+information and restrictions are unchanged; neoCLR owns qualification and future
+native metadata/backend integration.
+
+Three focused tests include sixteen JIT width/mixed-pointer combinations. Matched
+AOT execution passes 150 ordinary runs and 82,560 HTTP responses, with lower live
+CPU and higher HTTP throughput; synchronous GC remains faster and the default.
+The existing entry/record-array cycles contain no eligible sites and are retained
+as regression evidence only. Broader transformed managed-JIT/boundary stress and
+pause qualification remain open. See neoCLR
+`benchmarks/execution/concurrent-workloads/stack-elision-results.md` for retained
+bundle/object hashes, native controls, allocation variation and limitations.

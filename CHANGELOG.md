@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-25:** Document neoCLR’s test-only bounded stack-store guard-removal experiment, with complete-call-closure/escape constraints, JIT width/alias tests and matched ordinary/HTTP evidence. Runtime Contract, CLI encoding and Raven emission remain unchanged; transformed managed-JIT and default qualification stay open.
+
 ### Breaking changes
 
 - **Macro implementation metadata:** compact `macro Name` declarations now emit `NameMacro` instead of a position-derived provider class name. Macro symbols retain `Name`; attached lookup accepts `Name` or `NameMacro`, including qualified names, using exported names so existing compiled providers remain discoverable. Aliases and freestanding lookup are unchanged. Rebuild consumers that directly reference generated provider types. Raven.Macros Error/ErrorMessage cooperation recognizes both spellings when rebuilt.
