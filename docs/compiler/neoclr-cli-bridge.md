@@ -17250,3 +17250,24 @@ This integration is on neoCLR `main` with documentation on Raven `codex/neoclr`;
 no Raven main merge or Raven compiler binary rebuild is implied. Validation uses
 the retained Raven-produced sample assembly and newly rebuilt neoCLR native AOT
 objects recorded in the linked manifests. JIT worker admission remains open.
+
+## Owner-local Task.Run with concurrent GC (2026-10-25)
+
+neoCLR's experimental native backend now admits `neoCLR.Runtime.ScheduleTask`
+through `neoclr_schedule_task_managed_v1` in the live-GC closure, with its exact
+three-pointer/Int32-status signature. Callback transfer uses owner host roots and
+a native runnable; the unit-result adapter writes no managed output. Unknown
+providers remain rejected. This closes a provider gap, not a new Raven semantic
+feature. Runtime Contract, CLI internal-call encoding and Raven emission are
+unchanged. Native metadata/backend admission must eventually represent this
+provider capability directly. Scheduling remains owner-local; isolated HTTP heaps
+do not implement .NET shared-heap Task.Run dispatch.
+
+neoCLR main qualification (`benchmarks/execution/concurrent-http-owners/README.md`)
+passes focused compiler tests and one/four-owner AOT HTTP sync/live lifecycle
+checks plus four-owner UB/bounds validation: 3,840 responses, 2,400 live epochs,
+pending-read shutdown, fault propagation and per-owner metadata release. Rebuild
+the experimental neoCLR backend/host together. Raven codex/neoclr documentation
+tracks the integration; no Raven compiler binary change or main merge is implied.
+Retained bundle/fixture/tool revisions are hashed in the evidence. Throughput,
+shared-heap/JIT HTTP and default qualification remain open.
