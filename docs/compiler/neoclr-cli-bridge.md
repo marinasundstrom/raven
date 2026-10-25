@@ -17333,3 +17333,11 @@ async pump and statics. These use ordinary layout/root contracts. Performance ga
 are the previous measured cohort, not a new claim. JSON/standalone cost comparison,
 multi-owner/pause and moving-collector qualification remain open. No compiler
 binary, Runtime Contract, semantic/emission or metadata representation changes.
+
+Measured workload follow-up: 90 standalone AOT runs retain exact allocation counts
+and bytes; tasks/collections CPU falls about 5%, with arrays flat. Across 24,768 JSON
+responses, throughput rises 17.4% and CPU/response falls 13.7%, with unchanged live
+allocations/retention. Disabled objects reproduce all four retained controls.
+Synchronous GC remains faster. See neoCLR
+`benchmarks/execution/concurrent-workloads/stable-byref-cost-results.md` for scope,
+limitations and next JSON-JIT/scaling/pause qualification. No contract or default changes.
