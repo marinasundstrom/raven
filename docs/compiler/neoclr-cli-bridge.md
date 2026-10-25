@@ -17341,3 +17341,10 @@ allocations/retention. Disabled objects reproduce all four retained controls.
 Synchronous GC remains faster. See neoCLR
 `benchmarks/execution/concurrent-workloads/stable-byref-cost-results.md` for scope,
 limitations and next JSON-JIT/scaling/pause qualification. No contract or default changes.
+
+The optimized JSON handler now also passes 512 managed-JIT responses, 518 completed
+epochs and index teardown with the same 31,311 eligible stores as AOT. The qualifier
+selects byref preservation explicitly and records its environment. Further matched
+guarded controls and owner-operation profiles show no pause advantage or default
+qualification; see neoCLR `benchmarks/execution/concurrent-workloads/stable-byref-pause-results.md`.
+Raven emission, Runtime Contract, native ABI and metadata representation remain unchanged.
