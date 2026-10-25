@@ -17168,3 +17168,24 @@ tests and 300 AOT/sanitized-AOT/JIT concurrent cycles qualify this bounded path;
 whole managed call-closure admission, migration exclusion and HTTP CPU/throughput
 comparison remain open. See neoCLR's
 `benchmarks/execution/concurrent-workloads/borrowed-lowering-results.md`.
+
+
+### 2026-10-25: complete managed borrowing follow-up
+
+Test-only neoCLR managed emission now borrows candidate state in framed bodies
+with owned same-thread root handles; unframed adapters retain checked stores.
+Worker admission remains excluded. The borrow capability is corrected from bit 16
+to bit 32 because native scopes already owns 16; rebuild experimental borrow hosts.
+Base/scopes/borrow/both masks are 15/31/47/63 and are tested independently.
+Existing fault cleanup, heap ownership and current destination validation remain.
+
+Native/JIT/AOT qualification passes, including 1,740 native cycles, 1,024 managed-JIT
+HTTP responses and six standalone batches. Matched 150 ordinary executions and
+82,560 HTTP responses show higher CPU and lower live HTTP throughput. Keep this
+variant opt-in; acquisition-inclusive results supersede the earlier amortized
+microbenchmark as application evidence. Production defaults, Runtime Contract,
+Raven semantic/emission behavior and temporary CLI encoding are unchanged. neoCLR
+owns backend validation; the native experimental host owns lifetime and compatibility.
+Existing bridge information limits and eventual native backend replacement remain.
+See neoCLR `benchmarks/execution/concurrent-workloads/borrowed-managed-results.md`
+for commands, hashes, allocation ranges, measurements and open acceptance gaps.

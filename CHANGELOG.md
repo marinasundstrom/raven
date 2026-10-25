@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-25:** Document neoCLR explicit framed borrowed-store lowering qualification: one post-linkage acquisition, existing fault cleanup, optional native host bit 16, four focused tests, 50 regressions and 300 native AOT/sanitized-AOT/JIT cycles. Complete managed/HTTP admission remains open; Raven emission, Runtime Contract and CLI encoding are unchanged.
+- **2026-10-25:** Document neoCLR complete test-only managed borrowed-store qualification, preserved ownership/cleanup and native capability correction from bit 16 to 32 (rebuild experimental hosts). Native/JIT/AOT and standalone/HTTP consumers pass, but matched acquisition-inclusive measurements regress CPU/throughput, so borrowing remains opt-in. Production defaults, Raven emission, Runtime Contract and CLI encoding are unchanged.
 
 - **2026-10-25:** Document neoCLR’s test-only bounded stack-store guard-removal experiment, with complete-call-closure/escape constraints, JIT width/alias tests and matched ordinary/HTTP evidence. Runtime Contract, CLI encoding and Raven emission remain unchanged; Follow-up managed-JIT execution passes 2,048 HTTP responses and six standalone runs with 2,557 completed concurrent epochs and index release; zero-epoch controls, pause-counter limitations and broader/default gaps are documented.
 
