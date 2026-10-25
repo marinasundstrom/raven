@@ -17189,3 +17189,33 @@ owns backend validation; the native experimental host owns lifetime and compatib
 Existing bridge information limits and eventual native backend replacement remain.
 See neoCLR `benchmarks/execution/concurrent-workloads/borrowed-managed-results.md`
 for commands, hashes, allocation ranges, measurements and open acceptance gaps.
+
+
+### 2026-10-25: forwarded native stack-store qualification
+
+neoCLR's test-only backend can separately select guard removal for bounded stack
+arguments forwarded through completely known direct caller chains. Every incoming
+call must have an established remaining extent; unknown/loaded pointers, escapes,
+exports, invalid offsets and circular assumptions retain guards. The audit switch
+alone remains read-only. Complete-declaration and provider checks remain mandatory:
+the isolated incomplete async-wrapper fixture is rejected under both old and new
+elision, while full managed HTTP/JIT selections pass. No ownership checks are
+relaxed to admit that fixture.
+
+This changes native storage proof/guard emission only. Runtime Contract, Raven
+semantics/emission and temporary CLI representation and information limits remain
+unchanged. Native intent is ordinary writes into proven live native stack storage;
+heap mutation barriers, root tracing and lifetime owners remain unchanged. neoCLR
+owns proof/qualification and future native backend integration. No compiler-front-end
+change or new CLI bridge encoding is required.
+
+The fixture checks 32 width/alias/direct/forwarded combinations per checked/borrowed
+ABI. Native regressions and full managed JIT consumers pass. Matched 150 ordinary
+executions and 82,560 HTTP responses show about 2–3% higher live HTTP throughput and
+2% lower CPU, without an allocation reduction. Keep the transformation opt-in,
+direct-only controls and the synchronous default. The native fixtures have no new
+eligible sites and are regression evidence; transformed execution is covered by
+JIT fixtures and complete workloads. See neoCLR
+`benchmarks/execution/concurrent-workloads/forward-elision-results.md` for exact
+counts, source/bundle/object hashes, stale-count driver correction, admission gaps
+and outstanding shared-worker/pause/default acceptance.
