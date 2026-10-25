@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-25:** Document neoCLR’s test-only bounded stack-store guard-removal experiment, with complete-call-closure/escape constraints, JIT width/alias tests and matched ordinary/HTTP evidence. Runtime Contract, CLI encoding and Raven emission remain unchanged; transformed managed-JIT and default qualification stay open.
+- **2026-10-25:** Document neoCLR’s test-only bounded stack-store guard-removal experiment, with complete-call-closure/escape constraints, JIT width/alias tests and matched ordinary/HTTP evidence. Runtime Contract, CLI encoding and Raven emission remain unchanged; Follow-up managed-JIT execution passes 2,048 HTTP responses and six standalone runs with 2,557 completed concurrent epochs and index release; zero-epoch controls, pause-counter limitations and broader/default gaps are documented.
 
 ### Breaking changes
 

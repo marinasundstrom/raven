@@ -17141,3 +17141,13 @@ as regression evidence only. Broader transformed managed-JIT/boundary stress and
 pause qualification remain open. See neoCLR
 `benchmarks/execution/concurrent-workloads/stack-elision-results.md` for retained
 bundle/object hashes, native controls, allocation variation and limitations.
+
+Managed-JIT follow-up (2026-10-25) passes 2,048 HTTP responses across forced/paced
+hosts and six 4,096-iteration standalone runs with guard removal disabled/enabled.
+The paced cohorts complete 2,557 concurrent epochs in total and release index
+metadata. A mistaken forced-host standalone trial is preserved as a rejected
+zero-epoch control. This extends execution qualification, not throughput claims;
+see neoCLR `benchmarks/execution/concurrent-workloads/stack-jit-results.md` for
+counts, hashes and the discovered limitations of existing pause timers. Runtime
+Contract, Raven emission and CLI encoding remain unchanged. Complete owner-pause,
+broader boundary and shared-worker/default qualification remain open.
