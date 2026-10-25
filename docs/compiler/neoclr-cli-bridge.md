@@ -17271,3 +17271,20 @@ the experimental neoCLR backend/host together. Raven codex/neoclr documentation
 tracks the integration; no Raven compiler binary change or main merge is implied.
 Retained bundle/fixture/tool revisions are hashed in the evidence. Throughput,
 shared-heap/JIT HTTP and default qualification remain open.
+
+## Equivalent stack joins in experimental live lowering (2026-10-25)
+
+neoCLR backend lowering now retains stack provenance across joins only when all
+incoming values agree by SSA identity or directly proven stack slot/constant offset.
+Ambiguous joins remain guarded; cycles, invalid extents and unknown pointers retain
+their existing checks. This is backend-only: Raven semantics/emission, Runtime
+Contract configuration and temporary CLI/native metadata encoding are unchanged.
+No new bridge encoding is introduced; eventual native metadata replacement is
+unaffected. neoCLR owns this proof and native GC retains heap/lifetime admission.
+
+52 focused compiler tests pass, including JIT branch/output/fault checks. Rebuilt
+tasks, collections, arrays, plaintext and JSON objects are byte-identical to their
+controls: this bounded extension has no demonstrated workload speedup. Concurrent
+GC remains experimental and default/shared-worker qualification remains open.
+
+Evidence lives in neoCLR `benchmarks/execution/concurrent-workloads/equal-join-results.md` on main; Raven remains on `codex/neoclr`.
