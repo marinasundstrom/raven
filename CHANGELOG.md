@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-25:** Document reuse of qualified neoCLR direct/forwarded stack elision in isolated HTTP benchmarks: 89,922 paired responses show +18.3% throughput/-14.8% CPU, with similar allocations; four-owner checks pass separately. Raven emission, Runtime Contract and bridge encoding remain unchanged; no concurrent-default or stable-scaling claim.
+
 - **2026-10-25:** Document neoCLR experimental equal-stack-address join proofs. 52 focused tests pass; five retained standalone/HTTP objects remain byte-identical, with no workload speedup claim. Raven emission, Runtime Contract and bridge encoding remain unchanged.
 
 - **2026-10-25:** Document neoCLR owner-local Task.Run provider admission for experimental concurrent GC and one/four-owner isolated AOT HTTP qualification (3,840 responses, 2,400 live epochs, sanitized cleanup/fault checks). Raven emission, CLI encoding and Runtime Contract are unchanged; shared-heap/JIT HTTP, throughput and default qualification remain open.
