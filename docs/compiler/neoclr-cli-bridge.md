@@ -17322,3 +17322,14 @@ allocations. Mutable/alias execution, intervening-GC retention, broader sanitize
 JSON and multi-owner qualification remain open before regular pipeline selection.
 Evidence: neoCLR `benchmarks/execution/concurrent-workloads/stable-byref-results.md`
 on main; Raven remains `codex/neoclr` with no compiler binary changes.
+
+Qualification follow-up: mutable/aliased byref rebinding is rejected by the existing
+verifier before lowering; regressions now lock that boundary without extending it.
+Matched speed-optimized candidate/control AOT, UB/bounds and JIT runs retain objects
+through nested calls with no caller roots (600 cycles); deliberate omission of
+storage-root tracing fails. Six further candidate families pass 36 native/JIT
+consumer runs (3,960 cycles), including arrays, record arrays, byte views, callbacks,
+async pump and statics. These use ordinary layout/root contracts. Performance gains
+are the previous measured cohort, not a new claim. JSON/standalone cost comparison,
+multi-owner/pause and moving-collector qualification remain open. No compiler
+binary, Runtime Contract, semantic/emission or metadata representation changes.

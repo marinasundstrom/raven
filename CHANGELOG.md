@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-25:** Document neoCLR test-only immutable-byref SSA preservation with retained roots: focused/JIT checks pass and paired plaintext improves 16.2% throughput/12.8% CPU. Broader alias, retention, sanitized and workload qualification remains open. Raven emission, Runtime Contract and bridge encoding are unchanged.
+- **2026-10-25:** Document neoCLR test-only immutable-byref SSA preservation with retained roots: focused/JIT checks pass and paired plaintext improves 16.2% throughput/12.8% CPU. Follow-up passes verifier rejection boundaries, 600 empty-caller-root cycles with lost-root controls and 36 additional native/JIT consumer runs. JSON/standalone cost, multi-owner/pause and default qualification remain open. Raven emission, Runtime Contract and bridge encoding are unchanged.
 
 - **2026-10-25:** Document reuse of qualified neoCLR direct/forwarded stack elision in isolated HTTP benchmarks: 89,922 paired responses show +18.3% throughput/-14.8% CPU, with similar allocations; four-owner checks pass separately. Raven emission, Runtime Contract and bridge encoding remain unchanged; no concurrent-default or stable-scaling claim.
 
