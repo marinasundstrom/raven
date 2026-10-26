@@ -78,6 +78,9 @@
                     },
                     "patterns": [
                         {
+                            "include": "#escapedIdentifiers"
+                        },
+                        {
                             "name": "entity.name.annotation.macro.raven",
                             "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
                         },
@@ -120,6 +123,9 @@
                         }
                     },
                     "patterns": [
+                        {
+                            "include": "#escapedIdentifiers"
+                        },
                         {
                             "name": "keyword.other.attribute-target.raven",
                             "match": "\\b(?:assembly|module|field|event|method|param(?:eter)?|property|return|type)\\b(?=\\s*:)"
@@ -226,7 +232,7 @@
                 },
                 {
                     "name": "meta.preprocessor.raven",
-                    "match": "^\\s*#.*$"
+                    "match": "^\\s*#(?!\\[).*$"
                 },
                 {
                     "name": "comment.line.documentation.raven",

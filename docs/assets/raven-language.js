@@ -34,6 +34,11 @@ export default (hljs) => ({
   },
   contains: [
     {
+      begin: [/\b(?:class|struct|record|union|enum|interface|delegate|extension)\s+/, escapedName],
+      beginScope: { 1: 'keyword', 2: 'type' },
+      relevance: 0
+    },
+    {
       scope: 'title.function',
       begin: new RegExp(escapedName.source + String.raw`(?=\s*(?:<[^\r\n<>]*>\s*)?\()`, 'u'),
       relevance: 0
@@ -50,6 +55,7 @@ export default (hljs) => ({
       begin: /#\[/,
       end: /\]/,
       contains: [
+        escapedIdentifier,
         { scope: 'title.function.invoke', begin: /[A-Za-z_][A-Za-z0-9_]*/ },
         hljs.QUOTE_STRING_MODE,
         hljs.C_NUMBER_MODE

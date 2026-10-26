@@ -174,3 +174,8 @@ for (const source of ['let @if = 1', 'func @class() {}', 'object.@class()', 'let
     throw new Error(`At-escaped identifier rendering failed: ${html}`);
 }
 console.log('At-escaped identifier HTML rendering passed.');
+
+for (const name of ['`Price model`', '@class']) {
+  const html = hljs.highlight('class ' + name + ' {}', { language: 'raven' }).value;
+  if (!html.includes('<span class="hljs-type">' + name + '</span>')) throw new Error(html);
+}
