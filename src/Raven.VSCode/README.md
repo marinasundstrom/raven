@@ -6,6 +6,10 @@ It also adds Raven debug integration: F5 can compile and launch either a single 
 
 `.rvnproj` files are associated to VS Code's `xml` language mode by default, so they get XML/MSBuild colorization in the editor.
 
+The extension also includes Raven's TextMate syntax grammar. See
+[GitHub Linguist integration](syntaxes/README.md) for the shared registration
+path for Raven and neoCLR repositories and the current upstream requirements.
+
 ## Syntax tree visualizer
 
 The Explorer includes an opt-in **Raven Syntax Tree** view modeled after the
