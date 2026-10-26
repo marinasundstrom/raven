@@ -15,7 +15,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and macro-generated syntax. Preserve exact contents as symbol and metadata names
   in the ordinary identifier namespace, without Unicode normalization; reject empty
   and multiline names. Update completion insertion, symbol display, interface member
-  generation, syntax factories, and TextMate highlighting.
+  generation, syntax factories, and TextMate highlighting. Document post-release
+  neoCLR discovery integration: quoted generated references and scalar-text
+  literals preserve native Unicode/spaced names; runtime name storage, Runtime
+  Contract configuration and the published compiler pin are unchanged.
 
 - **2026-10-25:** Document neoCLR test-only immutable-byref SSA preservation with retained roots: focused/JIT checks pass and paired plaintext improves 16.2% throughput/12.8% CPU. Follow-up passes verifier rejection boundaries, 600 empty-caller-root cycles with lost-root controls and 36 additional native/JIT consumer runs. A further 90 standalone runs and 24,768 JSON responses show about 5% less tasks/collections CPU and 17.4% more JSON throughput/13.7% less CPU, with unchanged live allocations/retention. Disabled objects match controls; sync remains faster. JSON JIT now passes 512 responses/518 completed epochs; guarded-control and owner-operation profiles establish no pause advantage. Multi-owner and default qualification remain open. Raven emission, Runtime Contract and bridge encoding are unchanged.
 

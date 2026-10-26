@@ -17358,9 +17358,8 @@ normalization. The lexer and syntax factories remove only the delimiters from
 
 The current CLI emitter writes those logical names directly, with no temporary
 backtick encoding or target-specific mangling. CLI consumers may impose naming
-restrictions, and this change does not establish acceptance by the external
-neoCLR importer or runtime. Such restrictions must not become native neoCLR
-language rules. A native metadata writer and code generator must preserve the
+restrictions, and the original compiler-only qualification did not establish external
+neoCLR execution. Such restrictions must not become native neoCLR language rules. A native metadata writer and code generator must preserve the
 same logical symbol names without passing through CLI naming conventions.
 
 Validation uses shared compiler semantic tests and modern .NET reflection and
@@ -17391,3 +17390,25 @@ reproduces three pre-existing failures with the pre-change compiler: two native
 profile/self-contract cases reject structural tuples without a native emission
 backend, and a static-interface fixture returns nullable `default` as non-null.
 No native neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+
+### neoCLR discovery consumer qualification (2026-10-26)
+
+Post-release neoCLR test/benchmark adapters use `codex/neoclr`
+`4981768ebcc346ddb78cb34fa2714d73934d6019` and matching rebuilt native libraries.
+neoCLR already carries Unicode/spaced names; the former restriction was an ASCII
+check and unquoted references in discovery tooling, not a runtime limitation.
+Adapters now quote namespace components and the entire method name separately,
+resolve data sources by logical metadata name, preserve supplementary Unicode in
+Raven literals instead of JSON surrogate escapes, and use current half-open range
+syntax. Names and selectors omit source backticks; renames change IDs and order.
+
+This consumer integration changes no compiler code, Runtime Contract configuration,
+semantic model, CLI encoding or native ABI. No new temporary name encoding is
+introduced: native metadata/codegen already retains exact names. Backticks and
+line breaks inside identifiers remain Raven source limitations, not restrictions
+on neoCLR metadata. Ordinary .NET behavior is unchanged. The release pin stays
+at `ed1d08def`; this qualification is development-only.
+
+See neoCLR `docs/validation/backtick-discovery-20261026/README.md` for retained
+interpreter/JIT/AOT consumer checks, migration scope and platform limitations.
