@@ -7631,7 +7631,7 @@ public partial class SemanticModel
 
     private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)
     {
-        if (interfaceMethod.AssociatedSymbol is IPropertySymbol or IEventSymbol)
+        if (interfaceMethod.AssociatedSymbol is IPropertySymbol)
             return false;
 
         if (interfaceMethod.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
@@ -7721,6 +7721,10 @@ public partial class SemanticModel
                 return true;
             }
 
+            if (interfaceMethod.DeclaredAccessibility != Accessibility.Public ||
+                candidate.DeclaredAccessibility != Accessibility.Public)
+                continue;
+
             if (candidate.Name != interfaceMethod.Name)
                 continue;
 
@@ -7748,6 +7752,14 @@ public partial class SemanticModel
             {
                 return true;
             }
+
+            if (interfaceProperty.DeclaredAccessibility != Accessibility.Public ||
+                candidate.DeclaredAccessibility != Accessibility.Public ||
+                interfaceProperty.GetMethod is { } requiredGetter &&
+                    (requiredGetter.DeclaredAccessibility != Accessibility.Public || candidate.GetMethod?.DeclaredAccessibility != Accessibility.Public) ||
+                interfaceProperty.SetMethod is { } requiredSetter &&
+                    (requiredSetter.DeclaredAccessibility != Accessibility.Public || candidate.SetMethod?.DeclaredAccessibility != Accessibility.Public))
+                continue;
 
             if (candidate.Name != interfaceProperty.Name &&
                 !(candidate.IsIndexer && interfaceProperty.IsIndexer))

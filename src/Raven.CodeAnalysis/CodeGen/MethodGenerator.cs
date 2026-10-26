@@ -85,8 +85,12 @@ internal class MethodGenerator
             {
                 if (!hasInterfaceBody)
                     attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
-                else if (!MethodSymbol.IsStatic)
+                else if (!MethodSymbol.IsStatic && MethodSymbol.DeclaredAccessibility != Accessibility.Private && !MethodSymbol.IsFinal)
                     attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
+
+                if ((attributes & MethodAttributes.Virtual) != 0 &&
+                    MethodSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedAndInternal)
+                    attributes |= MethodAttributes.CheckAccessOnOverride;
             }
             else
             {

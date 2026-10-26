@@ -212,7 +212,7 @@ internal partial class TypeMemberBinder : Binder
             GetMemberDisplayName(propertyName),
             identifierToken.GetLocation());
 
-        if (isSealed && !isOverride)
+        if (isSealed && !isOverride && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportSealedMemberMustOverride(propertyName, identifierToken.GetLocation());
             isSealed = false;
@@ -230,11 +230,17 @@ internal partial class TypeMemberBinder : Binder
             isSealed = false;
         }
 
-        if (isVirtual && !isOverride && _containingType.IsClosed)
+        if (isVirtual && !isOverride && _containingType.IsClosed && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportVirtualMemberInClosedType(propertyName, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
+
+        if (explicitInterfaceType is null)
+            ValidateInterfaceMemberAccessibility(propertyAccessibility,
+                propertyDecl.ExpressionBody is not null || propertyDecl.AccessorList is { } propertyAccessors &&
+                    propertyAccessors.Accessors.All(a => a.Body is not null || a.ExpressionBody is not null),
+                isStatic, isAbstract, ref isVirtual, isSealed, propertyName, identifierToken.GetLocation());
 
         ITypeSymbol? receiverType = null;
 
@@ -590,29 +596,10 @@ internal partial class TypeMemberBinder : Binder
 
                 static Accessibility? GetExplicitAccessorAccessibility(SyntaxTokenList mods)
                 {
-                    var hasPublic = mods.Any(m => m.Kind == SyntaxKind.PublicKeyword);
-                    var hasPrivate = mods.Any(m => m.Kind == SyntaxKind.PrivateKeyword);
-                    var hasProtected = mods.Any(m => m.Kind == SyntaxKind.ProtectedKeyword);
-                    var hasInternal = mods.Any(m => m.Kind == SyntaxKind.InternalKeyword);
-
-                    // No explicit accessor accessibility.
-                    if (!hasPublic && !hasPrivate && !hasProtected && !hasInternal)
-                        return null;
-
-                    // Treat combinations similarly to C# where applicable.
-                    if (hasProtected && hasInternal)
-                        return Accessibility.ProtectedOrInternal;
-
-                    if (hasPublic)
-                        return Accessibility.Public;
-                    if (hasPrivate)
-                        return Accessibility.Private;
-                    if (hasProtected)
-                        return Accessibility.ProtectedAndProtected;
-                    if (hasInternal)
-                        return Accessibility.Internal;
-
-                    return null;
+                    return mods.Any(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or
+                        SyntaxKind.ProtectedKeyword or SyntaxKind.InternalKeyword)
+                        ? AccessibilityUtilities.DetermineAccessibility(mods, Accessibility.Public)
+                        : null;
                 }
 
                 // Accessor accessibility defaults to the property's accessibility unless explicitly overridden.
@@ -632,7 +619,16 @@ internal partial class TypeMemberBinder : Binder
 
                 var accessorOverride = isOverride && (isGet ? overriddenGetter is not null : overriddenSetter is not null);
                 var accessorVirtual = accessorOverride || isVirtual;
-                var accessorSealed = accessorOverride && isSealed;
+                var accessorSealed = isSealed && (accessorOverride || _containingType.TypeKind == TypeKind.Interface);
+
+                if (_containingType.TypeKind == TypeKind.Interface && explicitInterfaceType is null && accessorAccessibility == Accessibility.Private)
+                {
+                    // A private accessor does not inherit its property's implicit virtualness.
+                    accessorVirtual = false;
+                    ValidateInterfaceMemberAccessibility(accessorAccessibility,
+                        accessor.Body is not null || accessor.ExpressionBody is not null,
+                        isStatic, isAbstract, ref accessorVirtual, accessorSealed, name, accessor.GetLocation());
+                }
 
                 var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
 
@@ -873,7 +869,7 @@ internal partial class TypeMemberBinder : Binder
 
             var accessorOverride = isOverride && overriddenGetter is not null;
             var accessorVirtual = accessorOverride || isVirtual;
-            var accessorSealed = accessorOverride && isSealed;
+            var accessorSealed = isSealed && (accessorOverride || _containingType.TypeKind == TypeKind.Interface);
 
             // Rebinding this property must preserve its accessor identity. Registering a
             // second getter leaves the first in the owner's declaration graph.

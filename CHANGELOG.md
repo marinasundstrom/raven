@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
 
 ### 2026-10-26
 
+- Align interface member accessibility with C#: preserve public defaults and
+  explicit access levels, reject private abstract requirements, expose default
+  instance virtualness consistently, emit private helpers as nonvirtual, and
+  require public members for implicit implementation.
+
 - Support backtick-delimited identifiers in declarations, references, member access,
   and macro-generated syntax. Preserve exact contents as symbol and metadata names
   in the ordinary identifier namespace, without Unicode normalization; reject empty
