@@ -7,40 +7,125 @@ import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-/// Represents either a result with a value, or an error. See also: [Result&lt;T, E&gt;](xref:T:System.Result`2).
+/// Represents either a successful value (`Ok`) or an expected failure (`Failure`).
+/// Use `Result<T, E>` when the caller needs to act on a failure reason. For ordinary
+/// absence without an error, use [Optional<T>](xref:T:System.Optional`1).
 ///
-/// ## Usage
-/// Use `Result` like so:
+/// ## Handle cases with `if let ... else`
+/// A booking accepts between one and six seats. Validation returns the accepted
+/// count or an explanation that the form can display. The `if ... else` expression
+/// constructs the result; an invalid request is an expected outcome.
 ///
 /// ```raven
-/// func Test(v: int) -> Result<int, string> {
-///     if v > 3 {
-///         return Ok(42)
+/// import System.*
+/// import System.Result.*
+///
+/// func ValidateSeats(requested: int) -> Result<int, string> {
+///     return if requested >= 1 && requested <= 6 {
+///         Ok(requested)
+///     } else {
+///         Failure("Choose between 1 and 6 seats.")
 ///     }
-///     Failure("Wrong number")
 /// }
-/// ```
-/// 
-/// Matching result in `match` expression:
-/// 
-/// ```raven
-/// let result = Test(2)
-/// 
-/// let r = result match {
-///     Ok(let value) => "Ok: $value"
-///     Failure(let message) => "Error: '$message'"
+///
+/// let result = ValidateSeats(3)
+/// if let Ok(seats) = result {
+///     Console.WriteLine("Continue with ${seats} seats.")
+/// } else {
+///     Console.WriteLine("Correct the seat count before continuing.")
 /// }
+/// // Continue with 3 seats.
 /// ```
 ///
-/// Simple pattern:
+/// `if let` binds `seats` only in the successful branch. The equivalent `is`
+/// pattern is `if result is Ok(let seats) { ... } else { ... }`.
+///
+/// ## Handle both cases with `match`
+/// A form needs the actual error message, not just a success flag. Use `match`
+/// when each outcome contributes its own value. Both cases are handled explicitly.
 ///
 /// ```raven
-/// if result is Ok(let value) {
-///     // Omitted
-/// } else if result is Failure(let error) {
-///     // Omitted
+/// let feedback = ValidateSeats(0) match {
+///     Ok(let seats) => "Ready to book ${seats} seats."
+///     Failure(let message) => message
 /// }
+/// Console.WriteLine(feedback)
+/// // Choose between 1 and 6 seats.
 /// ```
+///
+/// ## Propagate `Failure` with `?`
+/// A price calculation cannot continue with an invalid seat count. `?` extracts
+/// the value from `Ok`, or immediately returns the existing `Failure` from
+/// `CalculateTotal`. The error message is preserved. The final `Ok` wraps the
+/// calculated total; `?` does not wrap successful return values automatically.
+///
+/// ```raven
+/// func CalculateTotal(requested: int) -> Result<int, string> {
+///     let seats = ValidateSeats(requested)?
+///     Ok(seats * 25)
+/// }
+///
+/// let total = CalculateTotal(3) // Ok(75)
+/// let invalid = CalculateTotal(0) // Failure("Choose between 1 and 6 seats.")
+/// Console.WriteLine(total.UnwrapOr(0))
+/// if invalid is Failure(let message) {
+///     Console.WriteLine(message)
+/// } else {
+///     Console.WriteLine("Booking can continue.")
+/// }
+/// // 75
+/// // Choose between 1 and 6 seats.
+/// ```
+///
+/// Use `?` when this function cannot recover and its caller should receive the
+/// failure. Branch or match when you need to display, recover from, or translate it.
+///
+/// ## Propagate different error types with `?`
+/// Validation and payment can have different error contracts. An ad-hoc union in
+/// `Result<int, SeatError | PaymentError>` lets the booking operation preserve either
+/// error without converting it to a string or introducing another error wrapper.
+/// This example uses an explicit payment decision so both outcomes are easy to try.
+///
+/// ```raven
+/// record SeatError(val Message: string)
+/// record PaymentError(val Message: string)
+///
+/// func ReserveSeats(requested: int) -> Result<int, SeatError> {
+///     return if requested >= 1 && requested <= 6 {
+///         Ok(requested)
+///     } else {
+///         Failure(SeatError("Choose between 1 and 6 seats."))
+///     }
+/// }
+///
+/// func Charge(amount: int, approved: bool) -> Result<int, PaymentError> {
+///     return if approved {
+///         Ok(amount)
+///     } else {
+///         Failure(PaymentError("Payment declined."))
+///     }
+/// }
+///
+/// func Book(requested: int, approved: bool) -> Result<int, SeatError | PaymentError> {
+///     let seats = ReserveSeats(requested)?
+///     let paid = Charge(seats * 25, approved)?
+///     Ok(paid)
+/// }
+///
+/// let confirmation = Book(2, false) match {
+///     Ok(let paid) => "Booked for ${paid}."
+///     Failure(SeatError error) => "Update your request: ${error.Message}"
+///     Failure(PaymentError error) => "Try another payment method: ${error.Message}"
+/// }
+/// Console.WriteLine(confirmation)
+/// // Try another payment method: Payment declined.
+/// ```
+///
+/// Each `?` returns its original error through the enclosing result's error union.
+/// There is still one `Failure` case: its payload is either a `SeatError` or a
+/// `PaymentError`, and the typed patterns distinguish them. `Book(0, true)` returns
+/// a seat error before calling `Charge`; `Book(2, true)` returns `Ok(50)`.
+/// Use a dedicated error union instead when you want a single named domain contract.
 ///
 /// @typeparam T The successful value type.
 /// @typeparam E The error value type.

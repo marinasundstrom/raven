@@ -9,40 +9,79 @@ import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-/// Represents some value, or no value.
+/// Represents an available value (`Some`) or meaningful absence (`None`).
+/// Use `Optional<T>` when having no value is an ordinary outcome. Use
+/// [Result<T, E>](xref:T:System.Result`2) when the caller needs a reason for failure.
 ///
-/// ## Usage
-/// Use `Optional` like so:
+/// ## Handle cases with `if ... else`
+/// A profile form can leave its nickname field blank. This function trims the
+/// input and makes that absence explicit instead of using an empty string as a
+/// special value. The `if ... else` expression produces the optional value.
 ///
 /// ```raven
-/// func Test(v: int) -> Optional<int> {
-///     if v > 3 {
-///         return Some(42)
+/// import System.*
+/// import System.Optional.*
+///
+/// func ReadNickname(input: string) -> Optional<string> {
+///     let name = input.Trim()
+///     return if name.Length == 0 {
+///         None
+///     } else {
+///         Some(name)
 ///     }
-///     None
 /// }
-/// ```
-/// 
-/// Matching result in `match` expression:
-/// 
-/// ```raven
-/// let result = Test(2)
-/// 
-/// let r = result match {
-///     Some(let value) => "Some: $value"
-///     None => "None"
+///
+/// let nickname = ReadNickname(" Ada ")
+/// if nickname is Some(let displayName) {
+///     Console.WriteLine("Welcome, ${displayName}!")
+/// } else {
+///     Console.WriteLine("Welcome, guest!")
 /// }
+/// // Welcome, Ada!
 /// ```
 ///
-/// Simple pattern:
+/// `Some(let displayName)` both checks the case and binds its value. `displayName` is available
+/// only in the successful branch; the `else` branch handles `None`.
+///
+/// ## Extract a value or use a fallback with `if let`
+/// Continuing the profile example, a heading needs a string in both cases.
+/// An `if let` expression binds the nickname when present and supplies a fallback
+/// when absent. Both branches compute the heading rather than performing an action.
 ///
 /// ```raven
-/// if result is Some(let value) {
-///     // Omitted
-/// } else if result is None {
-///     // Omitted
+/// let heading = if let Some(profileName) = ReadNickname("   ") {
+///     "Profile: ${profileName}"
+/// } else {
+///     "Guest profile"
 /// }
+/// Console.WriteLine(heading)
+/// // Guest profile
 /// ```
+///
+/// ## Propagate `None` with `?`
+/// A profile handle can be created only when a nickname exists. Here `?` extracts
+/// the string from `Some`, or immediately returns `None` from `CreateHandle`.
+/// The remaining code runs only when there is a name. Wrap the final value in
+/// `Some` to return a successful optional result.
+///
+/// ```raven
+/// func CreateHandle(input: string) -> Optional<string> {
+///     let name = ReadNickname(input)?
+///     Some("@${name.ToLowerInvariant()}")
+/// }
+///
+/// let handle = CreateHandle(" Ada ") // Some("@ada")
+/// let missing = CreateHandle("   ") // None
+/// Console.WriteLine(handle.UnwrapOr("guest"))
+/// Console.WriteLine(missing.UnwrapOr("guest"))
+/// // @ada
+/// // guest
+/// ```
+///
+/// Choose an explicit branch when this function should provide a fallback or take
+/// a different action. Use `?` when absence should remain absence for its caller.
+/// A `match` expression is also available when you want to handle both cases
+/// exhaustively.
 ///
 /// @typeparam T The type of the optional value.
 [JsonConverter(typeof(OptionalJsonConverterFactory))]
