@@ -14,6 +14,8 @@ const registry = new Registry({
 });
 const grammar = await registry.loadGrammar('source.raven');
 for (const [source, name, scope] of [
+  ['#[`if ] else`]', '`if ] else`', 'variable.other.identifier.raven'],
+  ['[Test(`if ] else`)]', '`if ] else`', 'variable.other.identifier.raven'],
   ['let @if = 1', '@if', 'variable.other.identifier.raven'],
   ['func @class() {}', '@class', 'entity.name.function.raven'],
   ['object.@class()', '@class', 'entity.name.function.raven'],
@@ -28,7 +30,7 @@ for (const [source, name, scope] of [
   ['let s = "$`total price`"', '`total price`', 'variable.other.identifier.raven']
 ]) {
   const tokens = grammar.tokenizeLine(source).tokens;
-  assert.ok(tokens.some(t => source.slice(t.startIndex, t.endIndex) === name && t.scopes.includes(scope)), source);
+  assert.ok(tokens.some(t => source.slice(t.startIndex, t.endIndex) === name && t.scopes.includes(scope)), source + JSON.stringify(tokens));
 }
 const unfinished = grammar.tokenizeLine('let `unterminated');
 const nextLine = grammar.tokenizeLine('let value = 42', unfinished.ruleStack);

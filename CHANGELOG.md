@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ## Unreleased
 
-- Update Raven code highlighting for whole backtick and `@`-escaped identifiers, including function names and references; verify grammar-only rendering.
+- Update Raven code highlighting for whole backtick and `@`-escaped identifiers, including function/type declarations, attribute arguments, and references; verify grammar-only rendering.
 
 - **2026-10-26:** Infer named function and method parameter types from nominal
   deconstruction patterns, allowing `SubmitOrder(let orderId)` without repeating
