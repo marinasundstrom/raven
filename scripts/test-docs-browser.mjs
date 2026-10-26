@@ -89,7 +89,7 @@ try {
   await searchToggle.click();
   const search = page.getByRole('searchbox', { name: 'Search documentation and APIs' });
   assert.equal(await search.evaluate(e => e === document.activeElement), true);
-  await search.fill('Option');
+  await search.fill('Optional');
   await page.locator('.site-search-results a').first().waitFor();
   assert.ok(await page.locator('.site-search-results a[href*="libraries/raven-core/"]').count() > 0);
   await page.mouse.click(3, 890);
@@ -98,7 +98,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await searchToggle.getAttribute('aria-expanded'), 'false');
   await searchToggle.click();
-  assert.equal(await search.inputValue(), 'Option');
+  assert.equal(await search.inputValue(), 'Optional');
   await search.fill('no-such-raven-site-search-result');
   await page.getByText('No results.', { exact: true }).waitFor();
   await page.keyboard.press('Escape');
@@ -115,7 +115,7 @@ try {
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }));
   await copy.click();
   assert.equal(await copy.textContent(), 'Retry');
-  for (const path of ['libraries/raven-core/System/Option%601/index.html', 'libraries/raven-macros/Raven/Macros/index.html']) {
+  for (const path of ['libraries/raven-core/System/Optional%601/index.html', 'libraries/raven-macros/Raven/Macros/index.html']) {
     await page.goto(`${base}/${path}`);
     assert.ok(await page.locator('header a').evaluateAll(links => links.some(a => new URL(a.href).pathname === '/libraries/index.html')), 'API shares website navigation');
     assert.equal(await page.locator('.api-namespace .api-namespace').count(), 0, 'Namespaces are flat');
