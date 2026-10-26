@@ -11,7 +11,9 @@ import System.Text.Json.Serialization.*
 /// Use `Result<T, E>` when the caller needs to act on a failure reason. For ordinary
 /// absence without an error, use [Optional<T>](xref:T:System.Optional`1).
 ///
-/// ## Handle cases with `if let ... else`
+/// ## Usage
+///
+/// ### Handle cases with `if let ... else`
 /// A booking accepts between one and six seats. Validation returns the accepted
 /// count or an explanation that the form can display. The `if ... else` expression
 /// constructs the result; an invalid request is an expected outcome.
@@ -40,7 +42,7 @@ import System.Text.Json.Serialization.*
 /// `if let` binds `seats` only in the successful branch. The equivalent `is`
 /// pattern is `if result is Ok(let seats) { ... } else { ... }`.
 ///
-/// ## Handle both cases with `match`
+/// ### Handle both cases with `match`
 /// A form needs the actual error message, not just a success flag. Use `match`
 /// when each outcome contributes its own value. Both cases are handled explicitly.
 ///
@@ -53,7 +55,7 @@ import System.Text.Json.Serialization.*
 /// // Choose between 1 and 6 seats.
 /// ```
 ///
-/// ## Propagate `Failure` with `?`
+/// ### Propagate `Failure` with `?`
 /// A price calculation cannot continue with an invalid seat count. `?` extracts
 /// the value from `Ok`, or immediately returns the existing `Failure` from
 /// `CalculateTotal`. The error message is preserved. The final `Ok` wraps the
@@ -80,7 +82,7 @@ import System.Text.Json.Serialization.*
 /// Use `?` when this function cannot recover and its caller should receive the
 /// failure. Branch or match when you need to display, recover from, or translate it.
 ///
-/// ## Propagate different error types with `?`
+/// ### Propagate different error types with `?`
 /// Validation and payment can have different error contracts. An ad-hoc union in
 /// `Result<int, SeatError | PaymentError>` lets the booking operation preserve either
 /// error without converting it to a string or introducing another error wrapper.
