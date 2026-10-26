@@ -251,31 +251,27 @@ class WebApplication {
             .ShouldBe("Run(port: int = 5000) -> ()");
     }
 
-    [Fact]
-    public void Operators_ToDisplayString_DoNotRepeatFunctionKeyword()
+    [Theory]
+    [InlineData("implicit(value: Number) -> string", "\"\"")]
+    [InlineData("explicit(value: Number) -> string", "\"\"")]
+    [InlineData("checked explicit(value: Number) -> string", "\"\"")]
+    [InlineData("+(left: Number, right: Number) -> Number", "left")]
+    [InlineData("checked +(left: Number, right: Number) -> Number", "left")]
+    public void Operators_ToDisplayString_DoNotRepeatFunctionKeyword(string signature, string body)
     {
-        const string source = """
+        var source = $$"""
 class Number {
-    static func implicit(value: Number) -> string { "" }
-    static func +(left: Number, right: Number) -> Number { left }
+    static func {{signature}} { {{body}} }
 }
 """;
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var symbols = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<BaseMethodDeclarationSyntax>()
-            .Select(declaration =>
-                Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration)))
-            .ToArray();
+        var declaration = tree.GetRoot().DescendantNodes().OfType<BaseMethodDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
 
-        symbols.Single(symbol => symbol.MethodKind == MethodKind.Conversion)
-            .ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
-            .ShouldBe("static func implicit(value: Number) -> string");
-        symbols.Single(symbol => symbol.MethodKind == MethodKind.UserDefinedOperator)
-            .ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
-            .ShouldBe("static func +(left: Number, right: Number) -> Number");
+        symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe($"static func {signature}");
     }
 
     [Fact]

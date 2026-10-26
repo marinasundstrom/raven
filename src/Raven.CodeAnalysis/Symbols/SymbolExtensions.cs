@@ -568,6 +568,7 @@ public static partial class SymbolExtensions
                 IsConstructor: true,
                 MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
             } => false,
+            IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => false,
             IPropertySymbol { IsIndexer: true } => false,
             IMethodSymbol { Name: "Invoke" } => false,
             _ => true

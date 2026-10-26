@@ -8,8 +8,10 @@ symbol namespace as ordinary and `@`-escaped names. No normalization is applied.
 Syntax factories accept the escaped source spelling and preserve the same
 Text/ValueText distinction, including for syntax returned by macros. Completion,
 escaped symbol display, and interface implementation generation quote names that
-cannot be written as ordinary identifiers. No new syntax-node kinds or operations
-are required; semantic queries continue through the ordinary compiler APIs.
+cannot be written as ordinary identifiers. Operator and conversion signatures
+retain their language syntax (for example, `func +` and `func implicit`); these
+formatted signatures are not escaped as identifier names. No new syntax-node
+kinds or operations are required; semantic queries continue through the ordinary compiler APIs.
 
 The lexer diagnoses empty names and missing closing backticks, stopping before
 any source line break. Backticks cannot be embedded in a name. The language does
