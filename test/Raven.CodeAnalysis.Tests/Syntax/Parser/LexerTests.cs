@@ -15,6 +15,26 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class LexerTests
 {
     [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    [InlineData("\u0085")]
+    [InlineData("\u2028")]
+    [InlineData("\u2029")]
+    public void MultilineString_TrimsOnlyMatchingIndentAndPreservesLineBreaks(string newline)
+    {
+        var text = "\"\"\"" + newline + "    first" + newline + "  second" + newline +
+            "\tthird" + newline + newline + "    last\\n" + newline + "    \"\"\"";
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.MultiLineStringLiteralToken, token.Kind);
+        Assert.Equal(text, token.Text);
+        Assert.Equal("first" + newline + "  second" + newline + "\tthird" + newline +
+            newline + "last\\n" + newline, Assert.IsType<string>(token.Value));
+    }
+
+    [Theory]
     [InlineData("Calculate total price")]
     [InlineData("class")]
     [InlineData(" a + b! ")]
