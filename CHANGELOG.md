@@ -19,6 +19,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ### Changes
 
+- **2026-10-26:** Restore `MacroExpansionDiagnostic.Error` calls in the observable and reactive macro samples; the Result case rename does not rename diagnostic APIs.
+
 - **2026-10-26:** Preserve operator and conversion signature syntax in symbol display when identifier escaping is enabled.
 
 - **2026-10-26:** Reduce compiler allocations when applying source edits, trimming multiline string indentation, and scanning identifiers and keywords. Preserve source snapshots, token text, values, and line endings.
