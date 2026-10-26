@@ -153,3 +153,24 @@ for (const scope of ['keyword', 'type', 'string', 'comment', 'number', 'title fu
 const escaped = hljs.highlight('let text = "<script>alert(1)</script>"', { language: 'raven' }).value
 if (escaped.includes('<script>')) throw new Error('Code markup was not escaped')
 console.log('RavenDoc shared lexer and vendored highlight.js rendering passed.')
+
+for (const source of [
+  '`Calculate total price`(10, 5)',
+  'let `if /* <tag> */ 42` = 1',
+  'let s = "${`a}b`}"',
+  'let s = "$`total price`"'
+]) {
+  const html = hljs.highlight(source, { language: 'raven' }).value;
+  if (!html.includes('`') || html.includes('<tag>')) throw new Error(`Invalid escaped identifier rendering: ${html}`);
+  if (html.includes('<span class="hljs-keyword">if</span>') || html.includes('hljs-comment'))
+    throw new Error(`Identifier contents were tokenized as code: ${html}`);
+  if (!/hljs-(?:variable|title function_|subst)/.test(html)) throw new Error(`Missing identifier scope: ${html}`);
+}
+console.log('Backtick identifier HTML rendering passed.');
+
+for (const source of ['let @if = 1', 'func @class() {}', 'object.@class()', 'let @数据 = 1']) {
+  const html = hljs.highlight(source, { language: 'raven' }).value;
+  if (!/hljs-(?:variable|title function_)/.test(html) || /hljs-keyword">(?:if|class)</.test(html))
+    throw new Error(`At-escaped identifier rendering failed: ${html}`);
+}
+console.log('At-escaped identifier HTML rendering passed.');

@@ -47,6 +47,10 @@ class TextMateState {
 }
 
 function tokenType(scopes) {
+  const leaf = scopes.at(-1) ?? "";
+  if (leaf === "variable.other.identifier.raven") return "identifier";
+  if (leaf.startsWith("entity.name.function")) return "function";
+  if (leaf.startsWith("entity.name.type")) return "type";
   const scope = scopes.join(" ");
 
   if (scope.includes("invalid.")) return "invalid";
@@ -195,6 +199,7 @@ function registerRavenThemes() {
     { token: "keyword", foreground: isDark ? "569CD6" : "0000FF" },
     { token: "type", foreground: isDark ? "4EC9B0" : "267F99" },
     { token: "function", foreground: isDark ? "DCDCAA" : "795E26" },
+    { token: "identifier", foreground: isDark ? "9CDCFE" : "001080" },
     { token: "parameter", foreground: isDark ? "9CDCFE" : "001080" },
     { token: "operator", foreground: isDark ? "D4D4D4" : "000000" },
     { token: "invalid", foreground: isDark ? "F44747" : "CD3131" },
