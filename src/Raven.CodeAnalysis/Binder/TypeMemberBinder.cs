@@ -812,7 +812,7 @@ internal partial class TypeMemberBinder : Binder
             displayName,
             identifierToken.GetLocation());
 
-        if (isSealed && !isOverride)
+        if (isSealed && !isOverride && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportSealedMemberMustOverride(name, identifierToken.GetLocation());
             isSealed = false;
@@ -852,7 +852,7 @@ internal partial class TypeMemberBinder : Binder
             isAbstract = false;
         }
 
-        if (isVirtual && !isOverride && _containingType.IsClosed)
+        if (isVirtual && !isOverride && _containingType.IsClosed && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportVirtualMemberInClosedType(name, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
@@ -875,6 +875,11 @@ internal partial class TypeMemberBinder : Binder
             if (isVirtual || isOverride || isSealed || isExtern || isAsync)
                 _diagnostics.ReportModifierNotValidOnMember("partial", "method", name, identifierToken.GetLocation());
         }
+
+        if (explicitInterfaceType is null)
+            ValidateInterfaceMemberAccessibility(methodAccessibility,
+                methodDecl.Body is not null || methodDecl.ExpressionBody is not null,
+                isStatic, isAbstract, ref isVirtual, isSealed, name, identifierToken.GetLocation());
 
         IMethodSymbol? overriddenMethod = null;
 
@@ -1899,19 +1904,17 @@ internal partial class TypeMemberBinder : Binder
         PropertyOrEvent
     }
 
-    private static ImmutableArray<ISymbol> GetExplicitInterfaceMembers(
+    private ImmutableArray<ISymbol> GetExplicitInterfaceMembers(
         INamedTypeSymbol interfaceType,
         string memberName,
         ExplicitInterfaceMemberLookupKind lookupKind)
     {
         var members = interfaceType.GetMembers(memberName);
-        if (!members.IsDefaultOrEmpty)
-            return members;
+        if (members.IsDefaultOrEmpty && TryEnsureSourceInterfaceMembersAvailable(interfaceType, lookupKind))
+            members = interfaceType.GetMembers(memberName);
 
-        if (!TryEnsureSourceInterfaceMembersAvailable(interfaceType, lookupKind))
-            return members;
-
-        return interfaceType.GetMembers(memberName);
+        return members.Where(member => AccessibilityUtilities.IsAccessible(member, _containingType) &&
+            member is not IMethodSymbol { IsFinal: true }).ToImmutableArray();
     }
 
     private static bool TryEnsureSourceInterfaceMembersAvailable(
@@ -2960,7 +2963,7 @@ internal partial class TypeMemberBinder : Binder
             GetMemberDisplayName(eventName),
             identifierToken.GetLocation());
 
-        if (isSealed && !isOverride)
+        if (isSealed && !isOverride && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportSealedMemberMustOverride(eventName, identifierToken.GetLocation());
             isSealed = false;
@@ -2978,7 +2981,7 @@ internal partial class TypeMemberBinder : Binder
             isSealed = false;
         }
 
-        if (isVirtual && !isOverride && _containingType.IsClosed)
+        if (isVirtual && !isOverride && _containingType.IsClosed && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportVirtualMemberInClosedType(eventName, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
@@ -3005,6 +3008,15 @@ internal partial class TypeMemberBinder : Binder
                 GetMemberDisplayName(eventName),
                 "receiver",
                 _extensionReceiverTypeSyntax.GetLocation());
+        }
+
+        if (_containingType.TypeKind == TypeKind.Interface && explicitInterfaceType is null)
+        {
+            var hasBody = eventDecl.AccessorList is not null &&
+                eventDecl.AccessorList.Accessors.All(a => a.Body is not null || a.ExpressionBody is not null);
+            isAbstract |= !hasBody && !isStatic;
+            ValidateInterfaceMemberAccessibility(eventAccessibility, hasBody,
+                isStatic, isAbstract, ref isVirtual, isSealed, eventName, identifierToken.GetLocation());
         }
 
         var eventSymbol = new SourceEventSymbol(
@@ -3159,7 +3171,7 @@ internal partial class TypeMemberBinder : Binder
                 var name = explicitAccessorPrefix + (isAdd ? "add_" : "remove_") + eventSymbol.Name;
                 var accessorOverride = isOverride && (isAdd ? overriddenAdder is not null : overriddenRemover is not null);
                 var accessorVirtual = accessorOverride || isVirtual;
-                var accessorSealed = accessorOverride && isSealed;
+                var accessorSealed = isSealed && (accessorOverride || _containingType.TypeKind == TypeKind.Interface);
 
                 if (isAbstract && (accessor.Body is not null || accessor.ExpressionBody is not null))
                 {
@@ -3639,7 +3651,7 @@ internal partial class TypeMemberBinder : Binder
             GetMemberDisplayName("Item"),
             identifierToken.GetLocation());
 
-        if (isSealed && !isOverride)
+        if (isSealed && !isOverride && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportSealedMemberMustOverride("Item", identifierToken.GetLocation());
             isSealed = false;
@@ -3657,11 +3669,17 @@ internal partial class TypeMemberBinder : Binder
             isSealed = false;
         }
 
-        if (isVirtual && !isOverride && _containingType.IsClosed)
+        if (isVirtual && !isOverride && _containingType.IsClosed && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportVirtualMemberInClosedType("Item", _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
+
+        if (explicitInterfaceType is null)
+            ValidateInterfaceMemberAccessibility(indexerAccessibility,
+                indexerDecl.ExpressionBody is not null || indexerDecl.AccessorList is { } indexerAccessors &&
+                    indexerAccessors.Accessors.All(a => a.Body is not null || a.ExpressionBody is not null),
+                isStatic, isAbstract, ref isVirtual, isSealed, "Item", identifierToken.GetLocation());
 
         ValidateTypeAccessibility(
             propertyType,
@@ -3814,27 +3832,10 @@ internal partial class TypeMemberBinder : Binder
         {
             static Accessibility? GetExplicitAccessorAccessibility(SyntaxTokenList mods)
             {
-                var hasPublic = mods.Any(m => m.Kind == SyntaxKind.PublicKeyword);
-                var hasPrivate = mods.Any(m => m.Kind == SyntaxKind.PrivateKeyword);
-                var hasProtected = mods.Any(m => m.Kind == SyntaxKind.ProtectedKeyword);
-                var hasInternal = mods.Any(m => m.Kind == SyntaxKind.InternalKeyword);
-
-                if (!hasPublic && !hasPrivate && !hasProtected && !hasInternal)
-                    return null;
-
-                if (hasProtected && hasInternal)
-                    return Accessibility.ProtectedOrInternal;
-
-                if (hasPublic)
-                    return Accessibility.Public;
-                if (hasPrivate)
-                    return Accessibility.Private;
-                if (hasProtected)
-                    return Accessibility.ProtectedAndProtected;
-                if (hasInternal)
-                    return Accessibility.Internal;
-
-                return null;
+                return mods.Any(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or
+                    SyntaxKind.ProtectedKeyword or SyntaxKind.InternalKeyword)
+                    ? AccessibilityUtilities.DetermineAccessibility(mods, Accessibility.Public)
+                    : null;
             }
 
             static int GetAccessibilityRank(Accessibility accessibility)
@@ -3880,7 +3881,16 @@ internal partial class TypeMemberBinder : Binder
 
                 var accessorOverride = isOverride && (isGet ? overriddenGetter is not null : overriddenSetter is not null);
                 var accessorVirtual = accessorOverride || isVirtual;
-                var accessorSealed = accessorOverride && isSealed;
+                var accessorSealed = isSealed && (accessorOverride || _containingType.TypeKind == TypeKind.Interface);
+
+                if (_containingType.TypeKind == TypeKind.Interface && explicitInterfaceType is null && accessorAccessibility == Accessibility.Private)
+                {
+                    // A private accessor does not inherit its property's implicit virtualness.
+                    accessorVirtual = false;
+                    ValidateInterfaceMemberAccessibility(accessorAccessibility,
+                        accessor.Body is not null || accessor.ExpressionBody is not null,
+                        isStatic, isAbstract, ref accessorVirtual, accessorSealed, name, accessor.GetLocation());
+                }
 
                 var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
 
@@ -4052,7 +4062,7 @@ internal partial class TypeMemberBinder : Binder
             var name = explicitIndexerAccessorPrefix + "get_" + propertySymbol.Name;
             var accessorOverride = isOverride && overriddenGetter is not null;
             var accessorVirtual = accessorOverride || isVirtual;
-            var accessorSealed = accessorOverride && isSealed;
+            var accessorSealed = isSealed && (accessorOverride || _containingType.TypeKind == TypeKind.Interface);
 
             var methodSymbol = new SourceMethodSymbol(
                 name,
@@ -4914,6 +4924,25 @@ internal partial class TypeMemberBinder : Binder
 
     private static bool HasFileScopeModifier(SyntaxTokenList modifiers)
         => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword);
+
+    private void ValidateInterfaceMemberAccessibility(
+        Accessibility accessibility, bool hasBody, bool isStatic, bool isAbstract,
+        ref bool isVirtual, bool isSealed, string name, Location location)
+    {
+        if (_containingType.TypeKind != TypeKind.Interface)
+            return;
+
+        if (accessibility == Accessibility.Private)
+        {
+            if (!hasBody || isAbstract || isVirtual || isSealed)
+                _diagnostics.ReportModifierNotValidOnMember("private", "interface member", name, location);
+            isVirtual = false;
+        }
+        else if (!isStatic && hasBody && !isAbstract && !isSealed)
+        {
+            isVirtual = true;
+        }
+    }
 
     private void ValidateInheritanceModifiers(
         ref bool isAbstract,

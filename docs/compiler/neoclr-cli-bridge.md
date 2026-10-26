@@ -17366,3 +17366,28 @@ same logical symbol names without passing through CLI naming conventions.
 Validation uses shared compiler semantic tests and modern .NET reflection and
 invocation of a method named `Calculate total price`. It does not validate native
 neoCLR execution. See [Backtick identifiers](backtick-identifiers.md).
+
+### Interface member accessibility alignment (2026-10-26)
+
+The shared compiler follows C# interface accessibility: public by default,
+private helpers require bodies, default instance members are virtual unless
+private or sealed, and non-public requirements use explicit implementation.
+See [Interface member accessibility](interface-member-accessibility.md).
+
+The temporary CLI representation preserves the declared member visibility,
+emits private/sealed helpers without virtual slots, and uses
+`CheckAccessOnOverride` on internal/private-protected virtual members. The
+shared binder owns diagnostics, symbol flags and accessibility lookup;
+semantic implementation matching and the reflection emitter own interface
+mapping. This does not expand native interface/body capabilities or establish
+new neoCLR language restrictions. Native interface metadata and code generation
+must represent the same visibility, default bodies and dispatch distinctions
+without relying on CLI method attributes.
+
+Validation on the `codex/neoclr` compiler branch uses the .NET 11 host/runtime:
+43 focused accessibility cases, including Roslyn metadata comparisons and
+observable dispatch, pass; 404 surrounding cases pass. The broader run also
+reproduces three pre-existing failures with the pre-change compiler: two native
+profile/self-contract cases reject structural tuples without a native emission
+backend, and a static-interface fixture returns nullable `default` as non-null.
+No native neoCLR, .NET Framework or NanoFramework execution is claimed.

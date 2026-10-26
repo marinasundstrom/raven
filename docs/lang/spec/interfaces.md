@@ -12,6 +12,20 @@ Interfaces may be declared at the top level, inside namespaces, or nested inside
 
 Static members, by contrast, must provide a body and emit as real static members on the interface type; implementing types never participate in their implementation or override process. When an interface member uses accessors, a bare `;` accessor denotes an unimplemented accessor requirement (`get;`/`set;`).
 
+### Member accessibility
+
+Interface members default to `public`, including members with default bodies.
+Explicit `public`, `private`, `protected`, `internal`, `protected internal`, and
+`private protected` access modifiers retain their ordinary meaning, following C#.
+Private function members must have implementations and cannot be abstract or virtual.
+Instance default implementations are implicitly virtual unless private or sealed.
+These rules apply to methods and property, indexer, and event accessors.
+
+Implicit interface implementation requires public members on both the interface
+and the implementing type, including required property accessors. Non-public
+requirements use explicit interface implementations. Private default helpers are
+not implementation requirements and do not become class virtual slots.
+
 ### Base interfaces
 
 An interface may inherit from other interfaces by listing them after a colon.

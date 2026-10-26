@@ -2606,7 +2606,9 @@ internal class TypeGenerator
 
         foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<IMethodSymbol>())
         {
-            if (SignaturesMatch(candidate, interfaceMethod))
+            if (!interfaceMethod.IsFinal && interfaceMethod.DeclaredAccessibility == Accessibility.Public &&
+                candidate.DeclaredAccessibility == Accessibility.Public &&
+                SignaturesMatch(candidate, interfaceMethod))
             {
                 implementation = candidate;
                 return true;

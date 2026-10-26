@@ -202,6 +202,10 @@ internal static class AccessibilityUtilities
 
     private static bool IsTypeOrDerivedFrom(INamedTypeSymbol derived, INamedTypeSymbol potentialBase)
     {
+        if (potentialBase.TypeKind == TypeKind.Interface &&
+            derived.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, potentialBase)))
+            return true;
+
         for (var current = derived; current is not null; current = current.BaseType)
         {
             if (SymbolEqualityComparer.Default.Equals(current, potentialBase))

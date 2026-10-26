@@ -1904,3 +1904,14 @@ public semantic API or emitted metadata representation changes; this repairs a
 general diagnostic and permits ordinary CLI emission. All 44 focused semantic and runtime
 ByRefParameter tests pass on modern .NET; native integration is validated separately
 when deliberately carried to codex/neoclr, without merging branches.
+
+### 2026-10-26 — Shared interface member accessibility
+
+Carry the shared C# accessibility correction independently on `main` and
+`codex/neoclr`; no branch merge or target-specific accessibility policy is needed.
+Private helpers, explicit non-public implementation, combined accessor modifiers,
+protected lookup and CLI virtual/access-check flags are covered by the shared
+regression matrix. The neoCLR compiler branch passes 43 focused and 404 surrounding
+cases on modern .NET; three unrelated broader failures reproduce with its
+pre-change compiler. See the [CLI bridge record](neoclr-cli-bridge.md#interface-member-accessibility-alignment-2026-10-26)
+for encoding ownership, native replacement requirements and validation limits.
