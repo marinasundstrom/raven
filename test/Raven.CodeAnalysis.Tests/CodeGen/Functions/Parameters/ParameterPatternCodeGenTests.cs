@@ -8,6 +8,21 @@ namespace Raven.CodeAnalysis.Tests;
 public class ParameterPatternCodeGenTests
 {
     [Theory]
+    [InlineData("Row(let value)")]
+    [InlineData("(let value): Row")]
+    public void SingleComponentParameter_ExtractsValue(string parameter)
+    {
+        var source = $$"""
+record class Row(Value: int)
+class C {
+    static func Read({{parameter}}) -> int => value
+    static func Run() -> int => Read(Row(42))
+}
+""";
+        Assert.Equal(42, CompileAndRunParameterSample(source));
+    }
+
+    [Theory]
     [InlineData("record class", "{x: let horizontal, y: let vertical}", "horizontal + vertical")]
     [InlineData("record struct", "{x: let horizontal, y: let vertical}", "horizontal + vertical")]
     [InlineData("record class", "{x: let horizontal}", "horizontal + 6")]

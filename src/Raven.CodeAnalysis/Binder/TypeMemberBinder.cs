@@ -736,7 +736,7 @@ internal partial class TypeMemberBinder : Binder
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             ParameterSyntaxUtilities.ValidatePatternContext(p, methodDecl.Body is not null || methodDecl.ExpressionBody is not null, _diagnostics);
-            var typeSyntax = p.TypeAnnotation?.Type;
+            var typeSyntax = ParameterSyntaxUtilities.GetDeclaredTypeSyntax(p);
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
@@ -1318,13 +1318,13 @@ internal partial class TypeMemberBinder : Binder
         {
             var parameterSyntax = methodDecl.ParameterList.Parameters[i];
             var skeletonParameter = skeleton.Parameters[i + parameterOffset];
-            if (parameterSyntax.TypeAnnotation is null)
+            if (ParameterSyntaxUtilities.GetDeclaredTypeSyntax(parameterSyntax) is not { } typeSyntax)
                 return false;
 
             var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
             var parameterType = ResolveParameterTypeSyntaxForSignature(
                 this,
-                parameterSyntax.TypeAnnotation.Type,
+                typeSyntax,
                 refKind);
 
             if (skeletonParameter.RefKind != refKind ||

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-26:** Infer named function and method parameter types from nominal
+  deconstruction patterns, allowing `SubmitOrder(let orderId)` without repeating
+  `: SubmitOrder`. Resolve namespace-qualified pattern heads without spurious
+  union-qualifier diagnostics. Document nominal and positional parameter deconstruction,
+  including the single-component form `(let orderId): SubmitOrder`.
+
 - **2026-10-26:** Reduce compiler allocations when applying source edits, trimming multiline string indentation, and scanning identifiers and keywords. Preserve source snapshots, token text, values, and line endings.
 
 - **2026-10-26:** Align interface member accessibility with C#: preserve public

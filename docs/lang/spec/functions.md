@@ -103,9 +103,50 @@ and property deconstruction patterns on by-value parameters:
 func sum((x, y): (int, int)) -> int => x + y
 func sum([x, y]: int[2]) -> int => x + y
 func count([..items]: int[]) -> int => items.Length
-func name(Person(let name): Person) -> string => name
+func name(Person(let name)) -> string => name
 func sum({ x: let x, y: let y }: Point) -> int => x + y
 ```
+
+#### Choosing a deconstruction form
+
+A nominal pattern names the type being deconstructed. On a named function or
+method, that type also supplies the incoming parameter type when the annotation
+is omitted:
+
+```raven
+import System.*
+
+record SubmitOrder(OrderId: Guid)
+
+func orderId(SubmitOrder(let id)) -> Guid => id
+
+let id = orderId(SubmitOrder(Guid.NewGuid()))
+```
+
+`SubmitOrder(let id): SubmitOrder` is valid but repeats the same type. Qualified
+names and explicit generic arguments work too, for example
+`Messages.SubmitOrder(let id)` and `Box<int>(let value)`. The type must resolve
+from the declaration; it is not inferred from callers.
+
+A positional pattern can instead take its type from the annotation:
+
+```raven
+func orderId((let id): SubmitOrder) -> Guid => id
+```
+
+Here `(let id)` deconstructs the single component; `id` is a `Guid`, not the
+whole record. Both declarations accept one `SubmitOrder` argument. To retain
+the whole record without deconstructing it, use `order: SubmitOrder`.
+The same parameter forms can be used in an `async func` beside ordinary
+service parameters.
+
+Tuple, sequence, and property patterns do not name an input type themselves,
+so named declarations still need their annotation. Lambdas can obtain the input
+type from a compatible delegate or call context, as shown under
+[function-expression destructuring](#destructuring-parameters-1).
+An explicit annotation remains authoritative: `SubmitOrder(let id): object`
+does not narrow the incoming contract to `SubmitOrder` and is rejected because
+other objects would not match.
 
 Parameter deconstruction consumes one argument and makes its components
 available as immutable local bindings at the start of the body. It does not

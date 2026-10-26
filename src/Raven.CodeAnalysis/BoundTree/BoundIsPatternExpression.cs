@@ -2503,7 +2503,11 @@ internal partial class BlockBinder
                 return !string.IsNullOrEmpty(caseName);
 
             case QualifiedNameSyntax qualified:
-                qualifierType = BindTypeSyntaxAndReport(qualified.Left);
+                // A namespace-qualified nominal type is not a qualified union case.
+                // Resolve the qualifier as either a namespace or a type before probing cases.
+                if (BindTypeSyntaxAsExpression(qualified.Left) is not BoundTypeExpression qualifier)
+                    return false;
+                qualifierType = qualifier.Type;
                 switch (qualified.Right)
                 {
                     case IdentifierNameSyntax rightIdentifier:

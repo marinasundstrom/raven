@@ -7,6 +7,69 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class NamedParameterPatternTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("func read(Row(let x)) -> int => x")]
+    [InlineData("func read(Row(x)) -> int { x }")]
+    [InlineData("class C { func read(Row(let x)) -> int => x }")]
+    [InlineData("func outer() { func read(Row(let x)) -> int => x; read(Row(1)) }")]
+    [InlineData("async func read(Row(let x)) { let value = x }")]
+    [InlineData("func read((let x): Row) -> int => x")]
+    [InlineData("class C { func read((let x): Row) -> int => x }")]
+    public void NominalInputType_ColdQueriesResolveParameterAndComponent(string declaration)
+    {
+        var (compilation, tree) = CreateCompilation("record class Row(Value: int)\n" + declaration);
+        var model = compilation.GetSemanticModel(tree);
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single(p => p.Pattern is not null);
+        var designation = parameterSyntax.Pattern!.DescendantNodes().OfType<SingleVariableDesignationSyntax>().First();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        Assert.Equal("Row", parameter.Type.Name);
+        Assert.Single(((IMethodSymbol)parameter.ContainingSymbol!).Parameters);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Theory]
+    [InlineData("func read(Models.Row<int>(let x): Models.Row<int>) -> int => x")]
+    [InlineData("func read(Models.Row<int>(let x)) -> int => x")]
+    [InlineData("class C { func read(Models.Row<int>(let x)) -> int => x }")]
+    public void QualifiedGenericNominalParameter_InfersInputType(string declaration)
+    {
+        var (compilation, _) = CreateCompilation("namespace Models { record class Row<T>(Value: T) }\n" + declaration);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Theory]
+    [InlineData("(let x)")]
+    [InlineData("{Value: let x}")]
+    [InlineData("[..items]")]
+    public void StructuralParameter_StillRequiresInputType(string pattern)
+    {
+        var (compilation, _) = CreateCompilation($"func read({pattern}) {{ }}");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.ParameterTypeAnnotationRequired.Id);
+    }
+
+    [Theory]
+    [InlineData("func read(Row(let x): object) -> int => x")]
+    [InlineData("class C { func read(Row(let x): object) -> int => x }")]
+    public void ExplicitInputType_RemainsAuthoritative(string declaration)
+    {
+        var (compilation, tree) = CreateCompilation("record class Row(Value: int)\n" + declaration);
+        var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single(p => p.Pattern is not null);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(parameterSyntax));
+        Assert.Equal(SpecialType.System_Object, parameter.Type.SpecialType);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.RefutableParameterPattern.Id);
+    }
+
+    [Fact]
+    public void UnresolvedNominalHead_ReportsTypeErrorInsteadOfMissingAnnotation()
+    {
+        var (compilation, _) = CreateCompilation("func read(Missing(let x)) { }");
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.NotEmpty(errors);
+        Assert.DoesNotContain(errors, d => d.Id == CompilerDiagnostics.ParameterTypeAnnotationRequired.Id);
+    }
+
+    [Theory]
     [InlineData("func sum({x: let x, y: let y}: Point) -> int => x + y")]
     [InlineData("class C { func sum({x: let x, y: let y}: Point) -> int { x + y } }")]
     [InlineData("let f: (Point) -> int = ({x: let x, y: let y}) => x + y")]
@@ -100,7 +163,7 @@ func read(Choice.Some(let x): Choice) -> int => x
     {
         var (compilation, tree) = CreateCompilation("""
 record class Row(Items: int[])
-func read(Row([head, ..rest]): Row) -> int => head
+func read(Row([head, ..rest])) -> int => head
 """);
         var error = Assert.Single(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Equal(CompilerDiagnostics.RefutableParameterPattern.Id, error.Id);

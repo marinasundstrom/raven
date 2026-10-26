@@ -1323,7 +1323,7 @@ public partial class SemanticModel
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (parameter.TypeAnnotation?.Type is not { } typeSyntax)
+                if (ParameterSyntaxUtilities.GetDeclaredTypeSyntax(parameter) is not { } typeSyntax)
                     continue;
 
                 var boundTypeSyntax = ParameterSyntaxUtilities.GetRefKind(parameter).IsByRef &&
@@ -1341,7 +1341,7 @@ public partial class SemanticModel
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (parameter.TypeAnnotation is null)
+                if (ParameterSyntaxUtilities.GetDeclaredTypeSyntax(parameter) is null)
                 {
                     diagnostics.ReportParameterTypeAnnotationRequired(
                         parameter.Identifier.ValueText,

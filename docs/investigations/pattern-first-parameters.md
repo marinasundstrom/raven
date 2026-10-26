@@ -138,6 +138,9 @@ parameter-mismatch exception or runtime fault policy to implement.
   explicit property deconstruction. Short nominal lambdas work in calls such as
   `rows.Select(Row(let value) => value)`. Qualified and generic nominal heads use
   the existing type parser. Constructors keep their previous parameter grammar.
+* Named functions and methods infer an omitted input annotation from a nominal
+  pattern head, including qualified names and explicit generic arguments. Explicit
+  annotations remain authoritative; structural patterns still need an input type.
 * Named and lambda body binders extract patterns from one incoming parameter
   before binding the body. Pattern names declare locals. Cold declaration queries
   go through the owning body binder; generated parameter names stay out of scope.
