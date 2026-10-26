@@ -4,6 +4,10 @@ namespace Raven.CodeAnalysis;
 
 internal static class ParameterSyntaxUtilities
 {
+    public static TypeSyntax? GetDeclaredTypeSyntax(ParameterSyntax parameter)
+        => parameter.TypeAnnotation?.Type
+            ?? (parameter.Pattern as NominalDeconstructionPatternSyntax)?.Type;
+
     public static string GetParameterName(ParameterSyntax parameter, int ordinal)
         => parameter.Pattern is null ? parameter.Identifier.ValueText : $"<arg{ordinal}>";
 

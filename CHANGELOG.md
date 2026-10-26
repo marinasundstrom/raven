@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ## Unreleased
 
+- **2026-10-26:** Infer named function and method parameter types from nominal
+  deconstruction patterns, allowing `SubmitOrder(let orderId)` without repeating
+  `: SubmitOrder`. Resolve namespace-qualified pattern heads without spurious
+  union-qualifier diagnostics. Document nominal and positional parameter deconstruction,
+  including the single-component form `(let orderId): SubmitOrder`.
+
 ### Breaking changes
 
 - None recorded.

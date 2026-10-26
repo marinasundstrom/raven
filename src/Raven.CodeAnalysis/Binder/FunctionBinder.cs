@@ -140,7 +140,7 @@ class FunctionBinder : Binder
         foreach (var p in _syntax.ParameterList.Parameters)
         {
             ParameterSyntaxUtilities.ValidatePatternContext(p, _syntax.Body is not null || _syntax.ExpressionBody is not null, _diagnostics);
-            var typeSyntax = p.TypeAnnotation?.Type;
+            var typeSyntax = ParameterSyntaxUtilities.GetDeclaredTypeSyntax(p);
             if (typeSyntax is ByRefTypeSyntax &&
                 p.RefKindKeyword.Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
             {

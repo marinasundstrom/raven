@@ -58,6 +58,15 @@ return the same constructed method and result type before or after diagnostic
 collection. This uses binder-owned inference and introduces no public cache API,
 metadata encoding, or target-specific rule.
 
+Named function and method parameter signatures resolve an omitted annotation
+from a nominal deconstruction pattern's type syntax. Explicit annotations take
+precedence. The owning signature binder supplies the same `IParameterSymbol.Type`
+for cold semantic queries and diagnostic binding; extracted designations remain
+`ILocalSymbol`s. This adds no public API or metadata encoding. Positional patterns
+such as `(let id): SubmitOrder` use their annotation and can deconstruct a single
+component. Editor consumers continue to use normal symbol/type queries; no new
+TextMate tokens are needed.
+
 Function-expression parameter destructuring is checked for total coverage after
 the input type is resolved. Refutable patterns produce compiler error `RAV1618`,
 including nested sequence requirements. Fixed-length array shapes and rest-only
