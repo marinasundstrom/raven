@@ -145,3 +145,58 @@ If a public API such as `GetTypeInfo`, `GetSymbolInfo`, `GetDeclaredSymbol`, or
 `GetOperation` is too expensive for an important live-tooling scenario, improve
 that API's implementation or add a Roslyn-like public abstraction that preserves
 the semantic boundary.
+
+## Text processing allocations
+
+Source edits concatenate spans of the immutable source into the new snapshot's
+string, avoiding intermediate prefix and suffix strings. Multiline literal
+indentation trimming appends spans to the value builder without materializing
+each line. Identifier and keyword scanning materializes and interns token text
+once, then reuses it for classification and token construction.
+
+These are compiler-host optimizations shared by main and `codex/neoclr`.
+Public API signatures, snapshot ownership, token values, newline handling,
+Runtime Contract configuration, and emitted metadata are unchanged. No source
+buffer slices are retained in syntax tokens.
+
+The allocation probe in `tools/CompilerTextAllocationProbe` measures complete
+`SourceText.WithChange` and `SyntaxTree.ParseText` calls. It preconstructs inputs,
+warms each workload for 100 operations, then reports thread-local allocated bytes
+per operation for three batches of 500 operations. Repeated inputs also warm
+string interning; the figures do not describe cold unique-input retention.
+Build the compiler first, then run the probe against that configuration:
+
+```sh
+dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj -f net11.0 -c Debug --property WarningLevel=0
+dotnet run --project tools/CompilerTextAllocationProbe -c Release -p:CompilerConfiguration=Debug
+```
+
+Use the same SDK, compiler configuration, probe and inputs before and after a
+change. Debug parser measurements include debug/instrumentation overhead; do
+not extrapolate their percentages to Release compilation or execution on a
+target runtime. This probe measures allocations, not elapsed-time speedup.
+
+### Measurement on 2026-10-26
+
+Measured with SDK `11.0.100-rc.1.26425.128`, a Release probe and Debug/net11.0
+compiler assemblies. Values below are median bytes allocated per operation
+across the three batches (integer bytes/op). Baselines were main `f8a27dd82`
+and `codex/neoclr` `aa7406718`; after measurements include the changes described
+above. The edit workload replaces one character in a 55,296-character source.
+
+| Workload | main before | main after | neoCLR branch before | neoCLR branch after | Reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Mid-file source edit | 254,424 | 143,784 | 254,424 | 143,784 | 43.49% |
+| Parse 256 identifier declarations | 2,925,109 | 2,826,176 | 2,925,203 | 2,826,267 | 3.38% |
+| Parse 256 indented string lines | 692,578 | 653,095 | 692,601 | 653,117 | 5.70% |
+
+The first post-change identifier batch varied slightly (up to 2,828,175 bytes/op);
+subsequent batches stabilized at the table values. Inputs and measured API calls
+were identical before and after.
+
+Validation on each branch: 120 focused tests passed before the changes and 131
+passed afterward, covering source text, lexing, string literals and interpolation.
+The 11 added cases check edit boundaries/snapshot preservation and six newline
+forms with matching and nonmatching indentation. Compiler builds passed for
+net10.0 and net11.0; tests and allocation measurements ran on .NET 11. These
+results do not establish execution on neoCLR, .NET Framework or NanoFramework.

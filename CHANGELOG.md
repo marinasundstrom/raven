@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-26:** Reduce compiler allocations when applying source edits, trimming multiline string indentation, and scanning identifiers and keywords. Preserve source snapshots, token text, values, and line endings.
+
 - **2026-10-26:** Align interface member accessibility with C#: preserve public
   defaults and explicit access levels, reject private abstract requirements,
   expose default instance virtualness consistently, emit private helpers as

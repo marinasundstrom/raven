@@ -428,13 +428,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         _stringBuilder.Append(ch);
                     }
 
-                    if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind) ||
+                    var text = GetStringBuilderValue();
+                    if (!SyntaxFacts.TryParseKeyword(text, out syntaxKind) ||
                         syntaxKind == SyntaxKind.CharKeyword && !_enableCharKeyword)
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
-                    if (GetStringBuilderValue() == "_")
+                    if (text == "_")
                     {
                         syntaxKind = SyntaxKind.UnderscoreToken;
                     }
@@ -442,13 +443,13 @@ internal class Lexer : ILexer, IMacroBodyScanner
                     switch (syntaxKind)
                     {
                         case SyntaxKind.TrueKeyword:
-                            return new Token(SyntaxKind.TrueKeyword, GetStringBuilderValue(), true, _stringBuilder.Length);
+                            return new Token(SyntaxKind.TrueKeyword, text, true, _stringBuilder.Length);
 
                         case SyntaxKind.FalseKeyword:
-                            return new Token(SyntaxKind.FalseKeyword, GetStringBuilderValue(), false, _stringBuilder.Length);
+                            return new Token(SyntaxKind.FalseKeyword, text, false, _stringBuilder.Length);
                     }
 
-                    return new Token(syntaxKind, GetStringBuilderValue());
+                    return new Token(syntaxKind, text);
                 }
                 else if (char.IsDigit(ch) || ch == '.')
                     return ParseNumber(ref ch);
@@ -1576,10 +1577,10 @@ internal class Lexer : ILexer, IMacroBodyScanner
                 while (i < value.Length && value[i] != '\n' && value[i] != '\r' && value[i] != '\u0085' && value[i] != '\u2028' && value[i] != '\u2029')
                     i++;
 
-                var line = value.Substring(lineStart, i - lineStart);
+                var line = value.AsSpan(lineStart, i - lineStart);
 
-                if (line.StartsWith(trimIndent, StringComparison.Ordinal))
-                    sb.Append(line.Substring(trimIndent.Length));
+                if (line.StartsWith(trimIndent.AsSpan(), StringComparison.Ordinal))
+                    sb.Append(line[trimIndent.Length..]);
                 else
                     sb.Append(line);
 

@@ -66,9 +66,10 @@ public class SourceText
             change.Span.End < 0 || change.Span.End > _text.Length)
             throw new ArgumentOutOfRangeException(nameof(change), "The span is out of bounds.");
 
-        string updatedText = _text.Substring(0, change.Span.Start) +
-                             change.NewText +
-                             _text.Substring(change.Span.End);
+        string updatedText = string.Concat(
+            _text.AsSpan(0, change.Span.Start),
+            change.NewText.AsSpan(),
+            _text.AsSpan(change.Span.End));
 
         return new SourceText(
             updatedText,

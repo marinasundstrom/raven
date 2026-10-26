@@ -8,6 +8,26 @@ namespace Raven.CodeAnalysis.Text.Tests;
 
 public class SourceTextTests
 {
+    [Theory]
+    [InlineData(0, 0, "X", "Xabcdef")]
+    [InlineData(6, 0, "X", "abcdefX")]
+    [InlineData(2, 2, "XYZ", "abXYZef")]
+    [InlineData(0, 6, "", "")]
+    [InlineData(2, 2, "", "abef")]
+    public void WithChange_PreservesSnapshotAndChangeRange(int start, int length, string replacement, string expected)
+    {
+        var original = SourceText.From("abcdef");
+        var span = new TextSpan(start, length);
+        var updated = original.WithChange(new TextChange(span, replacement));
+
+        Assert.Equal(expected, updated.ToString());
+        Assert.Equal("abcdef", original.ToString());
+        Assert.Same(original.Encoding, updated.Encoding);
+        var range = Assert.Single(updated.GetChangeRanges(original));
+        Assert.Equal(span, range.Span);
+        Assert.Equal(replacement.Length, range.NewLength);
+    }
+
     [Fact]
     public void Indexer_ReturnsCharacterWithoutMaterializingSubText()
     {

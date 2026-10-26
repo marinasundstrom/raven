@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <CompilerConfiguration Condition="'$(CompilerConfiguration)' == ''">$(Configuration)</CompilerConfiguration>
+    <CompilerPath Condition="'$(CompilerPath)' == ''">../../src/Raven.CodeAnalysis/bin/$(CompilerConfiguration)/net11.0/Raven.CodeAnalysis.dll</CompilerPath>
+  </PropertyGroup>
+  <!-- Measure an explicitly built compiler without rebuilding its dependency graph. -->
+  <ItemGroup>
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>$(CompilerPath)</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
