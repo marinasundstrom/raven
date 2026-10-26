@@ -1458,10 +1458,9 @@ public static partial class SymbolExtensions
 
         var result = identifier;
 
-        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers) &&
-            SyntaxFacts.TryParseKeyword(identifier, out _))
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers))
         {
-            result = "@" + result;
+            result = SyntaxFacts.EscapeIdentifier(identifier);
         }
 
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))

@@ -8,6 +8,10 @@
     ],
     "patterns": [
         {
+            "name": "variable.other.identifier.raven",
+            "match": "`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`"
+        },
+        {
             "include": "#comments"
         },
         {

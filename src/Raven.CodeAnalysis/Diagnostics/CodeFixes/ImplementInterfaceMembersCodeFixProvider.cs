@@ -346,7 +346,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
     }
 
     private static string EscapeIdentifier(string identifier)
-        => SyntaxFacts.TryParseKeyword(identifier, out _) ? "@" + identifier : identifier;
+        => SyntaxFacts.EscapeIdentifier(identifier);
 
     private static string IndentMember(string member, string indent)
         => indent + member.Replace("\n", "\n" + indent, StringComparison.Ordinal);

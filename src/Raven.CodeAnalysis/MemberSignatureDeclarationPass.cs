@@ -1168,7 +1168,7 @@ internal static class MemberSignatureDeclarationPass
 
         foreach (var import in EnumerateEffectiveImports(semanticModel.Compilation, contextNode))
         {
-            var importName = import.Name.ToString();
+            var importName = import.Name.ToValueString();
             if (string.IsNullOrWhiteSpace(importName))
                 continue;
 

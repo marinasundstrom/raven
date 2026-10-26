@@ -15,7 +15,8 @@ class FunctionExpressionBinder : BlockBinder
 
     public void DeclareParameter(IParameterSymbol param)
     {
-        if (param.Name == "_")
+        if (param.Name == "_" && !param.DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is ParameterSyntax { Identifier.Text: not "_" }))
             return;
 
         _parameters[param.Name] = param;

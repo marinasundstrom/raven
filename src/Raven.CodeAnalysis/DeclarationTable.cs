@@ -74,7 +74,7 @@ internal sealed class DeclarationTable
                 return true;
             case VariableDeclaratorSyntax
             {
-                Identifier.ValueText: "_",
+                Identifier.Text: "_",
                 Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
             }:
                 key = default;

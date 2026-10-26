@@ -119,7 +119,7 @@ partial class BlockBinder : Binder
         {
             VariableDeclaratorSyntax
             {
-                Identifier.ValueText: "_",
+                Identifier.Text: "_",
                 Identifier.IsMissing: false,
                 Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
             } => null,
@@ -326,7 +326,7 @@ partial class BlockBinder : Binder
             return null;
 
         var name = variableDeclarator.Identifier.ValueText;
-        if (name == "_" || variableDeclarator.Identifier.IsMissing)
+        if (variableDeclarator.Identifier.Text == "_" || variableDeclarator.Identifier.IsMissing)
             return null;
 
         if (ensurePrecedingDeclarations)
@@ -2177,7 +2177,7 @@ partial class BlockBinder : Binder
     private static bool IsDiscardDeclarator(VariableDeclaratorSyntax variableDeclarator)
     {
         return !variableDeclarator.Identifier.IsMissing &&
-               variableDeclarator.Identifier.ValueText == "_";
+               variableDeclarator.Identifier.Text == "_";
     }
 
     private BoundStatement BindDiscardDeclarator(
@@ -2867,7 +2867,7 @@ partial class BlockBinder : Binder
                 elements.Add(boundExpr);
 
                 var type = boundExpr.Type ?? Compilation.ErrorTypeSymbol;
-                string? name = arg.NameColon?.Name.ToString();
+                string? name = arg.NameColon?.Name.ToValueString();
                 tupleElements.Add((name, type));
             }
         }
@@ -7251,7 +7251,7 @@ partial class BlockBinder : Binder
                 if (BindTypeSyntaxAsExpression(element.Type) is not BoundTypeExpression bt)
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-                boundElements.Add((element.NameColon?.Name.ToString(), bt.Type));
+                boundElements.Add((element.NameColon?.Name.ToValueString(), bt.Type));
             }
 
             var tupleType = Compilation.CreateTupleTypeSymbol(boundElements);
@@ -12228,7 +12228,7 @@ partial class BlockBinder : Binder
                 return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (name == "_")
+            if (identifier.Identifier.Text == "_")
                 return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
 
             if (IsDeclarationBindingKeyword(declarationBindingKeywordKind))
@@ -12669,7 +12669,7 @@ partial class BlockBinder : Binder
             return BindIdentifierPatternForDeclarationAssignment(identifierName, valueType, declarationBindingKeywordKind);
 
         var name = identifierName.Identifier.ValueText;
-        if (string.IsNullOrEmpty(name) || name == "_")
+        if (string.IsNullOrEmpty(name) || identifierName.Identifier.Text == "_")
             return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
 
         return BindIdentifierPatternForExistingLocalAssignment(identifierName.Identifier, valueType);
@@ -12681,7 +12681,7 @@ partial class BlockBinder : Binder
         SyntaxKind declarationBindingKeywordKind)
     {
         var name = identifierName.Identifier.ValueText;
-        if (string.IsNullOrEmpty(name) || name == "_")
+        if (string.IsNullOrEmpty(name) || identifierName.Identifier.Text == "_")
             return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
 
         return BindIdentifierTokenForDeclarationAssignment(
@@ -12749,7 +12749,7 @@ partial class BlockBinder : Binder
         bool isMutable)
     {
         var normalizedType = TypeSymbolNormalization.NormalizeForInference(valueType);
-        if (identifier.IsMissing || identifier.ValueText == "_")
+        if (identifier.IsMissing || identifier.Text == "_")
             return new BoundDiscardPattern(normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType);
 
         var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
@@ -12866,7 +12866,7 @@ partial class BlockBinder : Binder
         var identifier = single.Identifier;
 
         var normalizedType = TypeSymbolNormalization.NormalizeForInference(valueType);
-        if (identifier.IsMissing || identifier.ValueText == "_")
+        if (identifier.IsMissing || identifier.Text == "_")
             return new BoundDiscardPattern(normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType);
 
         var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
@@ -16053,7 +16053,7 @@ partial class BlockBinder : Binder
         foreach (var designation in patternSyntax.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
         {
             var name = designation.Identifier.ValueText;
-            if (string.IsNullOrEmpty(name) || name == "_" || shadowedLocals.ContainsKey(name))
+            if (string.IsNullOrEmpty(name) || designation.Identifier.Text == "_" || shadowedLocals.ContainsKey(name))
                 continue;
 
             shadowedLocals[name] = _locals.TryGetValue(name, out var existing) ? existing : null;

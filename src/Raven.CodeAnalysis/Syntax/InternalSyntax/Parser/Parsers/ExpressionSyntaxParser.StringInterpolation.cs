@@ -157,15 +157,24 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (index + 1 >= text.Length ||
             text[index] != '$' ||
             IsEscaped(text, index) ||
-            !SyntaxFacts.IsIdentifierStartCharacter(text[index + 1]))
+            (text[index + 1] != '`' && !SyntaxFacts.IsIdentifierStartCharacter(text[index + 1])))
         {
             return false;
         }
 
         end = index + 2;
-        while (end < text.Length && SyntaxFacts.IsIdentifierPartCharacter(text[end]))
+        if (text[index + 1] == '`')
         {
+            while (end < text.Length && text[end] is not ('`' or '\r' or '\n' or '\u0085' or '\u2028' or '\u2029'))
+                end++;
+            if (end >= text.Length || text[end] != '`' || end == index + 2)
+                return false;
             end++;
+        }
+        else
+        {
+            while (end < text.Length && SyntaxFacts.IsIdentifierPartCharacter(text[end]))
+                end++;
         }
 
         var exprText = text.Substring(index + 1, end - index - 1);
@@ -225,6 +234,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         while (i < text.Length)
         {
             char c = text[i];
+
+            if (c == '`')
+            {
+                i++;
+                while (i < text.Length && text[i] is not ('`' or '\r' or '\n' or '\u0085' or '\u2028' or '\u2029'))
+                    i++;
+                if (i < text.Length && text[i] == '`')
+                    i++;
+                continue;
+            }
 
             // Skip string/char literals so braces/dollars inside them do not affect scanning.
             if (c == '"')

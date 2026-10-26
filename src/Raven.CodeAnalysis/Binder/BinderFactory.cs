@@ -78,8 +78,8 @@ class BinderFactory
                 parentNode.Ancestors()
                     .OfType<BaseNamespaceDeclarationSyntax>()
                     .Reverse()
-                    .Select(static current => current.Name.ToString()));
-            var namespaceSymbol = string.IsNullOrWhiteSpace(namespaceName)
+                    .Select(static current => current.Name.ToValueString()));
+            var namespaceSymbol = string.IsNullOrEmpty(namespaceName)
                 ? _compilation.SourceGlobalNamespace
                 : _compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
             if (namespaceSymbol is not null)
@@ -164,8 +164,8 @@ class BinderFactory
     {
         var parentNamespace = parentBinder.CurrentNamespace;
         var namespaceName = nsSyntax is FileScopedNamespaceDeclarationSyntax
-            ? nsSyntax.Name.ToString()
-            : parentNamespace.QualifyName(nsSyntax.Name.ToString());
+            ? nsSyntax.Name.ToValueString()
+            : parentNamespace.QualifyName(nsSyntax.Name.ToValueString());
 
         var nsSymbol = _compilation.GetOrCreateNamespaceSymbol(namespaceName)
             ?? throw new InvalidOperationException($"Unable to resolve namespace '{namespaceName}'.");
@@ -181,7 +181,7 @@ class BinderFactory
 
         foreach (var importDirective in nsSyntax.Imports)
         {
-            var importName = importDirective.Name.ToString();
+            var importName = importDirective.Name.ToValueString();
             if (inheritedImportKeys.Contains(importName))
             {
                 nsBinder.Diagnostics.ReportImportDirectiveRedundantWithGlobalImport(
@@ -275,7 +275,7 @@ class BinderFactory
             if (nsSyntax.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
             {
                 foreach (var import in compilationUnit.Imports)
-                    keys.Add(import.Name.ToString());
+                    keys.Add(import.Name.ToValueString());
             }
 
             foreach (var ancestorNamespace in nsSyntax
@@ -283,7 +283,7 @@ class BinderFactory
                          .OfType<BaseNamespaceDeclarationSyntax>())
             {
                 foreach (var import in ancestorNamespace.Imports)
-                    keys.Add(import.Name.ToString());
+                    keys.Add(import.Name.ToValueString());
             }
 
             return keys;
@@ -301,7 +301,7 @@ class BinderFactory
                 foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
                 {
                     foreach (var import in globalImport.Imports)
-                        keys.Add(import.Name.ToString());
+                        keys.Add(import.Name.ToValueString());
                 }
             }
 
@@ -409,13 +409,13 @@ class BinderFactory
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
         {
-            var nsSymbol = ResolveNamespace(current, name.ToString());
+            var nsSymbol = ResolveNamespace(current, name.ToValueString());
             if (nsSymbol != null)
                 return [nsSymbol];
 
             ITypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
-                : ResolveType(current, name.ToString());
+                : ResolveType(current, name.ToValueString());
             if (typeSymbol != null)
                 return [typeSymbol];
 
@@ -427,7 +427,7 @@ class BinderFactory
 
                 ITypeSymbol? containingType = leftHasTypeArguments
                     ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
-                    : ResolveType(current, left.ToString());
+                    : ResolveType(current, left.ToValueString());
 
                 if (containingType != null)
                 {
@@ -560,7 +560,7 @@ class BinderFactory
         INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
         {
             var targetName = GetRightmostIdentifier(name);
-            var nameText = name.ToString();
+            var nameText = name.ToValueString();
 
             if (ResolveType(current, nameText) is { } resolvedType &&
                 string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
@@ -592,7 +592,7 @@ class BinderFactory
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
 
-            var ownerType = ResolveType(current, left.ToString())
+            var ownerType = ResolveType(current, left.ToValueString())
                 ?? TryResolveTypeSyntaxSilently(left);
             if (ownerType is null)
                 return null;
@@ -607,7 +607,7 @@ class BinderFactory
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
 
-            var ns = ResolveNamespace(current, left.ToString());
+            var ns = ResolveNamespace(current, left.ToValueString());
             if (ns is null)
                 return null;
 

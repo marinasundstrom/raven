@@ -17348,3 +17348,21 @@ selects byref preservation explicitly and records its environment. Further match
 guarded controls and owner-operation profiles show no pause advantage or default
 qualification; see neoCLR `benchmarks/execution/concurrent-workloads/stable-byref-pause-results.md`.
 Raven emission, Runtime Contract, native ABI and metadata representation remain unchanged.
+
+## Escaped source identifiers
+
+Backtick-delimited identifiers are a shared Raven lexical feature. The native
+semantic name is the exact text inside the delimiters, without Unicode
+normalization. The lexer and syntax factories remove only the delimiters from
+`ValueText`; binding and symbol lookup share the ordinary identifier namespace.
+
+The current CLI emitter writes those logical names directly, with no temporary
+backtick encoding or target-specific mangling. CLI consumers may impose naming
+restrictions, and this change does not establish acceptance by the external
+neoCLR importer or runtime. Such restrictions must not become native neoCLR
+language rules. A native metadata writer and code generator must preserve the
+same logical symbol names without passing through CLI naming conventions.
+
+Validation uses shared compiler semantic tests and modern .NET reflection and
+invocation of a method named `Calculate total price`. It does not validate native
+neoCLR execution. See [Backtick identifiers](backtick-identifiers.md).

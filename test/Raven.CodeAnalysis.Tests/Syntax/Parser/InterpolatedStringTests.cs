@@ -9,6 +9,21 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class InterpolatedStringTests
 {
+    [Theory]
+    [InlineData("let text = \"${`a}b`}\"")]
+    [InlineData("let text = \"$`a}b`\"")]
+    [InlineData("let text = \"${`a\"b`}\"")]
+    public void Interpolation_AllowsBacktickIdentifiers(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
+        var interpolation = Assert.Single(tree.GetRoot().DescendantNodes().OfType<InterpolationSyntax>());
+        var identifier = Assert.IsType<IdentifierNameSyntax>(interpolation.Expression);
+        Assert.StartsWith("`", identifier.Identifier.Text);
+        Assert.DoesNotContain("`", identifier.Identifier.ValueText);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+    }
+
     [Fact]
     public void InterpolatedStringText_DecodesUnicodeEscapes()
     {

@@ -36,6 +36,37 @@ let 数据 = call()
 let сумма = total1 + total2
 ```
 
+### Backtick identifiers
+
+Enclose a name in backticks to use spaces, punctuation, keywords, or other
+characters that ordinary identifiers cannot contain:
+
+```raven
+func `Calculate total price`(price: int, quantity: int) -> int {
+    return price * quantity
+}
+let result = `Calculate total price`(10, 5)
+```
+
+Backticks are lexical delimiters, not part of the symbol or metadata name.
+The contents are preserved exactly, including whitespace and Unicode code units;
+no Unicode normalization is performed. Ordinary, `@`-escaped, and backtick
+identifiers share one symbol namespace: `value`, `@value`, and `` `value` ``
+refer to the same name. Canonically equivalent Unicode spellings remain distinct.
+
+A backtick identifier must contain at least one character. It cannot contain a
+backtick or a line break (CR, LF, NEL, line separator, or paragraph separator).
+There is no escape sequence inside backticks. An unclosed identifier is diagnosed
+at the end of its line or file, without consuming the next line.
+
+Backtick identifiers are accepted wherever ordinary identifiers are accepted,
+including declarations, type names, member access, references, and macro output.
+`SyntaxToken.Text` retains the delimiters, while `ValueText` and symbol `Name`
+return their contents. Macro authors can parse escaped source or pass an escaped
+spelling to `SyntaxFactory.Identifier` / `IdentifierName`. Both braced string
+interpolation and shorthand interpolation accept backtick identifiers. The escaped
+name `` `_` `` is an ordinary name; only a bare `_` denotes a discard.
+
 ## Keywords
 
 Raven classifies keywords as either reserved or contextual.

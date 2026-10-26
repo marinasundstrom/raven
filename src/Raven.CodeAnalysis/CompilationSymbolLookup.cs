@@ -24,7 +24,7 @@ internal sealed class CompilationSymbolLookup
     {
         _compilation.EnsureSetup();
 
-        if (string.IsNullOrWhiteSpace(metadataName))
+        if (string.IsNullOrEmpty(metadataName))
             return _compilation.GlobalNamespace;
 
         if (_namespaceCache.TryGetValue(metadataName, out var cached))
@@ -49,7 +49,7 @@ internal sealed class CompilationSymbolLookup
 
     public ImmutableArray<ISymbol> GetGlobalMembers(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return ImmutableArray<ISymbol>.Empty;
 
         var builder = ImmutableArray.CreateBuilder<ISymbol>();
@@ -70,7 +70,7 @@ internal sealed class CompilationSymbolLookup
 
     public ImmutableArray<ISymbol> GetGlobalMembersSourceFirst(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return ImmutableArray<ISymbol>.Empty;
 
         var sourceMembers = _compilation.SourceGlobalNamespace?.GetMembers(name) ?? ImmutableArray<ISymbol>.Empty;
@@ -153,7 +153,7 @@ internal sealed class CompilationSymbolLookup
 
     public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return null;
 
         if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
@@ -204,7 +204,7 @@ internal sealed class CompilationSymbolLookup
 
     public ITypeSymbol? LookupTypeSourceFirst(INamespaceSymbol? currentNamespace, string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return null;
 
         if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
@@ -254,7 +254,7 @@ internal sealed class CompilationSymbolLookup
 
     public INamedTypeSymbol? GetTypeByMetadataNameSourceFirst(string metadataName)
     {
-        if (string.IsNullOrWhiteSpace(metadataName))
+        if (string.IsNullOrEmpty(metadataName))
             return null;
 
         return _compilation.GetTypeByMetadataName(metadataName);
@@ -262,7 +262,7 @@ internal sealed class CompilationSymbolLookup
 
     public INamedTypeSymbol? GetTypeByMetadataNameMetadataOnly(string metadataName)
     {
-        if (string.IsNullOrWhiteSpace(metadataName))
+        if (string.IsNullOrEmpty(metadataName))
             return null;
 
         return _compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
@@ -270,7 +270,7 @@ internal sealed class CompilationSymbolLookup
 
     public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return null;
 
         var key = new SimpleNamedTypeLookupKey(name, arity);
@@ -316,7 +316,7 @@ internal sealed class CompilationSymbolLookup
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(memberName) &&
+        if (!string.IsNullOrEmpty(memberName) &&
             kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
         {
             foreach (var metadataNamespace in GetMetadataNamespacesFor(namespaceSymbol).OfType<INamespaceExtensionLookup>())

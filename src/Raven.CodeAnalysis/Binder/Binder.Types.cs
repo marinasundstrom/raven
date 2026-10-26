@@ -706,7 +706,7 @@ internal abstract partial class Binder
                 continue;
             }
 
-            elements[i] = (elementSyntax.NameColon?.Name.ToString(), resolved.ResolvedType);
+            elements[i] = (elementSyntax.NameColon?.Name.ToValueString(), resolved.ResolvedType);
         }
 
         if (failures.Count > 0)

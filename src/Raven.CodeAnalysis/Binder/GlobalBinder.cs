@@ -45,7 +45,7 @@ sealed class GlobalBinder : Binder
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             yield break;
 
         foreach (var method in GetExtensionMethodsByNameFromScope(_currentNamespace, name))

@@ -364,7 +364,7 @@ internal sealed class MacroRegistry
 
         foreach (var import in EnumerateEffectiveImports(compilation, context))
         {
-            var importedName = import.Name.ToString();
+            var importedName = import.Name.ToValueString();
             if (importedName.EndsWith(".*", StringComparison.Ordinal))
                 importedName = importedName[..^2];
 
@@ -416,7 +416,7 @@ internal sealed class MacroRegistry
         var names = context.AncestorsAndSelf()
             .OfType<BaseNamespaceDeclarationSyntax>()
             .Reverse()
-            .Select(static declaration => declaration.Name.ToString())
+            .Select(static declaration => declaration.Name.ToValueString())
             .Where(static name => !string.IsNullOrWhiteSpace(name));
         return string.Join(".", names);
     }

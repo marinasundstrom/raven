@@ -5,6 +5,25 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static partial class SyntaxFacts
 {
+    internal static bool RequiresBacktickEscaping(string identifier)
+    {
+        if (identifier.Length == 0)
+            return false;
+
+        if (identifier == "_" || !IsIdentifierStartCharacter(identifier[0]))
+            return true;
+
+        for (var i = 1; i < identifier.Length; i++)
+            if (!IsIdentifierPartCharacter(identifier[i]))
+                return true;
+
+        return false;
+    }
+
+    internal static string EscapeIdentifier(string identifier)
+        => RequiresBacktickEscaping(identifier) ? "`" + identifier + "`"
+            : TryParseKeyword(identifier, out _) ? "@" + identifier : identifier;
+
     public static bool CanBeIdentifier(SyntaxKind kind)
     {
         return kind == SyntaxKind.IdentifierToken ||

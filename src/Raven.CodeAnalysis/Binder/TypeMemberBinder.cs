@@ -2849,7 +2849,7 @@ internal partial class TypeMemberBinder : Binder
         var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = eventDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(eventDecl.Identifier, explicitInterfaceSpecifier);
-        var eventName = identifierToken.Text;
+        var eventName = identifierToken.ValueText;
         ReportMemberNameMatchesContainingTypeIfNeeded(eventName, identifierToken.GetLocation());
         var metadataName = eventName;
         INamedTypeSymbol? explicitInterfaceType = null;
@@ -4751,7 +4751,7 @@ internal partial class TypeMemberBinder : Binder
             return false;
 
         var memberName = memberBinding.Name.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         var field = enumType.GetMembers(memberName)

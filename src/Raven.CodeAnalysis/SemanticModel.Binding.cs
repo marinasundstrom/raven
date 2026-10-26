@@ -169,7 +169,7 @@ public partial class SemanticModel
 
         if (fileScopedNamespace is not null)
         {
-            targetNamespace = Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())
+            targetNamespace = Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToValueString())
                 ?? throw new Exception("Namespace not found");
         }
         else
@@ -212,8 +212,8 @@ public partial class SemanticModel
                 case BaseNamespaceDeclarationSyntax nsDecl:
                     {
                         var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
-                            ? nsDecl.Name.ToString()
-                            : parentNamespace.QualifyName(nsDecl.Name.ToString());
+                            ? nsDecl.Name.ToValueString()
+                            : parentNamespace.QualifyName(nsDecl.Name.ToValueString());
 
                         var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName)
                             ?? throw new Exception($"Unable to resolve namespace '{namespaceName}'.");
@@ -2168,7 +2168,7 @@ public partial class SemanticModel
 
         if (fileScopedNamespace != null)
         {
-            targetNamespace = Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())
+            targetNamespace = Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToValueString())
                              ?? throw new Exception("Namespace not found");
 
             namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
@@ -2194,7 +2194,7 @@ public partial class SemanticModel
 
         foreach (var (import, isGlobalImport) in EnumerateEffectiveImportDirectives(cu))
         {
-            var name = import.Name.ToString();
+            var name = import.Name.ToValueString();
             if (!isGlobalImport &&
                 globalImportKeys.Contains(name))
             {
@@ -2524,13 +2524,13 @@ public partial class SemanticModel
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
         {
-            var nsSymbol = ResolveNamespace(current, name.ToString());
+            var nsSymbol = ResolveNamespace(current, name.ToValueString());
             if (nsSymbol != null)
                 return [nsSymbol];
 
             ITypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
-                : ResolveType(current, name.ToString());
+                : ResolveType(current, name.ToValueString());
             if (typeSymbol != null)
                 return [typeSymbol];
 
@@ -2542,7 +2542,7 @@ public partial class SemanticModel
 
                 ITypeSymbol? containingType = leftHasTypeArguments
                     ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
-                    : ResolveType(current, left.ToString());
+                    : ResolveType(current, left.ToValueString());
 
                 if (containingType != null)
                 {
@@ -2668,7 +2668,7 @@ public partial class SemanticModel
         INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
         {
             var targetName = GetRightmostIdentifier(name);
-            var nameText = name.ToString();
+            var nameText = name.ToValueString();
 
             if (ResolveType(current, nameText) is { } resolvedType &&
                 string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
@@ -2700,7 +2700,7 @@ public partial class SemanticModel
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
 
-            var ownerType = ResolveType(current, left.ToString())
+            var ownerType = ResolveType(current, left.ToValueString())
                 ?? TryResolveTypeSyntaxSilently(left);
             if (ownerType is null)
                 return null;
@@ -2715,7 +2715,7 @@ public partial class SemanticModel
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
 
-            var ns = ResolveNamespace(current, left.ToString());
+            var ns = ResolveNamespace(current, left.ToValueString());
             if (ns is null)
                 return null;
 
@@ -2818,7 +2818,7 @@ public partial class SemanticModel
                 foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
                 {
                     foreach (var import in globalImport.Imports)
-                        keys.Add(import.Name.ToString());
+                        keys.Add(import.Name.ToValueString());
                 }
             }
 
@@ -3277,8 +3277,8 @@ public partial class SemanticModel
                 case BaseNamespaceDeclarationSyntax nsDecl:
                     {
                         var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
-                            ? nsDecl.Name.ToString()
-                            : parentNamespace.QualifyName(nsDecl.Name.ToString());
+                            ? nsDecl.Name.ToValueString()
+                            : parentNamespace.QualifyName(nsDecl.Name.ToValueString());
 
                         var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName);
 
@@ -8526,12 +8526,12 @@ public partial class SemanticModel
             .Reverse())
         {
             namespaceName = namespaceDeclaration is FileScopedNamespaceDeclarationSyntax ||
-                string.IsNullOrWhiteSpace(namespaceName)
-                    ? namespaceDeclaration.Name.ToString()
+                string.IsNullOrEmpty(namespaceName)
+                    ? namespaceDeclaration.Name.ToValueString()
                     : namespaceName + "." + namespaceDeclaration.Name;
         }
 
-        if (string.IsNullOrWhiteSpace(namespaceName))
+        if (string.IsNullOrEmpty(namespaceName))
             return true;
 
         parentNamespace = Compilation.GetOrCreateNamespaceSymbol(namespaceName)

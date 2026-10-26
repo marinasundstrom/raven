@@ -10,6 +10,135 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("_")]
+    [InlineData(" ")]
+    [InlineData("a+b")]
+    [InlineData("e\u0301")]
+    [InlineData("é")]
+    public void BacktickLocal_PreservesArbitraryName(string name)
+    {
+        var (compilation, tree) = CreateCompilation("class C { func Run() -> int { let `" + name + "` = 42; return `" + name + "` } }");
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declaration = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        Assert.Equal(name, compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!.Name);
+    }
+
+    [Fact]
+    public void BacktickIdentifiers_DoNotNormalizeUnicode()
+    {
+        var (compilation, tree) = CreateCompilation("func Run() -> int { let `é` = 1; let `e\u0301` = 2; return `é` + `e\u0301` }");
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declarations = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var model = compilation.GetSemanticModel(tree);
+        Assert.NotEqual(model.GetDeclaredSymbol(declarations[0])!.Name, model.GetDeclaredSymbol(declarations[1])!.Name);
+    }
+
+    [Fact]
+    public void BacktickPropertiesAndEvents_UseLogicalNames()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class C {
+                public val `total price`: int = 50
+                public event `price changed`: System.Action
+                func Read() -> int => self.`total price`
+            }
+            """);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(symbol.GetMembers("total price")));
+        Assert.IsAssignableFrom<IEventSymbol>(Assert.Single(symbol.GetMembers("price changed")));
+    }
+
+    [Fact]
+    public void BacktickIdentifiers_WorkInImportsNamedArgumentsAndLambdaParameters()
+    {
+        var (compilation, _) = CreateCompilation("""
+            import `Price models`.*
+            namespace `Price models` {
+                class Calculator {
+                    public static func Total(`unit price`: int) -> int => `unit price`
+                }
+            }
+            class Consumer {
+                func Run() -> int {
+                    let increment: (int) -> int = (`_`) => `_` + 1
+                    return increment(Calculator.Total(`unit price`: 49))
+                }
+            }
+            """);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void BacktickNamespacesAndWhitespaceTypeNames_UseLogicalNames()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            namespace `Price models` {
+                class ` ` {}
+            }
+            class Consumer {
+                func Read(value: `Price models`.` `) -> `Price models`.` ` => value
+            }
+            """);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        Assert.Equal(" ", symbol.Name);
+        Assert.Equal("Price models", symbol.ContainingNamespace.Name);
+    }
+
+    [Fact]
+    public void BacktickIdentifiers_BindDeclarationsMembersAndOrdinaryReferences()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class `Price calculator` {
+                static func `Calculate total price`(`unit price`: int, quantity: int) -> int {
+                    let `total price` = `unit price` * `quantity`
+                    return `total price`
+                }
+                static func Run() -> int => `Price calculator`.`Calculate total price`(10, 5)
+            }
+            """);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        Assert.Equal("Calculate total price", symbol.Name);
+        Assert.Equal("unit price", symbol.Parameters[0].Name);
+        var reference = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Single(n => n.Identifier.ValueText == "Calculate total price");
+        Assert.Equal(symbol, model.GetSymbolInfo(reference).Symbol);
+    }
+
+    [Fact]
+    public void BacktickIdentifiers_ShareOrdinaryAndAtEscapedNamespace()
+    {
+        var (compilation, _) = CreateCompilation("""
+            class C {
+                static func Run() -> int {
+                    let value = 1
+                    let @class = `value`
+                    return `class`
+                }
+            }
+            """);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void BacktickIdentifiers_DoNotCreateSeparateOverloads()
+    {
+        var (compilation, _) = CreateCompilation("""
+            class C {
+                func Run() -> int => 1
+                func `Run`() -> int => 2
+            }
+            """);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void EscapedClassIdentifier_UsesUnescapedSymbolName()
     {

@@ -14,6 +14,61 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class LexerTests
 {
+    [Theory]
+    [InlineData("Calculate total price")]
+    [InlineData("class")]
+    [InlineData(" a + b! ")]
+    [InlineData("@name")]
+    [InlineData("e\u0301")]
+    [InlineData("é")]
+    [InlineData("😀")]
+    public void BacktickIdentifier_PreservesSpellingAndValue(string name)
+    {
+        var diagnostics = new List<DiagnosticInfo>();
+        var lexer = new Lexer(new StringReader("`" + name + "`")) { DiagnosticSink = diagnostics.Add };
+        var token = lexer.ReadToken();
+        Assert.Equal(SyntaxKind.IdentifierToken, token.Kind);
+        Assert.Equal("`" + name + "`", token.Text);
+        Assert.Equal(name, token.Value);
+        Assert.Empty(diagnostics);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r")]
+    [InlineData("\r\n")]
+    [InlineData("\u0085")]
+    [InlineData("\u2028")]
+    [InlineData("\u2029")]
+    [InlineData("")]
+    public void BacktickIdentifier_StopsAtLineBreakOrEndOfFile(string terminator)
+    {
+        var diagnostics = new List<DiagnosticInfo>();
+        var lexer = new Lexer(new StringReader("`name" + terminator)) { DiagnosticSink = diagnostics.Add };
+        var token = lexer.ReadToken();
+        Assert.Equal("`name", token.Text);
+        Assert.Equal("name", token.Value);
+        Assert.Equal(CompilerDiagnostics.CharacterExpected.Id, Assert.Single(diagnostics).Descriptor.Id);
+    }
+
+    [Fact]
+    public void BacktickIdentifier_RejectsEmptyName()
+    {
+        Assert.Contains(SyntaxTree.ParseText("let `` = 1").GetDiagnostics(), d => d.Id == "RAV1001");
+    }
+
+    [Theory]
+    [InlineData("`Calculate total price`", "Calculate total price")]
+    [InlineData("`@name`", "@name")]
+    [InlineData("@class", "class")]
+    public void IdentifierFactory_PreservesEscapedValue(string text, string name)
+    {
+        var token = Raven.CodeAnalysis.Syntax.SyntaxFactory.Identifier(text);
+        Assert.Equal(text, token.Text);
+        Assert.Equal(name, token.ValueText);
+        Assert.Equal(name, Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName(text).Identifier.ValueText);
+    }
+
     [Fact]
     public void DotPrefixedDecimal_IsParsedAsNumericLiteral()
     {

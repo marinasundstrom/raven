@@ -12,6 +12,17 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceLiteralAndControlFlowTests
 {
     [Fact]
+    public void GetCompletions_ForBacktickIdentifier_UsesBacktickInsertion()
+    {
+        var code = "let `total price` = 1;\ntot";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var items = new CompletionService().GetCompletions(compilation, tree, code.Length).ToList();
+        Assert.Contains(items, item => item.InsertionText == "`total price`");
+    }
+
+    [Fact]
     public void GetCompletions_InGotoStatement_IncludesLabels()
     {
         var code = """

@@ -730,8 +730,8 @@ public static class CompletionProvider
             if (string.IsNullOrEmpty(identifier))
                 return identifier;
 
-            if (identifier[0] == '@')
-                return identifier;
+            if (SyntaxFacts.RequiresBacktickEscaping(identifier))
+                return "`" + identifier + "`";
 
             return SyntaxFacts.TryParseKeyword(identifier, out var keyword) &&
                 (keyword != SyntaxKind.CharKeyword || model.SyntaxTree.Options.EnableCharKeyword)
@@ -745,7 +745,7 @@ public static class CompletionProvider
                 return identifier.ValueText;
 
             var prefix = identifier.Text[..(position - identifier.SpanStart)];
-            return prefix.StartsWith('@') ? prefix[1..] : prefix;
+            return prefix.StartsWith('@') || prefix.StartsWith('`') ? prefix[1..] : prefix;
         }
 
         (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
