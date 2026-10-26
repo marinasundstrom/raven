@@ -1,8 +1,23 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
+Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ## Unreleased
+
+### Breaking changes
+
+- None recorded.
+
+## 0.1.16 - 2026-10-26
+
+### Breaking changes
+
+- **Macro implementation metadata:** compact `macro Name` declarations now emit `NameMacro` instead of a position-derived provider class name. Macro symbols retain `Name`; attached lookup accepts `Name` or `NameMacro`, including qualified names, using exported names so existing compiled providers remain discoverable. Aliases and freestanding lookup are unchanged. Rebuild consumers that directly reference generated provider types. Raven.Macros Error/ErrorMessage cooperation recognizes both spellings when rebuilt.
+
+- **Optional naming:** `System.Option<T>` is now `System.Optional<T>`. Update type references, `System.Option.*` imports, and references to the renamed converter and extension container types. No `Option` compatibility alias is provided; rebuild libraries and consumers against matching runtime libraries. `Some`/`None` cases and the Optional JSON representation are unchanged. See [Optional migration details](docs/compiler/optional-naming.md).
+- **Result failure case:** `Result<T, E>.Error` is now `Failure`. Update construction, patterns, generated case-type/reflection references, and serialized case tags, then rebuild consumers. Tagged Result JSON now uses `"case": "Failure"`; migrate stored `"Error"` tags and external producers/consumers. No library `Error` or `Err` alias is provided. Compiler recognition of legacy Error-shaped results does not preserve the renamed library API or JSON contract. `Ok`, `MapError`, and `UnwrapError` retain their names. See [Result migration details](docs/compiler/result-case-names.md).
+
+### Changes
 
 - **2026-10-26:** Preserve operator and conversion signature syntax in symbol display when identifier escaping is enabled.
 
@@ -39,13 +54,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
 - Preserve expression-bodied property getter identity when declarations are rebound, preventing duplicate accessor declarations on unions.
 
 - Preserve inherited virtual slots for abstract overrides, including authored `ToString` on closed record hierarchies. Calls through Object, the abstract base and interpolation now dispatch to the derived implementation. Supply the synthesized zero-parameter Deconstruct body for empty records, including closed bases and parameterless cases, so body consumers do not fall back to binding a type declaration as executable code. Add executed coverage for nested closed record cases, exhaustive deconstruction patterns and Object display; 51 focused hierarchy/record tests pass.
-
-### Breaking changes
-
-- **Macro implementation metadata:** compact `macro Name` declarations now emit `NameMacro` instead of a position-derived provider class name. Macro symbols retain `Name`; attached lookup accepts `Name` or `NameMacro`, including qualified names, using exported names so existing compiled providers remain discoverable. Aliases and freestanding lookup are unchanged. Rebuild consumers that directly reference generated provider types. Raven.Macros Error/ErrorMessage cooperation recognizes both spellings when rebuilt.
-
-- **Optional naming:** `System.Option<T>` is now `System.Optional<T>`. Update type references, `System.Option.*` imports, and references to the renamed converter and extension container types. No `Option` compatibility alias is provided; rebuild libraries and consumers against matching runtime libraries. `Some`/`None` cases and the Optional JSON representation are unchanged. See [Optional migration details](docs/compiler/optional-naming.md).
-- **Result failure case:** `Result<T, E>.Error` is now `Failure`. Update construction, patterns, generated case-type/reflection references, and serialized case tags, then rebuild consumers. Tagged Result JSON now uses `"case": "Failure"`; migrate stored `"Error"` tags and external producers/consumers. No library `Error` or `Err` alias is provided. Compiler recognition of legacy Error-shaped results does not preserve the renamed library API or JSON contract. `Ok`, `MapError`, and `UnwrapError` retain their names. See [Result migration details](docs/compiler/result-case-names.md).
 
 ## 0.1.15 - 2026-10-22
 

@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 import { getDocumentedVersionProvenance } from "./site-provenance-version.mjs";
 
 assert.deepEqual(
-  getDocumentedVersionProvenance("0.1.15", true),
-  { version: "0.1.15", status: "released" },
+  getDocumentedVersionProvenance("0.1.16", true),
+  { version: "0.1.16", status: "released" },
   "A released documented version remains released on later site commits.",
 );
 assert.deepEqual(
-  getDocumentedVersionProvenance("0.1.15-preview.1", false),
-  { version: "0.1.15-preview.1", status: "unreleased" },
+  getDocumentedVersionProvenance("0.1.16-preview.1", false),
+  { version: "0.1.16-preview.1", status: "unreleased" },
 );
 assert.throws(
   () => getDocumentedVersionProvenance("next", false),
