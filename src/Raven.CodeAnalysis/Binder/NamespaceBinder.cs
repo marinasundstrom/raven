@@ -62,7 +62,7 @@ class NamespaceBinder : Binder
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             yield break;
 
         var methods = CanCacheExtensionLookupResults

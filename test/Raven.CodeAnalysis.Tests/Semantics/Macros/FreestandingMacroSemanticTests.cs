@@ -33,6 +33,30 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void MacroGeneratedBacktickIdentifier_BindsToLocal()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int {
+                let `total price` = 50
+                return backtick!()
+            }
+            """);
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(BacktickMacro)));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(invocation);
+        Assert.Equal("total price", Assert.IsType<IdentifierNameSyntax>(expansion!.Expression).Identifier.ValueText);
+    }
+
+    public sealed class BacktickMacro : IMacroDefinition
+    {
+        public string Name => "backtick";
+        public MacroKind Kind => MacroKind.Freestanding;
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => new() { Expression = SyntaxFactory.IdentifierName("`total price`") };
+    }
+
+    [Fact]
     public void Macro_CompilesIntoLocalProviderAndExpands()
     {
         var sourceTree = SyntaxTree.ParseText(

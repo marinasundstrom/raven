@@ -558,7 +558,7 @@ internal abstract partial class Binder
 
     public virtual IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return Enumerable.Empty<IMethodSymbol>();
 
         return ParentBinder?.LookupExtensionMethodsByName(name) ?? Enumerable.Empty<IMethodSymbol>();

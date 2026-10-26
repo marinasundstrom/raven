@@ -39,7 +39,7 @@ internal sealed class SourceDeclarationIndex
 
     public ImmutableArray<FunctionStatementSyntax> GetNamespaceFunctions(string namespaceMetadataName, string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return ImmutableArray<FunctionStatementSyntax>.Empty;
 
         var key = new NamespaceMemberFunctionLookupKey(namespaceMetadataName ?? string.Empty, name);
@@ -50,7 +50,7 @@ internal sealed class SourceDeclarationIndex
 
     public ImmutableArray<SyntaxNode> GetNamespaceTypes(string namespaceMetadataName, string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return ImmutableArray<SyntaxNode>.Empty;
 
         var key = new NamespaceTypeLookupKey(namespaceMetadataName ?? string.Empty, name);
@@ -128,7 +128,7 @@ internal sealed class SourceDeclarationIndex
         string name,
         SyntaxNode declaration)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return;
 
         var key = new NamespaceTypeLookupKey(namespaceMetadataName, name);
@@ -147,7 +147,7 @@ internal sealed class SourceDeclarationIndex
         FunctionStatementSyntax functionStatement)
     {
         var name = functionStatement.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return;
 
         var key = new NamespaceMemberFunctionLookupKey(namespaceMetadataName, name);
@@ -161,14 +161,14 @@ internal sealed class SourceDeclarationIndex
     }
 
     private static string GetCompilationUnitNamespace(CompilationUnitSyntax compilationUnit)
-        => compilationUnit.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString()
+        => compilationUnit.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToValueString()
            ?? string.Empty;
 
     private static string GetNamespaceDeclarationMetadataName(
         string parentNamespaceMetadataName,
         BaseNamespaceDeclarationSyntax namespaceDeclaration)
     {
-        var declaredName = namespaceDeclaration.Name.ToString();
+        var declaredName = namespaceDeclaration.Name.ToValueString();
         if (namespaceDeclaration is FileScopedNamespaceDeclarationSyntax ||
             string.IsNullOrWhiteSpace(parentNamespaceMetadataName))
         {

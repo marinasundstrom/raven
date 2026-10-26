@@ -1196,7 +1196,7 @@ public partial class Compilation
 
             SourceNamespaceSymbol targetNamespace = fileScopedNamespace is null
                 ? SourceGlobalNamespace
-                : GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())?.AsSourceNamespace()
+                : GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToValueString())?.AsSourceNamespace()
                     ?? SourceGlobalNamespace;
 
             GetOrCreateTopLevelProgram(compilationUnit, targetNamespace, bindableGlobals);
@@ -1369,7 +1369,7 @@ public partial class Compilation
 
     internal ImmutableArray<FunctionStatementSyntax> GetNamespaceFunctionDeclarations(INamespaceSymbol namespaceSymbol, string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return ImmutableArray<FunctionStatementSyntax>.Empty;
 
         return SourceDeclarationIndex.GetNamespaceFunctions(GetNamespaceMetadataName(namespaceSymbol), name);
@@ -1904,7 +1904,7 @@ public partial class Compilation
             SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
             var symbol = new SourceNamespaceSymbol(
-                namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
+                namespaceDeclarationSyntax.Name.ToValueString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
             foreach (var memberDeclaration2 in namespaceDeclarationSyntax.Members)

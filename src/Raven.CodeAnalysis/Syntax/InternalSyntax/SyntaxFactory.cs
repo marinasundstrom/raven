@@ -1,4 +1,4 @@
-﻿
+
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -8,7 +8,13 @@ internal static partial class SyntaxFactory
 
     public static SyntaxToken Token(SyntaxKind kind) => new(kind, SyntaxFacts.GetSyntaxTokenText(kind) ?? string.Empty);
 
-    public static SyntaxToken IdentifierToken(string text) => new(SyntaxKind.IdentifierToken, text);
+    public static SyntaxToken IdentifierToken(string text)
+    {
+        var valueText = text.Length >= 2 && text[0] == '`' && text[^1] == '`'
+            ? text[1..^1]
+            : text.StartsWith('@') ? text[1..] : text;
+        return new SyntaxToken(SyntaxKind.IdentifierToken, text, valueText, text.Length);
+    }
     public static SyntaxToken Literal(int value) => new(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
     public static SyntaxToken Literal(string value) => new(SyntaxKind.StringLiteralToken, value, value, value.Length);
 

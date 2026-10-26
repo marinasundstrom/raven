@@ -921,7 +921,7 @@ partial class BlockBinder
         }
 
         var localType = BindForIterationTargetType(typeAnnotation, elementType);
-        if (string.IsNullOrWhiteSpace(identifier.ValueText) || identifier.ValueText == "_")
+        if (string.IsNullOrEmpty(identifier.ValueText) || identifier.Text == "_")
             return null;
 
         var local = CreateLocalSymbol(declaringSyntax, identifier.ValueText, isMutable: false, localType);

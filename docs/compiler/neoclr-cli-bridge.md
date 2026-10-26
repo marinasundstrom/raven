@@ -765,3 +765,21 @@ separate native-target integration; this parser capability alone does not rename
 Completion also observes EnableCharKeyword when escaping identifier insertions; a
 disabled char keyword inserts as `char`, not `@char`. The four focused parser and
 completion tests pass on main with the default .NET policy unchanged.
+
+## Escaped source identifiers
+
+Backtick-delimited identifiers are a shared Raven lexical feature. The native
+semantic name is the exact text inside the delimiters, without Unicode
+normalization. The lexer and syntax factories remove only the delimiters from
+`ValueText`; binding and symbol lookup share the ordinary identifier namespace.
+
+The current CLI emitter writes those logical names directly, with no temporary
+backtick encoding or target-specific mangling. CLI consumers may impose naming
+restrictions, and this change does not establish acceptance by the external
+neoCLR importer or runtime. Such restrictions must not become native neoCLR
+language rules. A native metadata writer and code generator must preserve the
+same logical symbol names without passing through CLI naming conventions.
+
+Validation uses shared compiler semantic tests and modern .NET reflection and
+invocation of a method named `Calculate total price`. It does not validate native
+neoCLR execution. See [Backtick identifiers](backtick-identifiers.md).

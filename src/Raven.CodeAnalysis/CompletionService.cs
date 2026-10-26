@@ -577,8 +577,8 @@ public class CompletionService
         if (string.IsNullOrEmpty(identifier))
             return identifier;
 
-        if (identifier[0] == '@')
-            return identifier;
+        if (SyntaxFacts.RequiresBacktickEscaping(identifier))
+            return "`" + identifier + "`";
 
         return SyntaxFacts.TryParseKeyword(identifier, out _)
             ? "@" + identifier

@@ -317,7 +317,7 @@ class FunctionBinder : Binder
 
         var targetNamespace = fileScopedNamespace is null
             ? Compilation.SourceGlobalNamespace
-            : Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())?.AsSourceNamespace()
+            : Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToValueString())?.AsSourceNamespace()
                 ?? Compilation.SourceGlobalNamespace;
 
         var (programClass, _, _) = Compilation.GetOrCreateTopLevelProgram(
@@ -338,9 +338,9 @@ class FunctionBinder : Binder
             syntax.Ancestors()
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
-                .Select(static declaration => declaration.Name.ToString()));
+                .Select(static declaration => declaration.Name.ToValueString()));
 
-        return string.IsNullOrWhiteSpace(namespaceName)
+        return string.IsNullOrEmpty(namespaceName)
             ? Compilation.SourceGlobalNamespace
             : Compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
     }

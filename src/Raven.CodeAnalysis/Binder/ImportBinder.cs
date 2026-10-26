@@ -234,7 +234,7 @@ class ImportBinder : Binder
     internal bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
     {
         var namespaceName = namespaceSymbol.ToString();
-        if (string.IsNullOrWhiteSpace(namespaceName))
+        if (string.IsNullOrEmpty(namespaceName))
         {
             type = null!;
             return false;
@@ -289,7 +289,7 @@ class ImportBinder : Binder
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             yield break;
 
         var methods = CanCacheExtensionLookupResults

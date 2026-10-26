@@ -361,6 +361,34 @@ internal class Lexer : ILexer, IMacroBodyScanner
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
+            if (ch == '`')
+            {
+                _stringBuilder.Append(ch);
+                while (PeekChar(out ch2) && ch2 != '`' && !IsEndOfLine(ch2))
+                {
+                    ReadChar();
+                    _stringBuilder.Append(ch2);
+                }
+
+                var valueText = string.Intern(_stringBuilder.ToString(1, _stringBuilder.Length - 1));
+                if (PeekChar(out ch2) && ch2 == '`')
+                {
+                    ReadChar();
+                    _stringBuilder.Append(ch2);
+                }
+                else
+                {
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected, GetTokenStartPositionSpan(), "`"));
+                }
+
+                if (valueText.Length == 0)
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.IdentifierExpected, GetTokenStartPositionSpan()));
+
+                return new Token(SyntaxKind.IdentifierToken, GetStringBuilderValue(), valueText);
+            }
+
             if (ch == '@')
             {
                 _stringBuilder.Append(ch);
@@ -1004,7 +1032,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
             ReadChar();
 
             // Interpolation: $ (not escaped), followed by { or identifier start
-            if (ch2 == '$' && !IsDollarEscaped(_stringBuilder) && PeekChar(out var next) && (next == '{' || SyntaxFacts.IsIdentifierStartCharacter(next)))
+            if (ch2 == '$' && !IsDollarEscaped(_stringBuilder) && PeekChar(out var next) && (next is '{' or '`' || SyntaxFacts.IsIdentifierStartCharacter(next)))
             {
                 _stringBuilder.Append('$');
                 if (next == '{')
@@ -1012,6 +1040,10 @@ internal class Lexer : ILexer, IMacroBodyScanner
                     ReadChar(); // consume '{'
                     _stringBuilder.Append('{');
                     ScanInterpolationBodyIntoBuilder();
+                }
+                else if (next == '`')
+                {
+                    ScanBacktickIdentifierIntoBuilder();
                 }
                 else
                 {
@@ -1106,6 +1138,19 @@ internal class Lexer : ILexer, IMacroBodyScanner
             return (count & 1) == 1;
         }
 
+        void ScanBacktickIdentifierIntoBuilder()
+        {
+            ReadChar();
+            _stringBuilder.Append('`');
+            while (PeekChar(out var c) && !IsEndOfLine(c))
+            {
+                ReadChar();
+                _stringBuilder.Append(c);
+                if (c == '`')
+                    break;
+            }
+        }
+
         // Scan the body of an interpolation (after `${` has been appended, and the `{` consumed).
         void ScanInterpolationBodyIntoBuilder()
         {
@@ -1128,6 +1173,11 @@ internal class Lexer : ILexer, IMacroBodyScanner
                             CompilerDiagnostics.NewlineInConstant,
                             GetTokenStartPositionSpan()));
                     break;
+                }
+                if (c == '`')
+                {
+                    ScanBacktickIdentifierIntoBuilder();
+                    continue;
                 }
                 // Handle string literals inside interpolation
                 if (c == '"')

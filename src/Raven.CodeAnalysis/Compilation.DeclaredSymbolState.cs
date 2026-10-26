@@ -37,7 +37,7 @@ public partial class Compilation
     {
         declaration = null!;
 
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         var candidates = _declaredTypeDeclarationsByName.GetOrAdd(
@@ -55,7 +55,7 @@ public partial class Compilation
     {
         symbol = null!;
 
-        if (string.IsNullOrWhiteSpace(name) ||
+        if (string.IsNullOrEmpty(name) ||
             !_declaredTypeSymbolsByName.TryGetValue(new DeclaredTypeLookupKey(name, arity), out var candidates))
         {
             return false;
@@ -228,15 +228,15 @@ public partial class Compilation
             case BaseTypeDeclarationSyntax declaration:
                 name = declaration.Identifier.ValueText;
                 arity = GetDeclaredTypeArity(declaration);
-                return !string.IsNullOrWhiteSpace(name);
+                return !string.IsNullOrEmpty(name);
             case DelegateDeclarationSyntax declaration:
                 name = declaration.Identifier.ValueText;
                 arity = declaration.TypeParameterList?.Parameters.Count ?? 0;
-                return !string.IsNullOrWhiteSpace(name);
+                return !string.IsNullOrEmpty(name);
             case ExtensionDeclarationSyntax declaration:
                 name = declaration.Identifier.ValueText;
                 arity = declaration.TypeParameterList?.Parameters.Count ?? 0;
-                return !string.IsNullOrWhiteSpace(name);
+                return !string.IsNullOrEmpty(name);
             default:
                 name = string.Empty;
                 arity = 0;

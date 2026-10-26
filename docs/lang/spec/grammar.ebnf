@@ -877,8 +877,12 @@ QualifiedName            ::= Identifier {'.' Identifier} ;
 (* `Union.Case` is parsed as a QualifiedName/member chain and may be rebound by
    semantics as a discriminated-union case reference. *)
 
-Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
-                               The single '_' token is reserved for discards. */ ;
+Identifier               ::= OrdinaryIdentifier | '@' OrdinaryIdentifier | BacktickIdentifier ;
+OrdinaryIdentifier       ::= /* Unicode identifier start followed by identifier parts;
+                               see lexical-structure.md. Bare '_' is a discard. */ ;
+BacktickIdentifier       ::= '`' BacktickIdentifierCharacter { BacktickIdentifierCharacter } '`' ;
+BacktickIdentifierCharacter ::= /* Any character except backtick, CR, LF, NEL, U+2028, U+2029.
+                                  Contents are preserved without Unicode normalization. */ ;
 
 
 StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;

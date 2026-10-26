@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-23**.
 
 ## Unreleased
 
+### 2026-10-26
+
+- Support backtick-delimited identifiers in declarations, references, member access,
+  and macro-generated syntax. Preserve exact contents as symbol and metadata names
+  in the ordinary identifier namespace, without Unicode normalization; reject empty
+  and multiline names. Update completion insertion, symbol display, interface member
+  generation, syntax factories, and TextMate highlighting.
+
 ### 2026-10-23
 
 - Preserve source mappings when lowering arrow-bodied members, including constant-result macro expansions, so debugger sequence points retain the authored fragment or invocation.

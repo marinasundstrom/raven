@@ -175,8 +175,8 @@ internal sealed class MacroFragmentBinder : BlockBinder
     private static bool IsInferredPatternDesignation(SingleVariableDesignationSyntax designation)
     {
         if (designation.Identifier.IsMissing ||
-            string.IsNullOrWhiteSpace(designation.Identifier.ValueText) ||
-            designation.Identifier.ValueText == "_")
+            string.IsNullOrEmpty(designation.Identifier.ValueText) ||
+            designation.Identifier.Text == "_")
         {
             return false;
         }

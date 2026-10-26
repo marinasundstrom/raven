@@ -192,7 +192,7 @@ internal sealed class AttributeBinder : BlockBinder
             _ => null
         };
 
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         var field = GetFieldsByName(enumType, memberName)
@@ -228,7 +228,7 @@ internal sealed class AttributeBinder : BlockBinder
             return false;
 
         var memberName = identifier.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         var field = LookupSymbols(memberName)

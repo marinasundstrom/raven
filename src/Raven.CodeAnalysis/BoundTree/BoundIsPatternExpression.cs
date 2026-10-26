@@ -982,7 +982,7 @@ internal partial class BlockBinder
             !single.Identifier.IsMissing &&
             single.Identifier.Kind != SyntaxKind.None &&
             !string.IsNullOrEmpty(single.Identifier.ValueText) &&
-            single.Identifier.ValueText != "_")
+            single.Identifier.Text != "_")
         {
             var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
             var localType = EnsureTypeAccessible(declaredType, single.Identifier.GetLocation());
@@ -1479,7 +1479,7 @@ internal partial class BlockBinder
                         {
                             case SingleVariableDesignationSyntax single when
                                 !single.Identifier.IsMissing &&
-                                single.Identifier.ValueText != "_" &&
+                                single.Identifier.Text != "_" &&
                                 !string.IsNullOrEmpty(single.Identifier.ValueText):
                                 {
                                     // Typed designations require an explicit binding keyword on each single variable.
@@ -1639,7 +1639,7 @@ internal partial class BlockBinder
         if (!single.BindingKeyword.IsMissing && single.BindingKeyword.Kind != SyntaxKind.None)
             isMutable = single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
 
-        if (single.Identifier.IsMissing || single.Identifier.ValueText == "_")
+        if (single.Identifier.IsMissing || single.Identifier.Text == "_")
         {
             var discardType = normalizedType.TypeKind == TypeKind.Error
                 ? Compilation.ErrorTypeSymbol
@@ -3014,7 +3014,7 @@ internal partial class BlockBinder
         {
             case SingleVariableDesignationSyntax single:
                 {
-                    if (single.Identifier.IsMissing || string.IsNullOrEmpty(single.Identifier.ValueText) || single.Identifier.ValueText == "_")
+                    if (single.Identifier.IsMissing || string.IsNullOrEmpty(single.Identifier.ValueText) || single.Identifier.Text == "_")
                     {
                         var discard = new BoundDiscardDesignator(expectedType);
                         CacheBoundNode(designation, discard);
@@ -3197,7 +3197,7 @@ internal partial class BlockBinder
     private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax single)
     {
         // Not a real symbol
-        if (single.Identifier.IsMissing || single.Identifier.ValueText == "_" || string.IsNullOrEmpty(single.Identifier.ValueText))
+        if (single.Identifier.IsMissing || single.Identifier.Text == "_" || string.IsNullOrEmpty(single.Identifier.ValueText))
             return null;
 
         var name = single.Identifier.ValueText;

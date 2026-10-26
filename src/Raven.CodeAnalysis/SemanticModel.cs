@@ -1563,8 +1563,8 @@ public partial class SemanticModel
                         declaration.Ancestors()
                             .OfType<BaseNamespaceDeclarationSyntax>()
                             .Reverse()
-                            .Select(static current => current.Name.ToString()));
-                    var namespaceSymbol = string.IsNullOrWhiteSpace(namespaceName)
+                            .Select(static current => current.Name.ToValueString()));
+                    var namespaceSymbol = string.IsNullOrEmpty(namespaceName)
                         ? Compilation.SourceGlobalNamespace
                         : Compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
                     if (namespaceSymbol is not null)
@@ -3421,7 +3421,7 @@ public partial class SemanticModel
         info = SymbolInfo.None;
 
         var memberName = memberBinding.Name.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         if (!TryGetTargetTypeForExpression(memberBinding, out var targetType) ||
@@ -3751,7 +3751,7 @@ public partial class SemanticModel
         }
 
         var memberName = assignment.Name.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         var members = receiverType
@@ -4249,7 +4249,7 @@ public partial class SemanticModel
             return false;
 
         var name = identifier.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         for (var binder = GetBinderForIncrementalSemanticQuery(identifier); binder is not null; binder = binder.ParentBinder)
@@ -4322,7 +4322,7 @@ public partial class SemanticModel
         localSymbol = null;
 
         var name = identifier.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         foreach (var scope in identifier.Ancestors().Where(static ancestor =>
@@ -5633,7 +5633,7 @@ public partial class SemanticModel
         for (var i = 0; i < parameters.Length; i++)
         {
             var name = parameters[i].Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(name) || name == "_")
+            if (string.IsNullOrEmpty(name) || parameters[i].Identifier.Text == "_")
                 continue;
 
             var parameterType = delegateInvokeMethod.Parameters[i].Type;
@@ -6134,7 +6134,7 @@ public partial class SemanticModel
         out ImmutableArray<IMethodSymbol> methods)
     {
         methods = ImmutableArray<IMethodSymbol>.Empty;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         if (!Compilation.SourceDeclarationsDeclared && allowSourceDeclarationBinding)
@@ -6281,7 +6281,7 @@ public partial class SemanticModel
     private bool TryLookupAvailableNamedType(string name, int arity, out INamedTypeSymbol? type)
     {
         type = null;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         if (Compilation.TryGetDeclaredTypeSymbol(name, arity, out var declaredType))
@@ -6353,14 +6353,14 @@ public partial class SemanticModel
         var metadataTypeName = GetMetadataTypeName(name, arity);
         foreach (var importDirective in EnumerateImportDirectives(context))
         {
-            var importName = importDirective.Name.ToString().Replace(" ", string.Empty, StringComparison.Ordinal);
+            var importName = importDirective.Name.ToValueString();
             if (string.IsNullOrWhiteSpace(importName))
                 continue;
 
             if (importName.EndsWith(".*", StringComparison.Ordinal))
             {
                 var namespaceName = importName[..^2];
-                if (string.IsNullOrWhiteSpace(namespaceName))
+                if (string.IsNullOrEmpty(namespaceName))
                     continue;
 
                 type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(namespaceName + "." + metadataTypeName);
@@ -6918,7 +6918,7 @@ public partial class SemanticModel
 
     private static ISymbol? LookupAvailableMember(ITypeSymbol receiverType, string memberName)
     {
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return null;
 
         for (var current = receiverType as INamedTypeSymbol; current is not null; current = current.BaseType)
@@ -6935,7 +6935,7 @@ public partial class SemanticModel
 
     private static ImmutableArray<ISymbol> LookupAvailableMembers(ITypeSymbol receiverType, string memberName)
     {
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return ImmutableArray<ISymbol>.Empty;
 
         for (var current = receiverType as INamedTypeSymbol; current is not null; current = current.BaseType)
@@ -7219,7 +7219,7 @@ public partial class SemanticModel
         type = null;
 
         var name = identifier.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         var position = identifier.Span.Start;
@@ -7291,7 +7291,7 @@ public partial class SemanticModel
         }
 
         var memberName = memberAccess.Name.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
+        if (string.IsNullOrEmpty(memberName))
             return false;
 
         var lookupReceiver = namedReceiver;
@@ -8320,7 +8320,7 @@ public partial class SemanticModel
     private static bool TryGetNamespaceMetadataName(INamespaceSymbol namespaceSymbol, out string metadataName)
     {
         metadataName = namespaceSymbol.ToMetadataName() ?? string.Empty;
-        return !string.IsNullOrWhiteSpace(metadataName);
+        return !string.IsNullOrEmpty(metadataName);
     }
 
     private static bool IsMatchingAvailableType(ITypeSymbol? type, int arity)
@@ -12074,7 +12074,7 @@ public partial class SemanticModel
         string name,
         bool allowBindingFallback = false)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return null;
 
         if (contextNode is ExpressionSyntax expression &&
@@ -13216,7 +13216,7 @@ public partial class SemanticModel
 
         foreach (var import in EnumerateImportDirectives(typeName))
         {
-            var importName = import.Name.ToString();
+            var importName = import.Name.ToValueString();
             if (!importName.EndsWith(".*", StringComparison.Ordinal))
                 continue;
 
@@ -13412,7 +13412,7 @@ public partial class SemanticModel
     {
         type = null;
         var name = identifier.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrEmpty(name))
             return false;
 
         var methodDeclaration = identifier.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();

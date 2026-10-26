@@ -782,7 +782,7 @@ internal static class MacroLowering
             declaration.Ancestors()
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
-                .Select(static namespaceDeclaration => namespaceDeclaration.Name.ToString()));
+                .Select(static namespaceDeclaration => namespaceDeclaration.Name.ToValueString()));
 
     private static string EscapeString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal)
