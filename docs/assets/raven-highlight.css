@@ -10,8 +10,8 @@
     color: var(--raven-syntax-type) !important;
 }
 
-.hljs-title.function,
-.hljs-title.function.invoke {
+.hljs-title.function_,
+.hljs-title.function_.invoke__ {
     color: var(--raven-syntax-function) !important;
 }
 
