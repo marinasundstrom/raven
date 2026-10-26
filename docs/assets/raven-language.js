@@ -1,6 +1,10 @@
 // Keep this lightweight browser lexer aligned with the full TextMate grammar in
 // src/Raven.VSCode/syntaxes/raven.tmLanguage.json.
+const escapedName = /(?:`[^`\r\n\u0085\u2028\u2029]+`|@[_$\p{L}\p{Nl}][_$\p{L}\p{Nl}\p{Nd}\p{Pc}\p{Mn}\p{Mc}\p{Cf}]*)/u;
+const escapedIdentifier = { scope: 'variable', begin: escapedName, relevance: 0 };
+
 export default (hljs) => ({
+  unicodeRegex: true,
   name: 'Raven',
   aliases: ['rav', 'rvn'],
   keywords: {
@@ -30,6 +34,12 @@ export default (hljs) => ({
   },
   contains: [
     {
+      scope: 'title.function',
+      begin: new RegExp(escapedName.source + String.raw`(?=\s*(?:<[^\r\n<>]*>\s*)?\()`, 'u'),
+      relevance: 0
+    },
+    escapedIdentifier,
+    {
       scope: 'meta',
       begin: /^\s*#\s*pragma\b/,
       end: /$/,
@@ -52,7 +62,7 @@ export default (hljs) => ({
       scope: 'string',
       begin: /"""/,
       end: /"""(?:u8|ascii)?/,
-      contains: [{ scope: 'subst', begin: /\$\{/, end: /\}/ }]
+      contains: [{ scope: 'subst', begin: /\$\{/, end: /\}/, contains: [escapedIdentifier] }]
     },
     {
       scope: 'string',
@@ -62,7 +72,8 @@ export default (hljs) => ({
       ],
       contains: [
         hljs.BACKSLASH_ESCAPE,
-        { scope: 'subst', begin: /\$\{/, end: /\}/ },
+        { scope: 'subst', begin: /\$\{/, end: /\}/, contains: [escapedIdentifier] },
+        { scope: 'subst', begin: /\$`[^`\r\n\u0085\u2028\u2029]+`/ },
         { scope: 'subst', begin: /\$[A-Za-z_][A-Za-z0-9_]*/ }
       ]
     },

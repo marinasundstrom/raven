@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "build": "esbuild Editor/editor.js Editor/editor.worker.js --bundle --format=esm --outdir=wwwroot/js --minify --loader:.wasm=file --loader:.ttf=file",
-    "test:browser": "node Tests/smoke.mjs"
+    "test:browser": "node Tests/smoke.mjs",
+    "test:grammar": "node ../../scripts/test-raven-textmate.mjs",
+    "test:highlighting": "npm run build && node Tests/highlighting.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

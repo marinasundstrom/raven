@@ -8,8 +8,7 @@
     ],
     "patterns": [
         {
-            "name": "variable.other.identifier.raven",
-            "match": "`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`"
+            "include": "#escapedIdentifiers"
         },
         {
             "include": "#comments"
@@ -389,6 +388,17 @@
                             "include": "source.raven"
                         }
                     ]
+                },
+                {
+                    "match": "(\\$)(`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`)",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.definition.interpolation.begin.raven"
+                        },
+                        "2": {
+                            "name": "variable.other.identifier.raven"
+                        }
+                    }
                 },
                 {
                     "name": "meta.embedded.interpolation.raven",
@@ -974,6 +984,40 @@
                             "name": "entity.name.function.raven"
                         }
                     }
+                }
+            ]
+        },
+        "escapedIdentifiers": {
+            "patterns": [
+                {
+                    "match": "\\b(func)(\\s+)((?:`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`|@[_$\\p{L}\\p{Nl}][_$\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\p{Mn}\\p{Mc}\\p{Cf}]*))",
+                    "captures": {
+                        "1": {
+                            "name": "storage.type.function.raven"
+                        },
+                        "3": {
+                            "name": "entity.name.function.raven"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b(class|struct|record|union|enum|interface|delegate|extension)(\\s+)((?:`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`|@[_$\\p{L}\\p{Nl}][_$\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\p{Mn}\\p{Mc}\\p{Cf}]*))",
+                    "captures": {
+                        "1": {
+                            "name": "storage.type.raven"
+                        },
+                        "3": {
+                            "name": "entity.name.type.raven"
+                        }
+                    }
+                },
+                {
+                    "match": "(?:`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`|@[_$\\p{L}\\p{Nl}][_$\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\p{Mn}\\p{Mc}\\p{Cf}]*)(?=\\s*(?:<[^\\r\\n<>]*>\\s*)?\\()",
+                    "name": "entity.name.function.raven"
+                },
+                {
+                    "match": "(?:`[^`\\r\\n\\x{0085}\\x{2028}\\x{2029}]+`|@[_$\\p{L}\\p{Nl}][_$\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\p{Mn}\\p{Mc}\\p{Cf}]*)",
+                    "name": "variable.other.identifier.raven"
                 }
             ]
         }
