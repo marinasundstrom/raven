@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-28:** Preserve nested parameter/result nullability when native structural function signatures cross assembly boundaries. Generic formatter forwarding now binds after the Neo abstraction split. Keep legacy opaque-function outer annotations readable; missing nested facts require rebuilding with the updated producer. Qualify imported generic callbacks with a focused emit/import/forwarding regression.
+
 - **2026-10-28:** Preserve unconstrained generic instance interface contracts in neoCLR emission: opt-in portable admission, method parameter metadata and constructed virtual calls. Qualify native generic forwarding with Int32/String state and inherited contracts in both source orders. Ordinary .NET emission is unchanged; generic class virtual/static/default-interface support remains outside this slice.
 
 - **2026-10-28:** Fix neoCLR structural callback overload specificity: compare declared function inputs and results when generic candidates have equivalent constructed parameters. Task-returning callbacks select the async-unwrapping overload without explicit type arguments. Preserve ordinary .NET selection and ambiguity for conflicting specificity; no Runtime Contract or metadata format change.

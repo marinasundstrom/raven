@@ -17616,3 +17616,22 @@ selection, followed by its Neo.Logging consumer suite. See neoCLR's
 `docs/logging.md` and `docs/raven-cli-bridge.md` for the author decision, ownership,
 API gaps and integration validation. The API remains generic; an object-state
 provider workaround was explicitly rejected by the author.
+
+
+### Structural callback nullability across abstraction assemblies
+
+The Neo abstraction split exposed missing nullable facts inside native function
+parameters: `(T, Error?) -> string` was imported as `(T, Error) -> string`, causing
+generic formatter forwarding to fail overload resolution. Native nullable emission
+and import now traverse structural function inputs followed by their result, after
+the outer function flag. Physical call signatures and runtime storage are unchanged.
+The existing bounded nullable-annotation payload carries these semantic facts; this
+is native target policy, with no ordinary .NET binder or emitter change.
+
+Legacy annotations that treated the function as an opaque node retain their outer
+annotation. Their absent nested facts cannot be recovered; rebuild producers and
+consumers for the full contract. Owners are NullableAnnotationEmitter and native
+semantic import. The --native-function-nullability probe emits an interface with a
+generic callback, imports it, verifies nullable input/result symbols, and emits a
+forwarding consumer. This retains callable nullability in native metadata; no new
+CLI runtime dependency, syntax, grammar or language-service change is introduced.

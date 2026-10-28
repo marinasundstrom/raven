@@ -1,5 +1,7 @@
 using NeoCLR.Metadata.Experimental.Model;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.NeoClr;
 
 // Consumes semantic types only; physical signature mapping deliberately erases these facts.
@@ -28,7 +30,12 @@ internal static class NullableAnnotationEmitter
             return;
         }
         flags.Add(type.IsNullable ? (byte)2 : (byte)1);
-        if (physical is IArrayTypeSymbol array) Collect(array.ElementType, flags);
+        if (physical is StructuralFunctionTypeSymbol function)
+        {
+            foreach (var parameter in function.ParameterTypes) Collect(parameter, flags);
+            Collect(function.ReturnType, flags);
+        }
+        else if (physical is IArrayTypeSymbol array) Collect(array.ElementType, flags);
         else if (physical is INamedTypeSymbol named)
             foreach (var argument in named.TypeArguments) Collect(argument, flags);
     }

@@ -349,6 +349,8 @@ if (args.Length == 4 && args[0] == "--readiness-inventory")
     return;
 }
 
+if (args is ["--native-function-nullability", var nullableCore]) { NativeFunctionNullabilityChecks.Run(nullableCore); return; }
+
 if (args.Length == 3 && args[0] == "--generic-interface-runtime")
 {
     await GenericInterfaceChecks.Run(args[1], args[2]);

@@ -133,6 +133,20 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     {
         var type = MapView(view);
         if (annotation is null) return type;
+        int Positions(ITypeSymbol symbol)
+        {
+            if (symbol.IsValueType && symbol is not INamedTypeSymbol { TypeArguments.Length: > 0 }) return 0;
+            return 1 + (symbol switch
+            {
+                StructuralFunctionTypeSymbol function => function.ParameterTypes.Sum(Positions) + Positions(function.ReturnType),
+                IArrayTypeSymbol array => Positions(array.ElementType),
+                INamedTypeSymbol named => named.TypeArguments.Sum(Positions),
+                _ => 0
+            });
+        }
+        // Older native producers treated function signatures as opaque nullable nodes.
+        // Keep their outer annotation usable; missing nested facts cannot be recovered.
+        bool expandFunctions = annotation.IsUniform || Positions(type) == annotation.Flags.Count;
         int position = 0;
         byte Next()
         {
@@ -146,7 +160,9 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             if (value && symbol is not INamedTypeSymbol { TypeArguments.Length: > 0 }) return symbol;
             byte flag = Next();
             ITypeSymbol result = symbol;
-            if (symbol is IArrayTypeSymbol array)
+            if (symbol is StructuralFunctionTypeSymbol function)
+                result = expandFunctions ? function.Substitute(Apply) : function;
+            else if (symbol is IArrayTypeSymbol array)
                 result = compilation.CreateArrayTypeSymbol(Apply(array.ElementType), array.Rank);
             else if (symbol is INamedTypeSymbol { TypeArguments.Length: > 0 } named)
                 result = ((INamedTypeSymbol)named.OriginalDefinition).Construct(named.TypeArguments.Select(Apply).ToArray());
