@@ -17482,3 +17482,14 @@ unchanged. neoCLR owns the diagnostic and verifier lookup; no temporary CLI enco
 or compiler emission change is introduced. Matching/mismatching native consumers
 and inheritance regression checks are recorded in neoCLR's
 `docs/validation/dynamic-access-overrides-20261028/README.md`.
+
+### Closed generic base annotation checks (2026-10-28)
+
+DAM2006 now includes nongeneric reference-class overrides of methods on closed
+generic base classes. The existing native inheritance lookup substitutes ancestor
+arguments before selecting the slot; no compiler emission or Runtime Contract
+change is required. This checks ordinary TypeInfo parameter annotations, not
+annotations on generic parameters. Generic derived classes/methods, generic interface
+mappings and value overrides remain outside the bounded diagnostic. Native matching,
+mismatching and previous-backend controls plus overload/multi-level tests are recorded
+in neoCLR's `docs/validation/dynamic-access-generic-base-20261028/README.md`.
