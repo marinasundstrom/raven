@@ -17533,3 +17533,18 @@ work in progress. HTTP JSON APIs and their stored TypeInfo forwarding paths are
 annotated. Focused metadata/analyzer tests, matching API snapshots and the native
 auto-property consumer are recorded in neoCLR's
 `docs/validation/dynamic-access-storage-20261028/README.md`.
+
+### TypeInfo receiver contracts (2026-10-28)
+
+The native backend now treats a method-level DAM annotation on a TypeInfo instance
+method or an implementing descriptor as a receiver requirement. Calls validate the
+receiver value and method bodies receive the guarantee on self; interface/override
+diagnostics compare receiver flags. Static methods, constructors and unrelated
+instance owners reject this placement. Parameterless GetConstructors/GetProperties
+and their implementations are annotated. BindingFlags overloads await broader flags.
+
+This uses existing ordinary method-attribute transport, with no compiler emission,
+Runtime Contract or CLI encoding change. Native direct introspection infers roots
+without user annotations or a retention file. See neoCLR's
+`docs/validation/dynamic-access-receiver-20261028/README.md` for focused and native
+qualification. Generic targets and additional member categories remain in progress.
