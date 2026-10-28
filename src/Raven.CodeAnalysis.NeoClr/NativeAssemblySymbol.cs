@@ -264,6 +264,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    private readonly Lazy<ImmutableArray<AttributeData>> returnAttributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
 
     internal NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
@@ -283,6 +284,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
         attributes = new(() => module.MapAttributes(view.GetCustomAttributes()));
+        returnAttributes = new(() => module.MapAttributes(view.GetReturnCustomAttributes()));
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
         parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
             p.PassingMode switch
@@ -308,7 +310,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : property is NativePropertySymbol { IsInitOnly: true } ? MethodKind.InitOnly : MethodKind.PropertySet;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
-    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => returnAttributes.Value;
     public IMethodSymbol OriginalDefinition => this;
     public IMethodSymbol ConstructedFrom => this;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }

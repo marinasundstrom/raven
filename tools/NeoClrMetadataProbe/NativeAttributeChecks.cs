@@ -50,6 +50,7 @@ internal static class NativeAttributeChecks
         var member = fixture.AddMethod("Read", new(PrimitiveType.Int32, [PrimitiveType.Int32]));
         member.LoadArgument(0); member.Return(); member.AddCustomAttribute(tagged);
         member.Definition.GetParameterCustomAttributes(0).Add(tagged);
+        member.Definition.ReturnCustomAttributes.Add(tagged);
         var free = graph.DefineModule("Tests").AddFunction("Read", new(PrimitiveType.Int32, []));
         free.LoadConstant(42); free.Return(); free.AddCustomAttribute(tagged);
         var constructor = fixture.AddConstructor(new MethodSignature(PrimitiveType.Void, []));
@@ -97,6 +98,8 @@ internal static class NativeAttributeChecks
             imported.GetMembers("Number").OfType<IPropertySymbol>().Single(), imported.GetMembers("Read").Single(),
             imported.Constructors.Single(), imported.GetMembers("Read").OfType<IMethodSymbol>().Single().Parameters.Single() })
             Check(SymbolEqualityComparer.Default.Equals(symbol.GetAttributes().Single().AttributeClass, marker), "member attribute identity lost");
+        Check(SymbolEqualityComparer.Default.Equals(imported.GetMembers("Read").OfType<IMethodSymbol>().Single()
+            .GetReturnTypeAttributes().Single().AttributeClass, marker), "imported return attribute identity lost");
         var nativeAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
         Check(nativeAssembly.GetAttributes().Select(a => (string)a.ConstructorArguments.Single().Value!).SequenceEqual(new[] { "Consumer", "SecondConsumer" }), "assembly attribute data lost");
         foreach (var name in new[] { "Consumer", "SecondConsumer", "Unrelated" })
@@ -161,11 +164,13 @@ internal static class NativeAttributeChecks
                 [Default]
                 init([Default] number: int) { Number = number }
                 [MethodOnly]
+                [return: Default]
                 func Read([Default] value: int) -> int { return value }
             }
             [Default]
             public interface Contract {
                 [MethodOnly]
+                [return: Default]
                 func Read([Default] value: int) -> int;
                 [Default]
                 val Number: int { [Default] get; }
@@ -173,6 +178,7 @@ internal static class NativeAttributeChecks
             [Default]
             public enum Status { Ready = 1 }
             [Repeated][Repeated]
+            [return: Default]
             func Read([Default] value: int) -> int { return value }
             """);
         using var emitted = new MemoryStream();
@@ -187,6 +193,8 @@ internal static class NativeAttributeChecks
         Check(importedNotes.Length == 2 && importedNotes[0].ConstructorArguments[0].Value is "text ☃" &&
             importedNotes[1].ConstructorArguments[0].Value is null,
             "nullable string constructor must match physical String attribute values");
+        Check(reader.GetTypeByMetadataName("Subject")!.GetMembers("Read").OfType<IMethodSymbol>().Single()
+            .GetReturnTypeAttributes().Single().AttributeClass.Name == "DefaultAttribute", "emitted return attribute reimport lost");
         var roundtrip = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
         Check(roundtrip.CustomAttributes.Single().GetArguments().Single().Value is "FutureConsumer", "source assembly annotation lost");
         var emittedType = roundtrip.MainModule.Types.Single(t => t.Name == "Subject");
@@ -199,6 +207,9 @@ internal static class NativeAttributeChecks
         Check(emittedType.Methods.Single(m => m.Name == ".ctor").GetParameterCustomAttributes(0).Count == 1, "source constructor parameter annotation missing");
         Check(roundtrip.MainModule.Functions.Single().CustomAttributes.Count == 2, "source repeated function annotations lost");
         Check(roundtrip.MainModule.Functions.Single().GetParameterCustomAttributes(0).Count == 1, "source function parameter annotation missing");
+        Check(emittedType.Methods.Single(m => m.Name == "Read").ReturnCustomAttributes.Count == 1 &&
+            roundtrip.MainModule.Functions.Single().ReturnCustomAttributes.Count == 1,
+            "source return annotations missing");
         var fixedData = emittedType.CustomAttributes[1];
         Check(fixedData.GetArguments()[0].Value is "text ☃" && fixedData.GetArguments()[1].Value is 42 &&
             fixedData.GetArguments()[2].Value is true && fixedData.GetArguments()[3].Value is 7 &&
@@ -211,8 +222,7 @@ internal static class NativeAttributeChecks
             contract.Methods.All(m => m.CustomAttributes.Count == 1), "source interface annotations missing: " + contract.CustomAttributes.Count + "/" + contract.Properties.Single().CustomAttributes.Count + "/" + string.Join(",", contract.Methods.Select(m => m.Name + ":" + m.CustomAttributes.Count)));
         Check(roundtrip.MainModule.Types.Single(t => t.Name == "Status").CustomAttributes.Count == 1, "source enum annotation missing");
         foreach (var source in new[] {
-            "[Tests.Wide(42L)] public class Bad { }",
-            "[return: Tests.Default] func Bad() -> int { return 0 }" })
+            "[Tests.Wide(42L)] public class Bad { }" })
         {
             using var rejected = new MemoryStream();
             rejected.WriteByte(77);

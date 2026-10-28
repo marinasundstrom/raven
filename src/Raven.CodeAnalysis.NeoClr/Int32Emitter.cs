@@ -1336,8 +1336,8 @@ internal static class Int32Emitter
             EmitAttributes(symbol, definition.CustomAttributes);
         foreach (var (symbol, definition) in definedMethods.Concat(interfaceMethods))
         {
-            if (!foreignImports.ContainsKey(symbol) && symbol.GetReturnTypeAttributes().Select(a => a.ApplicationSyntaxReference?.GetSyntax()).OfType<AttributeSyntax>().FirstOrDefault() is { } returnAttribute)
-                throw new UnsupportedInputException("native return-value attributes are not yet supported", returnAttribute.GetLocation());
+            if (!foreignImports.ContainsKey(symbol))
+                EmitAttributes(symbol, definition.Definition.ReturnCustomAttributes, symbol.GetReturnTypeAttributes());
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
             for (var i = 0; i < symbol.Parameters.Length; i++)
                 EmitAttributes(symbol.Parameters[i], definition.Definition.GetParameterCustomAttributes(i));
@@ -1371,9 +1371,9 @@ internal static class Int32Emitter
             owner.ToFullyQualifiedMetadataName() == "System.FlagsAttribute" &&
             NeoClrBindingContract.MatchesCore(owner.ContainingAssembly, options.CoreLibrary);
 
-        void EmitAttributes(ISymbol symbol, IList<CustomAttributeDefinition> destination)
+        void EmitAttributes(ISymbol symbol, IList<CustomAttributeDefinition> destination, IEnumerable<AttributeData>? selected = null)
         {
-            foreach (var attribute in symbol.GetAttributes())
+            foreach (var attribute in selected ?? symbol.GetAttributes())
             {
                 if (attribute.ApplicationSyntaxReference?.GetSyntax() is not AttributeSyntax syntax) continue;
                 diagnosticSyntax = syntax;

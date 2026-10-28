@@ -17493,3 +17493,25 @@ annotations on generic parameters. Generic derived classes/methods, generic inte
 mappings and value overrides remain outside the bounded diagnostic. Native matching,
 mismatching and previous-backend controls plus overload/multi-level tests are recorded
 in neoCLR's `docs/validation/dynamic-access-generic-base-20261028/README.md`.
+
+### Native return annotation transport (2026-10-28)
+
+Raven now emits ordinary source return attributes into the native method's custom
+attributes using a distinct optional `origin.return_token` (Param-table identity).
+The native metadata model exposes `MethodDefinition.ReturnCustomAttributes` and
+introspection `MethodInfo.GetReturnCustomAttributes`; loaded collections are immutable.
+Native reading, CLI reference projection and Raven reimport preserve the return
+association separately from method and parameter attributes. Foreign return
+MarshalAs processing retains its existing specialized path. No Runtime Contract
+mapping or language syntax changes are required; ordinary .NET emission is unchanged.
+
+neoCLR's backend consumes TypeInfo return DAM contracts, checks reachable return
+paths, propagates guarantees to callers and compares interface/override return
+requirements. Unsupported targets/categories still reject. This is development
+support on Raven `codex/neoclr`; rebuild the compiler/metadata/backend together.
+Older strict native readers reject the new field when present; old images omit it.
+The Param identity is source metadata transport, not a CLI pseudo-attribute or
+runtime code-generation contract. Native metadata/codegen remain authoritative.
+Focused emission/reimport, CLI/native metadata and analyzer tests plus the native
+factory consumer are recorded in neoCLR's
+`docs/validation/dynamic-access-returns-20261028/README.md`.

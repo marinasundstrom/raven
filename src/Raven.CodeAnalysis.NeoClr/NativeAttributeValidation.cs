@@ -26,6 +26,7 @@ internal static class NativeAttributeValidation
         void CheckMethod(MethodInfo method)
         {
             Check(method.GetCustomAttributes());
+            Check(method.GetReturnCustomAttributes());
             foreach (var parameter in method.GetParameters()) Check(parameter.GetCustomAttributes());
         }
 
