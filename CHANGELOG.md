@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-28:** Document neoCLR’s initial dynamic-member parameter analysis using existing native custom-attribute transport. Record runtime JSON/DI annotations, unchanged Runtime Contract configuration, documentation-reference projection and remaining flow/target limits, including the backend retained-body closure and explicit-policy seed follow-ups; no compiler emission change is required.
+- **2026-10-28:** Document neoCLR’s initial dynamic-member parameter analysis using existing native custom-attribute transport. Record runtime JSON/DI annotations, unchanged Runtime Contract configuration, documentation-reference projection and remaining flow/target limits, including retained-body closure, explicit-policy seeds and nongeneric interface contract diagnostics; no compiler emission change is required.
 
 - **2026-10-28:** Preserve core MethodImpl NoInlining/AggressiveInlining options in neoCLR native managed-method metadata; reject unsupported flags and keep InternalCall admission separate. Native source checks and the rebuilt neoCLR class libraries validate this target-specific integration. Ordinary .NET emission is unchanged.
 

@@ -17456,3 +17456,16 @@ exact target identity and diagnostics rather than interpreting CLI names as a
 permanent semantic rule. Compiler bundle ed1d08def emitted the qualified native
 libraries; RavenDoc 256019f66 rendered their API reference. See
 [implementation and qualification](https://github.com/marinasundstrom/neoCLR/blob/main/docs/validation/dynamic-access-20261028/README.md).
+
+### Dynamic-member interface diagnostics (2026-10-28)
+
+The native backend now checks parameter requirement compatibility for concrete
+nongeneric nominal class/interface mappings, using source metadata identities and
+existing dispatch resolution. DAM2005 reports absent or unequal requirements without
+changing invocation rights or rooting implementation bodies. Explicit mappings and
+inherited nongeneric interfaces are included; generic mappings, value types and
+standalone class overrides remain outside this check. Ordinary parameter attribute
+transport and Runtime Contract configuration are unchanged. The backend owns this
+analysis; no CLI pseudo-attribute, compiler emission change or new runtime API is
+introduced. Matching/mismatching native consumers qualify the boundary in neoCLR's
+`docs/validation/dynamic-access-interfaces-20261028/README.md`.
