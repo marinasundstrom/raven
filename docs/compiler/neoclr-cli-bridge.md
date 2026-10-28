@@ -17515,3 +17515,21 @@ runtime code-generation contract. Native metadata/codegen remain authoritative.
 Focused emission/reimport, CLI/native metadata and analyzer tests plus the native
 factory consumer are recorded in neoCLR's
 `docs/validation/dynamic-access-returns-20261028/README.md`.
+
+### Native field/property member requirements (2026-10-28)
+
+neoCLR now interprets ordinary TypeInfo field/property DAM attributes without a new
+Runtime Contract setting or Raven syntax change. Instance fields already used exact
+field tokens; native metadata emission now also preserves static-field attributes
+instead of rejecting them. CLI reference projection, native reading and introspection
+keep the same field identities. No new pseudo-attribute or schema field is introduced.
+
+The backend validates writes, propagates field reads and property accessor contracts,
+and derives storage requirements from direct field-backed getters. Typed verifier
+receiver facts locate inherited fields; structural tuples are not nominal fields.
+Static initialization triggers enter the analysis graph. Indirect field addresses
+warn explicitly; generic/receiver annotations and broader member categories remain
+work in progress. HTTP JSON APIs and their stored TypeInfo forwarding paths are
+annotated. Focused metadata/analyzer tests, matching API snapshots and the native
+auto-property consumer are recorded in neoCLR's
+`docs/validation/dynamic-access-storage-20261028/README.md`.
