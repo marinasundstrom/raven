@@ -495,6 +495,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             if (token.IsKind(SyntaxKind.GreaterThanToken))
                 break;
 
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+            token = PeekToken();
+
             var varianceKeyword = Token(SyntaxKind.None);
             if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
             {
@@ -536,7 +539,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
                 constraints = List(constraintNodes);
             }
 
-            parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
+            parameters.Add(TypeParameter(attributeLists, varianceKeyword, identifier, colonToken, constraints));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

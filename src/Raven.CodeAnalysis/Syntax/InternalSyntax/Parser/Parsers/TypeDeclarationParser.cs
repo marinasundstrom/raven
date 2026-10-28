@@ -286,6 +286,8 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
 
                 var parameterStart = Position;
+                var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+                token = PeekToken();
                 var varianceKeyword = Token(SyntaxKind.None);
                 if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
                 {
@@ -348,7 +350,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
+                parameters.Add(TypeParameter(attributeLists, varianceKeyword, identifier, colonToken, constraints));
                 parsedParameters++;
             }
 

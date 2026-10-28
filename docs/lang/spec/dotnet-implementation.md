@@ -31,6 +31,11 @@ Source attribute policies may describe themselves or participate in mutually att
 classes. Raven binds attribute data before applying usage validation so those
 relationships do not recurse; invalid targets and multiplicity still diagnose.
 
+Generic parameter attributes are emitted on CLR `GenericParam` metadata for
+both type and method parameters and are exposed again when importing .NET
+metadata. They use ordinary attribute binding and
+`AttributeUsage` validation, without a Runtime Contract override.
+
 ## Extension members
 Raven both declares and consumes extension members using CLR extension metadata,
 but it classifies extension semantics per emitted member rather than treating an

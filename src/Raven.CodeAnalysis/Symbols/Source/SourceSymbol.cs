@@ -369,6 +369,7 @@ internal abstract class SourceSymbol : Symbol
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is ConstDeclarationSyntax @const => @const.AttributeLists,
             ParameterSyntax parameter => parameter.AttributeLists,
+            TypeParameterSyntax parameter => parameter.AttributeLists,
             ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
             _ => Enumerable.Empty<AttributeListSyntax>()
         };

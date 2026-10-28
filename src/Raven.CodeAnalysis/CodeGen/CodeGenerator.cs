@@ -260,6 +260,7 @@ internal class CodeGenerator
             attributes |= GenericParameterAttributes.AllowByRefLike;
 
         builder.SetGenericParameterAttributes(attributes);
+        ApplyCustomAttributes(parameter.GetAttributes(), builder.SetCustomAttribute);
 
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
             ApplyNullableAnnotationAttribute(isNullable: false, builder.SetCustomAttribute);

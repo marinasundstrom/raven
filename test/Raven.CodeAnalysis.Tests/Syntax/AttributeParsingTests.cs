@@ -9,6 +9,20 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 
 public class AttributeParsingTests : DiagnosticTestBase
 {
+    [Fact]
+    public void GenericParameterAttributesPreserveVarianceConstraintsAndSource()
+    {
+        const string source = "interface Box<[Tag] out T: class> { func Map<[Tag] U>(value: U) -> U; }";
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
+        var parameters = tree.GetRoot().DescendantNodes().OfType<TypeParameterSyntax>().ToArray();
+        Assert.Equal(2, parameters.Length);
+        Assert.All(parameters, p => Assert.Single(p.AttributeLists));
+        Assert.Equal(SyntaxKind.OutKeyword, parameters[0].VarianceKeyword.Kind);
+        Assert.Single(parameters[0].Constraints);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+    }
+
     [Theory]
     [InlineData("bool")]
     [InlineData("int[]")]

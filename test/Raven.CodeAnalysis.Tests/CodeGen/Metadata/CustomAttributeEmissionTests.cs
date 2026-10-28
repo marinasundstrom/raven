@@ -17,6 +17,64 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class CustomAttributeEmissionTests
 {
     [Fact]
+    public void GenericParameterAttributesBindAndEmitOnTheirOwnSlots()
+    {
+        const string source = """
+            import System.*
+            [AttributeUsage(AttributeTargets.GenericParameter)]
+            class TagAttribute : Attribute { init() { } }
+            class Holder<[Tag] T> {
+                func Read<[Tag] U>() -> int { return 42 }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("GenericParameterAttributes", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TypeParameterSyntax>())
+        {
+            var symbol = Assert.IsAssignableFrom<ITypeParameterSymbol>(model.GetDeclaredSymbol(syntax));
+            Assert.Equal("TagAttribute", Assert.Single(symbol.GetAttributes()).AttributeClass.Name);
+            Assert.Equal("TagAttribute", ((IMethodSymbol)model.GetSymbolInfo(syntax.AttributeLists.Single().Attributes.Single()).Symbol!).ContainingType.Name);
+        }
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var holder = Assembly.Load(output.ToArray()).GetType("Holder`1", true)!;
+        Assert.Equal("TagAttribute", Assert.Single(holder.GetGenericArguments().Single().GetCustomAttributesData()).AttributeType.Name);
+        var method = holder.GetMethod("Read")!;
+        Assert.Equal("TagAttribute", Assert.Single(method.GetGenericArguments().Single().GetCustomAttributesData()).AttributeType.Name);
+        Assert.DoesNotContain(holder.GetCustomAttributesData(), a => a.AttributeType.Name == "TagAttribute");
+        Assert.DoesNotContain(method.GetCustomAttributesData(), a => a.AttributeType.Name == "TagAttribute");
+        var consumer = Compilation.Create("GenericAttributeConsumer", [],
+            TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(output.ToArray())).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var imported = consumer.GetTypeByMetadataName("Holder`1")!;
+        Assert.Equal("TagAttribute", Assert.Single(imported.TypeParameters.Single().GetAttributes()).AttributeClass.Name);
+        var importedMethod = Assert.IsAssignableFrom<IMethodSymbol>(Assert.Single(imported.GetMembers("Read")));
+        Assert.Equal("TagAttribute", Assert.Single(importedMethod.TypeParameters.Single().GetAttributes()).AttributeClass.Name);
+    }
+
+    [Fact]
+    public void GenericParameterAttributesValidateUsageAndDuplicates()
+    {
+        const string source = """
+            import System.*
+            [AttributeUsage(AttributeTargets.Method)]
+            class MethodOnlyAttribute : Attribute { init() { } }
+            [AttributeUsage(AttributeTargets.GenericParameter)]
+            class TagAttribute : Attribute { init() { } }
+            class Holder<[MethodOnly] T, [Tag][Tag] U> { }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("InvalidGenericParameterAttributes", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RAV0502");
+        Assert.Contains(diagnostics, d => d.Id == "RAV0503");
+    }
+
+    [Fact]
     public void UnionCaseAttributeUsageIsValidatedForTheCaseType()
     {
         const string source = """
