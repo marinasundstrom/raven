@@ -17433,3 +17433,22 @@ executable custom attribute, and rejected 64/512/4096 managed-method values. The
 source-core baseline passes before this change, and the four neoCLR SDK libraries
 build with the new enum. neoCLR's shared inliner validates JIT values and ARM64/x64
 AOT call preservation/removal, with broader limits recorded in its integration docs.
+
+## Dynamic member parameter metadata (2026-10-28 development)
+
+The runtime declares `System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembersAttribute`
+and annotates TypeInfo parameters in JSON and DI APIs. Raven's existing native
+custom-attribute transport preserves the constructor, enum argument and parameter
+token; no Runtime Contract configuration or new emitter rule is needed. The native
+backend owns the bounded constructor/property flow analysis and retention. The
+runtime owns API contracts. Generic, return, field and receiver contracts remain
+unsupported; dynamic implementation bodies and recursively discovered reflection
+roots are not analyzed by this slice.
+
+The CLI documentation reference projects the attribute and enum as ordinary C#
+declarations. It is a documentation bridge, not executable reflection support.
+Native metadata is authoritative; future broader transport/analysis must preserve
+exact target identity and diagnostics rather than interpreting CLI names as a
+permanent semantic rule. Compiler bundle ed1d08def emitted the qualified native
+libraries; RavenDoc 256019f66 rendered their API reference. See
+[implementation and qualification](https://github.com/marinasundstrom/neoCLR/blob/main/docs/validation/dynamic-access-20261028/README.md).
