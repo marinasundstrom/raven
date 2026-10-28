@@ -17442,8 +17442,10 @@ custom-attribute transport preserves the constructor, enum argument and paramete
 token; no Runtime Contract configuration or new emitter rule is needed. The native
 backend owns the bounded constructor/property flow analysis and retention. The
 runtime owns API contracts. Generic, return, field and receiver contracts remain
-unsupported; dynamic implementation bodies and recursively discovered reflection
-roots are not analyzed by this slice.
+unsupported. The retained-body follow-up analyzes public constructors/property
+accessors inferred by known type flows to a fixed point. Dynamic implementation bodies,
+descriptor-discovered types and explicit-policy-only roots remain outside that closure.
+This is a backend analysis extension; custom-attribute transport is unchanged.
 
 The CLI documentation reference projects the attribute and enum as ordinary C#
 declarations. It is a documentation bridge, not executable reflection support.
