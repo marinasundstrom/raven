@@ -1,5 +1,28 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Structural callback overload specificity (2026-10-28)
+
+On Raven `codex/neoclr`, generic overload specificity now descends into native
+structural function parameter and return types. A callback returning `Task<T>`
+selects the async-unwrapping `Task.Run` overload without explicit type arguments,
+just as nominal delegates do on .NET. This is a binder correction, with no
+Task-name special case, Runtime Contract switch, or metadata/ABI change.
+The semantic model reports the selected constructed method. Existing native
+Function signature transport remains in use; legacy CLI delegate projection
+and its restrictions are unchanged. The native backend consumes the selected
+method through existing metadata; no new bridge encoding or replacement is
+needed. This does not address unrelated capture/emission limitations.
+
+
+Validation (2026-10-28, macOS ARM64): the reduced Box<T> callback repro passed
+on .NET and failed on neoCLR before the fix in both declaration orders. After
+the fix, 21 focused structural-function/overload/Task.Run tests pass. The broader
+overload suite remains 419 passed and the same two pre-existing extension
+lowering-trace assertion failures (nested query pipelines and nested extension
+invocations). Native HTTP emission without explicit type arguments succeeds;
+80 fanout requests pass across sync/concurrent GC and baseline/shared queues.
+See neoCLR `docs/validation/task-overload-20261028` for integration evidence.
+
 ## Structural target defaults (2026-10-15)
 
 `CompilationOptions.NeoCLR` now selects structural union, intersection and tuple

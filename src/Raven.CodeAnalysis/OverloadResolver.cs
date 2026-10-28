@@ -2216,6 +2216,17 @@ internal sealed class OverloadResolver
             {
                 Compare(leftArray.ElementType, rightArray.ElementType);
             }
+            else if (left is StructuralFunctionTypeSymbol leftFunction &&
+                     right is StructuralFunctionTypeSymbol rightFunction &&
+                     leftFunction.ParameterTypes.Length == rightFunction.ParameterTypes.Length &&
+                     leftFunction.ParameterRefKinds.SequenceEqual(rightFunction.ParameterRefKinds))
+            {
+                // Native function types have no nominal generic definition. Compare
+                // their declared signatures just as we compare delegate type arguments.
+                for (var i = 0; i < leftFunction.ParameterTypes.Length; i++)
+                    Compare(leftFunction.ParameterTypes[i], rightFunction.ParameterTypes[i]);
+                Compare(leftFunction.ReturnType, rightFunction.ReturnType);
+            }
             else if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed &&
                      leftNamed.OriginalDefinition.MetadataIdentityEquals(rightNamed.OriginalDefinition))
             {
