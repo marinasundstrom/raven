@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--inlining", var inlineCore]) { NativeInliningChecks.Run(inlineCore); return; }
+
 if (args is ["--explicit-methods", var explicitCore, var explicitOutput]) { ExplicitMethodChecks.Run(explicitCore, explicitOutput); return; }
 
 if (args is ["--native-function-inference", var inferenceProject]) { NativeFunctionInferenceChecks.Run(inferenceProject); return; }

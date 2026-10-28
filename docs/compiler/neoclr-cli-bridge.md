@@ -17412,3 +17412,24 @@ at `ed1d08def`; this qualification is development-only.
 
 See neoCLR `docs/validation/backtick-discovery-20261026/README.md` for retained
 interpreter/JIT/AOT consumer checks, migration scope and platform limitations.
+
+## Managed inlining options (2026-10-28 development)
+
+The neoCLR backend consumes the configured core MethodImplAttribute on managed
+methods as native implementation metadata: NoInlining (8), AggressiveInlining (256),
+or both (264). Zero leaves automatic policy. Unknown bits, non-core lookalikes,
+duplicate markers and inlining flags on extern implementations reject. Existing
+InternalCall admission remains unchanged. No Runtime Contract option is added.
+
+The neoCLR SDK owns the enum and exact core identity; native JIT/AOT codegen owns
+inlining. The CLI reference projection retains standard MethodImplAttributes bits
+on throwing declaration stubs. It is not executable inlining evidence. A future
+metadata/backend replacement must retain these hints and NoInlining precedence.
+Ordinary Raven/.NET emission is unchanged. This is target-specific work on
+`codex/neoclr`; no Raven main merge is implied.
+
+Validation: NativeInliningChecks covers 0/8/256/264 native emission, absence of an
+executable custom attribute, and rejected 64/512/4096 managed-method values. The
+source-core baseline passes before this change, and the four neoCLR SDK libraries
+build with the new enum. neoCLR's shared inliner validates JIT values and ARM64/x64
+AOT call preservation/removal, with broader limits recorded in its integration docs.

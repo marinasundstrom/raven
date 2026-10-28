@@ -1001,6 +1001,20 @@ internal static class Int32Emitter
                 il.Return();
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
+            else
+            {
+                var implementationAttributes = plan.Symbol.GetAttributes().Where(attribute =>
+                    attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.MethodImplAttribute").ToArray();
+                if (implementationAttributes.Length > 1) throw Unsupported("one core MethodImpl attribute per method");
+                if (implementationAttributes is [var implementation])
+                {
+                    if (!NeoClrBindingContract.MatchesCore(implementation.AttributeClass.ContainingAssembly, options.CoreLibrary) ||
+                        implementation.ConstructorArguments.Length != 1 || implementation.ConstructorArguments[0].Value is not int flags ||
+                        (flags & ~0x108) != 0 || implementation.NamedArguments.Length != 0 || plan.Symbol.IsExtern)
+                        throw Unsupported("managed core MethodImpl supports only NoInlining and AggressiveInlining");
+                    definition.SetImplementationFlags((System.Reflection.MethodImplAttributes)flags);
+                }
+            }
             if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) nativeCallbacks.SetImport(definition, foreignImport);
             definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
@@ -1366,7 +1380,7 @@ internal static class Int32Emitter
                 emittedAttributes.Add((diagnosticSyntax.SyntaxTree, diagnosticSyntax.Span));
                 if (ConditionalAttributeFacts.IsAttributeOmitted(attribute)) continue;
                 if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } && IsFlagsAttribute(attribute)) continue;
-                if (symbol is IMethodSymbol method && runtimeServices.Contains(method) &&
+                if (symbol is IMethodSymbol &&
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.MethodImplAttribute") continue;
                 if (symbol is IMethodSymbol foreignMethod && foreignImports.ContainsKey(foreignMethod) &&
                     attribute.AttributeClass.ToFullyQualifiedMetadataName() == NeoClrForeignDeclaration.AttributeName) continue;

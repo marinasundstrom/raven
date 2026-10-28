@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-28:** Preserve core MethodImpl NoInlining/AggressiveInlining options in neoCLR native managed-method metadata; reject unsupported flags and keep InternalCall admission separate. Native source checks and the rebuilt neoCLR class libraries validate this target-specific integration. Ordinary .NET emission is unchanged.
+
 - Update Raven code highlighting for whole backtick and `@`-escaped identifiers, including function/type declarations, attribute arguments, and references; verify grammar-only rendering and use the highlight.js function scopes for consistent theme colors.
 
 - **2026-10-26:** Infer named function and method parameter types from nominal
