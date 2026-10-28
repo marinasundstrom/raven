@@ -17469,3 +17469,16 @@ transport and Runtime Contract configuration are unchanged. The backend owns thi
 analysis; no CLI pseudo-attribute, compiler emission change or new runtime API is
 introduced. Matching/mismatching native consumers qualify the boundary in neoCLR's
 `docs/validation/dynamic-access-interfaces-20261028/README.md`.
+
+### Dynamic-member class overrides (2026-10-28)
+
+The native backend now reports DAM2006 when nongeneric reference-class virtual
+overrides disagree with their nearest inherited parameter requirements, including
+abstract declarations. The lookup is shared with native inheritance verification;
+annotation checks add no roots or dispatch changes. Generic ancestry/methods,
+value-type overrides and implicit runtime Object adaptations remain outside this
+check. Parameter custom-attribute transport and Runtime Contract configuration are
+unchanged. neoCLR owns the diagnostic and verifier lookup; no temporary CLI encoding
+or compiler emission change is introduced. Matching/mismatching native consumers
+and inheritance regression checks are recorded in neoCLR's
+`docs/validation/dynamic-access-overrides-20261028/README.md`.
