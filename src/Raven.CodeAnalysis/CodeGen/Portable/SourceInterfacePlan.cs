@@ -72,7 +72,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         bool AddMethod(IMethodSymbol method)
         {
             if (!seen.Add(method)) return true;
-            if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod || !method.IsAbstract ||
+            if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod && (!capabilities.AllowsGenericInterfaceMethods || method.IsStatic || method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || !method.IsAbstract ||
                 method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.UserDefinedOperator) ||
                 method.DeclaredAccessibility != Accessibility.Public || !CallableSignature.TryType(method.ReturnType, true, out var result, capabilities)) return false;
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();
@@ -83,7 +83,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
                 parameters.Add(value with { IsByReference = parameter.RefKind != RefKind.None });
             }
             if (!capabilities.Allows(result)) return false;
-            methods.Add(new(method, new(result, parameters.ToImmutable(), IsInstance: !method.IsStatic, DeclaringTypeArity: type.Arity,
+            methods.Add(new(method, new(result, parameters.ToImmutable(), GenericParameterNames: method.TypeParameters.Select(p => p.Name).ToImmutableArray(), IsInstance: !method.IsStatic, DeclaringTypeArity: type.Arity,
                 OutParameters: method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray())));
             return true;
         }

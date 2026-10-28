@@ -17591,3 +17591,28 @@ components together. Generic virtual/interface comparisons, arbitrary closed gen
 reflection targets and complete generic field/ancestry graph propagation remain
 unqualified; no arbitrary runtime code generation is enabled. See neoCLR's
 `docs/validation/dynamic-access-generic-20261028/README.md` for focused and native evidence.
+
+## Generic instance interface logging contracts (2026-10-28)
+
+The neoCLR backend now opts into AllowsGenericInterfaceMethods. It admits
+unconstrained abstract instance methods and emits their generic parameter names
+and constructed virtual calls. Interface and method type parameters retain separate
+ordinal spaces, including calls forwarded from generic methods. Native metadata
+retains method arguments; the temporary CLI representation is callvirt MethodSpec
+with GenericParam rows on bodyless declarations as well as implementations.
+
+The neoCLR metadata builder, runtime interface resolver and native specialization
+own matching support. Generic class virtual methods, static generic interface
+contracts, method constraints and generic default bodies remain outside this slice.
+There are no parser, binding, IDE or grammar changes. Ordinary .NET emission stays
+unchanged. The standalone host-CLI comparison exposed a generic implicit method
+mapping TypeLoadException and remains a separately tracked general-main candidate;
+no host-runtime success is inferred from native execution.
+
+Qualification: NeoClrMetadataProbe --generic-interface-runtime checks Int32 and
+String state forwarded through generic methods, an inherited interface and both
+source orders. neoCLR tests generic dispatch, conformance and closed native method
+selection, followed by its Neo.Logging consumer suite. See neoCLR's
+`docs/logging.md` and `docs/raven-cli-bridge.md` for the author decision, ownership,
+API gaps and integration validation. The API remains generic; an object-state
+provider workaround was explicitly rejected by the author.

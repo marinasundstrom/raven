@@ -26,7 +26,7 @@ internal abstract record NeoClrCallableReference
     internal static NeoClrCallableReference Create(ImportedGenericMethodReference method) => new ImportedGeneric(method);
     private sealed record ImportedGeneric(ImportedGenericMethodReference Method) : NeoClrCallableReference
     {
-        internal override void EmitCall(IILGenerator body) => body.Call(Method);
+        internal override void EmitCall(IILGenerator body) => body.Emit(Method.Definition.RequiresVirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
     }
 
     internal static NeoClrCallableReference Create(GenericMethodInstance method) => new Generic(method);

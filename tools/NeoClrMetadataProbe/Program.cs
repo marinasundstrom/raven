@@ -349,6 +349,12 @@ if (args.Length == 4 && args[0] == "--readiness-inventory")
     return;
 }
 
+if (args.Length == 3 && args[0] == "--generic-interface-runtime")
+{
+    await GenericInterfaceChecks.Run(args[1], args[2]);
+    return;
+}
+
 if (args.Length == 3 && args[0] == "--interface-dispatch-runtime")
 {
     await InterfaceDispatchChecks.Run(args[1], args[2]);

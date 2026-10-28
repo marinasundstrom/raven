@@ -1077,7 +1077,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
         bool SupportedTypeArguments(IMethodSymbol method) => capabilities is null ||
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => TryType(t, false, out var type) && capabilities.Allows(type));
-        bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
+        bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && (!method.IsGenericMethod || capabilities?.AllowsGenericInterfaceMethods == true) && method.IsAbstract &&
             method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
             ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner, capabilities) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
