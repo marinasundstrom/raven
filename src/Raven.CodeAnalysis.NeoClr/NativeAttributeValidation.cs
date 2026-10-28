@@ -16,6 +16,7 @@ internal static class NativeAttributeValidation
             foreach (var type in module.GetTypes())
             {
                 Check(type.GetCustomAttributes());
+                foreach (var parameter in type.GetGenericArguments().OfType<GenericParameterTypeInfo>()) Check(parameter.GetCustomAttributes());
                 foreach (var field in type.GetFields()) Check(field.GetCustomAttributes());
                 foreach (var property in type.GetProperties()) Check(property.GetCustomAttributes());
                 foreach (var method in type.GetMethods().Concat(type.GetConstructors())) CheckMethod(method);
@@ -27,6 +28,7 @@ internal static class NativeAttributeValidation
         {
             Check(method.GetCustomAttributes());
             Check(method.GetReturnCustomAttributes());
+            foreach (var parameter in method.GetGenericArguments().OfType<MethodGenericParameterTypeInfo>()) Check(parameter.GetCustomAttributes());
             foreach (var parameter in method.GetParameters()) Check(parameter.GetCustomAttributes());
         }
 

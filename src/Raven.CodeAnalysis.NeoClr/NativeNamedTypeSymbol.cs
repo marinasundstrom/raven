@@ -78,7 +78,8 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Covariant => VarianceKind.Out,
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Contravariant => VarianceKind.In,
                 _ => VarianceKind.None
-            }, specialConstraints: NativeConstraintMapping.ToSymbol(parameter.SpecialConstraints)))];
+            }, specialConstraints: NativeConstraintMapping.ToSymbol(parameter.SpecialConstraints),
+                getAttributes: () => ((NativeModuleSymbol)ContainingModule).MapAttributes(parameter.GetCustomAttributes())))];
         TypeArguments = [.. TypeParameters];
         interfaces = new(() =>
         {

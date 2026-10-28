@@ -175,6 +175,10 @@ internal static class NativeAttributeChecks
                 [Default]
                 val Number: int { [Default] get; }
             }
+            public class Generic<[Default] T> {
+                init() { }
+                func Read<[Default] U>() -> int { return 42 }
+            }
             [Default]
             public enum Status { Ready = 1 }
             [Repeated][Repeated]
@@ -188,6 +192,9 @@ internal static class NativeAttributeChecks
         var importedConsumer = NeoClrMetadataReference.ReadAssembly(emitted.ToArray(), bootstrap);
         var reader = Compilation.Create("AttributeReader", [], [bootstrap.Reference, native, importedConsumer], compilation.Options);
         Check(!reader.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "emitted attributes must reimport");
+        var generic = reader.GetTypeByMetadataName("Generic`1")!;
+        Check(generic.TypeParameters.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute", "type generic annotation lost");
+        Check(generic.GetMembers("Read").OfType<IMethodSymbol>().Single().TypeParameters.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute", "method generic annotation lost");
         var importedNotes = reader.GetTypeByMetadataName("Subject")!.GetAttributes()
             .Where(a => a.AttributeClass.Name == "NoteAttribute").ToArray();
         Check(importedNotes.Length == 2 && importedNotes[0].ConstructorArguments[0].Value is "text ☃" &&

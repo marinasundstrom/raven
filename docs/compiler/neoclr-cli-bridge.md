@@ -17548,3 +17548,23 @@ Runtime Contract or CLI encoding change. Native direct introspection infers root
 without user annotations or a retention file. See neoCLR's
 `docs/validation/dynamic-access-receiver-20261028/README.md` for focused and native
 qualification. Generic targets and additional member categories remain in progress.
+
+### Generic parameter annotation transport (2026-10-28)
+
+The author directed fixing Raven gaps while extending dynamic-member contracts.
+Raven main commit `80550fa23`, carried to codex/neoclr as `a9aeb8aa4`, adds generic
+parameter attribute syntax, binding, diagnostics, semantic queries and ordinary
+CLR emission/import. The native emitter/importer separately preserves type/method
+parameter attributes using ordinal-ordered `origin.generic_parameter_tokens`.
+The metadata SDK owns identity validation, native/CLI reading and reference
+projection; the native backend owns retention analysis. Runtime Contract settings
+are unchanged. Generic JSON readers carry the same constructor/property requirements
+as their TypeInfo overloads.
+
+Native GenericParam identities replace no temporary pseudo-attribute. CLI projection
+uses real GenericParam custom-attribute rows. Old artifacts omit the optional tokens;
+older strict readers reject annotated artifacts using them. Rebuild all participating
+components together. Generic virtual/interface comparisons, arbitrary closed generic
+reflection targets and complete generic field/ancestry graph propagation remain
+unqualified; no arbitrary runtime code generation is enabled. See neoCLR's
+`docs/validation/dynamic-access-generic-20261028/README.md` for focused and native evidence.

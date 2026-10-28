@@ -7,14 +7,17 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
     private readonly Lazy<ImmutableArray<ITypeSymbol>> constraintTypes;
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
 
-    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None, TypeParameterConstraintKind specialConstraints = TypeParameterConstraintKind.None)
+    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None, TypeParameterConstraintKind specialConstraints = TypeParameterConstraintKind.None, Func<ImmutableArray<AttributeData>>? getAttributes = null)
         : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], [])
     {
         Ordinal = ordinal;
         Variance = variance;
         this.specialConstraints = specialConstraints;
         constraintTypes = new(getConstraints ?? (() => []));
+        attributes = new(getAttributes ?? (() => []));
     }
 
     private readonly TypeParameterConstraintKind specialConstraints;

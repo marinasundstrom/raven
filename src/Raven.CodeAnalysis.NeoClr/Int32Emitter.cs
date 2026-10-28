@@ -1329,7 +1329,12 @@ internal static class Int32Emitter
                     emittedAttributes.Add((syntax.SyntaxTree, syntax.Span));
         EmitAttributes(compilation.Assembly, assembly.Definition.CustomAttributes);
         foreach (var (symbol, definition) in nativeTypes)
+        {
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
+            var parameters = NeoClrTypeMapper.OwnerParameters(symbol);
+            for (var i = 0; i < parameters.Length; i++)
+                EmitAttributes(parameters[i], definition.Definition.GetGenericParameterCustomAttributes(i));
+        }
         foreach (var (symbol, definition) in fields)
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
         foreach (var (symbol, definition) in attributeProperties)
@@ -1339,6 +1344,8 @@ internal static class Int32Emitter
             if (!foreignImports.ContainsKey(symbol))
                 EmitAttributes(symbol, definition.Definition.ReturnCustomAttributes, symbol.GetReturnTypeAttributes());
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
+            for (var i = 0; i < symbol.TypeParameters.Length; i++)
+                EmitAttributes(symbol.TypeParameters[i], definition.Definition.GetGenericParameterCustomAttributes(i));
             for (var i = 0; i < symbol.Parameters.Length; i++)
                 EmitAttributes(symbol.Parameters[i], definition.Definition.GetParameterCustomAttributes(i));
         }
