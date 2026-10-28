@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
+internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSymbol
 {
     private ImmutableArray<ITypeSymbol> _constraintTypes;
 

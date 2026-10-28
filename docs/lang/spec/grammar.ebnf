@@ -336,7 +336,7 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 TypeParameterList        ::= '<' TypeParameter {',' TypeParameter} '>' ;
 
-TypeParameter            ::= Variance? Identifier InlineConstraints? ;
+TypeParameter            ::= AttributeList* Variance? Identifier InlineConstraints? ;
 
 InlineConstraints        ::= ':' TypeParameterConstraintList ;
 

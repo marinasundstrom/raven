@@ -22,6 +22,7 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     private readonly PETypeParameterIdentity _metadataIdentity;
 
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
+    private ImmutableArray<AttributeData>? _attributes;
     private TypeParameterConstraintKind? _lazyConstraintKind;
     private ImmutableArray<ITypeSymbol>? _lazyConstraintTypes;
 
@@ -56,6 +57,26 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
             GetOwnerIdentity(containingSymbol),
             _name);
         _reflectionTypeLoader = reflectionTypeLoader;
+    }
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (_attributes.HasValue)
+            return _attributes.Value;
+
+        try
+        {
+            _attributes = ImmutableArray.CreateRange(
+                _runtimeType.GetCustomAttributesData()
+                    .Select(attribute => PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute))
+                    .OfType<AttributeData>());
+        }
+        catch
+        {
+            _attributes = ImmutableArray<AttributeData>.Empty;
+        }
+
+        return _attributes.Value;
     }
 
     public override string Name => _name;

@@ -1462,6 +1462,9 @@ public partial class SemanticModel
 
         void BindDeclarationAttributes(SyntaxNode declaration, Binder currentBinder)
         {
+            foreach (var parameter in declaration.ChildNodes().OfType<TypeParameterListSyntax>().SelectMany(list => list.Parameters))
+                _ = GetDeclaredSymbol(parameter)?.GetAttributes();
+
             var attributeLists = GetDeclarationAttributeLists(declaration);
             if (attributeLists.Count == 0)
                 return;
@@ -1534,6 +1537,7 @@ public partial class SemanticModel
                 AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
                 FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
                 ConstDeclarationSyntax constDeclaration => constDeclaration.AttributeLists,
+                TypeParameterSyntax typeParameter => typeParameter.AttributeLists,
                 ParameterSyntax parameter => parameter.AttributeLists,
                 ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
                 _ => []
@@ -1545,6 +1549,9 @@ public partial class SemanticModel
             Binder currentBinder,
             Binder attributeListBinder)
         {
+            if (declaration is TypeParameterSyntax && GetDeclaredSymbol(declaration) is { } typeParameter)
+                return typeParameter;
+
             if (declaration is CompilationUnitSyntax)
             {
                 if (HasExplicitAttributeTarget(attributeList, "module"))
@@ -9499,6 +9506,23 @@ public partial class SemanticModel
 
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        if (node is TypeParameterSyntax typeParameter &&
+            typeParameter.Parent is TypeParameterListSyntax list && list.Parent is { } declaration)
+        {
+            var ordinal = list.Parameters.TakeWhile(parameter => parameter != typeParameter).Count();
+            var parameters = GetDeclaredSymbol(declaration) switch
+            {
+                INamedTypeSymbol type => type.TypeParameters,
+                IMethodSymbol method => method.TypeParameters,
+                _ => ImmutableArray<ITypeParameterSymbol>.Empty
+            };
+            if (ordinal >= 0 && ordinal < parameters.Length)
+            {
+                StoreSymbolInfo(node, parameters[ordinal]);
+                return parameters[ordinal];
+            }
+        }
 
         if (node is FunctionStatementSyntax functionStatement &&
             TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionStatementSymbol))

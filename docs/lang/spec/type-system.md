@@ -330,6 +330,16 @@ A call can provide type arguments explicitly or let Raven infer them from
 arguments and the expected result. If those inputs do not produce one
 consistent choice, the type arguments must be written.
 
+### Generic parameter attributes
+
+Attributes precede a type parameter's variance modifier and name, for example
+`class Holder<[Tag] T>` or `func Read<[Tag] U>() -> int`. They bind to the
+individual parameter and must permit `AttributeTargets.GenericParameter`.
+Normal duplicate-attribute and argument validation applies. Semantic-model
+queries expose the attributes on `ITypeParameterSymbol`; CLR emission writes
+custom attributes on the corresponding `GenericParam` row. Attributes on a
+parameter do not become attributes on its containing type or method.
+
 ### Constraints
 
 Constraints restrict acceptable type arguments. They can follow a type

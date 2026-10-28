@@ -397,6 +397,7 @@ internal static class AttributeUsageHelper
             SymbolKind.Module => AttributeTargets.Module,
             SymbolKind.Method => GetMethodTarget((IMethodSymbol)owner),
             SymbolKind.Parameter => AttributeTargets.Parameter,
+            SymbolKind.TypeParameter => AttributeTargets.GenericParameter,
             SymbolKind.Event => AttributeTargets.Event,
             SymbolKind.Property => AttributeTargets.Property,
             SymbolKind.Field => AttributeTargets.Field,

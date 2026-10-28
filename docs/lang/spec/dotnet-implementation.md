@@ -23,6 +23,11 @@ against declaration position:
 * Target prefixes used in an invalid declaration context are rejected with an
   attribute-target diagnostic.
 
+Generic parameter attributes are emitted on CLR `GenericParam` metadata for
+both type and method parameters and are exposed again when importing .NET
+metadata. They use ordinary attribute binding and
+`AttributeUsage` validation, without a Runtime Contract override.
+
 ## Extension members
 Raven both declares and consumes extension members using CLR extension metadata,
 but it classifies extension semantics per emitted member rather than treating an
