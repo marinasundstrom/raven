@@ -1,5 +1,14 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Generic function signature investigation 2026-10-29
+
+The [investigation](generic-function-methods.md) proposes native method signatures
+represented by a function type or function-constrained generic parameter, resolved
+during generic materialization. Closed methods retain ordinary reflection shape.
+The open dependency requires native metadata support; ordinary CLI export must not
+erase it. Argument packs and runtime/reflection lowering remain proposed, with no
+new Runtime Contract configuration or compiler/runtime behavior implemented.
+
 ## Structural callback overload specificity (2026-10-28)
 
 On Raven `codex/neoclr`, generic overload specificity now descends into native

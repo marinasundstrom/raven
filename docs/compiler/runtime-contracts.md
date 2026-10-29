@@ -1,5 +1,13 @@
 # Runtime Contracts
 
+## Generic function signatures under investigation
+
+The [generic function method investigation](generic-function-methods.md) describes
+author-directed `func name: T` for open generics, a function-type metadata reference
+and explicit argument representation. This is proposed target-aware binding and
+lowering, not an enabled capability or configuration change. Ordinary .NET defaults
+remain unchanged.
+
 ## Structural callback overload specificity (2026-10-28)
 
 On Raven `codex/neoclr`, generic overload specificity now descends into native

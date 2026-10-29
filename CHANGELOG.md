@@ -4,6 +4,20 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+### 2026-10-29 — Generic function method investigation
+
+- Refine the generic function-method design around `with args: object?[]` semantics
+  (source spelling `with args`) and signature-derived reflection helper results.
+  Separate whole-signature substitution, result projection, multicast return
+  policy and reflection errors; Task behavior remains out of scope. These helper
+  contracts remain proposals.
+
+- Document the general `func name: T` proposal, function-type signature metadata,
+  partial substitution, argument representation and native generic materialization.
+  Record the proposed MethodInfo.FunctionType invariant: a function type or a
+  function-constrained type parameter. Identify parser, binder, import, lowering
+  and runtime integration gaps; no language or Runtime Contract behavior changes.
+
 ### 2026-10-29 — neoCLR Panic rename
 
 - Rename the neoCLR terminal namespace function contract from System.Fail to System.Panic, including the default RuntimeFailureContract function name and temporary CLI identity check. Ordinary .NET methods remain ordinary calls; runtime behavior is unchanged.
