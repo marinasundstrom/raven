@@ -25,14 +25,39 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
         title: "Unsafe Optional or Result extraction",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Call to '{0}' can throw when {1} is {2}. Handle {3} explicitly.",
+        messageFormat: "Extraction with '{0}' can fail when {1} is {2}. Handle {3} explicitly.",
         category: "ErrorHandling",
         defaultSeverity: DiagnosticSeverity.Warning);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterOperationAction(AnalyzeInvocation, OperationKind.Invocation);
+    {
+        context.RegisterOperationAction(AnalyzeInvocation, OperationKind.Invocation);
+        context.RegisterSyntaxNodeAction(AnalyzeCarrierUnwrap, SyntaxKind.SuppressNullableWarningExpression);
+    }
+
+    private static void AnalyzeCarrierUnwrap(SyntaxNodeAnalysisContext context)
+    {
+        var expression = (PostfixOperatorExpressionSyntax)context.Node;
+        var operandType = context.SemanticModel.GetTypeInfo(expression.Expression).Type;
+        if (operandType is null || operandType.IsNullable ||
+            !TryGetReceiverKind(operandType, out var receiverKind) ||
+            context.SemanticModel.GetOperation(expression)?.Kind != OperationKind.BlockExpression)
+        {
+            return;
+        }
+
+        var failureCase = operandType is INamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
+            ? failureType.Name : ResultFacts.FailureCaseName;
+        context.ReportDiagnostic(Diagnostic.Create(
+            Descriptor,
+            expression.OperatorToken.GetLocation(),
+            "!",
+            receiverKind,
+            GetThrowingState("!", receiverKind, failureCase),
+            receiverKind == ReceiverKind.Optional ? "Some and None" : $"{ResultFacts.OkCaseName} and {failureCase}"));
+    }
 
     private static void AnalyzeInvocation(OperationAnalysisContext context)
     {

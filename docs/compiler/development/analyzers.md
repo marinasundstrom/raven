@@ -75,7 +75,9 @@ Raven currently provides analyzers for two different contexts:
   inference through arbitrary calls.
 - **UnsafeUnwrapAnalyzer** (Raven, `RAV9037`) – reports calls to partial extraction methods
   on `Optional<T>` and `Result<T, E>`: `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, and `Expect`.
-  These methods can throw for a valid union state. Fallback-bearing methods such as
+  Postfix `!` on these carriers is also reported, on the operator token, including
+  chained access. Nullable suppression, plain-value `!`, and logical negation are
+  excluded. These extractions can fail for a valid union state. Fallback-bearing methods such as
   `UnwrapOr`, `UnwrapOrElse`, and `UnwrapOrDefault` are not reported.
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any

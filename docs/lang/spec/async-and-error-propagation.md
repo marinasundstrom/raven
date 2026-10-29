@@ -227,6 +227,32 @@ their residual types are implicitly convertible. `Result<T, E>` implements the
 contract with output `T` and residual `E`; `Optional<T>` implements it with output
 `T` and the unit residual `()`.
 
+### Unwrap or fail (`!`)
+
+Postfix `expr!` extracts the success output of a propagation carrier. It evaluates
+its operand exactly once. A non-success result fails immediately instead of
+returning a residual, so the enclosing function may return any type. The operator
+uses the same carrier recognition and output extraction as `?`, including custom
+`IPropagatable` implementations. It does not call `TryGetResidual` or `FromResidual`.
+
+```raven
+func length(value: Result<string, string>) -> int => value!.Length
+```
+
+`expr!.Member`, `expr![index]`, and `expr!(arguments)` operate on the extracted
+payload. Each `!` unwraps one carrier layer. On .NET a non-success result throws
+`InvalidOperationException`; the residual is not rethrown or included in the
+exception. Targets with terminal failure use their configured failure mechanism.
+
+The same token retains its existing [nullable suppression](type-system.md#nullable-suppression)
+meaning for nullable operands. On a plain non-nullable value it remains an identity
+operation. In particular, ordinary .NET `StringBuilder.AppendLine` returns the
+builder directly; carrier-returning target APIs can use `AppendLine("")!.AppendLine("")!`.
+
+The unsafe-unwrap analyzer (`RAV9037`) warns on carrier `!`, just as it does on
+`UnwrapOrThrow`. Prefer pattern matching, propagation, or an explicit fallback
+when failure is expected. Nullable suppression is not part of this analyzer.
+
 ### Conditional member access (`?.`)
 
 Carrier conditional access maps a member access over the success case of a

@@ -8,12 +8,17 @@ namespace Raven.CodeAnalysis.Tests;
 public class RuntimePropagationContractTests
 {
     [Theory]
-    [InlineData("selected", true)]
-    [InlineData("default", false)]
-    [InlineData("wrong-assembly", false)]
-    [InlineData("wrong-name", false)]
-    [InlineData("missing-extraction", false)]
-    public void TargetSelectionIsExplicitAndDoesNotFallBack(string scenario, bool accepted)
+    [InlineData("selected", true, false)]
+    [InlineData("default", false, false)]
+    [InlineData("wrong-assembly", false, false)]
+    [InlineData("wrong-name", false, false)]
+    [InlineData("missing-extraction", false, false)]
+    [InlineData("selected", true, true)]
+    [InlineData("default", false, true)]
+    [InlineData("wrong-assembly", false, true)]
+    [InlineData("wrong-name", false, true)]
+    [InlineData("missing-extraction", false, true)]
+    public void TargetSelectionIsExplicitAndDoesNotFallBack(string scenario, bool accepted, bool unwrap)
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-propagation", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -47,9 +52,9 @@ public class RuntimePropagationContractTests
             var contract = scenario == "default" ? null : new RuntimePropagationContract(
                 scenario == "wrong-assembly" ? "Missing" : "PropagationContracts",
                 scenario == "wrong-name" ? "Contracts.Missing`3" : "Contracts.Propagatable`3");
-            var compilation = Compilation.Create("Consumer", [SyntaxTree.ParseText("""
+            var compilation = Compilation.Create("Consumer", [SyntaxTree.ParseText($$"""
                 func Test(value: Contracts.Attempt) -> Contracts.Attempt {
-                    let output = value?
+                    let output: int = value{{(unwrap ? "!" : "?")}}
                     return Contracts.Attempt.FromResidual("failure")
                 }
                 """)], paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray(),
@@ -71,7 +76,8 @@ public class RuntimePropagationContractTests
             }
 
             var tree = compilation.SyntaxTrees.Single();
-            var propagation = tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+            var propagation = tree.GetRoot().DescendantNodes().OfType<ExpressionSyntax>().Single(node =>
+                unwrap ? node is PostfixOperatorExpressionSyntax : node is PropagateExpressionSyntax);
             Assert.Equal(SpecialType.System_Int32, compilation.GetSemanticModel(tree).GetTypeInfo(propagation).Type!.SpecialType);
         }
         finally { Directory.Delete(directory, true); }

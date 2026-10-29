@@ -7059,8 +7059,10 @@ public partial class SemanticModel
                 Kind: SyntaxKind.SuppressNullableWarningExpression
             } suppressNullableExpression &&
             TryGetAvailableTypeInfo(suppressNullableExpression.Expression, out var operandTypeInfo) &&
-            (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType) is { TypeKind: not TypeKind.Error } operandType)
+            (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType) is { TypeKind: not TypeKind.Error, IsNullable: true } operandType)
         {
+            // Non-nullable operands may be propagation carriers. Let the binder
+            // resolve their output contract instead of caching the operand type.
             var type = operandType.GetNonNullableType();
             typeInfo = new TypeInfo(type, type, ComputeConversion(type, type));
             StoreTypeMapping(expression, typeInfo);

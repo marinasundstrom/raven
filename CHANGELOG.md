@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Extend unsafe extraction warning `RAV9037` to carrier postfix `!` on Result and Optional; nullable suppression and plain-value `!` are excluded.
+
+- Add postfix carrier `!` (unwrap or fail), shared with main: .NET throws `InvalidOperationException`, while native neoCLR uses terminal failure. Chaining and custom propagation contracts expose the output type; nullable suppression is unchanged. Document the operand-dependent syntax in the website tour, C# guide, and searchable language reference.
+
 - **2026-10-28:** Preserve nested parameter/result nullability when native structural function signatures cross assembly boundaries. Generic formatter forwarding now binds after the Neo abstraction split. Keep legacy opaque-function outer annotations readable; missing nested facts require rebuilding with the updated producer. Qualify imported generic callbacks with a focused emit/import/forwarding regression.
 
 - **2026-10-28:** Preserve unconstrained generic instance interface contracts in neoCLR emission: opt-in portable admission, method parameter metadata and constructed virtual calls. Qualify native generic forwarding with Int32/String state and inherited contracts in both source orders. Ordinary .NET emission is unchanged; generic class virtual/static/default-interface support remains outside this slice.

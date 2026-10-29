@@ -17635,3 +17635,37 @@ semantic import. The --native-function-nullability probe emits an interface with
 generic callback, imports it, verifies nullable input/result symbols, and emits a
 forwarding consumer. This retains callable nullability in native metadata; no new
 CLI runtime dependency, syntax, grammar or language-service change is introduced.
+
+### Carrier unwrap or fail — 2026-10-29
+
+Deliberately carries main `5814fc977`, adding postfix `!` as unwrap-or-fail for
+propagation carriers on both main and `codex/neoclr`. Native intent is to evaluate a carrier once, extract
+its output, and terminate on non-success; chained access uses the output type.
+Nullable suppression keeps its separate existing behavior.
+
+The shared binder expands the existing postfix syntax into a temporary, an
+extraction call and a guarded output. `RuntimePropagationContract` selects the
+native carrier interface. Native lowering uses the existing compiler-failure
+marker and the native backend emits terminal `Fail("Carrier unwrap failed")`.
+No residual conversion, enclosing return-carrier constraint, exception object,
+new ABI or runtime method is required. Main's .NET failure guard throws
+`InvalidOperationException`; its semantic-model and completion changes are
+carried independently to this branch.
+
+The temporary CLI encoding remains an ordinary extraction call and throw guard.
+Legacy CLI translation of that throw is not qualified by this change. Native
+metadata/codegen is the supported neoCLR path for this feature and already
+replaces that encoding with a terminal failure instruction. Residual payloads
+are intentionally not included in the failure message on either target.
+
+Validation: `CarrierUnwrapTests`, nullable suppression, member completion and
+explicit runtime propagation selection tests exercise the compiler behavior.
+The neoCLR integration verifier is
+`docs/experiments/raven-target/verify_carrier_unwrap.py` in the runtime repository;
+it compiles against a supplied native library bundle and checks interpreter
+success, failure and chaining. No AOT, .NET Framework or NanoFramework execution
+claim is made by these checks.
+
+All five native interpreter cases passed against the runtime repository’s
+`target/neo-configuration-20261029/final-libraries` bundle; results and input hashes
+are recorded in `docs/validation/carrier-unwrap-20261029/validation.json` there.

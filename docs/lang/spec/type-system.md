@@ -279,6 +279,8 @@ difference for non-pointer values:
 
 ### Nullable suppression
 
+On a propagation carrier, postfix `!` means [unwrap or fail](async-and-error-propagation.md#unwrap-or-fail).
+
 Postfix `!` treats one nullable expression as non-null:
 
 ```raven
