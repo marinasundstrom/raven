@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ## Unreleased
 
+- Extend unsafe extraction warning `RAV9037` to carrier postfix `!` on Result and Optional; nullable suppression and plain-value `!` are excluded.
+
+- Add postfix carrier `!` (unwrap or fail), including chaining and custom propagation contracts; .NET throws `InvalidOperationException` on failure. Existing nullable suppression remains unchanged. Document the operand-dependent syntax in the website tour, C# guide, and searchable language reference.
+
 - **2026-10-28:** Support attributes on type and method generic parameters, including parsing before variance/constraints, semantic-symbol attributes, ordinary `AttributeUsage` validation, and CLR `GenericParam` custom-attribute emission/import. `GetDeclaredSymbol` now resolves generic parameter declarations.
 
 - Update Raven code highlighting for whole backtick and `@`-escaped identifiers, including function/type declarations, attribute arguments, and references; verify grammar-only rendering and use the highlight.js function scopes for consistent theme colors.

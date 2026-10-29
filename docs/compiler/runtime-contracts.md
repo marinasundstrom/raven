@@ -2492,3 +2492,18 @@ It does not change the propagation protocol or add a Runtime Contract switch.
 
 See [Optional naming](optional-naming.md) for the shared platform type rename;
 this does not add a Runtime Contract switch.
+
+### Carrier unwrap-or-fail expressions
+
+Postfix `!` on a propagation carrier binds to a single-evaluation block with an
+output temporary, the carrier's success-extraction call, a failure guard, and the
+output value. `GetTypeInfo` reports the output type, including in chained member
+access; completion queries that semantic result. Existing postfix syntax and
+TextMate operator highlighting cover the spelling without a new syntax kind.
+The operation tree exposes the bound block and its extraction call.
+
+The default .NET failure guard throws `InvalidOperationException`. No enclosing
+carrier return type or residual conversion is needed. Nullable suppression retains
+its existing behavior. Focused `CarrierUnwrapTests` cover success, failure,
+evaluation count, member chaining, custom contracts, conventional unions and
+completion; these are modern .NET checks, not .NET Framework qualification.

@@ -2929,6 +2929,13 @@ partial class BlockBinder : Binder
         if (operand is BoundErrorExpression || operand.Type is null)
             return operand;
 
+        if (!operand.Type.IsNullable &&
+            UnwrapAlias(operand.Type) is INamedTypeSymbol carrier &&
+            TryGetPropagationInfo(carrier, out var propagation))
+        {
+            return BindCarrierUnwrap(postfixUnary, operand, propagation);
+        }
+
         if (!operand.Type.IsNullable)
             return operand;
 

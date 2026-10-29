@@ -1102,6 +1102,18 @@ public static class CompletionProvider
                 return false;
             }
 
+            // The semantic result also covers carrier unwrap, whose payload can
+            // have entirely different members from the carrier itself.
+            if (IsInSemanticModel(suppression))
+            {
+                var unwrapped = model.GetTypeInfo(suppression).Type;
+                if (unwrapped is { TypeKind: not TypeKind.Error })
+                {
+                    receiverType = unwrapped;
+                    return true;
+                }
+            }
+
             ITypeSymbol? operandType = null;
             if (suppression.Expression is DefaultExpressionSyntax &&
                 TryGetTargetTypedDefaultSuppressionReceiverType(suppression, out var defaultTargetType))

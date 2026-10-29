@@ -15,6 +15,7 @@ start with the [language tour](../../introduction.md).
 
 [Records](type-declarations-and-initialization.md#records) ·
 [Nullable types and !](type-system.md#nullable-types) ·
+[Unwrap or fail: !](async-and-error-propagation.md#unwrap-or-fail) ·
 [Optional, Result, and ?](async-and-error-propagation.md) ·
 [Lambdas](functions.md#function-expressions) ·
 [Pattern bindings](fundamental-patterns.md#type-and-binding-patterns) ·
@@ -28,6 +29,7 @@ start with the [language tour](../../introduction.md).
 <ul>
 <li data-reference-topic data-keywords="binding immutable mutable using dispose"><a href="local-declarations.md">Variables and constants: let, var, const</a><p>Declare values, shadow names, and manage resources with use.</p></li>
 <li data-reference-topic data-keywords="int string bool decimal tuple array where variance as"><a href="type-system.md">Types, generics, and conversions</a><p>Built-in types, type annotations, constraints, and casts.</p></li>
+<li data-reference-topic data-keywords="unwrap fail result optional option carrier ! chaining"><a href="async-and-error-propagation.md#unwrap-or-fail">Unwrap or fail: !</a><p>Extract a carrier payload or fail; chain access on the output value.</p></li>
 <li data-reference-topic data-keywords="null nullable nullability is not null null forgiving !"><a href="type-system.md#nullable-types">Nullable types and suppression: T? and !</a><p>Handle null, narrow with patterns, and suppress nullability.</p></li>
 <li data-reference-topic data-keywords="interpolation typeof nameof default literal"><a href="fundamental-expressions.md">Literals, tuples, and basic expressions</a><p>Write strings, numbers, tuples, default values, and type expressions.</p></li>
 <li data-reference-topic data-keywords="array list dictionary set [] spread .."><a href="collection-expressions.md">Collections and spread</a><p>Create collections and spread elements into them.</p></li>

@@ -6,6 +6,51 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnsafeUnwrapAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
+    public void CarrierBang_ReportsOnOperatorIncludingChaining()
+    {
+        const string code = """
+import System.*
+
+func Test(result: Result<string, string>, option: Optional<int>) {
+    let length = result!.Length
+    let number = option!
+}
+""";
+        var verifier = CreateAnalyzerVerifier<UnsafeUnwrapAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
+                    .WithSpan(4, 24, 4, 25)
+                    .WithArguments("!", "Result", "Failure", "Ok and Failure"),
+                new DiagnosticResult(UnsafeUnwrapAnalyzer.DiagnosticId)
+                    .WithSpan(5, 24, 5, 25)
+                    .WithArguments("!", "Optional", "None", "Some and None"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            additionalReferences: [TestMetadataReferences.RavenCore]);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void NullableSuppressionPlainBangAndLogicalNot_DoNotReportUnsafeExtraction()
+    {
+        const string code = """
+func Test(text: string?, number: int?, plain: string, flag: bool) {
+    let a = text!
+    let b = number!
+    let c = plain!
+    let d = !flag
+}
+""";
+        var verifier = CreateAnalyzerVerifier<UnsafeUnwrapAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, "RAV0403"]);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void PartialOptionAndResultExtraction_ReportsDiagnosticOnMethodName()
     {
         const string code = """

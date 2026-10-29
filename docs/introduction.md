@@ -144,6 +144,47 @@ throwing method. Use `try expression` to capture another throwing call.
 [Optional, Result, and propagation](lang/spec/async-and-error-propagation.md) ·
 [Framework interoperability](lang/features/dotnet-interop.md)
 
+## Unwrap a value or fail with `!`
+
+Use postfix `!` when a missing or failed value should stop the operation.
+It extracts `Ok` from `Result` or `Some` from `Optional`, and evaluates its
+operand once. On .NET, `Failure` or `None` throws `InvalidOperationException`.
+Unlike propagation with `?`, this does not require a carrier-returning function.
+
+```raven
+import System.*
+import System.Console.*
+
+let host: Result<string, string> = .Ok("localhost")
+let port: Optional<int> = .Some(8080)
+
+WriteLine(host!.ToUpperInvariant()) // LOCALHOST
+WriteLine(port!)                    // 8080
+```
+
+Chaining continues on the extracted value: `host!.ToUpperInvariant()` calls a
+string method. `result!.Next()!` unwraps the receiver and then the next result.
+Each `!` handles one layer.
+
+The unsafe-unwrap analyzer (`RAV9037`) warns on carrier `!`, just as it does on
+`UnwrapOrThrow`. Prefer pattern matching, propagation, or an explicit fallback
+when failure is expected. Nullable suppression is not part of this analyzer.
+
+
+The operand type determines what `!` means:
+
+| Operand | Meaning of `value!` |
+| --- | --- |
+| `Result<T, E>` | Extract `Ok(T)` or fail on `Failure(E)` |
+| `Optional<T>` | Extract `Some(T)` or fail on `None` |
+| Nullable reference `T?` | Suppress nullability; no runtime null check |
+| Nullable value type `T?` | Extract the value; throw if absent |
+
+Native neoCLR uses terminal failure for a failed carrier unwrap. Prefer `?` or
+pattern matching when callers should handle the residual. See the
+[unwrap-or-fail reference](lang/spec/async-and-error-propagation.md#unwrap-or-fail)
+for custom carrier contracts and exact rules.
+
 ## Compare a value or capture it explicitly
 
 Patterns can test values from the current scope with a comparison operator.

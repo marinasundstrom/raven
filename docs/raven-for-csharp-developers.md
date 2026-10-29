@@ -179,6 +179,18 @@ WriteLine(endpoint("invalid"))
 capture with propagation; each `?` handles one carrier layer.
 Ordinary `try`/`catch` remains available.
 
+## Postfix `!` also unwraps carriers
+
+On `Result<T, E>` and `Optional<T>`, `value!` means **unwrap or fail**: it returns
+`T` from `Ok`/`Some`, or throws `InvalidOperationException` on .NET. The operand
+is evaluated once; `value!.Member` accesses the payload. The enclosing function
+can return an ordinary type. Use `?` to return the residual to a compatible caller.
+
+This differs from C# null-forgiving syntax. Raven still uses nullable suppression
+for nullable operands: a reference assertion adds no runtime check, while a
+nullable value type is extracted. Native neoCLR uses terminal failure for carrier
+unwrap. See the [complete example and type table](introduction.md#unwrap-a-value-or-fail-with).
+
 ## State plus payload becomes a union
 
 A union associates each alternative with the data it needs. Use an enum for
