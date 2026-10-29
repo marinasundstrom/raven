@@ -25,12 +25,13 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("NeoCLR.CoreProbe", true, "System.Fail", true, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", true, "Fail", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Panic", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "Panic", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fail", false, "System.Runtime.CompilerServices")]
     [InlineData("NeoCLR.CoreProbe", true, "System.Fault", false, "System.Runtime.CompilerServices")]
-    [InlineData("OrdinaryLibrary", true, "System.Fail", false, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Fail", false, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", true, "System.Fail", false, "Custom.CompilerServices")]
+    [InlineData("OrdinaryLibrary", true, "System.Panic", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Panic", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Panic", false, "Custom.CompilerServices")]
     public void FailCall_OnlyRuntimeNamespaceFunctionTerminates(
         string assemblyName, bool namespaceMember, string call, bool terminates, string attributeNamespace)
     {
@@ -45,6 +46,7 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
                 namespace System {
                     {{(namespaceMember ? "[" + attributeNamespace + ".TopLevel]" : "")}}
                     public static class ArbitraryContainer {
+                        public static void Panic(string message) { }
                         public static void Fail(string message) { }
                         public static void Fault(string message) { }
                     }

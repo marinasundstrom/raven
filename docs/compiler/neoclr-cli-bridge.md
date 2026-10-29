@@ -17669,3 +17669,20 @@ claim is made by these checks.
 All five native interpreter cases passed against the runtime repository’s
 `target/neo-configuration-20261029/final-libraries` bundle; results and input hashes
 are recorded in `docs/validation/carrier-unwrap-20261029/validation.json` there.
+
+## System.Panic rename — 2026-10-29
+
+neoCLR renames its public terminal namespace function from System.Fail to
+System.Panic, with imported Panic calls preferred. RuntimeFailureContract defaults
+to Panic; explicit owners still require an exact assembly/namespace/name match.
+The temporary CLI identity check recognizes only the marked core Panic function
+with its existing static, non-generic String-to-void signature. CLI void still
+loses native non-returning intent, supplied by this explicit target contract until
+native metadata owns it. Semantic flow remains terminal; emitted native fault and
+no-result call behavior is unchanged. Ordinary .NET behavior is unchanged.
+Rebuild compiler/reference/runtime bundles together. Cleanup-aware unwinding and
+thread/task panic behavior are deferred, not introduced by this rename.
+
+Validation: 20 focused NeoClrFaultControlFlowTests and RuntimeFailureContractTests
+pass, including imported/qualified Panic, rejected old Fail recognition, signature/
+owner checks and ordinary .NET behavior. The native-enabled compiler builds cleanly.

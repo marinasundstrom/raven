@@ -6,14 +6,15 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class RuntimeFailureContractTests
 {
     [Theory]
-    [InlineData("public func Fail(message: string) { }", true)]
-    [InlineData("private func Fail(message: string) { }", false)]
-    [InlineData("public func Fail(message: int) { }", false)]
-    [InlineData("public func Fail(message: string) -> int => 1", false)]
-    [InlineData("public func Fail<T>(message: string) { }", false)]
-    [InlineData("public func Fail() { }", false)]
+    [InlineData("public func Panic(message: string) { }", true)]
+    [InlineData("private func Panic(message: string) { }", false)]
+    [InlineData("public func Panic(message: int) { }", false)]
+    [InlineData("public func Panic(message: string) -> int => 1", false)]
+    [InlineData("public func Panic<T>(message: string) { }", false)]
+    [InlineData("public func Panic() { }", false)]
+    [InlineData("public func Fail(message: string) { }", false)]
     [InlineData("public func Stop(message: string) { }", false)]
-    [InlineData("public class Container { public static func Fail(message: string) { } }", false)]
+    [InlineData("public class Container { public static func Panic(message: string) { } }", false)]
     public void ExactNamespaceFunctionShapeAndOwnerAreRequired(string declaration, bool expected)
     {
         var tree = SyntaxTree.ParseText("namespace Services\n" + declaration);
@@ -24,7 +25,7 @@ public sealed class RuntimeFailureContractTests
         if (syntax is not null)
             method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         else
-            method = compilation.GetTypeByMetadataName("Services.Container")!.GetMembers("Fail").OfType<IMethodSymbol>().Single();
+            method = compilation.GetTypeByMetadataName("Services.Container")!.GetMembers("Panic").OfType<IMethodSymbol>().Single();
         var contract = new RuntimeFailureContract("FailureLibrary", "Services");
         Assert.Equal(expected, contract.Matches(method));
         Assert.False((contract with { AssemblyName = "Other" }).Matches(method));

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+### 2026-10-29 — neoCLR Panic rename
+
+- Rename the neoCLR terminal namespace function contract from System.Fail to System.Panic, including the default RuntimeFailureContract function name and temporary CLI identity check. Ordinary .NET methods remain ordinary calls; runtime behavior is unchanged.
+
+
 - Extend unsafe extraction warning `RAV9037` to carrier postfix `!` on Result and Optional; nullable suppression and plain-value `!` are excluded.
 
 - Add postfix carrier `!` (unwrap or fail), shared with main: .NET throws `InvalidOperationException`, while native neoCLR uses terminal failure. Chaining and custom propagation contracts expose the output type; nullable suppression is unchanged. Document the operand-dependent syntax in the website tour, C# guide, and searchable language reference.

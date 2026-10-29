@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 /// <param name="NamespaceName">Namespace containing the function.</param>
 /// <param name="FunctionName">Public static non-generic function taking one string and returning unit/void.</param>
 /// <remarks>This is a host assertion about runtime behavior, not an inference from a method name.</remarks>
-public sealed record RuntimeFailureContract(string AssemblyName, string NamespaceName = "System", string FunctionName = "Fail")
+public sealed record RuntimeFailureContract(string AssemblyName, string NamespaceName = "System", string FunctionName = "Panic")
 {
     internal bool Matches(IMethodSymbol method) =>
         method.ContainingAssembly?.Name == AssemblyName &&

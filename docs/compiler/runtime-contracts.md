@@ -3568,7 +3568,7 @@ backport is required by this change.
 
 ## Native terminal-function ownership (2026-10-07)
 
-`RuntimeFailureContract(AssemblyName, NamespaceName = "System", FunctionName = "Fail")`
+`RuntimeFailureContract(AssemblyName, NamespaceName = "System", FunctionName = "Panic")`
 is an explicit host assertion that the selected namespace function never returns.
 Configure it with `CompilationOptions.WithRuntimeFailureContract(contract)`; null leaves
 existing behavior unchanged. The native bootstrap manifest accepts an optional `failure`
@@ -4498,3 +4498,8 @@ message `Carrier unwrap failed`; it does not allocate or throw a CLR exception.
 Carrier recognition honors `RuntimePropagationContract` exactly, including the
 selected assembly and interface, without adding an unwrap-specific contract.
 See [the bridge record](neoclr-cli-bridge.md#carrier-unwrap-or-fail--2026-10-29).
+
+Development 2026-10-29: the default terminal namespace function is now Panic,
+matching neoCLR System.Panic. Migrate explicit failure function names from Fail
+and rebuild matched bundles. This changes naming and recognition only; runtime
+unwinding and thread/task semantics are unchanged.
