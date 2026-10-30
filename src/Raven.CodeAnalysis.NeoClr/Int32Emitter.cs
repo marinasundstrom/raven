@@ -1141,11 +1141,70 @@ internal static class Int32Emitter
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
             var implementation = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Plan.Symbol, entry)).Method
                 ?? throw Unsupported("entry must be a declared Int32/Unit function or static method");
+            var resultEntry = NeoClrEntryPoint.TryGetResult(entry.ReturnType, out var okType, out var errorType);
+            var completeResult = resultEntry && errorType is not IStructuralUnionTypeSymbol
+                ? compilation.GetTypeByMetadataName(NeoClrEntryPoint.BridgeName)!.GetMembers(okType.SpecialType == SpecialType.System_Int32 ? "CompleteInt" : "CompleteUnit")
+                    .OfType<IMethodSymbol>().Single().Construct(errorType)
+                : null;
+            void CompleteResult(IILGenerator body, ITypeSymbol resultType)
+            {
+                if (completeResult is not null)
+                {
+                    references.Resolve(completeResult).EmitCall(body);
+                    return;
+                }
+                // Keep the error union intact until testing its active alternative.
+                // Whole-union Object boxing has a distinct, unsupported identity contract.
+                SignatureType MapEntryType(ITypeSymbol type) => NeoClrTypeMapper.Map(type, owner => nativeTypes[owner], ImportExternalType);
+                var resultSlot = body.DeclareLocal(MapEntryType(resultType));
+                var errorSlot = body.DeclareLocal(MapEntryType(errorType));
+                body.StoreLocal(resultSlot);
+                body.LoadLocalAddress(resultSlot);
+                body.LoadLocalAddress(errorSlot);
+                var residual = resultType.GetMembers("TryGetResidual").OfType<IMethodSymbol>().Single();
+                references.Resolve(residual).EmitCall(body);
+                var failure = body.DefineLabel();
+                var done = body.DefineLabel();
+                body.Emit(OpCode.Brtrue, failure);
+                if (okType.SpecialType == SpecialType.System_Int32)
+                {
+                    var value = body.DeclareLocal(PrimitiveType.Int32);
+                    body.LoadLocalAddress(resultSlot);
+                    body.LoadLocalAddress(value);
+                    references.Resolve(resultType.GetMembers("TryGetOutput").OfType<IMethodSymbol>().Single()).EmitCall(body);
+                    body.Emit(OpCode.Pop);
+                    body.LoadLocal(value);
+                }
+                else body.LoadConstant(0);
+                body.Emit(OpCode.Br, done);
+                body.MarkLabel(failure);
+                var report = compilation.GetTypeByMetadataName(NeoClrEntryPoint.BridgeName)!
+                    .GetMembers("Report").OfType<IMethodSymbol>().Single();
+                foreach (var alternative in ((IStructuralUnionTypeSymbol)errorType).ConstituentTypes)
+                {
+                    var next = body.DefineLabel();
+                    var mapped = MapEntryType(alternative);
+                    body.LoadLocal(errorSlot);
+                    body.IsInstance(mapped);
+                    body.IsNull();
+                    body.Emit(OpCode.Brtrue, next);
+                    body.LoadLocal(errorSlot);
+                    if (alternative.IsValueType) body.UnboxAny(mapped);
+                    else body.CastReference(mapped);
+                    references.Resolve(report.Construct(alternative)).EmitCall(body);
+                    body.Emit(OpCode.Br, done);
+                    body.MarkLabel(next);
+                }
+                // A null reference payload has no matching runtime type.
+                body.LoadDefault(MapEntryType(compilation.GetSpecialType(SpecialType.System_Object)));
+                references.Resolve(report.Construct(compilation.GetSpecialType(SpecialType.System_Object))).EmitCall(body);
+                body.MarkLabel(done);
+            }
             if (entry.ReturnType is INamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } task)
             {
                 var result = task.TypeArguments[0];
-                if (result.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void))
-                    throw Unsupported("native async entry requires Task<int> or Task<unit>");
+                if (!resultEntry && result.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void))
+                    throw Unsupported("native async entry requires Task<int>, Task<unit> or Task<Result<int/unit, E>>");
                 var getResult = task.GetMembers("GetResult").OfType<IMethodSymbol>().SingleOrDefault(m =>
                     !m.IsStatic && m.Arity == 0 && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public &&
                     SymbolEqualityComparer.Default.Equals(m.ReturnType, result))
@@ -1169,11 +1228,24 @@ internal static class Int32Emitter
                 // and its task value, then resumes here to observe completion/failure.
                 references.Resolve(drain).EmitCall(body);
                 references.Resolve(getResult).EmitCall(body);
-                if (result.SpecialType != SpecialType.System_Int32)
+                if (resultEntry)
+                    CompleteResult(body, result);
+                else if (result.SpecialType != SpecialType.System_Int32)
                 {
                     body.Emit(OpCode.Pop);
                     body.LoadConstant(0);
                 }
+                body.Return();
+                assembly.EntryPoint = adapter;
+            }
+            else if (resultEntry)
+            {
+                var adapter = assembly.AddFunction("Raven.Generated", "<ResultEntry>",
+                    new MethodSignature(PrimitiveType.Int32, implementation.Signature.ParameterTypes), MethodVisibility.Internal);
+                var body = adapter.GetILGenerator();
+                for (var i = 0; i < entry.Parameters.Length; i++) body.LoadArgument(i);
+                body.Call(implementation);
+                CompleteResult(body, entry.ReturnType);
                 body.Return();
                 assembly.EntryPoint = adapter;
             }

@@ -17736,3 +17736,31 @@ Execution qualification: the signal consumers pass in the interpreter. The nativ
 compiler builds and shares signature specialization, but the signal JIT probe stops
 at unsupported boxing of inhabited unit (`Void`). JIT/AOT execution of this library
 is not qualified; unit boxing/unboxing support remains follow-up work.
+
+## Direct native Result entry points (2026-10-30)
+
+The direct native emitter now adapts synchronous Result<int/unit, E> and native
+Task<Result<int/unit, E>> Main returns to Int32 process status, matching Raven's
+existing .NET/CLI-import entry rules. Ok(int) supplies the code, Ok(unit) returns
+zero, and Failure writes normal Object.ToString display plus newline to stderr and
+returns one (null produces an empty line). Ordinary error conversions, interface
+upcasts and supported structural unions remain normal binder semantics. No new
+error interface requirement, exception-catching behavior or Runtime Contract flag
+is introduced.
+
+The target injects a private ordinary Raven helper and emits a native startup adapter.
+It uses native Result patterns/console services and ordinary native metadata. For
+structural errors, the startup adapter calls TryGetResidual and tests each concrete
+alternative before invoking the ordinary generic payload formatter; whole-union
+Object boxing and bare-parameter union metadata remain unsupported. No
+custom attribute or CLI-only representation is introduced. Async startup retains
+the existing DrainEntryTasks/GetResult policy. Unit success is not boxed. The owning
+layers are native compilation preparation/entry emission and the existing runtime
+queue/console contracts; no runtime metadata replacement is needed for the helper.
+
+Regression fixtures and the native/interpreter process checker live in neoCLR at
+runtime/System.Runtime/test/ResultEntryPointTests and scripts/validate-result-entrypoints.py.
+They cover all Result entry families, null and converted/interface/structural errors.
+The integrated Configuration --watch sample exercises actual suspended startup.
+See neoCLR docs/native-result-entrypoints.md and the dated validation receipt for
+exact targets and results. Ordinary .NET emission is unchanged.

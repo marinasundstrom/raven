@@ -57,6 +57,16 @@ public static class NeoClrCompilationEmitter
             compilation.GetAssemblyOrModuleSymbol(system.Reference) is not IAssemblySymbol systemAssembly || systemAssembly.Name != system.ProjectionAssemblyName))
             return Fail(Configuration, "invalid explicit System callable selection or projection reference");
         if (options.Dependencies.Length > 256) return Fail(Configuration, "too many dependencies");
+        var prepared = NeoClrEntryPoint.Prepare(compilation);
+        if (!ReferenceEquals(prepared, compilation))
+        {
+            var generatedTree = prepared.SyntaxTrees.Except(compilation.SyntaxTrees).Single();
+            compilation = prepared;
+            diagnostics = compilation.GetDiagnostics().Where(d =>
+                d.Severity == DiagnosticSeverity.Error || d.Location.SourceTree == generatedTree).ToImmutableArray();
+            if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+                return new(false, diagnostics);
+        }
         var bindings = new List<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)>();
         foreach (var dependency in options.Dependencies)
         {

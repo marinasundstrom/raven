@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-30
 
+- Adapt synchronous and asynchronous Result Main returns in the direct neoCLR emitter:
+  integer/unit successes produce their existing process status, failures print to stderr
+  and return one, and ordinary error conversions remain intact. Dispatch concrete
+  structural-error alternatives without whole-union boxing. Use normal bound Raven
+  for the private helper; no new Runtime Contract or metadata encoding is required.
+
 - Add neoCLR-target function-dependent method syntax `func name: T with args`, nullable Object argument arrays and general `ReturnType<T>` projection. Preserve whole signatures through native import and closed generic materialization, including unit-valued call results. Emit format-6 signature/boxed-body metadata through an explicit native capability. Ordinary .NET diagnoses this interop syntax. The typed FunctionReflection helper and separate Neo.Signals library live in neoCLR; Task handling remains separate. Focused compiler and cross-library runtime validation is recorded in the integration docs.
 
 
