@@ -200,10 +200,13 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         return true;
     }
     // Explicit target capability: ordinary .NET emission keeps its own constant rules.
-    private static bool SupportsParameterDefault(IParameterSymbol parameter)
+    internal static bool SupportsParameterDefault(IParameterSymbol parameter)
     {
         if (parameter.RefKind != RefKind.None || parameter.IsVarParams) return false;
-        if (parameter.ExplicitDefaultValue is null) return parameter.Type.IsReferenceType;
+        if (parameter.ExplicitDefaultValue is null)
+            return parameter.Type.IsReferenceType ||
+                parameter.Type is INamedTypeSymbol { TypeKind: TypeKind.Struct, SpecialType: SpecialType.None } &&
+                parameter.Type.TryGetUnion() is null;
         return parameter.Type.SpecialType switch
         {
             SpecialType.System_Boolean => parameter.ExplicitDefaultValue is bool,

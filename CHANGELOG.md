@@ -19,8 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - Native neoCLR emission/import now preserves scalar and reference-null parameter
   defaults as parameter metadata, allowing omitted and named optional arguments
-  across library boundaries. CLI projection uses Param flags and Constant rows;
-  arbitrary struct defaults remain unsupported. No ordinary .NET semantics change.
+  across library boundaries. Extend admission to ordinary struct zero defaults,
+  including CancellationToken, and interface contracts. CLI projection uses Param
+  flags and typed Constant rows without attributes; the general binder correction
+  is carried separately from main. Bare generic and union defaults remain unsupported.
 
 ### 2026-10-29 — Generic function method investigation
 

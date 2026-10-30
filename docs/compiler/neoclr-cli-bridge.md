@@ -17710,9 +17710,11 @@ Current restrictions and validation are in `generic-function-methods.md` (compil
 and neoCLR's `docs/design/generic-function-methods.md`. Neo.Signals consumes the
 capability as a separate extension; no event metadata or Task adaptation is added.
 
-## Native scalar parameter defaults (2026-10-30)
+## Native parameter defaults (2026-10-30)
 
-The neoCLR capability now permits scalar constants and reference-null defaults.
+The neoCLR capability permits scalar constants, reference-null defaults and zero
+initialization of ordinary non-union structs, including CancellationToken. Interface
+method contracts use the same opt-in default capability as class methods.
 Native emit writes an aligned parameter_defaults array; native symbol import restores
 HasExplicitDefaultValue and ExplicitDefaultValue so the existing binder inserts
 omitted/named arguments. Arity and method identity do not change. No Runtime Contract
@@ -17723,14 +17725,18 @@ NeoCLR.Metadata.Experimental owns the native field and its CLI projection throug
 Param Optional/HasDefault and Constant records, without custom attributes. The native
 format directly represents the contract; this is not a new attribute-based bridge.
 Supported values are Boolean, signed/unsigned integers, Single/Double, String and
-reference null. Struct/default(T), enum, char, decimal and Optional.None remain gaps,
-not alternate semantics. Runtime CancellationToken overload cleanup is deferred.
+reference null. A Null constant on a nominal value parameter denotes zero
+initialization; native validation and CLI projection retain its declared type.
+Bare generic-parameter defaults, enum/char/decimal constants and Optional.None remain
+gaps, not alternate semantics. Runtime token-forwarding overloads are consolidated.
 
 Validation: ParameterDefaultCapabilityTests; neoCLR metadata --parameter-defaults
 round trips; native separate-library constructor/method/named-argument consumer and
-Configuration reload integration. The compiler work is target-specific on codex/neoclr
-(base 555c0d7fb); no general main fix or full branch merge is included. See neoCLR
-docs/parameter-defaults.md and the dated Configuration validation receipt.
+Configuration reload integration. The value-default follow-up adds interface admission
+checks and native/interpreter stream and HTTP consumers. The general null-constant
+binder fix was developed and tested on main as 83e700ab6, then deliberately carried
+as 049c9fbd7; there is no full branch merge. Native admission remains target-specific.
+See neoCLR docs/parameter-defaults.md and its Configuration/runtime-default receipts.
 
 Execution qualification: the signal consumers pass in the interpreter. The native
 compiler builds and shares signature specialization, but the signal JIT probe stops
