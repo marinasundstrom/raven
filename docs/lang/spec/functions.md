@@ -222,7 +222,10 @@ defaults, including those represented by
 `System.Runtime.InteropServices.DefaultParameterValueAttribute` and
 `System.Runtime.InteropServices.OptionalAttribute`, participate in calls in the
 same way as source-declared defaults. When an imported optional parameter has no
-stored literal default, Raven uses the parameter type's CLR default value.
+stored literal default, Raven uses the parameter type's CLR default value. A null
+metadata constant for a value-type parameter also represents `default(T)`; omission
+zero-initializes the value instead of passing a null reference or running a constructor.
+This includes `CancellationToken = default`. Reference-type null defaults remain null.
 
 ## Generic functions
 

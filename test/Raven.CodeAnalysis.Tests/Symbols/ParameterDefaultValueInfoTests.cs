@@ -91,6 +91,21 @@ public sealed class ParameterDefaultValueInfoTests
         Assert.True(SymbolEqualityComparer.Default.Equals(guidType, argument.Type));
     }
 
+    [Theory]
+    [InlineData("System.Guid")]
+    [InlineData("System.Threading.CancellationToken")]
+    public void NullMetadataConstantForValueParameterBindsZeroInitialization(string metadataName)
+    {
+        var tree = SyntaxTree.ParseText("");
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default);
+        var type = compilation.GetTypeByMetadataName(metadataName)!;
+        var parameter = new ProviderParameter(compilation, type, null, false);
+        var binder = new OptionalArgumentBinder(compilation.Assembly, compilation.GetSemanticModel(tree).GetBinder(tree.GetRoot()));
+
+        var argument = Assert.IsType<BoundDefaultValueExpression>(binder.Create(parameter));
+        Assert.True(SymbolEqualityComparer.Default.Equals(type, argument.Type));
+    }
+
     [Fact]
     public void ProviderFlagDoesNotMakeARequiredParameterOptional()
     {

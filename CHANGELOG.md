@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-30
 
+- Bind null optional-parameter metadata constants on value types as zero initialization, including CancellationToken. Preserve reference-null defaults and avoid invoking value-type constructors for omitted arguments. Carried from Raven main 83e700ab6.
+
 - Adapt synchronous and asynchronous Result Main returns in the direct neoCLR emitter:
   integer/unit successes produce their existing process status, failures print to stderr
   and return one, and ordinary error conversions remain intact. Dispatch concrete
