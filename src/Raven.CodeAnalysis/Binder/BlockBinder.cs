@@ -13814,7 +13814,8 @@ partial class BlockBinder : Binder
 
         if (value is null)
         {
-            if (parameterType.TryGetUnion() is { TypeKind: TypeKind.Struct })
+            // CLI null constants on value parameters represent default(T), not a null reference.
+            if (parameterType.IsValueType)
                 return new BoundDefaultValueExpression(parameterType);
 
             return BoundFactory.NullLiteral(parameterType);

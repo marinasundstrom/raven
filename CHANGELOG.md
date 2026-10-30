@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
 
 ## Unreleased
 
+- **2026-10-30:** Bind null optional-parameter metadata constants on value types as zero initialization, including CancellationToken. Preserve reference-null defaults and avoid invoking value-type constructors for omitted arguments.
+
 - Extend unsafe extraction warning `RAV9037` to carrier postfix `!` on Result and Optional; nullable suppression and plain-value `!` are excluded.
 
 - Add postfix carrier `!` (unwrap or fail), including chaining and custom propagation contracts; .NET throws `InvalidOperationException` on failure. Existing nullable suppression remains unchanged. Document the operand-dependent syntax in the website tour, C# guide, and searchable language reference.
