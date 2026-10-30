@@ -313,7 +313,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Ref => RefKind.Ref,
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Out => RefKind.Out,
                 _ => throw new InvalidDataException("unsupported native parameter passing mode")
-            }, p.IsParameterArray, () => module.MapAttributes(p.GetCustomAttributes()))) ]);
+            }, p.IsParameterArray, () => module.MapAttributes(p.GetCustomAttributes()), p.HasDefaultValue, p.DefaultValue)) ]);
     }
     private IPropertySymbol? property;
     internal void Associate(IPropertySymbol value)
@@ -362,8 +362,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 
 internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
 {
-    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray, Func<ImmutableArray<AttributeData>> readAttributes)
-        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; attributes = new(readAttributes); }
+    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray, Func<ImmutableArray<AttributeData>> readAttributes, bool hasDefaultValue, object? defaultValue)
+        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; attributes = new(readAttributes); HasExplicitDefaultValue = hasDefaultValue; ExplicitDefaultValue = defaultValue; }
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     public ITypeSymbol Type { get; }
@@ -371,8 +371,8 @@ internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
     public bool IsVarParams { get; }
     public RefKind RefKind { get; }
     public bool IsMutable => false;
-    public bool HasExplicitDefaultValue => false;
-    public object? ExplicitDefaultValue => null;
+    public bool HasExplicitDefaultValue { get; }
+    public object? ExplicitDefaultValue { get; }
     public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);

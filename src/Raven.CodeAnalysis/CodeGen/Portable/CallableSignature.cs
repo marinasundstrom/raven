@@ -192,11 +192,34 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {
-            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.Type is ITupleTypeSymbol || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryCallType(parameter.Type, false, out var type)) return false;
+            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.Type is ITupleTypeSymbol || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || (parameter.HasExplicitDefaultValue && (capabilities?.AllowsParameterDefaults != true || !SupportsParameterDefault(parameter))) || !AllowsParameterArray(method, parameter, capabilities) || !TryCallType(parameter.Type, false, out var type)) return false;
             parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ? 0 : method.ContainingType?.Arity ?? 0, method.ContainingType is { } physicalOwner && SourceTypePlan.IsStaticContainer(physicalOwner), method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),
             method.ContainingType is { } constrained && ((INamedTypeSymbol)constrained.OriginalDefinition).TypeParameters.Any(p => (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.FunctionType)) != 0), method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray());
         return true;
     }
+    // Explicit target capability: ordinary .NET emission keeps its own constant rules.
+    private static bool SupportsParameterDefault(IParameterSymbol parameter)
+    {
+        if (parameter.RefKind != RefKind.None || parameter.IsVarParams) return false;
+        if (parameter.ExplicitDefaultValue is null) return parameter.Type.IsReferenceType;
+        return parameter.Type.SpecialType switch
+        {
+            SpecialType.System_Boolean => parameter.ExplicitDefaultValue is bool,
+            SpecialType.System_SByte => parameter.ExplicitDefaultValue is sbyte,
+            SpecialType.System_Byte => parameter.ExplicitDefaultValue is byte,
+            SpecialType.System_Int16 => parameter.ExplicitDefaultValue is short,
+            SpecialType.System_UInt16 => parameter.ExplicitDefaultValue is ushort,
+            SpecialType.System_Int32 => parameter.ExplicitDefaultValue is int,
+            SpecialType.System_UInt32 => parameter.ExplicitDefaultValue is uint,
+            SpecialType.System_Int64 => parameter.ExplicitDefaultValue is long,
+            SpecialType.System_UInt64 => parameter.ExplicitDefaultValue is ulong,
+            SpecialType.System_Single => parameter.ExplicitDefaultValue is float,
+            SpecialType.System_Double => parameter.ExplicitDefaultValue is double,
+            SpecialType.System_String => parameter.ExplicitDefaultValue is string,
+            _ => false
+        };
+    }
+
 }

@@ -17710,6 +17710,28 @@ Current restrictions and validation are in `generic-function-methods.md` (compil
 and neoCLR's `docs/design/generic-function-methods.md`. Neo.Signals consumes the
 capability as a separate extension; no event metadata or Task adaptation is added.
 
+## Native scalar parameter defaults (2026-10-30)
+
+The neoCLR capability now permits scalar constants and reference-null defaults.
+Native emit writes an aligned parameter_defaults array; native symbol import restores
+HasExplicitDefaultValue and ExplicitDefaultValue so the existing binder inserts
+omitted/named arguments. Arity and method identity do not change. No Runtime Contract
+entry, parser, grammar or ordinary .NET emission changes are involved. The capability
+is disabled by default for other portable targets.
+
+NeoCLR.Metadata.Experimental owns the native field and its CLI projection through
+Param Optional/HasDefault and Constant records, without custom attributes. The native
+format directly represents the contract; this is not a new attribute-based bridge.
+Supported values are Boolean, signed/unsigned integers, Single/Double, String and
+reference null. Struct/default(T), enum, char, decimal and Optional.None remain gaps,
+not alternate semantics. Runtime CancellationToken overload cleanup is deferred.
+
+Validation: ParameterDefaultCapabilityTests; neoCLR metadata --parameter-defaults
+round trips; native separate-library constructor/method/named-argument consumer and
+Configuration reload integration. The compiler work is target-specific on codex/neoclr
+(base 555c0d7fb); no general main fix or full branch merge is included. See neoCLR
+docs/parameter-defaults.md and the dated Configuration validation receipt.
+
 Execution qualification: the signal consumers pass in the interpreter. The native
 compiler builds and shares signature specialization, but the signal JIT probe stops
 at unsupported boxing of inhabited unit (`Void`). JIT/AOT execution of this library

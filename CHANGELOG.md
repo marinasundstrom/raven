@@ -9,6 +9,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - Add neoCLR-target function-dependent method syntax `func name: T with args`, nullable Object argument arrays and general `ReturnType<T>` projection. Preserve whole signatures through native import and closed generic materialization, including unit-valued call results. Emit format-6 signature/boxed-body metadata through an explicit native capability. Ordinary .NET diagnoses this interop syntax. The typed FunctionReflection helper and separate Neo.Signals library live in neoCLR; Task handling remains separate. Focused compiler and cross-library runtime validation is recorded in the integration docs.
 
 
+- Native neoCLR emission/import now preserves scalar and reference-null parameter
+  defaults as parameter metadata, allowing omitted and named optional arguments
+  across library boundaries. CLI projection uses Param flags and Constant rows;
+  arbitrary struct defaults remain unsupported. No ordinary .NET semantics change.
+
 ### 2026-10-29 — Generic function method investigation
 
 - Refine the generic function-method design around `with args: object?[]` semantics

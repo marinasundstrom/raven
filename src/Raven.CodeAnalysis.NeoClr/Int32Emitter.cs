@@ -832,6 +832,7 @@ internal static class Int32Emitter
                 {
                     pair.Value.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(pair.Key.Parameters[i].Type));
                     pair.Value.SetParameterName(i, pair.Key.Parameters[i].Name);
+                    if (pair.Key.Parameters[i].HasExplicitDefaultValue) pair.Value.SetParameterDefault(i, new ParameterDefaultValue(pair.Key.Parameters[i].ExplicitDefaultValue));
                     if (pair.Key.Parameters[i].IsVarParams) SetParameterArray(pair.Value, i);
                 }
                 interfaceMethods.Add(pair.Key, pair.Value);
@@ -1022,6 +1023,7 @@ internal static class Int32Emitter
             {
                 definition.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(plan.Symbol.Parameters[i].Type));
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
+                if (plan.Symbol.Parameters[i].HasExplicitDefaultValue) definition.SetParameterDefault(i, new ParameterDefaultValue(plan.Symbol.Parameters[i].ExplicitDefaultValue));
                 if (plan.Symbol.Parameters[i].IsVarParams) SetParameterArray(definition, i);
             }
             methods.Add((plan, definition, body));
