@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
-    Action<LinearInstruction, IILGenerator> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, Action<IMethodSymbol>? declareCompositionLocal = null) : ILinearMethodBuilder
+    Action<LinearInstruction, IILGenerator> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, Action<IMethodSymbol>? declareCompositionLocal = null, SignatureType? interopResult = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
@@ -132,7 +132,9 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.String: method.Emit(OpCode.Ldstr, instruction.Text!); break;
             case LinearInstructionKind.ConsoleWrite: method.WriteConsoleLine(); break;
             case LinearInstructionKind.CompilerFailure: method.Fail(instruction.Text!); break;
-            case LinearInstructionKind.Return: method.Emit(OpCode.Ret); break;
+            case LinearInstructionKind.Return:
+                if (interopResult is not null) method.Box(interopResult);
+                method.Emit(OpCode.Ret); break;
             default: throw new InvalidOperationException("Unsupported native linear instruction: " + instruction.Kind);
         }
     }

@@ -212,6 +212,10 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
+        if (x is IFunctionReturnTypeSymbol || y is IFunctionReturnTypeSymbol)
+            return x is IFunctionReturnTypeSymbol leftProjection && y is IFunctionReturnTypeSymbol rightProjection &&
+                EqualsCore(leftProjection.FunctionType, rightProjection.FunctionType, visited);
+
         if (x is StructuralFunctionTypeSymbol || y is StructuralFunctionTypeSymbol)
         {
             if (x is not StructuralFunctionTypeSymbol left || y is not StructuralFunctionTypeSymbol right ||
@@ -495,6 +499,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is IFunctionReturnTypeSymbol projection)
+        {
+            hash.Add(GetHashCodeCore(projection.FunctionType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            return hash.ToHashCode();
         }
 
         if (obj is StructuralFunctionTypeSymbol function)

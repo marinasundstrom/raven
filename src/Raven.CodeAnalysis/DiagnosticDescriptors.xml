@@ -1,5 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Diagnostics>
+  <Descriptor Id="RAV2900" Identifier="InvalidFunctionMethod" Title="Invalid function-signature method"
+    Message="Invalid function-signature method: {reason}." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0506" Identifier="InvalidConditionalUsage" Title="Invalid conditional declaration or use"
     Message="{reason}." Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0021" Identifier="CannotApplyIndexingWithToAnExpressionOfType"

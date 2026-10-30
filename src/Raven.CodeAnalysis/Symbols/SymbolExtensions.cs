@@ -973,6 +973,8 @@ public static partial class SymbolExtensions
 
     private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (typeSymbol is IFunctionReturnTypeSymbol projection)
+            return "ReturnType<" + FormatType(projection.FunctionType, format) + ">";
         if (typeSymbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
         {

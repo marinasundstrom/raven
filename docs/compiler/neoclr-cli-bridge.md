@@ -17695,3 +17695,22 @@ thread/task panic behavior are deferred, not introduced by this rename.
 Validation: 20 focused NeoClrFaultControlFlowTests and RuntimeFailureContractTests
 pass, including imported/qualified Panic, rejected old Fail recognition, signature/
 owner checks and ordinary .NET behavior. The native-enabled compiler builds cleanly.
+
+
+### Function-dependent methods (development, 2026-10-30)
+
+Raven's neoCLR target supports `func name: T with args` and `ReturnType<T>` for
+function-constrained generics. Native format 6 retains the whole signature and its
+boxed-array body transport separately. Closed materialization produces an ordinary
+typed entry, while the implementation receives `object?[]`. The runtime's
+`FunctionReflection.Invoke<T>` returns the projected result. Ordinary .NET/CLI
+function metadata cannot encode these dependencies; no nominal delegate shim is
+introduced. Use native emission with matching compiler/runtime revisions.
+Current restrictions and validation are in `generic-function-methods.md` (compiler)
+and neoCLR's `docs/design/generic-function-methods.md`. Neo.Signals consumes the
+capability as a separate extension; no event metadata or Task adaptation is added.
+
+Execution qualification: the signal consumers pass in the interpreter. The native
+compiler builds and shares signature specialization, but the signal JIT probe stops
+at unsupported boxing of inhabited unit (`Void`). JIT/AOT execution of this library
+is not qualified; unit boxing/unboxing support remains follow-up work.

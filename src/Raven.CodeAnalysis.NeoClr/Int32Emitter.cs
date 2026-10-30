@@ -1016,8 +1016,9 @@ internal static class Int32Emitter
                 }
             }
             if (foreignImports.TryGetValue(plan.Symbol, out var foreignImport)) nativeCallbacks.SetImport(definition, foreignImport);
-            definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
-            for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
+            if (plan.Symbol.DeclaredFunctionType is null)
+                definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
+            for (var i = 0; plan.Symbol.DeclaredFunctionType is null && i < plan.Symbol.Parameters.Length; i++)
             {
                 definition.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(plan.Symbol.Parameters[i].Type));
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
@@ -1321,7 +1322,9 @@ internal static class Int32Emitter
                 throw Unsupported("undeclared instance field");
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope),
-                producer => current.Method.DeclareLocal(Import(producer).Signature.ReturnType)));
+                producer => current.Method.DeclareLocal(Import(producer).Signature.ReturnType),
+                current.Plan.Symbol.DeclaredFunctionType is null ? null :
+                    NeoClrTypeMapper.Map(current.Plan.Symbol.ReturnType, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))));
         }
         // Bind first, then publish user annotations against complete output declarations.
         // Synthesized markers (flags, unions, nullable and params) retain their own encoders.
@@ -1348,7 +1351,7 @@ internal static class Int32Emitter
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
             for (var i = 0; i < symbol.TypeParameters.Length; i++)
                 EmitAttributes(symbol.TypeParameters[i], definition.Definition.GetGenericParameterCustomAttributes(i));
-            for (var i = 0; i < symbol.Parameters.Length; i++)
+            for (var i = 0; symbol.DeclaredFunctionType is null && i < symbol.Parameters.Length; i++)
                 EmitAttributes(symbol.Parameters[i], definition.Definition.GetParameterCustomAttributes(i));
         }
         foreach (var tree in compilation.SyntaxTrees)
@@ -1572,7 +1575,9 @@ internal static class Int32Emitter
                 if (artifact.Sha256 != binding.NativeArtifactSha256)
                     throw Unsupported("native dependency snapshot differs from semantic reference");
                 var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
-                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
+                var contract = symbol.DeclaredFunctionType is { } dependentFunction
+                    ? MethodSignature.FromFunctionType(MapSymbolOnlyType(dependentFunction))
+                    : new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), callable.GenericParameterNames);
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract,
@@ -1590,7 +1595,9 @@ internal static class Int32Emitter
             {
                 _ = ImportExternalType(owner);
                 var declaration = importedTypes[(INamedTypeSymbol)owner.OriginalDefinition];
-                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
+                var contract = symbol.DeclaredFunctionType is { } dependentFunction
+                    ? MethodSignature.FromFunctionType(MapSymbolOnlyType(dependentFunction))
+                    : new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
                     memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
                 if (owner.SpecialType == SpecialType.System_Object && symbol.IsVirtual && !symbol.IsOverride &&
@@ -1681,6 +1688,7 @@ internal static class Int32Emitter
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) ||
             type is ITupleTypeSymbol tuple && tuple.TupleElements.All(e => IsSymbolOnlyType(e.Type, false)) ||
+            type is IFunctionReturnTypeSymbol ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Object or SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
@@ -1690,6 +1698,7 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            IFunctionReturnTypeSymbol projection => SignatureType.FunctionReturn(MapSymbolOnlyType(projection.FunctionType)),
             IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or ITupleTypeSymbol => ImportExternalType(type),
             _ when type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType => MapSymbolOnlyType(type.GetNonNullableType(), result),
             IPointerTypeSymbol pointer => NeoClrTypeMapper.Map(pointer, owned => nativeTypes[owned], ImportExternalType),

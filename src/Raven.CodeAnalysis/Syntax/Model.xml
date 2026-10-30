@@ -1349,6 +1349,10 @@
     <Slot Name="DotToken" Type="Token" DefaultToken="DotToken" />
     <Slot Name="Identifier" Type="Token" />
   </Node>
+  <Node Name="FunctionArgumentsClause" Inherits="Node">
+    <Slot Name="WithKeyword" Type="Token" DefaultToken="WithKeyword" />
+    <Slot Name="Identifier" Type="Token" />
+  </Node>
   <Node Name="MethodDeclaration" Inherits="BaseMethodDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
@@ -1356,8 +1360,10 @@
     <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="FunctionType" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ArgumentsBinding" Type="FunctionArgumentsClause" IsNullable="true" />
     <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />

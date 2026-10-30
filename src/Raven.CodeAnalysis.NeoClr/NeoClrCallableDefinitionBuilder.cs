@@ -17,16 +17,22 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             Accessibility.ProtectedAndProtected when plan.Symbol.MethodKind == MethodKind.Constructor => MethodVisibility.Protected,
             _ => throw new InvalidOperationException("Unsupported native callable visibility")
         };
+        var signature = plan.Symbol.DeclaredFunctionType is { } functionType
+            ? plan.Symbol.IsAbstract
+                ? MethodSignature.FromFunctionType(NeoClrTypeMapper.Map(functionType, resolveClass!, resolveExternal, mapParameter))
+                : MethodSignature.InteropFunction(NeoClrTypeMapper.Map(functionType, resolveClass!, resolveExternal, mapParameter),
+                    NeoClrTypeMapper.Map(((IArrayTypeSymbol)plan.Symbol.Parameters.Single().Type).ElementType.GetNonNullableType(), resolveClass!, resolveExternal, mapParameter))
+            : ToOwnedMetadata(plan.Signature);
         var method = owner is null
-            ? assembly.AddFunction(plan.Namespace, metadataName, ToOwnedMetadata(plan.Signature), visibility)
+            ? assembly.AddFunction(plan.Namespace, metadataName, signature, visibility)
             : plan.Symbol.MethodKind == MethodKind.StaticConstructor ? owner.AddTypeInitializer()
-            : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(ToOwnedMetadata(plan.Signature), visibility)
-            : plan.IsObjectRootSlot ? owner.AddNativeObjectSlot(metadataName, ToOwnedMetadata(plan.Signature))
-            : plan.Symbol.IsOverride ? owner.AddOverride(metadataName, ToOwnedMetadata(plan.Signature))
-            : plan.Symbol.IsAbstract ? owner.AddAbstractMethod(metadataName, ToOwnedMetadata(plan.Signature))
-            : plan.Symbol.IsVirtual ? owner.AddVirtualMethod(metadataName, ToOwnedMetadata(plan.Signature))
-            : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility)
-            : owner.AddInstanceMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility);
+            : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(signature, visibility)
+            : plan.IsObjectRootSlot ? owner.AddNativeObjectSlot(metadataName, signature)
+            : plan.Symbol.IsOverride ? owner.AddOverride(metadataName, signature)
+            : plan.Symbol.IsAbstract ? owner.AddAbstractMethod(metadataName, signature)
+            : plan.Symbol.IsVirtual ? owner.AddVirtualMethod(metadataName, signature)
+            : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, signature, visibility)
+            : owner.AddInstanceMethod(metadataName, signature, visibility);
         foreach (var parameter in plan.Symbol.TypeParameters)
         {
             method.SetSpecialConstraints(parameter.Ordinal, NativeConstraintMapping.ToMetadata(parameter.ConstraintKind));

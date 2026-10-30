@@ -1,10 +1,10 @@
 # Generic function method signatures for neoCLR
 
-**Investigation, 2026-10-29; not implemented.** Author direction is to support a
+**Development implementation, updated 2026-10-30.** Author direction is to support a
 general open-generic function capability, with signals only one consumer:
 
 ```text
-// Proposed syntax. Invoke can be any method name.
+// neoCLR target syntax. Invoke can be any method name.
 class Forwarder<T> where T: func {
     func Invoke: T with args {
         // args: object?[]; null references and boxed value arguments.
@@ -70,7 +70,7 @@ Materialized entry adapters box supported value arguments and preserve null
 references. Array allocation/boxing optimizations must preserve observable
 identity, mutation and escape behavior.
 
-The proposed `FunctionReflectionHelpers.Invoke<T>(handler, args)` additionally
+The proposed `FunctionReflection.Invoke<T>(handler, args)` additionally
 requires a result-type projection. Its parameters are `(T, object?[])`, while its
 result is conceptually `ReturnTypeOf(T)`. This is distinct from giving a method
 the entire signature T. The projection remains dependent in an open body and
@@ -138,3 +138,44 @@ roundtrips pass, and runtime/native-codegen compilation passes. Raven's existing
 11 structural-function tests passed before compiler changes. New projection
 semantic tests, projected method syntax, typed invocation helper, guest reflection
 API, and executable signal qualification are not yet claimed complete.
+
+The author subsequently selected `FunctionReflection` for the typed overload,
+placing it beside the existing dynamic reflection method rather than introducing
+a separate helpers class. Explicit generic arity selects the typed contract.
+
+
+## Implemented native profile (2026-10-30)
+
+The parser represents a method function annotation and optional `with identifier`
+argument binding. Binding permits a declaring-type parameter constrained as func
+on the neoCLR target, with nonvirtual/non-async bodies and no method generic
+parameters. Ordinary .NET behavior is unchanged and diagnoses this declaration.
+The body argument has nullable Object array type. Its return type is the opaque
+ReturnType<T> projection, not Object; an arbitrary concrete return is rejected.
+
+The public symbol contract includes IMethodSymbol.DeclaredFunctionType and
+IFunctionReturnTypeSymbol. Substitution handles owner and method scopes, including
+imported members. Closed owner members expose the function's actual parameters.
+Portable emission admits projection support through an explicit capability; the
+native backend writes function_type and boxed_arguments format-6 metadata. Positional
+attributes are not attached to the synthetic array parameter. Metadata import and
+validation inspect the whole signature without asking an open definition for arity.
+
+FunctionReflection.Invoke<T>(T, Object?[]) is an ordinary runtime library method
+returning ReturnType<T>. Unit as a value and native no-result calls remain distinct
+ABIs; call/discard lowering preserves the selected signature. No Task special case
+is introduced. The runtime materializes the typed entry and packs arguments; the
+body retains boxed interop costs. Rich constraints, ref/out packs, virtual projected
+methods and general CLI encoding remain future work.
+
+Runtime Contracts: use the explicit neoCLR target/native core and the project's
+runtime ownership manifest for iteration/disposal. `runtime/NativeLibrary.props`
+supplies these settings in neoCLR projects. No signal-specific compiler contract is
+added. Neo.Signals is a separate extension library; runtime inclusion is undecided.
+Validation includes focused semantic tests, SDK roundtrips and separately compiled
+library/consumer samples in neoCLR's generic-function-methods-20261030 record.
+
+Execution qualification: the signal consumers pass in the interpreter. The native
+compiler builds and shares signature specialization, but the signal JIT probe stops
+at unsupported boxing of inhabited unit (`Void`). JIT/AOT execution of this library
+is not qualified; unit boxing/unboxing support remains follow-up work.

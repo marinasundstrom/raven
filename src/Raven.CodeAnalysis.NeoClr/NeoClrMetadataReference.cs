@@ -44,6 +44,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap);
 
     internal static bool ContainsComposition(SignatureType type) => type.Composition is not null ||
+        type.FunctionReturnOperand is { } operand && ContainsComposition(operand) ||
         type.Tuple?.ElementTypes.Any(ContainsComposition) == true ||
         type.ReferencedGenericInstance?.TypeArguments.Any(ContainsComposition) == true ||
         type.ArrayElement is { } element && ContainsComposition(element) ||
@@ -51,6 +52,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         type.FunctionSignature is { } function && function.ParameterTypes.Append(function.ReturnType).Any(ContainsComposition);
 
     internal static bool ContainsTuple(SignatureType type) => type.Tuple is not null ||
+        type.FunctionReturnOperand is { } operand && ContainsTuple(operand) ||
         type.Composition?.Constituents.Any(ContainsTuple) == true ||
         type.ReferencedGenericInstance?.TypeArguments.Any(ContainsTuple) == true ||
         type.ArrayElement is { } element && ContainsTuple(element) ||
@@ -62,8 +64,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         foreach (var method in definition.MainModule.Functions.Concat(definition.MainModule.Types.SelectMany(t => t.Methods)))
         {
             if (!method.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported composition signature");
-            yield return signature!.ReturnType;
-            foreach (var parameter in signature.ParameterTypes) yield return parameter;
+            yield return signature!.FunctionType;
             foreach (var constraint in method.TypeConstraints) yield return constraint.Bound;
         }
         foreach (var field in definition.MainModule.Types.SelectMany(t => t.Fields))

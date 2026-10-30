@@ -276,6 +276,13 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is FunctionReturnTypeSymbol projection)
+            {
+                result = projection.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is StructuralFunctionTypeSymbol function)
             {
                 result = function.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
@@ -1551,13 +1558,17 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
         }
     }
 
+    public ITypeSymbol? DeclaredFunctionType => _original.DeclaredFunctionType is { } type ? _constructed.Substitute(type, _methodTypeParameterMap) : null;
     public string Name => _original.Name;
     public ITypeSymbol ReturnType => _returnType ??= _constructed.ReanchorNestedTypeIfNeeded(
         _constructed.Substitute(_original.ReturnType, _methodTypeParameterMap),
         _methodTypeParameterMap);
 
     public ImmutableArray<IParameterSymbol> Parameters =>
-        _parameters ??= _original.Parameters
+        _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
+            ? shape.ParameterTypes.Select((type, index) => (IParameterSymbol)new SourceParameterSymbol(
+                $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
+            : _original.Parameters
             .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(
                 p,
                 _constructed,

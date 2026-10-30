@@ -30,6 +30,8 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 
     internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
     {
+        if (type.FunctionReturn is { } projection)
+            return SignatureType.FunctionReturn(Map(projection.FunctionType, resolveClass, resolveExternal, mapParameter));
         if (type.IsByReference) return SignatureType.ByReference(Map(type with { IsByReference = false }, resolveClass, resolveExternal, mapParameter));
         if (type.Composition is { } composition)
             return resolveExternal?.Invoke(composition) ?? throw new InvalidOperationException("Composition resolver required");

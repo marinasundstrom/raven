@@ -946,7 +946,10 @@ internal class TypeDeclarationParser : SyntaxParser
             typeParameterList = ParseTypeParameterList();
         }
 
-        var parameterList = identifier.IsKind(SyntaxKind.InitKeyword)
+        var functionType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        var parameterList = functionType is not null
+            ? ParameterList(Token(SyntaxKind.None), List(Array.Empty<GreenNode>()), Token(SyntaxKind.None))
+            : identifier.IsKind(SyntaxKind.InitKeyword)
             ? ParseParameterList(allowDiscardParameters: true)
             : new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true, allowDiscardParameters: true);
 
@@ -956,6 +959,13 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             // Report type annotation
             // ConstructorDeclaration
+        }
+
+        FunctionArgumentsClauseSyntax? argumentsBinding = null;
+        if (functionType is not null && ConsumeToken(SyntaxKind.WithKeyword, out var withKeyword))
+        {
+            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var argumentName);
+            argumentsBinding = FunctionArgumentsClause(withKeyword, argumentName);
         }
 
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
@@ -978,14 +988,14 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, expressionBody, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, functionType, parameterList, returnParameterAnnotation, argumentsBinding, constraintClauses, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, body, null, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, functionType, parameterList, returnParameterAnnotation, argumentsBinding, constraintClauses, body, null, terminatorToken);
         }
 
-        return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, null, terminatorToken);
+        return MethodDeclaration(attributeLists, modifiers, funcKeyword, explicitInterfaceSpecifier, identifier, typeParameterList, functionType, parameterList, returnParameterAnnotation, argumentsBinding, constraintClauses, null, null, terminatorToken);
     }
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()

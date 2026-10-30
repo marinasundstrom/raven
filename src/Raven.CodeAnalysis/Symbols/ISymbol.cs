@@ -270,6 +270,8 @@ public interface IAliasSymbol : ISymbol
 public interface IMethodSymbol : ISymbol
 {
     MethodKind MethodKind { get; }
+    /// <summary>The explicit whole-signature operand, or null for an ordinary declaration.</summary>
+    ITypeSymbol? DeclaredFunctionType => null;
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
     ImmutableArray<AttributeData> GetReturnTypeAttributes();
@@ -694,6 +696,13 @@ public interface IStructuralUnionTypeSymbol : ITypeSymbol
     ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
 }
 
+/// <summary>A dependent projection of a structural function's result type.</summary>
+public interface IFunctionReturnTypeSymbol : ITypeSymbol
+{
+    /// <summary>The function-constrained operand whose result will be substituted.</summary>
+    ITypeSymbol FunctionType { get; }
+}
+
 public enum TypeKind
 {
     Unknown,
@@ -713,7 +722,8 @@ public enum TypeKind
     Null,
     Unit,
     Intersection,
-    StructuralUnion
+    StructuralUnion,
+    FunctionReturn
 }
 
 [Flags]

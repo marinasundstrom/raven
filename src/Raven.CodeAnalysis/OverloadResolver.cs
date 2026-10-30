@@ -968,6 +968,8 @@ internal sealed class OverloadResolver
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
+                case IFunctionReturnTypeSymbol projection:
+                    return ContainsTypeParameter(projection.FunctionType);
                 case StructuralFunctionTypeSymbol function:
                     return ContainsTypeParameter(function.ReturnType) || function.ParameterTypes.Any(ContainsTypeParameter);
                 case ITupleTypeSymbol tuple:
@@ -1730,6 +1732,9 @@ internal sealed class OverloadResolver
                         : new ArrayTypeSymbol(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
                 }
 
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteType(t, substitutions));
+
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteType(t, substitutions));
 
@@ -1789,6 +1794,9 @@ internal sealed class OverloadResolver
                 }
 
                 return type;
+
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteType(t, substitutions));
 
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteType(t, substitutions));

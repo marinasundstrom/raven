@@ -342,6 +342,19 @@ internal abstract partial class Binder
     {
         var name = g.Identifier.ValueText;
 
+        if (name == "ReturnType" && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR)
+        {
+            var arguments = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
+            if (!arguments.Success) return arguments;
+            if (arguments.ResolvedTypeArguments.Length != 1) return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
+            var operand = arguments.ResolvedTypeArguments[0];
+            if (operand is StructuralFunctionTypeSymbol function)
+                return new ResolveTypeResult { ResolvedType = function.ReturnType.SpecialType == SpecialType.System_Void ? Compilation.GetSpecialType(SpecialType.System_Unit) : function.ReturnType };
+            if (operand is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
+                return new ResolveTypeResult { ResolvedType = new FunctionReturnTypeSymbol(operand, Compilation.GetSpecialType(SpecialType.System_Unit)) };
+            return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
+        }
+
         var arity = ComputeGenericArity(g);
         INamedTypeSymbol? definition = null;
 

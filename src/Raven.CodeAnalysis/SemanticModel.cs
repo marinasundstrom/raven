@@ -11303,6 +11303,8 @@ public partial class SemanticModel
                 : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
         }
 
+        if (type is FunctionReturnTypeSymbol projection)
+            return projection.Substitute(t => SubstituteTypeParameters(t, substitutions));
         if (type is StructuralFunctionTypeSymbol function)
             return function.Substitute(t => SubstituteTypeParameters(t, substitutions));
 

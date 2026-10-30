@@ -29,7 +29,8 @@ internal static class NativeAttributeValidation
             Check(method.GetCustomAttributes());
             Check(method.GetReturnCustomAttributes());
             foreach (var parameter in method.GetGenericArguments().OfType<MethodGenericParameterTypeInfo>()) Check(parameter.GetCustomAttributes());
-            foreach (var parameter in method.GetParameters()) Check(parameter.GetCustomAttributes());
+            if (method.FunctionType is FunctionTypeInfo)
+                foreach (var parameter in method.GetParameters()) Check(parameter.GetCustomAttributes());
         }
 
         bool Matches(NeoCLR.Metadata.Experimental.Introspection.TypeInfo type, CustomAttributeArgument argument) => argument.Type.Primitive is { } primitive

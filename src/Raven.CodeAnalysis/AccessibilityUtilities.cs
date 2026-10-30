@@ -252,6 +252,11 @@ internal static class AccessibilityUtilities
 
         try
         {
+            if (type is IFunctionReturnTypeSymbol projection)
+            {
+                AddLessAccessibleConstituentTypes(projection.FunctionType, requiredAccessibility, visiting, reported, inaccessibleTypes);
+                return;
+            }
             // Accessibility of a native function signature follows its component types.
             if (type is StructuralFunctionTypeSymbol function)
             {

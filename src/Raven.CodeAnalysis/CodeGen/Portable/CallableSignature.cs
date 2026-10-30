@@ -14,6 +14,8 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         value = default;
         if (depth >= 16) return false;
+        if (capabilities?.AllowsFunctionReturnProjection == true && type is IFunctionReturnTypeSymbol projection)
+        { value = new(FunctionReturn: projection); return true; }
         if (type is ITupleTypeSymbol tuple)
         {
             if (capabilities?.Allows(LinearInstructionKind.NewTuple) != true || tuple.TupleElements.Length is 0 or > 256 || tuple.TupleElements.Any(e =>
@@ -156,6 +158,10 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
                 value = new(Composition: type);
                 return true;
             }
+            if (result && capabilities?.AllowsFunctionReturnProjection == true &&
+                (method.OriginalDefinition is { DeclaredFunctionType: null, ReturnType: IFunctionReturnTypeSymbol } ||
+                 method.DeclaredFunctionType is StructuralFunctionTypeSymbol { ReturnType.SpecialType: not SpecialType.System_Void }))
+                return TryType(type, false, out value, capabilities);
             return TryType(type, result, out value, capabilities);
         }
         bool UnsupportedConstraint(ITypeParameterSymbol parameter) =>

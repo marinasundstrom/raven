@@ -183,6 +183,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             compilation.CreateStructuralUnionTypeSymbol(composition.Constituents.Select(MapView).ToArray()),
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
+        FunctionReturnTypeInfo projection => new FunctionReturnTypeSymbol(MapView(projection.FunctionType), compilation.GetSpecialType(SpecialType.System_Unit)),
         FunctionTypeInfo { NoResult: true } function => compilation.CreateNoResultFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray()),
         FunctionTypeInfo function => compilation.CreateFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray(), MapView(function.ReturnType)),
         PointerTypeInfo pointer => compilation.CreatePointerTypeSymbol(pointer.ElementType is PrimitiveTypeInfo { Kind: PrimitiveType.Void }
@@ -279,6 +280,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     }
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
+    private readonly Lazy<ITypeSymbol?> declaredFunctionType;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     private readonly Lazy<ImmutableArray<AttributeData>> returnAttributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
@@ -302,8 +304,9 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         module.RegisterMethod(view.MetadataToken, this);
         attributes = new(() => module.MapAttributes(view.GetCustomAttributes()));
         returnAttributes = new(() => module.MapAttributes(view.GetReturnCustomAttributes()));
-        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
-        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
+        declaredFunctionType = new(() => view.FunctionType is FunctionTypeInfo ? null : module.MapView(view.FunctionType));
+        returnType = new(() => DeclaredFunctionType is { } operand ? new FunctionReturnTypeSymbol(operand, compilation.GetSpecialType(SpecialType.System_Unit)) : MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
+        parameters = new(() => DeclaredFunctionType is not null ? [] : [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
             p.PassingMode switch
             {
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Value => RefKind.None,
@@ -325,6 +328,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public MethodKind MethodKind => view.IsConstructor ? MethodKind.Constructor : view.IsStaticConstructor ? MethodKind.StaticConstructor : property is null ? Name is "op_Implicit" or "op_Explicit" or "op_CheckedExplicit" ? MethodKind.Conversion
         : Name.StartsWith("op_", StringComparison.Ordinal) ? MethodKind.UserDefinedOperator : MethodKind.Ordinary
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : property is NativePropertySymbol { IsInitOnly: true } ? MethodKind.InitOnly : MethodKind.PropertySet;
+    public ITypeSymbol? DeclaredFunctionType => declaredFunctionType.Value;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => returnAttributes.Value;

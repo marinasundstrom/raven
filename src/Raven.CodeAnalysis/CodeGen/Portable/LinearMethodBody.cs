@@ -25,7 +25,7 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
 // Imported composition locals retain exact producer contracts; native source locals use structural signatures.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null, IMethodSymbol? CompositionProducer = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null, IMethodSymbol? CompositionProducer = null, IFunctionReturnTypeSymbol? FunctionReturn = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -78,6 +78,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 && !forceFunctionInstance : source.IsStatic;
         bool ReturnsValue(IMethodSymbol method) =>
+            capabilities?.AllowsFunctionReturnProjection == true && method.DeclaredFunctionType is StructuralFunctionTypeSymbol dependent
+                ? CallableSignature.TryFunction(dependent, out var dependentShape, capabilities) && dependentShape.ReturnsValue :
+            capabilities?.AllowsFunctionReturnProjection == true && method.OriginalDefinition is { DeclaredFunctionType: null, ReturnType: IFunctionReturnTypeSymbol } ? true :
             method.ContainingType is { TypeKind: TypeKind.Delegate } callable && capabilities is not null &&
                 CallableSignature.TryFunction(callable, out var callableShape, capabilities) ? callableShape.ReturnsValue :
             (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||

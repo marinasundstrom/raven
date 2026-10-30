@@ -9,6 +9,84 @@ public sealed class NativeStructuralFunctionTests
         Compilation.Create("FunctionSymbols", [SyntaxTree.ParseText(source)], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
 
+    [Fact]
+    public void NoResultProjectionProducesInhabitedUnit()
+    {
+        var compilation = Create();
+        var operand = compilation.CreateNoResultFunctionTypeSymbol([]);
+        var unit = compilation.GetSpecialType(SpecialType.System_Unit);
+        var projection = new FunctionReturnTypeSymbol(operand, unit);
+        Assert.Same(unit, projection.Substitute(type => type));
+    }
+
+    [Theory]
+    [InlineData("class Forwarder<T> { func Invoke: T with args { return 1 } }")]
+    [InlineData("class Forwarder<T> where T: func { func Invoke: T with args { return 1 } }")]
+    public void FunctionMethodsRejectUnprovenSignaturesAndArbitraryOpenResults(string source)
+    {
+        var compilation = Create(source);
+        Assert.Contains(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void FunctionMethodSyntaxIsGatedToNeoClr()
+    {
+        var compilation = Create("class Forwarder<T> where T: func { func Invoke: T with args { return default(ReturnType<T>) } }", TargetPlatform.DotNet);
+        Assert.Contains(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics(),
+            diagnostic => diagnostic.Id == "RAV2900");
+    }
+
+    [Fact]
+    public void ReturnProjectionRemainsOpenAndSubstitutesWithFunctionArgument()
+    {
+        var compilation = Create("""
+            abstract class Projector<T> where T: func {
+                abstract func Read() -> ReturnType<T>
+            }
+            """);
+        Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var owner = compilation.GetTypeByMetadataName("Projector`1")!;
+        var method = owner.GetMembers("Read").OfType<IMethodSymbol>().Single();
+        var projection = Assert.IsAssignableFrom<IFunctionReturnTypeSymbol>(method.ReturnType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(owner.TypeParameters[0], projection.FunctionType));
+        var integer = compilation.GetSpecialType(SpecialType.System_Int32);
+        var function = compilation.CreateFunctionTypeSymbol([], integer);
+        var closed = (INamedTypeSymbol)owner.Construct(function);
+        Assert.True(SymbolEqualityComparer.Default.Equals(integer,
+            closed.GetMembers("Read").OfType<IMethodSymbol>().Single().ReturnType));
+    }
+
+    [Fact]
+    public void FunctionMethodBindsNullableObjectArgumentsAndMaterializesParameters()
+    {
+        const string source = """
+            class Forwarder<T> where T: func {
+                func Invoke: T with args {
+                    return default(ReturnType<T>)
+                }
+            }
+            """;
+        var compilation = Create(source);
+        var tree = compilation.SyntaxTrees.Single();
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+        Assert.Empty(tree.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.Equal("args", syntax.ArgumentsBinding!.Identifier.ValueText);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(syntax));
+        Assert.NotNull(method.DeclaredFunctionType);
+        var array = Assert.IsAssignableFrom<IArrayTypeSymbol>(method.Parameters.Single().Type);
+        Assert.True(array.ElementType.IsNullable);
+        var owner = compilation.GetTypeByMetadataName("Forwarder`1")!;
+        var integer = compilation.GetSpecialType(SpecialType.System_Int32);
+        var shape = compilation.CreateFunctionTypeSymbol([integer, integer], integer);
+        var closed = ((INamedTypeSymbol)owner.Construct(shape)).GetMembers("Invoke").OfType<IMethodSymbol>().Single();
+        Assert.Equal(2, closed.Parameters.Length);
+        Assert.True(SymbolEqualityComparer.Default.Equals(integer, closed.ReturnType));
+    }
+
     [Theory]
     [InlineData(TargetPlatform.DotNet, false)]
     [InlineData(TargetPlatform.DotNet, true)]

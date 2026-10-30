@@ -1751,6 +1751,8 @@ public partial class Compilation
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && source is IFunctionReturnTypeSymbol &&
+            destination.SpecialType == SpecialType.System_Object) return true;
         if (!source.IsValueType)
             return false;
 
@@ -1766,6 +1768,8 @@ public partial class Compilation
 
     private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && destination is IFunctionReturnTypeSymbol &&
+            source.GetNonNullableType().SpecialType == SpecialType.System_Object) return true;
         if (!destination.IsValueType)
             return false;
 

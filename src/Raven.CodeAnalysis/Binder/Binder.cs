@@ -2435,6 +2435,9 @@ internal abstract partial class Binder
     {
         switch (type)
         {
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteConstraintType(t, substitutions));
+
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteConstraintType(t, substitutions));
 

@@ -92,6 +92,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     /// </summary>
     public override string MetadataName => Name;
 
+    public ITypeSymbol? DeclaredFunctionType { get; private set; }
+    internal void SetDeclaredFunctionType(ITypeSymbol type) => DeclaredFunctionType = type;
+
     public ITypeSymbol ReturnType => _returnType;
 
     public ImmutableArray<IParameterSymbol> Parameters => _parameters.Cast<IParameterSymbol>().ToImmutableArray();

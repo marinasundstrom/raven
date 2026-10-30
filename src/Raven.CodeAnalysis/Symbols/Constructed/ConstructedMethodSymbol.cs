@@ -116,10 +116,15 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
     public DocumentationComment? GetDocumentationComment() => _definition.GetDocumentationComment();
 
+    public ITypeSymbol? DeclaredFunctionType => _definition.DeclaredFunctionType is { } type ? Substitute(type) : null;
+
     public ITypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
 
     public ImmutableArray<IParameterSymbol> Parameters =>
-        _parameters ??= _definition.Parameters.Select(p => (IParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
+        _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
+            ? shape.ParameterTypes.Select((type, index) => (IParameterSymbol)new SourceParameterSymbol(
+                $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
+            : _definition.Parameters.Select(p => (IParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
 
     public bool IsConstructor => _definition.IsConstructor;
 
@@ -285,6 +290,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                         replacement,
                         Changed: !ReferenceEquals(replacement, type));
                 }
+            }
+
+            if (type is FunctionReturnTypeSymbol projection)
+            {
+                var result = projection.Substitute(t => Substitute(t, visiting, cache).Type);
+                return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
             }
 
             if (type is StructuralFunctionTypeSymbol function)

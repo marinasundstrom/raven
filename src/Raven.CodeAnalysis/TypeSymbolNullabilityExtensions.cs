@@ -147,6 +147,8 @@ public static class TypeSymbolNullabilityExtensions
             return typeSymbol;
         }
 
+        if (typeSymbol is IFunctionReturnTypeSymbol) return typeSymbol;
+
         if (typeSymbol is ITypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0
