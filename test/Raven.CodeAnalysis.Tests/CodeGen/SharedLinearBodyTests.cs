@@ -818,6 +818,36 @@ public class SharedLinearBodyTests
         Assert.Empty((int[])make.Invoke(null, [5, 2])!);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CapturedPrimitiveReceiverUsesItsValueSnapshot(bool local)
+    {
+        var compilation = Create($$"""
+            public static class Capture {
+                public static func Make(value: int) -> () -> string {
+                    {{(local ? "let copy = value" : "")}}
+                    return () => {{(local ? "copy" : "value")}}.ToString()
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true,
+            allowsExternalValueSignatures: true, allowsManagedReferences: true,
+            allowsExternalInstanceCalls: true, allowsExternalValueInstanceCalls: true);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out var body, out var failure, capabilities), failure?.Detail);
+        var (function, syntax) = Assert.Single(body!.Functions);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+            _ => false, out _, out failure, capabilities, function), failure?.Detail);
+        var callback = (Delegate)Emit(compilation).GetType("Capture")!.GetMethod("Make")!.Invoke(null, [42])!;
+        Assert.Equal("42", callback.DynamicInvoke());
+    }
+
     [Fact]
     public void ValueCaptureCapabilityCannotAdmitBorrowedStorage()
     {

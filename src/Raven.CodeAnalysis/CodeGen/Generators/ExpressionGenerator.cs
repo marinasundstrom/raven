@@ -6935,6 +6935,19 @@ internal partial class ExpressionGenerator : Generator
 
         switch (symbol)
         {
+            case StructuralFunctionPropertySymbol functionProperty:
+                var functionReceiver = ILGenerator.DeclareLocal(ResolveClrType(receiver.Type));
+                if (!receiverAlreadyLoaded)
+                    EmitExpression(receiver);
+                ILGenerator.Emit(OpCodes.Stloc, functionReceiver);
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(functionProperty.Binding.CurrentGetter));
+                ILGenerator.Emit(OpCodes.Ldloc, functionReceiver);
+                if (receiver.Type is ITypeParameterSymbol || receiver.Type.IsValueType)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiver.Type));
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(functionProperty.Binding.Resolver));
+                if (ShouldDiscardCurrentResult(memberAccessExpression))
+                    ILGenerator.Emit(OpCodes.Pop);
+                break;
             case IPropertySymbol propertySymbol:
                 if (propertySymbol.IsExtensionProperty)
                 {

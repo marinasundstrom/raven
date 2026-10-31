@@ -1071,6 +1071,11 @@ internal sealed class OverloadResolver
     {
         constraintFailure = null;
 
+        if (compilation.UsesStructuralFunctions && parameterType is ITypeParameterSymbol parameter &&
+            parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) &&
+            methodGroup.DelegateType is StructuralFunctionTypeSymbol naturalFunction)
+            return TryInferFromTypes(compilation, parameterType, naturalFunction, substitutions, inferenceMethod);
+
         // Method groups only participate in inference when the target parameter is a delegate type.
         if (parameterType is not INamedTypeSymbol delegateType ||
             delegateType.TypeKind != TypeKind.Delegate)

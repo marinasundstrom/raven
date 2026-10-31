@@ -117,7 +117,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
                 transport.Name == "Action"
                     ? _reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Void)
                     : invoke.ReturnType,
-                (INamedTypeSymbol)_reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Object));
+                (INamedTypeSymbol)_reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Object), _reflectionTypeLoader.Compilation);
         }
 
         if (RefKind.IsByRef && resolved is RefTypeSymbol refType)

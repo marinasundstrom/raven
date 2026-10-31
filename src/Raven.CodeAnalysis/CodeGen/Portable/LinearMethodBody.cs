@@ -1167,10 +1167,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     // Captures are immutable value snapshots. Instance receivers get a
                     // defensive local copy, never an address into closure storage.
                     BoundLocalAccess local when local.Type is INamedTypeSymbol valueType &&
-                        capabilities.AllowsValueCapture(valueType) &&
+                        (capabilities.AllowsValueCapture(valueType) || TryType(valueType, false, out var captureType) && captureType.Primitive is not null) &&
                         captures.Any(c => SymbolEqualityComparer.Default.Equals(c, local.Local)) => TemporaryReceiver(local, syntax),
                     BoundParameterAccess parameter when parameter.Type is INamedTypeSymbol valueType &&
-                        capabilities.AllowsValueCapture(valueType) &&
+                        (capabilities.AllowsValueCapture(valueType) || TryType(valueType, false, out var captureType) && captureType.Primitive is not null) &&
                         captures.Any(c => SymbolEqualityComparer.Default.Equals(c, parameter.Parameter)) => TemporaryReceiver(parameter, syntax),
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
                     BoundArrayAccessExpression array => ArrayElementAddress(array),
@@ -1747,6 +1747,22 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundArrayAccessExpression access:
                     if (!ArrayReceiverAndIndex(access)) return false;
                     instructions.Add(new(LinearInstructionKind.LoadElement, Syntax(expression), Type: access.ElementType)); return true;
+                case BoundMemberAccessExpression { Member: StructuralFunctionPropertySymbol functionProperty } functionAccess:
+                    var functionBinding = functionProperty.Binding;
+                    if (!TrySignature(functionBinding.CurrentGetter, out var functionCurrent) ||
+                        !TrySignature(functionBinding.Resolver, out var functionResolver) ||
+                        capabilities is not null && (!capabilities.Allows(functionCurrent) || !capabilities.Allows(functionResolver)))
+                        return Reject("unsupported structural function inspection contract", Syntax(expression));
+                    Add(LinearInstructionKind.Call, Syntax(expression), method: functionBinding.CurrentGetter);
+                    if (!LowerValue(functionAccess.Receiver)) return false;
+                    var functionConversion = functionAccess.Receiver.Type is ITypeParameterSymbol
+                        ? LinearInstructionKind.BoxToObject : LinearInstructionKind.ReferenceConvert;
+                    if (capabilities?.Allows(functionConversion) != true)
+                        return Reject("unsupported structural function receiver conversion", Syntax(expression));
+                    instructions.Add(new(functionConversion, Syntax(expression), Type: functionAccess.Receiver.Type is ITypeParameterSymbol
+                        ? functionAccess.Receiver.Type : functionBinding.Resolver.Parameters[0].Type));
+                    Add(InstanceCallKind(functionBinding.Resolver), Syntax(expression), method: functionBinding.Resolver);
+                    return true;
                 case BoundMemberAccessExpression { Member: IPropertySymbol { Name: "Length", IsStatic: false, Type.SpecialType: SpecialType.System_Int32, GetMethod.Parameters.Length: 0 } lengthProperty } length
                     when SupportedArray(length.Receiver.Type) && (lengthProperty.ContainingType?.SpecialType == SpecialType.System_Array ||
                         lengthProperty.ContainingType is { } arrayShape && model.Compilation.IsRuntimeArrayShape(arrayShape)):
@@ -2239,7 +2255,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)
                         || target.ContainingType?.TypeKind == TypeKind.Interface && capabilities.AllowsInterfaceDispatch) &&
                     (target.ContainingType?.Arity is not > 0 || capabilities.AllowsGenericClassOwners) &&
-                    !target.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty &&
+                    (!target.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty ||
+                        capabilities.AllowsImportedFunctionValues && target.IsStatic && !target.IsGenericMethod && target.ContainingType is null) &&
                     TryType(creation.DelegateType, false, out var functionType) && capabilities.Allows(functionType):
                     if (!target.IsStatic && !Receiver(creation.Receiver, target.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));
