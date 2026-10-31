@@ -2272,12 +2272,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundInvocationExpression call when capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
                     call.Method is { IsStatic: false, IsAbstract: true, IsGenericMethod: false, ContainingType.TypeKind: TypeKind.Interface } &&
-                    call.Receiver?.Type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } receiverParameter:
+                    call.Receiver?.Type is ITypeParameterSymbol receiverParameter:
                     var constrainedArguments = call.Arguments.ToArray();
                     if (!TrySignature(call.Method, out var constrainedSignature) || !capabilities.Allows(constrainedSignature) ||
                         constrainedArguments.Length != call.Method.Parameters.Length || call.Method.Parameters.Any(p => p.RefKind != RefKind.None))
                         return Reject("unsupported constrained instance signature", Syntax(expression));
-                    if (!LowerReference(call.Receiver)) return false;
+                    if (!LowerReference(call.Receiver is BoundLocalAccess receiverLocal
+                        ? new BoundAddressOfExpression(receiverLocal) : call.Receiver)) return false;
                     for (int i = 0; i < constrainedArguments.Length; i++)
                         if (!LowerValue(constrainedArguments[i], call.Method.Parameters[i].Type)) return false;
                     instructions.Add(new(LinearInstructionKind.ConstrainedCall, Syntax(expression), Method: call.Method is NativeSelfMethodSymbol projectedCall ? projectedCall.AdapterMethod : call.Method, Type: receiverParameter));

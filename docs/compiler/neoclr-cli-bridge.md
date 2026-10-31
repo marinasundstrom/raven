@@ -18120,3 +18120,41 @@ reference; the native emitter uses the metadata writer's consumer-owned imported
 binding contract. The host and tests can therefore share one compiled handler
 library. Imported generic and instance method-group binding remain outside this
 bounded follow-on. Ordinary .NET emission capabilities are unchanged.
+
+
+## Nominal constrained middleware calls (development, 2026-10-31)
+
+Neo.Web's `ServiceMiddleware<T: Middleware>` resolves a typed DI service
+and invokes its interface method directly. Portable lowering now borrows both
+method-parameter and owner-parameter receivers, including locals. The metadata
+writer proves the target from the declared nominal/structural bound; imported
+nonvirtual generic reference-class methods retain their interface bounds.
+Native `callself` represents this dispatch. Interpreter borrowed calls preserve
+mutable value receiver storage; native specialization now adapts borrowed instance
+calls to direct value calls or reference calls with virtual dispatch as required.
+Argument spills and branch/source-point remapping preserve evaluation order.
+No new opcode or CLI encoding is introduced. Owned nongeneric
+and completed imported interface contracts remain the bounded target categories;
+this does not expand general structural typing or inherited-Self conformance.
+
+The native specializer must check owner bounds against original conformance
+metadata before projecting value layouts. The interpreter and code generator own
+execution; Raven owns binding/lowering and the metadata writer owns emission proof.
+Use a matching compiler/metadata build; compiler main alone does not update a bundle.
+
+Carrier syntax keeps the existing mapping contract: both `result?.Method(...)`
+and `result?.Property` wrap the accessed value in a new carrier. Postfix `?`
+separately unwraps success or propagates Failure/None from a compatible enclosing
+function. A method already returning Result therefore introduces a nested Result;
+no implicit flattening or Task is added. Neo.Web's sample favors separate
+registration statements with postfix `?`. `Use`/`UseMiddleware` return the
+application on success, allowing explicit unwrap-or-fail or propagation composition.
+
+Validation: the source-core metadata probe emits a reduced nominal consumer covering
+owner/method constraints, value mutation through local receivers, reference state
+and virtual overrides. It returns 42 under the matching neoCLR interpreter and JIT.
+The focused .NET ConditionalAccess, FailureResultCodeGen, PropagationCodeGen and
+NativeSelfContract selection passes 60 tests. The source-core probe retains explicit
+negative coverage for inherited-Self conformance ownership. Full native execution
+and component hashes are recorded in neoCLR's
+`docs/validation/neo-web-middleware-20261031`.
