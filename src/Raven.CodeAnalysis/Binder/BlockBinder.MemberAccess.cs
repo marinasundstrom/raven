@@ -52,16 +52,9 @@ partial class BlockBinder
         }
 
         Compilation.EnsureSourceTypeDeclarationsDeclared();
-        if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-            Compilation.Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(namedReceiverType.SpecialType) == true)
-        {
-            // Lookup follows the explicitly selected source implementation; primitive
-            // expression/signature storage remains the bootstrap's canonical type.
-            if (Compilation.Assembly.GetTypeByMetadataName(namedReceiverType.ToFullyQualifiedMetadataName()) is not { } sourceProvider)
-                return Compilation.ErrorTypeSymbol;
-            namedReceiverType = sourceProvider;
-            receiverType = sourceProvider;
-        }
+        if (Compilation.GetSourceMemberLookupType(namedReceiverType) is not { } selectedReceiverType)
+            return Compilation.ErrorTypeSymbol;
+        receiverType = namedReceiverType = selectedReceiverType;
 
         var semanticModel = SemanticModel;
         if (semanticModel is null)

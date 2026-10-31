@@ -115,6 +115,30 @@ members are still checked using loaded symbols. Named import/core matching retai
 its existing policy. Direct semantic queries have not acquired a new configuration
 validation API; this early boundary applies to diagnostic collection and emission.
 
+## Binding capabilities and special-type ownership
+
+Target contracts expose internal availability decisions for function-type methods,
+`ReturnType<T>` projection, intersection types and the `char` keyword. Availability
+is distinct from structural runtime representation. .NET remains the default:
+`ReturnType<T>` is ordinary name lookup, `char` retains `System.Char`, and `A & B`
+remains valid as generic-constraint conjunction syntax. neoCLR opts into the
+exclusive features and maps its character special type to `System.Character`.
+Both binding and `Compilation.ResolvePredefinedType` consult the same char policy.
+
+After successful lookup, the contract can normalize semantic type identity and
+its named definition. The neoCLR contract owns selected Object/unit owners and
+source RuntimeTypeHandle canonicalization, selected source-primitive member
+lookup, and the existing unit-pointer CLI bridge mapping. The .NET contract
+retains optional CLR-void-to-unit projection. Contracts receive semantic symbols,
+not syntax or binder result objects, and do not cache symbols across compilations.
+
+Shared binding retains name lookup, type argument inference, constraint checking,
+source declaration setup, failed-result handling and diagnostics. Function
+projection construction and function-method validity checks remain shared
+semantic algorithms, gated by explicit capabilities. No public API or Runtime
+Contract option was added; grammar and language-service entry points are unchanged.
+See [bootstrap boundary validation](architecture/bootstrap-target-boundaries.md#third-slice-feature-capabilities-and-special-types).
+
 ## Array range-access contracts
 
 Array range syntax, bound evaluation, conversion to `System.Range`, rank checks

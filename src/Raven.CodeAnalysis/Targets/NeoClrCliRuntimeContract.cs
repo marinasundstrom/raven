@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Targets;
 
 // Shared neoCLR semantic policy for the CLI bridge and bounded native metadata path.
 // Broader native marker, type-handle and representation contracts remain incremental.
-internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
+internal sealed partial class NeoClrCliRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
     protected override string ArraySliceMethodName => "GetSlice";
 

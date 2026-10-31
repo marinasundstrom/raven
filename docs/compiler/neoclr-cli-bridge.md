@@ -1,5 +1,27 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Binding-policy ownership after consolidation (2026-10-31)
+
+`NeoClrCliRuntimeContract.Binding` now owns normalization that previously lived
+inside binding: selected Object/unit providers, canonical bootstrap handle
+identity, source-primitive member receivers and the selected `System.Void` unit
+pointer mapping. The binder still declares source shells before lookup and owns
+semantic failures and diagnostics. This is an ownership extraction, not a new
+bridge format or native language restriction.
+
+Native intent remains explicit runtime type ownership and native unit storage.
+The existing CLI compatibility representation retains bootstrap primitive/handle
+signature identity while source implementations are compiled; a pointer to the
+selected Void unit remains CLI `PTR VOID`, rather than a pointer to its storage
+carrier. Nominal definition bookkeeping is preserved during unit projection.
+These are transport rules, not proof of unrestricted native pointer support.
+Native metadata/codegen that carries the owned identities and pointer semantics
+directly replaces the corresponding bootstrap/CLI projections; no such capability
+is added by moving the policies. Existing losses and restrictions below remain.
+
+The [third boundary slice](architecture/bootstrap-target-boundaries.md#third-slice-feature-capabilities-and-special-types)
+records focused ownership, unit/pointer, capability and native validation evidence.
+
 ## Consolidated target status (2026-10-31)
 
 The shared compiler includes an opt-in native metadata backend. Explicit neoCLR

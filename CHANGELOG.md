@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- Move binding feature capabilities and special-type normalization behind target
+  contracts. Keep .NET defaults, ordinary constraint conjunctions and user-defined
+  `ReturnType<T>` names; preserve native function projections, Character policy,
+  selected primitive owners and existing unit/pointer bridge mappings.
+
 - Move array range-access runtime-helper selection and neoCLR slice-result
   validation from binding into target contracts. Preserve .NET array-copy
   defaults and neoCLR view binding, with shared range conversions and diagnostics.

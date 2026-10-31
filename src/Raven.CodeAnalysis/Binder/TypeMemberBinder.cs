@@ -996,7 +996,7 @@ internal partial class TypeMemberBinder : Binder
         if (methodDecl.FunctionType is { } functionAnnotation)
         {
             functionOperand = ResolveTypeSyntaxForSignature(methodBinder, functionAnnotation.Type, RefKind.None, signatureTypeResolutionOptions);
-            if (Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR ||
+            if (!Compilation.SupportsFunctionTypeMethods ||
                 functionOperand is not ITypeParameterSymbol { ConstraintKind: TypeParameterConstraintKind.FunctionType } ||
                 isAsync || isVirtual || isOverride || isExtern || isExtensionMember || methodSymbol.TypeParameters.Length != 0)
             {

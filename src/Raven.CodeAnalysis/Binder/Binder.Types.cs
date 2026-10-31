@@ -160,46 +160,13 @@ internal abstract partial class Binder
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
 
-        // Namespace lookup can encounter the primitive bootstrap Object before the
-        // explicitly selected native root. Type spelling must not change ownership.
-        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-            Compilation.Options.MetadataImportOptions is { ObjectAssemblyName: not null } rootImports &&
-            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
-            objectType.ContainingAssembly?.Name == rootImports.CoreAssemblyName &&
-            objectType.ToFullyQualifiedMetadataName() == "System.Object")
+        if (result.Success)
         {
-            var root = Compilation.GetSpecialType(SpecialType.System_Object);
-            result = result with { ResolvedType = root, ResolvedNamedDefinition = root };
+            var (type, definition) = Compilation.NormalizeResolvedTypeForTarget(
+                result.ResolvedType, result.ResolvedNamedDefinition);
+            if (!ReferenceEquals(type, result.ResolvedType) || !ReferenceEquals(definition, result.ResolvedNamedDefinition))
+                result = result with { ResolvedType = type, ResolvedNamedDefinition = definition };
         }
-
-        // A selected source handle declares the runtime-owned intrinsic; signatures
-        // retain the bootstrap identity while its implementation is being compiled.
-        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-            Compilation.Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(SpecialType.System_RuntimeTypeHandle) == true &&
-            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } sourceHandle &&
-            SymbolEqualityComparer.Default.Equals(sourceHandle.ContainingAssembly, Compilation.Assembly) &&
-            sourceHandle.ToFullyQualifiedMetadataName() == "System.RuntimeTypeHandle")
-        {
-            var canonicalHandle = Compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle);
-            result = result with { ResolvedType = canonicalHandle, ResolvedNamedDefinition = canonicalHandle };
-        }
-
-        // Merged namespaces can return the bootstrap declaration first. Its
-        // spelling must select the same unit owner as the explicit native contract.
-        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-            Compilation.Options.RuntimeUnitContract is { } unitContract &&
-            unitContract.AssemblyName != Compilation.Options.TargetCoreAssemblyName &&
-            Compilation.ResolveRuntimeUnitType() is { } selectedUnit &&
-            (SymbolEqualityComparer.Default.Equals(result.ResolvedType, selectedUnit) ||
-             unitContract.TypeName == "System.Void" &&
-             result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
-             bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName &&
-             bootstrapUnit.ContainingAssembly?.Name == Compilation.Options.MetadataImportOptions?.CoreAssemblyName))
-            result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
-
-        if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&
-            Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
-            result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
 
         if (!Compilation.Options.AllowNullableValueTypes && result.Success &&
             IsNullableValueType(result.ResolvedType))
@@ -342,7 +309,7 @@ internal abstract partial class Binder
     {
         var name = g.Identifier.ValueText;
 
-        if (name == "ReturnType" && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR)
+        if (name == "ReturnType" && Compilation.SupportsFunctionReturnTypeProjection)
         {
             var arguments = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
             if (!arguments.Success) return arguments;
@@ -670,7 +637,7 @@ internal abstract partial class Binder
             SyntaxKind.SByteKeyword => SpecialType.System_SByte,
             SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
             SyntaxKind.StringKeyword => SpecialType.System_String,
-            SyntaxKind.CharKeyword when Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR => SpecialType.System_Char,
+            SyntaxKind.CharKeyword when Compilation.SupportsCharKeyword => SpecialType.System_Char,
             SyntaxKind.FloatKeyword => SpecialType.System_Single,
             SyntaxKind.DoubleKeyword => SpecialType.System_Double,
             SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
@@ -839,7 +806,7 @@ internal abstract partial class Binder
         while (root.Parent is ParenthesizedTypeSyntax or IntersectionTypeSyntax)
             root = root.Parent;
 
-        if ((!Compilation.UsesStructuralCompositions && root.Parent is not TypeConstraintSyntax) || intersection.Types.Count == 0)
+        if ((!Compilation.SupportsIntersectionTypes && root.Parent is not TypeConstraintSyntax) || intersection.Types.Count == 0)
             return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
 
         var constituents = ImmutableArray.CreateBuilder<ITypeSymbol>(intersection.Types.Count);
@@ -1010,14 +977,7 @@ internal abstract partial class Binder
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(p.ElementType, TypeResolutionFailureKind.PointerElementFailed))
             };
 
-        // Native unit has nominal storage, but an unmanaged pointer to the explicitly
-        // selected System.Void contract remains CLI PTR VOID, not a pointer to that carrier.
-        var pointedAt = element.ResolvedType;
-        if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-            Compilation.Options.RuntimeUnitContract is { TypeName: "System.Void", MapClrVoidToUnit: false } &&
-            (pointedAt.SpecialType == SpecialType.System_Unit ||
-             SymbolEqualityComparer.Default.Equals(pointedAt, Compilation.ResolveRuntimeUnitType())))
-            pointedAt = Compilation.GetSpecialType(SpecialType.System_Void);
+        var pointedAt = Compilation.GetPointerElementTypeForTarget(element.ResolvedType);
         return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(pointedAt) };
     }
 

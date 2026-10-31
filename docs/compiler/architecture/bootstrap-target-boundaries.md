@@ -142,3 +142,69 @@ This slice qualifies .NET execution and both targets' binding policies. Native
 array-range execution and alias/lifetime behavior were not rerun or newly
 qualified; no full bootstrap gate was run. Other direct target checks in binding
 remain later slices, beginning with feature capabilities and special-type syntax.
+
+## Third slice: feature capabilities and special types
+
+First merged main through `9cd1c94ae` into this branch (`ddaf45636`), preserving
+`8e9bb96ec` structural function inspection and the subsequent imported native
+module-function work. The only merge conflict was the changelog; both entries
+were retained. The main worktree was clean and was not modified.
+
+Target contracts now own availability of function-type methods, ReturnType
+projection, intersection types and the char keyword. Intersection availability
+is separate from structural-composition representation, preserving .NET's
+constraint conjunction syntax. Shared binding still owns lookup, inference,
+feature-specific semantic algorithms and diagnostics. No direct TargetPlatform
+check remains in Binder; other option-based language policies and representation
+choices are not claimed to be fully extracted.
+
+Successful type resolution passes semantic type/definition pairs through target
+normalization. Native policy selects Object/unit providers and canonical source
+handles; pointer element mapping and source-primitive member lookup also belong
+to the target. Failed lookup bypasses normalization, and failed replacements
+retain the original early-exit behavior. Source declaration shells are completed
+at the same binder boundary as before. Contract methods hold no symbol caches.
+
+The shared predefined-type API and binder use the same char capability. Concrete
+character metadata names are supplied by the target, preserving .NET System.Char
+and neoCLR System.Character. Existing native Self and structural representation
+contracts remain in place. This slice adds no new syntax, public API, configuration
+option, native encoding or runtime behavior.
+
+Validation on 2026-10-31, SDK `11.0.100-rc.1.26425.128`, macOS ARM64:
+
+- Baseline after merging main: **236** tests covering native function signatures,
+  function constraints (including main's inspection changes), metadata import,
+  source primitive/Object/unit ownership, preferred core and special types,
+  runtime unit contracts, pointer semantics, character parsing and shared linear
+  bodies; then **67** profile/intersection tests. All passed without skips.
+- After extraction: **307** passed without failures/skips in one focused run:
+  the same 303 tests plus four target-tagged API checks for ordinary .NET
+  ReturnType names, native return projection, and agreement of char binding with
+  the predefined-type API on each target. The native API fixtures are semantic
+  tests using host references, not native runtime configuration qualification.
+- Focused classes: NativeStructuralFunctionTests, FunctionKindConstraintTests,
+  MetadataImportOptionsTests, SourcePrimitiveMemberTests, PreferredPrimitiveCoreTests,
+  SourceObjectRootTests, SourceUnitContractTests, RuntimeUnitContractTests,
+  NeoClrUnitContractTests, TargetSpecialTypeTests, PointerTypeSemanticTests,
+  CharacterKeywordTests, SharedLinearBodyTests, NeoClrProfileTests,
+  IntersectionConstraintTests, IntersectionTypeDiagnosticsTests,
+  SourceStructuralIntersectionTests and TargetBindingCapabilityTests. Run as
+  OR-separated `FullyQualifiedName~<class>` filters in Raven.CodeAnalysis.Tests,
+  with `/property:WarningLevel=0`. After explicit compiler builds, the test build
+  used `/property:BuildProjectReferences=false`.
+- Compiler builds passed for net10.0 and net11.0. Test-host and native-probe
+  compiler hashes matched their respective rebuilt compiler binaries.
+- Native adapter/probe builds used an isolated metadata dependency at neoCLR
+  `2c86afc6b`; the earlier `4ca2b990b` dependency lacks the imported-function API
+  now required by main. `NeoClrMetadataProbe --native-source-core` passed,
+  including source ownership, consumer import/emission, completion and negative
+  configuration/signature cases. Its consumer exited **42**, and uninitialized
+  read/negative-length controls each exited **1** on the frozen interpreter with
+  SHA-256 `4962197d501dc13198a228b208ad20e5aac546905a18993f70e70b5842e751f4`.
+- Whitespace formatting and `git diff --check` passed; formatting reported
+  workspace-load warnings. No direct `TargetPlatform` check remains under Binder.
+
+This qualifies focused modern .NET behavior and the native source-core interpreter
+control, not .NET Framework/NanoFramework, native JIT/AOT or a bootstrap release.
+The metadata library and runtime behavior were not changed by this refactoring.
