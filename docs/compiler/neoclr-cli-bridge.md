@@ -18091,3 +18091,10 @@ the compiler does not reopen a reader definition to reconstruct missing facts.
 The separate native provider/consumer probe registers named handlers from both
 synchronous and asynchronous functions. Primitive values captured by the runtime
 async adapter use temporary receiver copies for ordinary instance calls.
+
+The native target separately opts into imported function-value binding for
+nongeneric module-level functions. Portable lowering preserves the method
+reference; the native emitter uses the metadata writer's consumer-owned imported
+binding contract. The host and tests can therefore share one compiled handler
+library. Imported generic and instance method-group binding remain outside this
+bounded follow-on. Ordinary .NET emission capabilities are unchanged.

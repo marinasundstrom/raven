@@ -2255,7 +2255,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)
                         || target.ContainingType?.TypeKind == TypeKind.Interface && capabilities.AllowsInterfaceDispatch) &&
                     (target.ContainingType?.Arity is not > 0 || capabilities.AllowsGenericClassOwners) &&
-                    !target.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty &&
+                    (!target.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty ||
+                        capabilities.AllowsImportedFunctionValues && target.IsStatic && !target.IsGenericMethod && target.ContainingType is null) &&
                     TryType(creation.DelegateType, false, out var functionType) && capabilities.Allows(functionType):
                     if (!target.IsStatic && !Receiver(creation.Receiver, target.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));

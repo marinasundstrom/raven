@@ -13,7 +13,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   instance calls on captured primitive value snapshots in portable lowering by
   making a temporary receiver copy, matching existing captured value semantics.
   Infer named-method function values for `func` parameters and preserve native
-  instance-method function constraints through explicit writer contracts.
+  instance-method function constraints through explicit writer contracts. Permit
+  native references to nongeneric module-level functions from a referenced library,
+  enabling one handler library to serve both an application and its tests.
 
 - Keep cold semantic queries independent of query order when a top-level function
   uses a type imported from another source file. Resolve deferred imports from

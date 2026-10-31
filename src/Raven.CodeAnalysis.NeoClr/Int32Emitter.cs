@@ -1304,8 +1304,13 @@ internal static class Int32Emitter
                 else if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
                     var symbol = instruction.Method!;
+                    ImportedMethodReference? importedTarget = null;
                     if (!definedMethods.TryGetValue(symbol.OriginalDefinition, out var target) && !interfaceMethods.TryGetValue(symbol.OriginalDefinition, out target))
-                        throw Unsupported("Function binding requires an owned target");
+                    {
+                        if (!symbol.IsStatic || symbol.IsGenericMethod || symbol.ContainingType is not null)
+                            throw Unsupported("Imported function binding requires a nongeneric module function");
+                        importedTarget = Import(symbol);
+                    }
                     var genericClosure = closureParameters.GetValueOrDefault(symbol) ?? [];
                     var closureArguments = genericClosure.Select(p => ScopedParameter(p, emissionScope)).ToArray();
                     if (closureConstructors.TryGetValue(symbol, out var constructor))
@@ -1316,14 +1321,16 @@ internal static class Int32Emitter
                     var shape = NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope));
                     void Bind(SignatureType bindingShape)
                     {
-                        if (closureArguments.Length != 0)
+                        if (importedTarget is not null)
+                            output.BindFunction(bindingShape, importedTarget);
+                        else if (closureArguments.Length != 0)
                             output.BindFunction(bindingShape, target.MakeConstructedReference(closureArguments));
                         else if (symbol.ContainingType is { } owner && NeoClrTypeMapper.OwnerArguments(owner).Length > 0)
                             output.BindFunction(bindingShape, target.MakeConstructedReference(NeoClrTypeMapper.OwnerArguments(owner).Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))), symbol.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope)))));
                         else if (symbol.IsGenericMethod) output.BindFunction(bindingShape, target.MakeGenericInstance(symbol.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                         else output.BindFunction(bindingShape, target);
                     }
-                    if (target.Signature.ReturnType.Primitive == PrimitiveType.Void && !shape.FunctionSignature!.NoResult)
+                    if ((target?.Signature ?? importedTarget!.Signature).ReturnType.Primitive == PrimitiveType.Void && !shape.FunctionSignature!.NoResult)
                     {
                         var unit = NeoClrTypeMapper.Map(compilation.UnitTypeSymbol, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope));
                         if (shape.FunctionSignature.ReturnType != unit) throw Unsupported("callback result requires an explicit conversion");
