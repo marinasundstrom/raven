@@ -115,6 +115,25 @@ members are still checked using loaded symbols. Named import/core matching retai
 its existing policy. Direct semantic queries have not acquired a new configuration
 validation API; this early boundary applies to diagnostic collection and emission.
 
+## Array range-access contracts
+
+Array range syntax, bound evaluation, conversion to `System.Range`, rank checks
+and source diagnostics remain shared binder responsibilities. The binder asks
+`Compilation.ResolveArraySliceMethod` for a semantic method symbol; the selected
+runtime contract owns runtime-helper resolution and result-shape requirements.
+No backend switch or new public semantic API is exposed to language services.
+
+`DotNetRuntimeContract` selects `RuntimeHelpers.GetSubArray<T>` and retains its
+existing helper signature policy. `NeoClrCliRuntimeContract` selects `GetSlice<T>`
+and requires a ref-like `System.Slice<T>` result with the array's element type.
+Missing or incompatible native helpers do not fall back to the .NET array-copy
+helper. Resolution is lazy and uses the current compilation's symbols; target
+contracts do not cache symbols across snapshots. No configuration, metadata
+encoding, default target or language grammar changes accompany this extraction.
+
+See the [bootstrap boundary review](architecture/bootstrap-target-boundaries.md#second-slice-array-range-access-policy)
+for validation and the remaining copy/view semantic review.
+
 ## Current target composition
 
 `Targets.CompilationTarget` composes the selected runtime contract and semantic

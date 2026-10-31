@@ -4,6 +4,13 @@ namespace Raven.CodeAnalysis.Targets;
 // Broader native marker, type-handle and representation contracts remain incremental.
 internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
+    protected override string ArraySliceMethodName => "GetSlice";
+
+    protected override bool IsArraySliceResultType(ITypeSymbol resultType, ITypeSymbol elementType)
+        => resultType is INamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view &&
+           view.OriginalDefinition.ToFullyQualifiedMetadataName() == "System.Slice`1" &&
+           SymbolEqualityComparer.Default.Equals(view.TypeArguments[0], elementType);
+
     internal override string UnionInterfaceTypeName => "System.Runtime.CompilerServices.UnionValue";
     internal override string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.AsyncStateMachine";
     internal override string RecordEquatableTypeName => "System.EquatableTo`1";

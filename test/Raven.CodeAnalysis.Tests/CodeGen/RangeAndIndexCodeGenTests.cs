@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
+[Trait("Target", "DotNet")]
 public class RangeAndIndexCodeGenTests
 {
     [Fact]
@@ -15,6 +16,7 @@ class SliceHarness {
     public static func Run() -> int {
         let values = [|10, 20, 30, 40|]
         let slice = values[1..3]
+        values[1] = 99
         return slice.Length + slice[0] + slice[1]
     }
 }

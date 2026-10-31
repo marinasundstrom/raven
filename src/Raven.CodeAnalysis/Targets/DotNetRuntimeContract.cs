@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis.Targets;
 
 internal sealed class DotNetRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
+    protected override string ArraySliceMethodName => "GetSubArray";
+
     // Controlled callers still use the historical probe-core trigger without
     // selecting NeoCLR. Preserve that transport ABI without enabling native Self.
     internal override string TupleTypeName => NeoClrCliCompatibility.UsesLegacyContract(Options)

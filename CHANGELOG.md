@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- Move array range-access runtime-helper selection and neoCLR slice-result
+  validation from binding into target contracts. Preserve .NET array-copy
+  defaults and neoCLR view binding, with shared range conversions and diagnostics.
+
 - Separate target composition from .NET metadata-session, reflection and host
   services in preparation for bootstrapping. Preserve .NET defaults, explicit
   native import, backend selection and incremental reuse behavior; record the

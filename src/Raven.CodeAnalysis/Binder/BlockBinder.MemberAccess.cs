@@ -3405,7 +3405,7 @@ partial class BlockBinder
             rangeExpression = ApplyConversion(rangeExpression, rangeType, conversion, rangeSyntax);
         }
 
-        var subArrayMethod = ResolveArraySliceMethod(arrayType);
+        var subArrayMethod = Compilation.ResolveArraySliceMethod(arrayType, rangeType);
         if (subArrayMethod is null)
         {
             _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
@@ -3415,37 +3415,6 @@ partial class BlockBinder
         }
 
         return new BoundInvocationExpression(subArrayMethod, [receiver, rangeExpression], receiver: null, extensionReceiver: null);
-    }
-
-    private IMethodSymbol? ResolveArraySliceMethod(IArrayTypeSymbol arrayType)
-    {
-        var runtimeHelpers = Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers");
-        var rangeType = GetRangeType();
-        if (runtimeHelpers is null || runtimeHelpers.TypeKind == TypeKind.Error || rangeType.TypeKind == TypeKind.Error)
-            return null;
-
-        var methodName = Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR ? "GetSlice" : "GetSubArray";
-        foreach (var candidate in runtimeHelpers.GetMembers(methodName).OfType<IMethodSymbol>())
-        {
-            if (!candidate.IsStatic || !candidate.IsGenericMethod || candidate.TypeParameters.Length != 1 || candidate.Parameters.Length != 2)
-                continue;
-
-            if (candidate.Parameters[0].Type is not IArrayTypeSymbol parameterArray || parameterArray.Rank != 1)
-                continue;
-
-            if (!SymbolEqualityComparer.Default.Equals(candidate.Parameters[1].Type, rangeType))
-                continue;
-
-            var constructed = candidate.Construct(arrayType.ElementType);
-            if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-                (constructed.ReturnType is not INamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view ||
-                 view.OriginalDefinition.ToFullyQualifiedMetadataName() != "System.Slice`1" ||
-                 !SymbolEqualityComparer.Default.Equals(view.TypeArguments[0], arrayType.ElementType)))
-                continue;
-            return constructed;
-        }
-
-        return null;
     }
 
     private bool ValidateArrayElementAccess(IArrayTypeSymbol arrayType, BoundExpression[] arguments, SyntaxNode syntax)

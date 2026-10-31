@@ -93,3 +93,52 @@ Based on merged main `4f7619fd8`, in an isolated worktree, with SDK
 
 This is a focused architecture checkpoint. No full release/bootstrapping gate,
 .NET Framework/NanoFramework execution, or native JIT/AOT qualification was run.
+
+## Second slice: array range-access policy
+
+`BlockBinder` no longer selects array helpers by `TargetPlatform` or embeds the
+native return-shape rule. `CliRuntimeContract.ArraySlices` owns runtime-helper
+lookup and common signature matching. Concrete .NET and neoCLR contracts select
+the helper name; the native contract validates its ref-like `System.Slice<T>`
+result. The shared binder retains range conversion, array-rank validation,
+source diagnostics and invocation construction. Public semantic APIs, lazy
+binding and default .NET selection are unchanged.
+
+The runtime distinction is observable, not merely a metadata encoding difference:
+.NET `GetSubArray` copies elements; neoCLR `GetSlice` borrows array storage. The
+neoCLR runtime helper at source revision `4ca2b990b` calls `ViewCreateSlice`.
+Preserve that existing behavior during this extraction. Before freezing a
+bootstrap language contract, review whether copy versus borrowed-view behavior
+should remain an intentional target distinction or require a shared explicit
+operation. Qualify mutation visibility, ownership/lifetime and bounds faults on
+the native runtime; do not silently change either target to match the other.
+
+Target-tagged binding fixtures test default .NET selection with both helpers
+present, native view selection, and native rejection of a non-ref-like result,
+wrong view name, wrong element type, array result and missing helper. They query
+semantic models using host reference symbols for Index/Range; these fixtures do
+not constitute neoCLR runtime configuration or execution qualification. The .NET
+runtime range test also mutates the original array after slicing to verify that
+the result remains an independent copy.
+
+Validation on 2026-10-31, based on `aa4a8beb4`, SDK
+`11.0.100-rc.1.26425.128`, macOS ARM64:
+
+- Before extraction: 11 existing `RangeAndIndexSemanticTests` and
+  `RangeAndIndexCodeGenTests` passed, then all 7 new `ArraySliceTargetTests`
+  passed against the original binder implementation.
+- After extraction: all **18** tests passed with no skips, including the
+  strengthened .NET array-copy execution check. The test host's compiler hash
+  matched the rebuilt net11.0 compiler.
+- `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --no-restore
+  /property:WarningLevel=0` passed for net10.0 and net11.0.
+- The post-change test command used the three class names above as OR-separated
+  `FullyQualifiedName~<class>` filters, `/property:WarningLevel=0` and
+  `/property:BuildProjectReferences=false` after the explicit compiler build.
+- Whitespace formatting and `git diff --check` passed; formatting reported
+  workspace-load warnings. No generated model, grammar or editor behavior changed.
+
+This slice qualifies .NET execution and both targets' binding policies. Native
+array-range execution and alias/lifetime behavior were not rerun or newly
+qualified; no full bootstrap gate was run. Other direct target checks in binding
+remain later slices, beginning with feature capabilities and special-type syntax.

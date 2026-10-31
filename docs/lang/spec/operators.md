@@ -88,11 +88,16 @@ Ordinary boundaries use `Index.FromStart`; `^` boundaries use
 `Index.FromEnd`. Omitting a boundary produces the corresponding
 `Range.StartAt`, `Range.EndAt`, or `Range.All` shape.
 
-A one-dimensional array accepts one range argument and produces a sliced array:
+A one-dimensional array accepts one range argument:
 
 ```raven
 let middle = values[2..5]
 ```
+
+On .NET, this produces a new array containing a copy of the selected elements.
+On neoCLR, it produces a ref-like `System.Slice<T>` view that borrows the array
+storage. This runtime distinction affects aliasing and lifetime; the slice is
+not an array copy on neoCLR.
 
 Other receivers resolve `[]` through their indexers, so overloads accepting
 `Index` and `Range` can coexist.
