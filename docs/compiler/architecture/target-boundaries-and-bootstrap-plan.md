@@ -1,6 +1,10 @@
 # Target boundaries and Raven bootstrap plan
 
-> Historical architecture and integration checkpoints. The earlier integration
+> Historical architecture and integration checkpoints. Bootstrap sequencing below
+> is superseded by the [port-first bootstrap procedure](bootstrap-procedure.md)
+> and [ADR-0004](decisions/0004-port-first-bootstrap.md). In particular, C# API
+> adoption is not a prerequisite for porting, and neoCLR host migration is distinct
+> from the output-target support already integrated. The earlier integration
 > succeeded; subsequent target development continued on separate branches.
 > For the current author-directed reconciliation and validation status, see
 > [October 2026 reconciliation](target-reconciliation-2026-10.md).

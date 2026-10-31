@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- Revise the bootstrap plan to port the compiler alongside the maintained C#
+  implementation, reuse or port existing tests, and fix shared bugs and gaps in
+  both codebases. Defer the C# freeze until parity and self-hosting; evolve toward
+  idiomatic Raven and later neoCLR hosting. C# API migration is no longer a
+  required intermediate stage, and .NET remains the default output target.
+
 - Move binding feature capabilities and special-type normalization behind target
   contracts. Keep .NET defaults, ordinary constraint conjunctions and user-defined
   `ReturnType<T>` names; preserve native function projections, Character policy,

@@ -1,14 +1,10 @@
 # Raven-native Compiler API result shapes and pre-bootstrap adoption
 
-> Design direction. The immutable bootstrap-v1 foundation will be selected only
-> after the pre-bootstrap stabilization gates pass. The next compiler line may
-> then begin adopting Raven.Core contracts while the compiler implementation
-> remains in C#. This is preparation for a later source port, not the source
-> port itself. Existing nullable and record-based APIs are transitional and are
-> not a compatibility constraint while Raven remains experimental.
-
-This direction is established by [ADR-0002: Qualify the bootstrap foundation
-after stabilization](../architecture/decisions/0002-qualify-bootstrap-foundation-after-stabilization.md).
+> Long-term API design guidance, not a prerequisite for the source port.
+> [ADR-0004](../architecture/decisions/0004-port-first-bootstrap.md) selects faithful
+> Raven translation alongside C# maintenance, followed by parity and gradual
+> idiomatic evolution. C# API migration is optional; preserve existing contracts
+> initially where that enables test reuse and clear comparison.
 
 Raven's Compiler API should express Raven's own modeling principles. It should
 remain familiar to users of Roslyn where those concepts fit, but it should not
@@ -23,49 +19,21 @@ the model accurately. Bootstrap constraints may require temporary .NET or C#
 shapes, but those shapes should not become the design target for the
 Raven-authored compiler.
 
-## Foundation release and stage separation
+## Porting and API evolution are separate decisions
 
-The release that passes the pre-bootstrap qualification gates is the last
-release before Raven-native types begin to participate deliberately in compiler
-API contracts. Keep its tag, SDK archives, NuGet family, VSIX, and source commit
-immutable. Together they form the trusted bootstrap-v1 toolchain that can build
-and diagnose the first bootstrap-v2 experiments.
+Follow the [bootstrap procedure](../architecture/bootstrap-procedure.md) for
+parallel C#/Raven maintenance, test reuse, parity and self-hosting, the later C#
+freeze, and eventual neoCLR hosting. Do not combine the initial source translation
+with a broad redesign of result shapes. The compiler should become idiomatic
+Raven through separately validated changes after correspondence is established.
 
-The important boundary is between bootstrap versions, not between public
-release version numbers:
+The C# implementation can construct and return Raven-authored .NET types, so an
+API family may migrate before or during porting when justified. This is optional,
+not a mandatory bootstrap-v2 stage. Such a migration must preserve a buildable,
+explicit compiler/Core dependency graph with exact artifact provenance.
+`Raven.Macros` remains a higher-layer consumer, never a compiler dependency.
 
-1. **Bootstrap v1** is the qualified and frozen full C# compiler plus the first
-   trusted `Raven.Core` it compiles.
-2. **Bootstrap v2** remains the full C# compiler, but exposes selected public
-   contracts using the Raven-authored `Optional`, `Result`, and union runtime
-   representations produced by bootstrap v1.
-3. **Bootstrap v3** is the full compiler implemented in Raven. It may be reached
-   one stable component boundary at a time while the C# compiler remains the
-   differential oracle.
-
-Bootstrap v2 consumes the exact, hash-verified bootstrap-v1 `Raven.Core`
-assemblies checked into the repository rather than rebuilding Core with the
-compiler that is currently being built. The build graph must make that
-provenance visible and must prevent an accidental source-build cycle.
-Before the first API migration, prove the assembly identity, load, packaging,
-and side-by-side rules for the bootstrap-v1 and bootstrap-v2 `Raven.Core`
-artifacts. Do not rely on whichever copy happens to win output-directory
-resolution.
-
-The existing dependency direction remains intentional. `Raven.CodeAnalysis`
-may adopt foundational runtime contracts from a bootstrap-safe `Raven.Core`.
-`Raven.Macros` remains a version-matched higher layer that consumes and
-exercises compiler APIs; the compiler API must not acquire a reverse dependency
-on the standard macro implementation library. Compiler-hosted macro contracts
-continue to live in `Raven.CodeAnalysis`, while Raven-authored providers live in
-`Raven.Macros`.
-
-## Adopt native contracts before porting source
-
-The C# implementation can construct and return Raven-authored .NET types. That
-allows contract migration to start before any compiler subsystem is rewritten
-in Raven. The C# call site may be more explicit, but it implements the same
-public semantic model consumed naturally from Raven.
+## Adopt native contracts in bounded changes
 
 Migrate one coherent API family at a time:
 
@@ -181,49 +149,23 @@ Keep the underlying cases and payloads discoverable through normal metadata,
 documentation, and symbol APIs. Avoid a parallel nullable API solely for C#;
 add an adapter only when a real host integration benefits from one.
 
-## Pre-bootstrap migration plan
+## Validation of an API migration
 
-The current source-build graph still makes pervasive Raven.Core result types
-difficult: the compiler normally builds before the Raven core library that it
-compiles. Treat that as a staging constraint, solved with an explicit published
-foundation rather than an implicit cycle:
+For a deliberately selected API family:
 
-1. Qualify and preserve one reproducible bootstrap-v1 compiler and checked-in
-   Core artifact family.
-2. Prove a deterministic bootstrap-v2 build that verifies and consumes the
-   checked-in Core rather than resolving it from a repository output, package
-   cache, or global installation by accident.
-3. Identify nullable and ad hoc result contracts by their intended meaning.
-4. Pilot `Optional`, `Result`, and union contracts in small, high-value compiler
-   API families while the implementation remains in C#.
-5. Exercise those contracts from Raven-authored macros and tools, and from C#
-   interoperability tests.
-6. Expand adoption only after clean builds, incremental builds, packaging,
-   editor hosts, and public consumers all resolve the same type identities.
-7. Begin porting compiler components later, behind stable boundaries and
-   differential tests against the C# implementation.
-8. Remove redundant transitional contracts rather than maintaining two
-   semantic models for compatibility.
+1. Record the existing meaning and compatibility boundary before changing types.
+2. Pin the compiler and Core inputs and verify their identities; avoid a compiler
+   depending on Core that only that same compiler can build.
+3. Exercise the new shapes from Raven and C# consumers, macros and language tools.
+4. Check metadata, runtime behavior, incremental queries, clean builds and package
+   consumption. Do not rely on stale outputs or a global installation.
+5. Migrate callers and tests with preserved behavioral assertions, then remove
+   redundant transitional contracts.
 
-The Compiler API is experimental, so migration should favor the clean final
-shape over preserving accidental signatures.
-
-Before any Raven-authored compiler component becomes authoritative, require:
-
-- a fresh machine can restore the exact bootstrap-v1 toolchain and reproduce
-  the checked-in Core artifacts when an exceptional rebuild is required;
-- an ordinary bootstrap-v2 build consumes the checked-in Core without invoking
-  the bootstrap-v1 compiler;
-- the bootstrap version used to build each foundational assembly is recorded and
-  inspectable;
-- no build succeeds only because a repository-local NuGet feed, global SDK, or
-  stale output supplied an untracked assembly;
-- Raven and C# consumers agree on the public metadata and behavior of migrated
-  contracts;
-- the current C# compiler remains the behavioral oracle for syntax, semantics,
-  diagnostics, operations, metadata, and runtime results;
-- rollback means selecting the immutable qualified bootstrap-v1 toolchain, not
-  reconstructing an approximation from a later source tree.
+During the source port, keep shared fixes aligned in both compiler implementations.
+After the C# freeze, normal API evolution belongs in Raven. Preserve the exact
+trusted artifacts needed for reproduction and rollback; no particular historical
+v1/v2/v3 stage is a prerequisite for selecting an API improvement.
 
 ## Application to macro APIs
 

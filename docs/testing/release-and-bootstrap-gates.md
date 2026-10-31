@@ -6,8 +6,10 @@ be tested as both a compiler product and a compiler for real Raven workloads.
 Self-compilation alone is not sufficient evidence.
 
 The [staged bootstrap
-procedure](../compiler/architecture/bootstrap-procedure.md) defines how this
-foundation feeds Raven-native compiler API adoption and the later source port.
+procedure](../compiler/architecture/bootstrap-procedure.md) defines the parallel
+C#/Raven port, parity and self-hosting acceptance, later C# freeze, and eventual neoCLR host migration. Source porting may proceed while
+stabilization continues; these full gates qualify stage transitions rather than
+blocking every porting change.
 
 ## Required gates
 
@@ -113,17 +115,17 @@ record identifies every verified assembly and its target framework.
 When porting exposes a new issue, record it in the porting ledger and classify
 it before choosing a branch:
 
-- Keep compiler corrections discovered during bootstrap v2 forward-only by
-  default.
-- Backport only when a reduced reproduction proves that the frozen v1 compiler
-  or Core cannot correctly rebuild Core or supply a required v2 dependency.
-  Add focused coverage, publish a new immutable v1 foundation revision, and
-  carry that correction forward without moving or replacing the original
-  artifacts.
+- During dual maintenance, fix shared compiler bugs in C# and Raven, and record
+  corresponding fixes for components not yet ported. Retain regression coverage
+  for both implementations.
 - Decide and document unclear language or public API behavior before aligning
   both implementations.
-- Fix a Raven-port-only defect forward and add differential coverage; do not
-  manufacture an unrelated bootstrap-v1 change.
+- Fix a Raven translation-only defect in the port without manufacturing an
+  unrelated C# change.
+- Only after parity/self-hosting acceptance and the C# freeze do ordinary fixes
+  become Raven-only. An essential seed correction requires a reduced bootstrap
+  failure or critical artifact-integrity issue, a new immutable revision, and
+  preservation of the original artifacts and tags.
 - Isolate a bootstrap-only accommodation at an explicit version boundary.
 
 Every accepted bootstrap version reruns the baseline, runtime suite, target matrix, and

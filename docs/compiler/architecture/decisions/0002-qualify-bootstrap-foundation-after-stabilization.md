@@ -1,9 +1,14 @@
 # ADR-0002: Qualify the bootstrap foundation after stabilization
 
-- Status: Accepted
+- Status: Superseded in stage ordering and C# freeze timing by [ADR-0004](0004-port-first-bootstrap.md)
 - Date: 2026-08-24
 - Owners: Raven project maintainers
 - Supersedes: [ADR-0001](0001-pre-bootstrap-foundation.md)
+
+> Historical decision. ADR-0004 permits porting during C# maintenance and removes
+> mandatory C# API adoption before the source port. Provenance and compatibility
+> requirements remain applicable; the stage and backport rules below record the
+> earlier plan.
 
 ## Context
 
