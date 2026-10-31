@@ -40,4 +40,27 @@ internal abstract partial class CliRuntimeContract
         return getters.Length == 1 && resolvers.Length == 1
             ? new RuntimeTypeOfBinding(info, getters[0]!, resolvers[0]) : null;
     }
+    // Optional neoCLR capability of the explicitly selected introspection context.
+    // Ordinary .NET function/delegate semantics do not acquire this member.
+    internal RuntimeTypeOfBinding? ResolveFunctionInfo(Compilation compilation)
+    {
+        if (!UsesStructuralFunctions || ResolveTypeOf(compilation) is not { } typeOf)
+            return null;
+        var context = typeOf.CurrentGetter.ContainingType!;
+        var resolvers = context.GetMembers("GetFunctionInfo").OfType<IMethodSymbol>()
+            .Where(m => !m.IsStatic && !m.IsVirtual && !m.IsOverride && m.Arity == 0
+                && m.DeclaredAccessibility == Accessibility.Public
+                && m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.None
+                && m.Parameters[0].Type.SpecialType == SpecialType.System_Object
+                && m.ReturnType is INamedTypeSymbol
+                {
+                    Arity: 0, TypeKind: TypeKind.Interface,
+                    DeclaredAccessibility: Accessibility.Public
+                } info
+                && info.ContainingAssembly?.Name == context.ContainingAssembly?.Name)
+            .ToArray();
+        return resolvers.Length == 1
+            ? new RuntimeTypeOfBinding(resolvers[0].ReturnType, typeOf.CurrentGetter, resolvers[0]) : null;
+    }
+
 }

@@ -1663,7 +1663,7 @@ internal static class Int32Emitter
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
                 (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0 || bodyCapabilities.AllowsGenericInstanceMethods) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
-                symbol.TypeParameters.All(p => (p.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) == 0 &&
+                symbol.TypeParameters.All(p => (p.ConstraintKind & ~(TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.FunctionType)) == 0 &&
                     p.ConstraintTypes.All(t => t is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } bound && IsSymbolOnlyOwnerDefinition(bound))) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
@@ -1682,7 +1682,8 @@ internal static class Int32Emitter
                     isVirtual: owner.TypeKind == TypeKind.Class && (owner.Arity == 0 || bodyCapabilities.AllowsGenericClassVirtualSlots && (!symbol.IsAbstract || bodyCapabilities.AllowsAbstractGenericClasses)) && (symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract),
                     isAbstract: owner.TypeKind == TypeKind.Class && symbol.IsAbstract,
                     interfaceBounds: symbol.TypeParameters.SelectMany(p => p.ConstraintTypes.Select(bound =>
-                        new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray());
+                        new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray(),
+                    functionParameters: symbol.TypeParameters.Where(p => p.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)).Select(p => p.Ordinal).ToArray());
             }
             // A native callable must carry a complete supported semantic contract.
             // Do not recover missing emission facts by reopening its reader definition.

@@ -7,11 +7,13 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly ImmutableArray<ISymbol> _members;
+    private readonly Compilation? _compilation;
 
     internal StructuralFunctionTypeSymbol(ImmutableArray<ITypeSymbol> parameters,
-        ImmutableArray<RefKind> refKinds, ITypeSymbol result, INamedTypeSymbol objectType)
+        ImmutableArray<RefKind> refKinds, ITypeSymbol result, INamedTypeSymbol objectType, Compilation? compilation = null)
         : base(SymbolKind.Type, string.Empty, null, null, null, [], [], Accessibility.Public, addAsMember: false)
     {
+        _compilation = compilation;
         BaseType = objectType;
         ParameterTypes = parameters;
         ParameterRefKinds = refKinds;
@@ -32,7 +34,7 @@ internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
         var parameters = ParameterTypes.Select(substitute).ToImmutableArray();
         var result = substitute(ReturnType);
         return ReferenceEquals(result, ReturnType) && parameters.Where((p, i) => !ReferenceEquals(p, ParameterTypes[i])).Any() == false
-            ? this : new(parameters, ParameterRefKinds, result, BaseType);
+            ? this : new(parameters, ParameterRefKinds, result, BaseType, _compilation);
     }
 
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
@@ -62,12 +64,12 @@ internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
     public IMethodSymbol? StaticConstructor => null;
     public ImmutableArray<INamedTypeSymbol> Interfaces => [];
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
-    public ImmutableArray<ISymbol> GetMembers() => _members;
-    public ImmutableArray<ISymbol> GetMembers(string name) => _members.Where(member => member.Name == name).ToImmutableArray();
+    public ImmutableArray<ISymbol> GetMembers() => _members.AddRange(_compilation?.GetFunctionContractMembers(this) ?? []);
+    public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
     public ITypeSymbol? LookupType(string name) => null;
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        symbol = _members.FirstOrDefault(member => member.Name == name);
+        symbol = GetMembers().FirstOrDefault(member => member.Name == name);
         return symbol is not null;
     }
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;

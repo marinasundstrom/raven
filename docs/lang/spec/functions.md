@@ -665,7 +665,23 @@ constrained with `func` can be forwarded. `func` must be the sole constraint.
 The constraint does not describe the parameters/result of `T`, so a generic body
 cannot call `T` solely because it has this constraint. Function-signature bounds
 such as `where T: () -> T2` are a separate design and are not enabled for native
-emission by this feature. No reflection invocation or observer API is introduced.
+emission by this feature. With a configured runtime introspection capability,
+function types and `func`-constrained parameters expose a read-only `Function`
+property. A function-typed slot holds a function value; this structural member
+requires no nominal base. Member enumeration, binding and IDE completion report
+it, but do not invent an `Invoke` signature for an unknown `T`.
+
+```raven
+func Inspect<T: func>(handler: T) {
+    let function = handler.Function
+}
+```
+
+The optional member type comes from the explicit runtime contract. neoCLR supplies
+`System.Introspection.MethodInfo`; runtime support is required, and absence of the
+capability leaves the member unavailable. Named method arguments can infer their
+natural structural function type when passed to a `func`-constrained parameter.
+This does not introduce a general observer API or implicit dynamic invocation.
 
 The parser exposes `FunctionConstraintSyntax.FuncKeyword`; semantic symbols retain
 `TypeParameterConstraintKind.FunctionType`. Ordinary Raven/.NET rejects this

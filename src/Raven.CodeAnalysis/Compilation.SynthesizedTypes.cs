@@ -142,7 +142,7 @@ public partial class Compilation
     {
         if (_target.RuntimeContract.UsesStructuralFunctions)
             return new StructuralFunctionTypeSymbol(parameterTypes, refKinds, returnType,
-                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object));
+                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object), this);
 
         var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
         if (_synthesizedDelegates.TryGetValue(signature, out var existing))

@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- **2026-10-31:** Expose the optional structural `Function` inspection property on
+  neoCLR function types and `func`-constrained type parameters, including imported
+  parameters, binder lookup, semantic symbols and completion. Lower access through
+  the explicitly configured runtime introspection context, preserving receiver
+  evaluation and generic Object conversion. Ordinary .NET delegates and
+  unconstrained parameters retain their existing member contracts. Permit ordinary
+  instance calls on captured primitive value snapshots in portable lowering by
+  making a temporary receiver copy, matching existing captured value semantics.
+  Infer named-method function values for `func` parameters and preserve native
+  instance-method function constraints through explicit writer contracts.
+
 - Keep cold semantic queries independent of query order when a top-level function
   uses a type imported from another source file. Resolve deferred imports from
   source declarations before completing function signatures, preventing cached

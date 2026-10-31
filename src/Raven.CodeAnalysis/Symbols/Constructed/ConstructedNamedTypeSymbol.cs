@@ -1478,8 +1478,8 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : ITypeParameterSymbol
         }
     }
 
-    public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
-    public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+    public ImmutableArray<ISymbol> GetMembers() => _original.GetMembers();
+    public ImmutableArray<ISymbol> GetMembers(string name) => _original.GetMembers(name);
     public ITypeSymbol? LookupType(string name) => null;
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
@@ -1829,8 +1829,8 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
     public INamedTypeSymbol? UnderlyingUnionType => _original.UnderlyingUnionType;
     public ImmutableArray<INamedTypeSymbol> Interfaces => _original.Interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => _original.AllInterfaces;
-    public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
-    public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+    public ImmutableArray<ISymbol> GetMembers() => _original.GetMembers();
+    public ImmutableArray<ISymbol> GetMembers(string name) => _original.GetMembers(name);
     public ITypeSymbol? LookupType(string name) => null;
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {

@@ -158,7 +158,7 @@ internal readonly record struct SymbolQuery(
             return Enumerable.Empty<ISymbol>();
 
         var seenSignatures = new HashSet<string>();
-        var results = new List<ISymbol>();
+        var results = new List<ISymbol>(typeParameter.GetMembers(Name).Where(m => m.IsStatic == preferStaticMembers));
 
         foreach (var constraint in constraintTypes)
         {

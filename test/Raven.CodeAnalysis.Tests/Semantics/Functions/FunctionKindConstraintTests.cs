@@ -14,6 +14,27 @@ public sealed class FunctionKindConstraintTests
             .Concat(compilation.SyntaxTrees.Single().GetDiagnostics());
 
     [Fact]
+    public void NamedMethodInfersStructuralFunctionConstraint()
+    {
+        var compilation = Create("""
+            class Registry {
+                func Map<T: func>(handler: T) -> int => 1
+            }
+            class Consumer {
+                func Handler(value: int) -> int => value
+                func Register(registry: Registry) -> int => registry.Map(Handler)
+            }
+            """);
+        Assert.DoesNotContain(Diagnostics(compilation), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+        var call = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes()
+            .OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(call).Symbol);
+        Assert.IsType<StructuralFunctionTypeSymbol>(Assert.Single(method.TypeArguments));
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(call).Type!.SpecialType);
+    }
+
+    [Fact]
     public void SyntaxExposesFunctionConstraintKeyword()
     {
         var tree = SyntaxTree.ParseText("class Slot<T> where T: func {}");
@@ -88,4 +109,62 @@ public sealed class FunctionKindConstraintTests
         Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0365");
         Assert.Contains(diagnostics, d => d.Id is "RAV0030" or "RAV1955");
     }
+    private static Compilation InspectionCompilation(string body, TargetPlatform target = TargetPlatform.NeoCLR)
+    {
+        var source = """
+            namespace Contracts
+            public interface Info {}
+            public interface MethodInfo {}
+            class Descriptor : Info, MethodInfo {}
+            public class Context {
+                static val Current: Context => Context()
+                func GetTypeInfoFromHandle(handle: System.RuntimeTypeHandle) -> Info => Descriptor()
+                func GetFunctionInfo(value: object) -> MethodInfo => Descriptor()
+            }
+            """ + "\n" + body;
+        return Compilation.Create("Inspection", [SyntaxTree.ParseText(source)], TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target)
+                .WithRuntimeTypeOfContract(new("Inspection", "Contracts.Info", "Contracts.Context")));
+    }
+
+    [Theory]
+    [Trait("Target", "NeoCLR")]
+    [InlineData("T", "<T: func>")]
+    [InlineData("() -> int", "")]
+    public void NeoClrFunctionContractMembersAreDiscoverableAndBind(string type, string generic)
+    {
+        var compilation = InspectionCompilation($"func Inspect{generic}(handler: {type}) {{ let function = handler.Function }}");
+        var tree = compilation.SyntaxTrees.Single();
+        var model = compilation.GetSemanticModel(tree);
+        Assert.DoesNotContain(Diagnostics(compilation), d => d.Severity == DiagnosticSeverity.Error);
+        var access = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
+        var receiver = model.GetTypeInfo(access.Expression).Type!;
+        var property = Assert.Single(receiver.GetMembers("Function").OfType<IPropertySymbol>());
+        Assert.Equal("MethodInfo", property.Type.Name);
+        Assert.NotNull(property.GetMethod);
+        Assert.Null(property.SetMethod);
+        Assert.Equal(property, model.GetSymbolInfo(access).Symbol);
+        Assert.Equal(property.Type, model.GetTypeInfo(access).Type);
+        if (type == "T") Assert.Empty(receiver.GetMembers("Invoke"));
+        var completion = model.GetCompletions(access.Name.Span.Start).Select(item => item.DisplayText);
+        Assert.Contains("Function", completion);
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void DotNetDelegateDoesNotAcquireStructuralInspectionMember()
+    {
+        var compilation = InspectionCompilation("func Inspect(handler: () -> int) { let function = handler.Function }", TargetPlatform.DotNet);
+        Assert.Contains(Diagnostics(compilation), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [Trait("Target", "NeoCLR")]
+    [InlineData("func Inspect<T>(handler: T) { let function = handler.Function }")]
+    [InlineData("func Inspect<T: func>(handler: T) { handler.Function = handler.Function }")]
+    public void NeoClrInspectionRequiresTheConstraintAndRemainsReadOnly(string body)
+    {
+        Assert.Contains(Diagnostics(InspectionCompilation(body)), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
 }

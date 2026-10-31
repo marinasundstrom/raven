@@ -18053,3 +18053,41 @@ They cover all Result entry families, null and converted/interface/structural er
 The integrated Configuration --watch sample exercises actual suspended startup.
 See neoCLR docs/native-result-entrypoints.md and the dated validation receipt for
 exact targets and results. Ordinary .NET emission is unchanged.
+
+## Structural function inspection contract (2026-10-31)
+
+On the explicit neoCLR target, function types and type parameters constrained by
+`func` expose a synthesized read-only `Function` property through `GetMembers`,
+member binding, semantic queries and completion. The constraint does not invent an
+`Invoke` signature. Unconstrained type parameters and ordinary .NET delegates do
+not gain the member. This adds no syntax or nominal base/interface relationship.
+
+The capability is optional on the configured Runtime TypeOf contract. Its public
+context must provide `Current` and the existing type resolver, plus a public
+nonvirtual instance `GetFunctionInfo(Object)` returning a public nongeneric
+interface from the selected runtime assembly. neoCLR supplies
+`System.Runtime.RuntimeContext.GetFunctionInfo(Object) -> System.Introspection.MethodInfo`.
+Absent that capability, member lookup reports no `Function` member.
+
+Emission evaluates the function receiver once, obtains the configured context and
+passes the function value through its Object conversion (boxing a generic slot).
+Both native portable emission and the temporary CLI emitter use that explicit
+contract. No System.Delegate dependency is introduced. Native function metadata
+and binding identity remain authoritative; the bridge call does not add object
+identity to function values. A future native intrinsic may replace this adapter
+without changing the source member contract.
+
+The compiler owns member synthesis and lowering; neoCLR owns bound-target
+inspection, metadata retention and invocation policies. Focused semantic tests
+cover member enumeration, property identity/type, read-only access, completion,
+unknown callable shape and .NET isolation. The Neo.Web consumer separately
+qualifies native import/emission and execution; compiler unit tests alone do not
+establish a runtime-mode guarantee.
+
+Named-method arguments infer their natural structural function type for a
+`func`-constrained parameter. Imported native instance methods retain their category
+constraints through the metadata writer's explicit `functionParameters` contract;
+the compiler does not reopen a reader definition to reconstruct missing facts.
+The separate native provider/consumer probe registers named handlers from both
+synchronous and asynchronous functions. Primitive values captured by the runtime
+async adapter use temporary receiver copies for ordinary instance calls.

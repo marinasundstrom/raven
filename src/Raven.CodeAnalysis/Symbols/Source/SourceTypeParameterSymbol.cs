@@ -66,16 +66,17 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSy
 
     public ITypeSymbol? OriginalDefinition => this;
 
-    public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+    public ImmutableArray<ISymbol> GetMembers() =>
+        GetDeclaringCompilation()?.GetFunctionContractMembers(this) ?? [];
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+    public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
     public ITypeSymbol? LookupType(string name) => null;
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        symbol = null;
-        return false;
+        symbol = GetMembers(name).FirstOrDefault();
+        return symbol is not null;
     }
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);

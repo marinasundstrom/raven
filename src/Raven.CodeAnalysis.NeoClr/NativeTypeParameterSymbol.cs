@@ -6,13 +6,15 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
+    private readonly Compilation compilation;
     private readonly Lazy<ImmutableArray<ITypeSymbol>> constraintTypes;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
 
-    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None, TypeParameterConstraintKind specialConstraints = TypeParameterConstraintKind.None, Func<ImmutableArray<AttributeData>>? getAttributes = null)
+    internal NativeTypeParameterSymbol(Compilation compilation, string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null, VarianceKind variance = VarianceKind.None, TypeParameterConstraintKind specialConstraints = TypeParameterConstraintKind.None, Func<ImmutableArray<AttributeData>>? getAttributes = null)
         : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], [])
     {
+        this.compilation = compilation;
         Ordinal = ordinal;
         Variance = variance;
         this.specialConstraints = specialConstraints;
@@ -52,10 +54,10 @@ internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
             return result.ToImmutable();
         }
     }
-    public ImmutableArray<ISymbol> GetMembers() => [];
-    public ImmutableArray<ISymbol> GetMembers(string name) => [];
+    public ImmutableArray<ISymbol> GetMembers() => compilation.GetFunctionContractMembers(this);
+    public ImmutableArray<ISymbol> GetMembers(string name) => [.. GetMembers().Where(member => member.Name == name)];
     public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = null; return false; }
+    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = GetMembers(name).FirstOrDefault(); return symbol is not null; }
     public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
