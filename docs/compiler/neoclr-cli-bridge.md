@@ -18158,3 +18158,23 @@ NativeSelfContract selection passes 60 tests. The source-core probe retains expl
 negative coverage for inherited-Self conformance ownership. Full native execution
 and component hashes are recorded in neoCLR's
 `docs/validation/neo-web-middleware-20261031`.
+
+
+### Static interface helpers (development, 2026-10-31)
+
+The native backend admits public concrete static methods and property accessors on
+nongeneric owned interfaces through the explicit `StaticInterfaceMethodBody`
+emission capability. Binding and member lookup retain their ordinary static-member
+semantics. These helpers have bodies and are direct-call targets; they are not
+abstract implementation obligations. Abstract interface contracts remain distinct.
+The native metadata producer preserves that distinction when authoring, reading
+and importing an interface. The minimal factory/consumer probe checks same-assembly
+and cross-assembly calls; neoCLR's HTTP header interfaces exercise this contract.
+
+No Runtime Contract override is required: select the existing neoCLR target and
+matching native metadata producer. No new temporary CLI carrier or encoding is
+introduced. The .NET target remains the default and its emission policy is unchanged.
+This bounded native capability excludes default instance interface bodies and
+concrete methods on generic interfaces; generic static helpers remain unsupported.
+Native static extension properties are a separate unresolved capability, not a
+fallback representation for these members.

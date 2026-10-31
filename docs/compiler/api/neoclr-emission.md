@@ -657,3 +657,30 @@ and failed publication. Evidence is recorded in NeoCLR's
 Validation: 39 focused .NET Char/import tests, 143 C# metadata groups, explicit bootstrap
 String binding, 15 native boxed-interface/construction tests and the driver text gate.
 Full-System compilation and replacing the .NET backend are not claimed complete.
+
+
+### Static interface helpers (development, 2026-10-31)
+
+The native backend admits public concrete static methods and property accessors on
+nongeneric owned interfaces through the explicit `StaticInterfaceMethodBody`
+emission capability. Binding and member lookup retain their ordinary static-member
+semantics. These helpers have bodies and are direct-call targets; they are not
+abstract implementation obligations. Abstract interface contracts remain distinct.
+The native metadata producer preserves that distinction when authoring, reading
+and importing an interface. The minimal factory/consumer probe checks same-assembly
+and cross-assembly calls; neoCLR's HTTP header interfaces exercise this contract.
+
+No Runtime Contract override is required: select the existing neoCLR target and
+matching native metadata producer. No new temporary CLI carrier or encoding is
+introduced. The .NET target remains the default and its emission policy is unchanged.
+This bounded native capability excludes default instance interface bodies and
+concrete methods on generic interfaces; generic static helpers remain unsupported.
+Native static extension properties are a separate unresolved capability, not a
+fallback representation for these members.
+
+Validation: SharedInterfaceDeclarationTests passes 13 tests on modern .NET; the
+pre-change extension declaration/indexer baseline passed 12. NeoClrMetadataProbe
+`--static-interface-helpers` emits same-assembly and imported factory consumers
+against the System.Runtime development image; the interpreter factory returns 42.
+The matching neoCLR change also qualifies metadata producer contracts and HTTP
+consumers. These results do not establish .NET Framework/NanoFramework execution.

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-10-31: Enable public concrete static interface helpers and properties on
+  nongeneric interfaces for the native neoCLR target. Preserve direct-call bodies
+  and distinguish them from abstract implementation obligations across metadata
+  imports. Keep admission behind an explicit target capability; .NET defaults and
+  default-instance-body support are unchanged. Add factory/import regression probes.
+
 - Revise the bootstrap plan to port the compiler alongside the maintained C#
   implementation, reuse or port existing tests, and fix shared bugs and gaps in
   both codebases. Defer the C# freeze until parity and self-hosting; evolve toward

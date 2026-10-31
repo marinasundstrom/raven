@@ -1122,6 +1122,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
             (method.IsStatic
                 ? method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
+                  !method.IsAbstract && capabilities?.Allows(EmissionDeclarationKind.StaticInterfaceMethodBody) == true &&
+                  SourceInterfacePlan.HasSupportedIdentity(owner, capabilities) ||
                   capabilities?.AllowsExternalReferenceSignatures == true &&
                   CallableSignature.IsExternalReference(owner, capabilities.AllowsNestedExternalTypes, capabilities.AllowsInternalExternalSymbols) ||
                   capabilities?.AllowsExternalValueSignatures == true &&

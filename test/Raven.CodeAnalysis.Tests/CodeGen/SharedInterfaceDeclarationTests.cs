@@ -7,6 +7,33 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SharedInterfaceDeclarationTests
 {
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void StaticInterfaceBodiesRequireExplicitCapability()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public interface Contract {
+                static val Empty: int => 0
+                static func Create() -> int => 42
+                func Read() -> int
+            }
+            """);
+        var compilation = Compilation.Create("StaticHelpers", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        EmissionCapabilities Capabilities(bool bodies) => new(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>().Where(k =>
+                bodies || k != EmissionDeclarationKind.StaticInterfaceMethodBody),
+            [Accessibility.Public], [Accessibility.Public], [Accessibility.Public]);
+        Assert.False(SourceInterfacePlan.TryCreate(type, Capabilities(false), out _));
+        Assert.True(SourceInterfacePlan.TryCreate(type, Capabilities(true), out var plan));
+        Assert.Equal(2, plan!.Methods.Count(m => m.Symbol.IsStatic && !m.Symbol.IsAbstract));
+        Assert.Single(plan.Methods.Where(m => m.Symbol.IsAbstract));
+        Assert.Single(plan.Properties);
+    }
+
     [Theory]
     [InlineData("System.DateTime", false, true)]
     [InlineData("System.Exception", true, false)]

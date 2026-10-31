@@ -236,8 +236,12 @@ internal static class Int32Emitter
                 {
                     if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||
                         !SourceInterfacePlan.TryCreate(interfaceSymbol, bodyCapabilities, out var interfacePlan))
-                        throw Unsupported("only invariant owned interfaces with public abstract method contracts");
+                        throw Unsupported("supported interface contracts and public static helper bodies required");
                     interfaces.Add(interfacePlan!);
+                    foreach (var helper in interfacePlan!.Methods.Where(m => !m.Symbol.IsAbstract))
+                        plans.Add(GetPlan(helper.Symbol));
+                    foreach (var property in interfacePlan.Properties.Where(p => p.Symbol.IsStatic && (p.Symbol.GetMethod ?? p.Symbol.SetMethod)?.IsAbstract == false))
+                        properties.Add((SourcePropertySymbol)property.Symbol);
                 }
                 else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)
                 {
@@ -805,7 +809,12 @@ internal static class Int32Emitter
                     _ => GenericVariance.Invariant
                 });
         }
-        foreach (var pair in nativeInterfaces) nativeTypes.Add(pair.Key, pair.Value);
+        foreach (var pair in nativeInterfaces)
+        {
+            nativeTypes.Add(pair.Key, pair.Value);
+            owners.Add(pair.Key, new(assembly, pair.Value, type => nativeTypes[type], ImportExternalType,
+                structuralConstraints: true, admitExternalConstraint: AdmitExternalConstraint));
+        }
         var interfaceMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
         {
@@ -821,7 +830,7 @@ internal static class Int32Emitter
                 else definition.AddBaseInterface(parent.MakeGenericInstance(inherited.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
             }
             var contractMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
-            foreach (var method in contract.Methods)
+            foreach (var method in contract.Methods.Where(m => m.Symbol.IsAbstract))
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type], ImportExternalType),
                     method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), method.Signature.GenericParameterNames, outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters), method.Symbol.IsStatic));
@@ -839,6 +848,7 @@ internal static class Int32Emitter
             }
             foreach (var property in contract.Properties)
             {
+                if (property.Symbol.IsStatic && (property.Symbol.GetMethod ?? property.Symbol.SetMethod)?.IsAbstract == false) continue;
                 var emitted = definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
                     property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
                     property.Symbol.SetMethod is { } set ? contractMethods[set] : null);
@@ -1667,7 +1677,7 @@ internal static class Int32Emitter
                     isInternalCall: symbol.OriginalDefinition is NativeMethodSymbol { IsRuntimeInternalCall: true });
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
-                (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
+                (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual || symbol.IsStatic && !symbol.IsAbstract : (!symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object) || SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericClassVirtualSlots))) &&
                 (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsSupportedExternalBase(owner, bodyCapabilities.AllowsGenericExternalClassInheritance)) && (symbol.IsStatic || symbol.Arity == 0 || bodyCapabilities.AllowsGenericInstanceMethods) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, bodyCapabilities) &&
                 symbol.TypeParameters.All(p => (p.ConstraintKind & ~(TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.FunctionType)) == 0 &&
@@ -1690,7 +1700,8 @@ internal static class Int32Emitter
                     isAbstract: owner.TypeKind == TypeKind.Class && symbol.IsAbstract,
                     interfaceBounds: symbol.TypeParameters.SelectMany(p => p.ConstraintTypes.Select(bound =>
                         new GenericMethodTypeConstraint(p.Ordinal, ImportExternalType((INamedTypeSymbol)bound)))).ToArray(),
-                    functionParameters: symbol.TypeParameters.Where(p => p.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)).Select(p => p.Ordinal).ToArray());
+                    functionParameters: symbol.TypeParameters.Where(p => p.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType)).Select(p => p.Ordinal).ToArray(),
+                    isInterfaceHelper: owner.TypeKind == TypeKind.Interface && symbol.IsStatic && !symbol.IsAbstract);
             }
             // A native callable must carry a complete supported semantic contract.
             // Do not recover missing emission facts by reopening its reader definition.

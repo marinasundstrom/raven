@@ -4,8 +4,8 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
-// Bodyless declarations are separate from callable body plans. The same logical
-// signatures describe ordinary CLI and native interface contracts.
+// Interface signatures are separate from callable body plans. Concrete static
+// helpers are admitted only by an explicit target capability.
 internal sealed record SourceInterfaceMethod(IMethodSymbol Symbol, CallableSignature Signature);
 internal sealed record SourceInterfaceProperty(IPropertySymbol Symbol, EmissionType Type);
 internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Namespace, string Name,
@@ -47,8 +47,22 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
                 !CallableSignature.TryType(b, false, out var inherited, capabilities) || !capabilities.Allows(inherited))))) return false;
         bool AllowsModifier(SyntaxToken modifier) => modifier.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword ||
             modifier.Kind == SyntaxKind.StaticKeyword && capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod);
+        bool AllowsStaticBody(SyntaxTokenList modifiers) => type.Arity == 0 &&
+            capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethodBody) &&
+            modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) &&
+            modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword);
         foreach (var member in syntax.Members)
         {
+            if (member is MethodDeclarationSyntax helper && (helper.Body is not null || helper.ExpressionBody is not null) &&
+                AllowsStaticBody(helper.Modifiers) && helper.ExplicitInterfaceSpecifier is null &&
+                (capabilities.AllowsCustomAttributes || helper.AttributeLists.Count == 0)) continue;
+            if (member is PropertyDeclarationSyntax factory && factory.Initializer is null &&
+                AllowsStaticBody(factory.Modifiers) && factory.ExplicitInterfaceSpecifier is null &&
+                (capabilities.AllowsCustomAttributes || factory.AttributeLists.Count == 0) &&
+                (factory.ExpressionBody is not null || factory.AccessorList is { } bodies &&
+                    bodies.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
+                        (a.Body is not null || a.ExpressionBody is not null) && a.Modifiers.Count == 0 &&
+                        (capabilities.AllowsCustomAttributes || a.AttributeLists.Count == 0)))) continue;
             if (member is MethodDeclarationSyntax { Body: null, ExpressionBody: null } method && (capabilities.AllowsCustomAttributes || method.AttributeLists.Count == 0) &&
                 method.ExplicitInterfaceSpecifier is null && method.Modifiers.All(AllowsModifier)) continue;
             if (member is PropertyDeclarationSyntax { ExpressionBody: null, Initializer: null, AccessorList: { } accessors } property &&
@@ -72,7 +86,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         bool AddMethod(IMethodSymbol method)
         {
             if (!seen.Add(method)) return true;
-            if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod && (!capabilities.AllowsGenericInterfaceMethods || method.IsStatic || method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || !method.IsAbstract ||
+            if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod && (!capabilities.AllowsGenericInterfaceMethods || method.IsStatic || method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || !method.IsAbstract && !(method.IsStatic && type.Arity == 0 && capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethodBody)) ||
                 method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.UserDefinedOperator) ||
                 method.DeclaredAccessibility != Accessibility.Public || !CallableSignature.TryType(method.ReturnType, true, out var result, capabilities)) return false;
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();

@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--static-interface-helpers", var helperCore, var helperOutput]) { StaticInterfaceHelperChecks.Run(helperCore, helperOutput); return; }
+
 if (args is ["--inlining", var inlineCore]) { NativeInliningChecks.Run(inlineCore); return; }
 
 if (args is ["--explicit-methods", var explicitCore, var explicitOutput]) { ExplicitMethodChecks.Run(explicitCore, explicitOutput); return; }
