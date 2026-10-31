@@ -62,8 +62,8 @@ internal static class NativeSelfChecks
                 _ => InheritanceSource
             };
             var dispatchSource = source;
-            // Nominal-bound instance dispatch is not admitted by the native metadata
-            // library. Preserve signature coverage independently of that execution gap.
+            // Keep inherited-Self signature coverage independent of the remaining
+            // conformance-owner limitation. Nominal instance dispatch is supported.
             source = source.Replace("=> value.Clone()", "=> value")
                 .Replace("=> T.Add(left, right) + T.Zero", "=> left");
             var name = "NativeSelf" + variant;
@@ -77,8 +77,8 @@ internal static class NativeSelfChecks
                 var unsupported = dispatch.Emit(unsupportedImage, null,
                     new EmitOptions().WithBackend(backend(name + "Dispatch")));
                 if (unsupported.Success || !unsupported.Diagnostics.Any(diagnostic => diagnostic.Id == "NEOMETA003" &&
-                    diagnostic.GetMessage().Contains("instance calls require structural bounds", StringComparison.Ordinal)))
-                    throw new Exception("Nominal-bound instance Self dispatch must remain an explicit native limitation.");
+                    diagnostic.GetMessage().Contains("missing public interface implementation: .Derived.Clone", StringComparison.Ordinal)))
+                    throw new Exception("Inherited Self conformance-owner limitation changed.");
             }
             using var image = new MemoryStream();
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend(name)));

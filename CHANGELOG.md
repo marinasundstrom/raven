@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- **2026-10-31:** Lower neoCLR interface calls on constrained declaring-type parameters
+  through borrowed constrained dispatch, including receivers held in locals.
+  This preserves value receiver mutations and supports typed middleware adapters
+  without boxing or untyped service resolution. Requires the matching neoCLR
+  metadata writer's owner/nominal bound validation; ordinary .NET emission is unchanged.
+
 - **2026-10-31:** Expose the optional structural `Function` inspection property on
   neoCLR function types and `func`-constrained type parameters, including imported
   parameters, binder lookup, semantic symbols and completion. Lower access through

@@ -211,6 +211,8 @@ internal static class NativeSourceCoreChecks
             consumerOptions.RuntimeIterationContract?.AssemblyName != name ||
             !provider.GetInputPaths(consumerProject, nativeProperties).Contains(ownershipPath))
             throw new Exception("Native runtime contracts or editor inputs were lost.");
+        NominalConstrainedCallChecks.Run(catalog.References.ToArray(), consumerOptions,
+            assemblyName => new NeoClrEmissionBackend(new(new(assemblyName, new Version(1, 0, 0, 0)), identity, catalog.Dependencies)), directory);
         NativeSelfChecks.Run(catalog.References.ToArray(), consumerOptions,
             assemblyName => new NeoClrEmissionBackend(new(new(assemblyName, new Version(1, 0, 0, 0)), identity, catalog.Dependencies)),
             directory, snapshot);
