@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- Separate target composition from .NET metadata-session, reflection and host
+  services in preparation for bootstrapping. Preserve .NET defaults, explicit
+  native import, backend selection and incremental reuse behavior; record the
+  remaining shared-semantic and target-policy boundaries.
+
 - Keep cold semantic queries independent of query order when a top-level function
   uses a type imported from another source file. Resolve deferred imports from
   source declarations before completing function signatures, preventing cached

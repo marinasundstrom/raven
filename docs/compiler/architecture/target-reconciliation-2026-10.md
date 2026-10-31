@@ -2,6 +2,8 @@
 
 Status: consolidation qualified for main with explicit .NET and neoCLR targets.
 This is not a bootstrap release or complete native feature-matrix qualification.
+Post-merge architecture work is tracked in [target boundaries before bootstrapping](bootstrap-target-boundaries.md);
+the composition debt described below records the merge checkpoint.
 
 ## Direction and acceptance
 

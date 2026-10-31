@@ -37,7 +37,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<SpecialType, INamedTypeSymbol> _specialTypeCache = new();
     private readonly DescriptorState _descriptorState = new();
     private static readonly object s_missingMetadataType = new();
-    private readonly DotNetCompilationTarget _target;
+    private readonly CompilationTarget _target;
     private ISemanticDataLoader _semanticDataLoader;
     private GlobalBinder _globalBinder;
     private bool setup;
@@ -118,7 +118,7 @@ public partial class Compilation
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
-        _target = new DotNetCompilationTarget(this);
+        _target = new CompilationTarget(this);
         ScriptCompilationInfo = scriptCompilationInfo;
         _generatorDiagnostics = generatorDiagnostics.IsDefault
             ? ImmutableArray<Diagnostic>.Empty

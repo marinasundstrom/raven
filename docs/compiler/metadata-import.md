@@ -1,5 +1,11 @@
 # Explicit-only metadata import
 
+Current composition: `CompilationTarget` selects .NET/CLI or explicit native
+semantic import. `DotNetCompilationServices` owns the .NET session, reflection
+projector and host handles. Native-only import does not open a .NET session.
+See [bootstrap target boundaries](architecture/bootstrap-target-boundaries.md).
+Historical checkpoints below retain their original implementation names.
+
 ## .NET compilation preset
 
 `CompilationOptions.DotNet` returns fresh immutable defaults for a .NET target
@@ -58,7 +64,7 @@ Compilation.
 
 ## Host assembly service ownership
 
-Each `DotNetCompilationTarget` owns one `DotNetHostRuntime`. The service holds
+Each `DotNetCompilationServices` instance owns one `DotNetHostRuntime`. The service holds
 per-compilation metadata-to-runtime assembly associations, local path registrations,
 and local runtime assembly caches. Existing process-wide path/runtime caches and
 trusted-platform discovery move with it, retaining their current lifetime,
@@ -83,7 +89,7 @@ target as described below.
 
 ## Metadata session and core ownership
 
-`DotNetCompilationTarget` holds the selected metadata core, executable host core,
+`DotNetCompilationServices` holds the selected metadata core, executable host core,
 and host emit core alongside its metadata session. Shared setup requests a semantic
 loader from the target after checking reference fingerprints; it no longer handles
 a .NET session directly. Existing `Compilation` core-assembly properties forward
@@ -94,11 +100,11 @@ Host handles are seeded before setup can reenter reflection services. Metadata
 initialization then selects the metadata core and registers its host mapping before
 importing symbols. This preserves setup ordering, initialization diagnostics and
 collection-based session lifetime. These remaining reflection-facing adapters
-still need attention before a second target can be selected.
+remain .NET compatibility APIs and are not native semantic metadata.
 
 ## Reflection-to-symbol projection ownership
 
-Each `DotNetCompilationTarget` owns one lazy `ReflectionTypeLoader`, including its
+Each `DotNetCompilationServices` instance owns one lazy `ReflectionTypeLoader`, including its
 reflection type, metadata identity and method/type-parameter projection caches.
 The target passes that projector explicitly to `DotNetSemanticDataLoader`, which
 uses it for imported PE modules. Compilation's reflection entry points forward to

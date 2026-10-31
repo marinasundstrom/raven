@@ -117,35 +117,30 @@ validation API; this early boundary applies to diagnostic collection and emissio
 
 ## Current target composition
 
-`Targets.DotNetCompilationTarget` is the internal composition point for the
-existing CLI implementation: it creates the semantic-data loader, selects a
-`DotNetRuntimeContract` or `NeoClrCliRuntimeContract` from `TargetPlatform`, and
-invokes the existing .NET code generator. Each
-compilation constructs its target from its immutable options; macro-plugin
-compilations use their own target when emitting. Diagnostics and target-core
-compatibility checks still run before emission writes output.
+`Targets.CompilationTarget` composes the selected runtime contract and semantic
+metadata loader from immutable compilation options. .NET remains the default.
+The neoCLR profile uses `NeoClrCliRuntimeContract`; explicit native metadata mode
+selects `NativeSemanticDataLoader`, while CLI compatibility inputs retain the
+composite loader. Native mode requires semantic references exclusively.
 
-The contract currently owns special-type metadata names, the preferred
-`System.Runtime` assembly for those types, the runtime tuple family, configuration
-validation, and post-load unit/typeof contract validation. It resolves typeof's
-result type, context getter and resolver method as semantic symbols. The .NET
-target selects and validates the emitted core identity from its metadata session.
-Compilation retains semantic lookup, per-snapshot symbol caches, diagnostic
-reporting and the compiler-owned Unit symbol. Other protocol mappings and feature
-policies have not yet moved into this contract. Existing experimental tuple and task mappings are
-preserved on this branch; this is not a separate neoCLR target implementation.
+`DotNetCompilationServices` owns .NET metadata-session reuse, lazy reflection
+projection, host-runtime handles and the default CLI emitter. A native semantic
+import does not open that metadata session. `EmitOptions.Backend` remains the
+explicit native artifact-production boundary. Configuration and resolved-contract
+checks run before either backend writes output, including macro-plugin emission.
 
-This is deliberately a concrete .NET composition, not a public provider registry.
-The .NET target owns metadata-session and reflection-core state; Compilation
-retains forwarding reflection APIs, and loading and codegen still depend on .NET
-reflection. A future replaceable target must remove those
-shared-layer dependencies and select a coherent loader/contract/codegen trio.
-Independent component selection and cross-compilation are outside current scope.
-The development goal is one shared compiler line on main for .NET and neoCLR.
-The current neoclr branch is temporary integration work; experimental policies
-need explicit ownership and validation, not permanent branch separation. Native
-neoCLR loader/backend completion is not a prerequisite for integration. See the
-[main integration plan](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/neoclr-main-readiness.md).
+Compilation retains language binding, semantic lookup, per-snapshot symbol caches,
+diagnostic reporting and the compiler-owned Unit symbol. Runtime contracts own
+special-type mappings and runtime protocol policies, including configuration and
+post-load validation. Moving composition does not change those policies or their
+public options. The compiler host and selected target remain distinct: host
+reflection services are compatibility APIs, not native semantic metadata.
+
+This is an internal responsibility split, not a public provider registry or a
+completed portable compiler host. Existing reflection-facing compilation APIs and
+native policies inside CLI-named contracts still need review. See
+[target boundaries before bootstrapping](architecture/bootstrap-target-boundaries.md)
+for ownership, remaining work and independent target validation.
 
 ## Context-owned typeof (experimental, 2026-09-17)
 

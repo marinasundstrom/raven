@@ -172,9 +172,13 @@ public sealed class IncrementalCompilationReuseTests
         targetField.ShouldNotBeNull();
         var target = targetField!.GetValue(compilation);
         target.ShouldNotBeNull();
-        var field = target!.GetType().GetField("_metadataSession", BindingFlags.Instance | BindingFlags.NonPublic);
+        var servicesField = target!.GetType().GetField("_dotNet", BindingFlags.Instance | BindingFlags.NonPublic);
+        servicesField.ShouldNotBeNull();
+        var services = servicesField!.GetValue(target);
+        services.ShouldNotBeNull();
+        var field = services!.GetType().GetField("_metadataSession", BindingFlags.Instance | BindingFlags.NonPublic);
         field.ShouldNotBeNull();
-        var session = field!.GetValue(target);
+        var session = field!.GetValue(services);
         session.ShouldNotBeNull();
         var contextField = session!.GetType().GetField("_context", BindingFlags.Instance | BindingFlags.NonPublic);
         contextField.ShouldNotBeNull();
