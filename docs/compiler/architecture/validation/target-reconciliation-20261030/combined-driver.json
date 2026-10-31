@@ -1,0 +1,24 @@
+{
+  "scope": "Merge candidate validation checkpoint; see reconciliation ledger for final status and limits.",
+  "evidence": {
+    "candidateBranch": "codex/reconcile-neoclr-main",
+    "parents": [
+      "6a02b0c42",
+      "f4fd726ad"
+    ],
+    "sdk": "11.0.100-rc.1.26425.128",
+    "targets": {
+      "dotnet10DriverExitCode": 42,
+      "nativeProjectInterpreterExitCode": 42,
+      "nativeSourceCoreConsumerExitCode": 42,
+      "nativeUninitializedReadExitCode": 1,
+      "nativeNegativeArrayLengthExitCode": 1
+    },
+    "sha256": {
+      "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll": "532a8b233e4732aed49adf751cca669024d287064de81e94995203f8b2b6ef63",
+      "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "5d8137a850703eaedc72ff2cd86a644fdd9434571e0d081cb31b695e7199a986",
+      "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.NeoClr.dll": "d013f6176a709e68ae024a97da4d10f98ea9aff360adb29e3cbba15a8ee57e32",
+      "/Users/robert/Projects/neoclr/target/release/neoclr": "4962197d501dc13198a228b208ad20e5aac546905a18993f70e70b5842e751f4"
+    }
+  }
+}

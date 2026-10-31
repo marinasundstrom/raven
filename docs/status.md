@@ -1,5 +1,12 @@
 # Release status and compatibility
 
+Raven's shared compiler has explicit .NET and experimental neoCLR targets.
+**.NET remains the primary and default target.** Existing samples and the SDK's
+getting-started workflow continue to target .NET; neoCLR integration is opt-in.
+Shared language features are unmarked; **.NET only** and **neoCLR only** call out
+exclusive facilities or representations. Runtime/library availability and current
+backend limitations are separate; see [target availability](compiler/target-platforms.md).
+
 Raven is a working language and toolchain in preview. Releases include an SDK,
 project templates, a VS Code extension, and compiler libraries. Syntax and
 compiler APIs can still change between releases.

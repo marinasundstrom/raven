@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-30",
+  "status": "partial-failure",
+  "nativeSystemInventoryTypes": 417,
+  "nativeSystemInventoryFunctions": 4090,
+  "directApiBindingAndExecution": "passed: explicit projection symbol, native verify and return 42",
+  "compilerDriver": "failed: NEOMETA001 unregistered dependency System.Private.CoreLib",
+  "fullCoreImport": false,
+  "metadataLoadingDeferredByAuthor": true,
+  "outputDirectory": "/tmp/raven-shared-lowering-system",
+  "notes": "Earlier driver runs passed; host/projection type selection is not established as reliable. No metadata importer changes are included in this codegen slice."
+}

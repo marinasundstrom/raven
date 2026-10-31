@@ -1,8 +1,40 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-10-26**.
+Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
+
+- Keep cold semantic queries independent of query order when a top-level function
+  uses a type imported from another source file. Resolve deferred imports from
+  source declarations before completing function signatures, preventing cached
+  error parameter types in editor queries.
+
+- Preserve readonly struct fields during .NET instance calls by using defensive
+  receiver copies outside the declaring constructor. Mutable fields retain their
+  addressable storage, and constructors may initialize their own readonly fields.
+
+- Make namespace-qualified type binding use the same canonical metadata selection
+  as imports and metadata-name queries when references contain duplicate type names.
+  Preserve generic arity and local source declaration precedence.
+
+- Clarify target ownership in tests and documentation: shared language features
+  remain unmarked, exclusive facilities are labeled .NET only or neoCLR only,
+  and runtime representation is described separately. Structural unions are shared;
+  intersection types are native-only, while .NET retains conjunctive constraint syntax.
+  Document neoCLR `module` declarations alongside .NET `namespace` declarations.
+  Group native Self contracts, intersection types and structural function category
+  constraints under neoCLR-only features in the language reference and website.
+
+- Preserve target-specific documentation identities for namespace functions and
+  constants: neoCLR uses their native namespace owner, including global members,
+  while .NET retains the generated `NamespaceMembers` carrier. Imported native
+  members use the same identities as source XML and Markdown sidecars.
+
+- Reconcile the .NET and neoCLR compiler lines while preserving explicit target
+  selection. Native development history is retained in the
+  [neoCLR changelog archive](docs/compiler/history/neoclr-changelog-through-2026-10-30.md);
+  current integration evidence is tracked in the
+  [reconciliation ledger](docs/compiler/architecture/target-reconciliation-2026-10.md).
 
 - **2026-10-30:** Bind null optional-parameter metadata constants on value types as zero initialization, including CancellationToken. Preserve reference-null defaults and avoid invoking value-type constructors for omitted arguments.
 

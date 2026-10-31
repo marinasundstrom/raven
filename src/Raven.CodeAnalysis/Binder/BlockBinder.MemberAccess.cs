@@ -52,6 +52,16 @@ partial class BlockBinder
         }
 
         Compilation.EnsureSourceTypeDeclarationsDeclared();
+        if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(namedReceiverType.SpecialType) == true)
+        {
+            // Lookup follows the explicitly selected source implementation; primitive
+            // expression/signature storage remains the bootstrap's canonical type.
+            if (Compilation.Assembly.GetTypeByMetadataName(namedReceiverType.ToFullyQualifiedMetadataName()) is not { } sourceProvider)
+                return Compilation.ErrorTypeSymbol;
+            namedReceiverType = sourceProvider;
+            receiverType = sourceProvider;
+        }
 
         var semanticModel = SemanticModel;
         if (semanticModel is null)
@@ -1234,6 +1244,9 @@ partial class BlockBinder
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
+        if (type is StructuralFunctionTypeSymbol function)
+            return function.Substitute(t => SubstituteTypeParameters(t, substitutions));
+
         if (type is ITypeParameterSymbol parameter &&
             substitutions.TryGetValue(parameter, out var replacement))
         {
@@ -3170,15 +3183,19 @@ partial class BlockBinder
         SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
         bool requireSetter,
         out BoundExpression[] convertedArguments,
+        bool requireGetter = false,
         bool extensionOnly = false)
     {
         convertedArguments = arguments;
-
         var candidates = (extensionOnly
-            ? LookupExtensionProperties("Item", receiverType).Where(p => p.IsIndexer && p.GetMethod is not null && (!requireSetter || p.SetMethod is not null))
-            : GetIndexerCandidates(receiverType, requireSetter: false))
+            ? LookupExtensionProperties("Item", receiverType).Where(p => p.IsIndexer)
+            : GetIndexerCandidates(receiverType, requireSetter, requireGetter)
+                .Concat(requireSetter ? GetIndexerCandidates(receiverType, requireSetter: false) : [])
+                .Distinct<IPropertySymbol>(System.Collections.Generic.ReferenceEqualityComparer.Instance))
             .Where(p => (p.Parameters.Length == arguments.Length ||
-                p.Parameters.Length > 0 && p.Parameters[^1].IsVarParams && arguments.Length >= p.Parameters.Length - 1) && IsSymbolAccessible(p.GetMethod!) && (!extensionOnly || !requireSetter || IsSymbolAccessible(p.SetMethod!)))
+                p.Parameters.Length > 0 && p.Parameters[^1].IsVarParams && arguments.Length >= p.Parameters.Length - 1) &&
+                (!extensionOnly || (!requireSetter || HasAccessibleOrdinarySetter(p)) &&
+                 (!requireGetter && requireSetter || p.GetMethod is { } getter && IsSymbolAccessible(getter))))
             .ToArray();
 
         IPropertySymbol? best = null;
@@ -3256,8 +3273,8 @@ partial class BlockBinder
                 !best.ContainingType!.AllInterfaces.Contains(candidate.ContainingType!, SymbolEqualityComparer.Default) &&
                 !candidate.ContainingType!.AllInterfaces.Contains(best.ContainingType!, SymbolEqualityComparer.Default)))
             {
-                if (ambiguous.Count == 0) ambiguous.Add(best.GetMethod!);
-                ambiguous.Add(candidate.GetMethod!);
+                if (ambiguous.Count == 0) ambiguous.Add((requireSetter ? best.SetMethod : best.GetMethod)!);
+                ambiguous.Add((requireSetter ? candidate.SetMethod : candidate.GetMethod)!);
             }
         }
 
@@ -3272,7 +3289,7 @@ partial class BlockBinder
             convertedArguments = bestConverted;
 
         if (best is null && !extensionOnly)
-            return ResolveIndexer(receiverType, arguments, argumentSyntaxes, requireSetter, out convertedArguments, extensionOnly: true);
+            return ResolveIndexer(receiverType, arguments, argumentSyntaxes, requireSetter, out convertedArguments, requireGetter, extensionOnly: true);
         return best;
     }
 
@@ -3298,7 +3315,7 @@ partial class BlockBinder
             location);
     }
 
-    private static IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
+    private IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter, bool requireGetter = false)
     {
         var types = receiverType.TypeKind == TypeKind.Interface
             ? new[] { receiverType }.Concat(receiverType.AllInterfaces.OrderByDescending(i => i.AllInterfaces.Length))
@@ -3308,18 +3325,20 @@ partial class BlockBinder
         {
             foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
             {
-                if (property.GetMethod is null || !(property.IsIndexer || property.GetMethod.Parameters.Length > 0))
+                if (!property.IsIndexer)
                     continue;
                 // Apply hiding before checking writability: a derived read-only indexer
                 // must not expose a setter from the interface member it hides.
                 if (visible.Any(derived => derived.Name == property.Name &&
-                    derived.GetMethod!.Parameters.Select(p => p.Type).SequenceEqual(
-                        property.GetMethod.Parameters.Select(p => p.Type), SymbolEqualityComparer.Default) &&
+                    derived.Parameters.Select(p => p.Type).SequenceEqual(
+                        property.Parameters.Select(p => p.Type), SymbolEqualityComparer.Default) &&
                     (SymbolEqualityComparer.Default.Equals(derived.ContainingType, property.ContainingType) ||
                      derived.ContainingType!.AllInterfaces.Contains(property.ContainingType!, SymbolEqualityComparer.Default))))
                     continue;
                 visible.Add(property);
-                if (!requireSetter || property.SetMethod is not null)
+                if (IsSymbolAccessible(property) &&
+                    (!requireSetter || HasAccessibleOrdinarySetter(property)) &&
+                    (requireSetter && !requireGetter || property.GetMethod is { } getter && IsSymbolAccessible(getter)))
                     yield return property;
             }
         }
@@ -3345,7 +3364,7 @@ partial class BlockBinder
 
     private static string FormatIndexerParameterTypes(IPropertySymbol indexer)
     {
-        var parameters = indexer.GetMethod!.Parameters;
+        var parameters = indexer.Parameters;
         if (parameters.Length == 0)
             return "none";
 
@@ -3405,7 +3424,8 @@ partial class BlockBinder
         if (runtimeHelpers is null || runtimeHelpers.TypeKind == TypeKind.Error || rangeType.TypeKind == TypeKind.Error)
             return null;
 
-        foreach (var candidate in runtimeHelpers.GetMembers("GetSubArray").OfType<IMethodSymbol>())
+        var methodName = Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR ? "GetSlice" : "GetSubArray";
+        foreach (var candidate in runtimeHelpers.GetMembers(methodName).OfType<IMethodSymbol>())
         {
             if (!candidate.IsStatic || !candidate.IsGenericMethod || candidate.TypeParameters.Length != 1 || candidate.Parameters.Length != 2)
                 continue;
@@ -3416,7 +3436,13 @@ partial class BlockBinder
             if (!SymbolEqualityComparer.Default.Equals(candidate.Parameters[1].Type, rangeType))
                 continue;
 
-            return candidate.Construct(arrayType.ElementType);
+            var constructed = candidate.Construct(arrayType.ElementType);
+            if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+                (constructed.ReturnType is not INamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view ||
+                 view.OriginalDefinition.ToFullyQualifiedMetadataName() != "System.Slice`1" ||
+                 !SymbolEqualityComparer.Default.Equals(view.TypeArguments[0], arrayType.ElementType)))
+                continue;
+            return constructed;
         }
 
         return null;
@@ -3534,7 +3560,7 @@ partial class BlockBinder
                     ? resolvedByRefElementType
                     : null;
             var isWritableByRef = byRefElementType is not null && !IsReadOnlyByRefIndexer(indexer!);
-            if (indexer is null || !indexer.IsMutable && !isWritableByRef || indexer.SetMethod is { } indexSetter && !IsSymbolAccessible(indexSetter))
+            if (indexer is null || !HasAccessibleOrdinarySetter(indexer) && !isWritableByRef)
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -3754,7 +3780,7 @@ partial class BlockBinder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -4187,11 +4213,11 @@ partial class BlockBinder
                 {
                     var instantiated = InstantiateMethodCandidates(topLevelMethods, typeArgs, genericTypeSyntax, nameLocation);
                     if (!instantiated.IsDefaultOrEmpty)
-                        return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), instantiated, nameLocation);
+                        return BindMethodGroup(topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null, instantiated, nameLocation);
                 }
                 else
                 {
-                    return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), topLevelMethods, nameLocation);
+                    return BindMethodGroup(topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null, topLevelMethods, nameLocation);
                 }
             }
 
@@ -4201,7 +4227,7 @@ partial class BlockBinder
                 if (!EnsureMemberAccessible(topLevelField, nameLocation, GetSymbolKindForDiagnostic(topLevelField)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                return new BoundMemberAccessExpression(new BoundTypeExpression(topLevelField.ContainingType!), topLevelField);
+                return new BoundMemberAccessExpression(topLevelField.ContainingType is { } fieldContainer ? new BoundTypeExpression(fieldContainer) : null, topLevelField);
             }
 
             _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, nameLocation);

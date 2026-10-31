@@ -38,6 +38,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
 
     public override SymbolKind Kind => SymbolKind.Namespace;
 
+    public bool IsModule => _namespaces.Any(ns => ns.IsModule);
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => _namespaces.All(static namespaceSymbol => namespaceSymbol.IsGlobalNamespace);

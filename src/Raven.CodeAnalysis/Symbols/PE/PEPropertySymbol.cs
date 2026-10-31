@@ -74,6 +74,10 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 
     public bool IsIndexer => _propertyInfo.GetIndexParameters().Length > 0;
 
+    private ImmutableArray<IParameterSymbol>? _parameters;
+    public ImmutableArray<IParameterSymbol> Parameters => _parameters ??= !IsIndexer ? [] : GetMethod?.Parameters ??
+        (SetMethod is { Parameters: var parameters } && !parameters.IsEmpty ? parameters.RemoveAt(parameters.Length - 1) : []);
+
     public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations
     {
         get

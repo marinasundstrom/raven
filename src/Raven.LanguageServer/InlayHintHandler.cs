@@ -1894,7 +1894,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             SpecialType.System_Object => "object",
             SpecialType.System_String => "string",
             SpecialType.System_Boolean => "bool",
-            SpecialType.System_Char => "char",
+            SpecialType.System_Char => type.Name == "Character" ? "Character" : "char",
             SpecialType.System_SByte => "sbyte",
             SpecialType.System_Byte => "byte",
             SpecialType.System_Int16 => "short",

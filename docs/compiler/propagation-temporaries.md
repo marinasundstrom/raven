@@ -50,8 +50,9 @@ statement-level checks, with no new Runtime Contract configuration or metadata
 encoding. Focused lowering coverage checks that the unsupported propagation node is
 eliminated; executable .NET tests check success, failure and side effects.
 
-Validation on the isolated main-based branch: 24 focused propagation, Runtime
-Contract and async propagation tests pass on .NET 11.
+The isolated fix is integrated into main as `9faabb1a2`, with 24 focused .NET
+propagation/Runtime Contract/async tests passing. Native integration passes 16 focused
+tests and executes the reduced success/failure consumer with return 42.
 
 
 ## Conditional propagation initializers (2026-10-04)
@@ -67,8 +68,9 @@ change. Branch blocks with disposal/using declarations are deliberately excluded
 this rewrite until their lifetime can be preserved. Arbitrary argument and receiver
 spilling is not part of this change. Ordinary .NET keeps its existing emitter.
 
-Validation: 29 focused lowering, executable propagation, Runtime Contract and async
-propagation tests pass on the isolated main-based branch using .NET 11.
+Validation: 21 focused tests pass on the integration branch. The independent fix
+is integrated into main as `e1df355a2` with 29 focused propagation, Runtime Contract
+and async tests passing on .NET 11; the temporary fix branch is removed.
 
 ## Short-circuit propagation in conditions (2026-10-05)
 

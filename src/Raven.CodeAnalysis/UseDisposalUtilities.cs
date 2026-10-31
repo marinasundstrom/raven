@@ -29,7 +29,7 @@ internal static class UseDisposalUtilities
         if (type.TypeKind == TypeKind.Error)
             return false;
 
-        if (preferAsync &&
+        if (compilation.Options.RuntimeDisposalContract is null && preferAsync &&
             TryGetInterfaceMethod(compilation, type, "System.IAsyncDisposable", "DisposeAsync", out var asyncDisposeMethod) &&
             asyncDisposeMethod is not null &&
             AwaitablePattern.TryFind(asyncDisposeMethod.ReturnType, isAccessible: null, out _, out _, out _))
@@ -50,7 +50,7 @@ internal static class UseDisposalUtilities
 
     public static string GetExpectedUseTargetDisplay(Compilation compilation, bool preferAsync)
     {
-        if (!preferAsync)
+        if (!preferAsync || compilation.Options.RuntimeDisposalContract is not null)
             return GetDisposableDisplay(compilation);
 
         var parts = new List<string>();
@@ -136,6 +136,20 @@ internal static class UseDisposalUtilities
         ITypeSymbol type,
         out IMethodSymbol? disposeMethod)
     {
+        if (compilation.Options.RuntimeDisposalContract is { } contract)
+        {
+            disposeMethod = null;
+            var protocol = compilation.Assembly.Name == contract.AssemblyName
+                ? compilation.Assembly.GetTypeByMetadataName(contract.InterfaceTypeName)
+                : compilation.GetTypeByMetadataName(contract.InterfaceTypeName, contract.AssemblyName);
+            if (protocol is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0, DeclaredAccessibility: Accessibility.Public } named || !ImplementsOrEquals(type, named))
+                return false;
+            disposeMethod = named.GetMembers("Dispose").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                !method.IsStatic && !method.IsGenericMethod && method.DeclaredAccessibility == Accessibility.Public &&
+                method.Parameters.Length == 0 && method.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit);
+            return disposeMethod is not null;
+        }
+
         return TryGetInterfaceMethod(compilation, type, "System.IDisposable", nameof(IDisposable.Dispose), out disposeMethod);
     }
 
@@ -184,6 +198,9 @@ internal static class UseDisposalUtilities
 
     private static string GetDisposableDisplay(Compilation compilation)
     {
+        if (compilation.Options.RuntimeDisposalContract is { } contract)
+            return contract.InterfaceTypeName;
+
         var disposableType = compilation.GetSpecialType(SpecialType.System_IDisposable);
         return disposableType.TypeKind == TypeKind.Error
             ? "IDisposable"

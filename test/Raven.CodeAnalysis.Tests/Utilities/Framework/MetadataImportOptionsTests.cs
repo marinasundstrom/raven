@@ -6,6 +6,82 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class MetadataImportOptionsTests
 {
+    [Fact]
+    public void NativeObjectProviderSelectionIsImmutableAndExclusive()
+    {
+        var baseline = new MetadataImportOptions("Core");
+        var selected = baseline.WithObjectAssemblyName("Root");
+        Assert.Null(baseline.ObjectAssemblyName);
+        Assert.Equal("Root", selected.ObjectAssemblyName);
+        Assert.Equal("Core", selected.CoreAssemblyName);
+        Assert.Null(selected.WithObjectAssemblyName(null).ObjectAssemblyName);
+        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(" "));
+        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(""));
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core", null, null, true).WithObjectAssemblyName("Root"));
+    }
+
+    [Fact]
+    public void NativeAsyncProviderSelectionIsImmutableAndValidatesIdentity()
+    {
+        var baseline = new MetadataImportOptions("Core");
+        var selected = baseline.WithAsyncAssemblyName("Tasks");
+        Assert.Null(baseline.AsyncAssemblyName);
+        Assert.Equal("Tasks", selected.AsyncAssemblyName);
+        Assert.Null(selected.WithAsyncAssemblyName(null).AsyncAssemblyName);
+        Assert.Equal("Core", selected.CoreAssemblyName);
+        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(" "));
+        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(""));
+    }
+
+    [Fact]
+    public void PrimitiveProvidersAreCopiedAndRestrictedToSupportedDeclarations()
+    {
+        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers", [SpecialType.System_String] = "Text" };
+        var options = new MetadataImportOptions("Core", providers);
+        providers[SpecialType.System_Single] = "Changed";
+        Assert.Equal("Numbers", options.PrimitiveAssemblies[SpecialType.System_Single]);
+        Assert.Equal("Text", options.PrimitiveAssemblies[SpecialType.System_String]);
+        Assert.Empty(new MetadataImportOptions("Core").PrimitiveAssemblies);
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
+            new Dictionary<SpecialType, string> { [SpecialType.System_Object] = "Numbers" }));
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
+            new Dictionary<SpecialType, string> { [SpecialType.System_Double] = " " }));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceHandleOwnershipIsExplicitAndCanonicalizesNestedSignatures(bool selected)
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net10.0"));
+        using var core = Mono.Cecil.AssemblyDefinition.ReadAssembly(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"));
+        core.Name.Name = "NeoCLR.CoreProbe";
+        core.Name.PublicKey = [];
+        using var coreImage = new MemoryStream();
+        core.Write(coreImage);
+        var references = paths.Select(MetadataReference.CreateFromFile).Append(MetadataReference.CreateFromImage(coreImage.ToArray())).ToArray();
+        var compilation = Compilation.Create("Handles", [SyntaxTree.ParseText("""
+            namespace System
+            public struct RuntimeTypeHandle { }
+            public class HandleConsumer {
+                static func Echo(value: RuntimeTypeHandle) -> System.RuntimeTypeHandle => value
+                static func EchoArray(value: RuntimeTypeHandle[]) -> System.RuntimeTypeHandle[] => value
+            }
+            """)], references,
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null)
+                .WithMetadataImportOptions(new MetadataImportOptions("NeoCLR.CoreProbe", null,
+                    selected ? [SpecialType.System_RuntimeTypeHandle] : [])));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var consumer = compilation.Assembly.GetTypeByMetadataName("System.HandleConsumer")!;
+        var echo = Assert.Single(consumer.GetMembers("Echo").OfType<IMethodSymbol>());
+        var element = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(consumer.GetMembers("EchoArray").OfType<IMethodSymbol>()).ReturnType).ElementType;
+        var expected = selected ? compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle)
+            : compilation.Assembly.GetTypeByMetadataName("System.RuntimeTypeHandle");
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, echo.ReturnType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, echo.Parameters[0].Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, element));
+    }
+
     private const string Source = """
         import System.Console.*
         func Main() { WriteLine("test") }
@@ -19,6 +95,16 @@ public class MetadataImportOptionsTests
                 .Select(MetadataReference.CreateFromFile).ToArray(),
             new CompilationOptions(OutputKind.ConsoleApplication,
                 metadataImportOptions: isolated ? new MetadataImportOptions("System.Runtime") : null));
+    }
+
+    [Fact]
+    public void ExplicitCharProviderIsCopiedWithoutChangingDefaultCoreSelection()
+    {
+        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Char] = "TextLibrary" };
+        var options = new MetadataImportOptions("System.Runtime", providers);
+        providers[SpecialType.System_Char] = "Changed";
+        Assert.Equal("TextLibrary", options.PrimitiveAssemblies[SpecialType.System_Char]);
+        Assert.Empty(new MetadataImportOptions("System.Runtime").PrimitiveAssemblies);
     }
 
     [Theory]

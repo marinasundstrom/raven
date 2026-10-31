@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-31",
+  "scope": "Qualified lookup, readonly receiver and cold import-scope fixes; source build, combined driver and test host match.",
+  "sha256": {
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.CodeAnalysis/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "f24846d275e6a3703d75b63b62cab011a7f481393aed26b2dabbd2d3a70d1bf7",
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "f24846d275e6a3703d75b63b62cab011a7f481393aed26b2dabbd2d3a70d1bf7",
+    "/Users/robert/Projects/Raven-reconcile/test/Raven.CodeAnalysis.Tests/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "f24846d275e6a3703d75b63b62cab011a7f481393aed26b2dabbd2d3a70d1bf7"
+  }
+}

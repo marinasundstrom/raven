@@ -1,3 +1,7 @@
+using System.Collections.Immutable;
+
+using NSubstitute;
+
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
@@ -7,6 +11,32 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false, "")]
+    [InlineData(true, "Example.")]
+    public void AssemblyLevelMembersUseNamespaceQualifiedDocumentationIds(bool named, string prefix)
+    {
+        var (compilation, _) = CreateCompilation("namespace Example\npublic class Marker {} ");
+        var owner = named ? compilation.GetTypeByMetadataName("Example.Marker")!.ContainingNamespace! : compilation.GlobalNamespace;
+        var method = Substitute.For<IMethodSymbol>();
+        method.Name.Returns("Score");
+        method.MetadataName.Returns("Score");
+        method.ContainingType.Returns((INamedTypeSymbol?)null);
+        method.ContainingSymbol.Returns(owner);
+        method.ContainingNamespace.Returns(owner);
+        var parameter = Substitute.For<IParameterSymbol>();
+        parameter.Type.Returns(compilation.GetSpecialType(SpecialType.System_Int32));
+        method.Parameters.Returns(ImmutableArray.Create(parameter));
+        Assert.Equal("M:" + prefix + "Score(System.Int32)", DocumentationCommentIdBuilder.GetMethodMemberId(method));
+        var constant = Substitute.For<IFieldSymbol>();
+        constant.Name.Returns("Scale");
+        constant.MetadataName.Returns("Scale");
+        constant.ContainingType.Returns((INamedTypeSymbol?)null);
+        constant.ContainingSymbol.Returns(owner);
+        constant.ContainingNamespace.Returns(owner);
+        Assert.Equal("F:" + prefix + "Scale", DocumentationCommentIdBuilder.GetFieldMemberId(constant));
+    }
+
     [Fact]
     public void SourceField_UsesSourceNameAsMetadataName()
     {

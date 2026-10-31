@@ -12,6 +12,8 @@ namespace Raven.CodeAnalysis.Symbols;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal abstract class Symbol : ISymbol
 {
+    internal virtual bool IsTerminalRuntimeCall => false;
+
     private readonly Accessibility _declaredAccessibility;
     private HashSet<string>? _fileScopedDeclarationPaths;
 

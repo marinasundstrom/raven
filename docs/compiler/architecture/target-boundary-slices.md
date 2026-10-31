@@ -1865,3 +1865,228 @@ parameter-default and optional-parameter tests pass. Compiler builds pass for .N
 10/11. No Runtime Contract option or CLI encoding changed; the provider now interprets
 existing valid signature-only parameters correctly. This fix should reach the shared
 line independently of the optional probe.
+
+## Independent metadata compiler consumer, stage 1 (2026-09-30)
+
+`tools/NeoClrMetadataProbe` references the independent metadata library through the
+explicit NeoClrMetadataProject build property. Raven's public semantic operations
+feed the native assembly builder, with top-level functions, Int32 arithmetic, a local
+call and a call to the API-produced dependency. The fixture executes as 42 in neoCLR;
+unsupported division and a missing method are rejected. The application never passes
+through the existing CLI importer. Hash evidence is retained with the probe.
+
+The input loader and primitive frontend contract remain .NET-based. This is an opt-in
+consumer executable, not production target composition. Native metadata symbol loading,
+compiler-owned diagnostic integration and wider constructs are incremental next steps.
+The library does not acquire a Raven dependency. Shared fixes 1ea0ca263 and d7040e21d
+were independently tested and fast-forwarded onto local main; the probe remains on
+codex/metadata-consumer. No push or target release is implied.
+
+### Compiler-owned native adapter checkpoint — 2026-09-30
+
+The working operations consumer is now the optional `Raven.CodeAnalysis.NeoClr`
+project, with `NeoClrCompilationEmitter.Emit`, immutable output/core/dependency options
+and a success/diagnostic result. The probe is a C# caller of this reusable adapter.
+The metadata API remains a separate project with no Raven dependency. The new project
+is opt-in through NeoClrMetadataProject; ordinary .NET behavior/default builds and
+`Compilation.Emit` composition are unchanged.
+
+Calls use explicit compiler-reference-to-snapshot bindings and resolved assembly-symbol
+identity instead of a simple-name selection. Host snapshot consistency and the primitive
+core assertion remain explicit responsibilities until a native provider owns them.
+NEOMETA001 carries source locations; NEOMETA002 rejects incompatible configuration;
+NEOMETA003 reports writer limits/invalid graphs. Original binding diagnostics survive.
+All validation precedes output writes; host I/O failures propagate and can partially
+write. Supported source/format-5 encoding remains the existing static Int32 subset.
+
+C# consumer checks cover expression spans, unchanged rejected output, original error
+identities, invalid/duplicate/unregistered/core bindings, writer limits, multi-tree
+rejection, repeated output and stream ownership/failure. The emitted application still
+verifies/runs in neoCLR with result 42. Hash evidence includes the new adapter binary.
+Native symbol loading and production target registration remain pending. Structural
+support remains later; this does not change the runtime bridge's platform capabilities.
+
+### Multi-file native adapter checkpoint — 2026-09-30
+
+The optional compiler-owned emitter now accepts multiple source trees. It collects
+all supported top-level declarations before emitting bodies and retains each body's
+own semantic model. Like the ordinary .NET compiler, valid cross-file calls bind
+independently of file order; native metadata token/declaration order still follows
+input order. No shared binding or .NET emitter change was required. Macro trees and
+unsupported constructs remain excluded under the existing explicit bootstrap contract.
+
+The new two-file regression first failed with the adapter's NEOMETA002 single-tree
+restriction. After the refactor, Helper.rvn/Main.rvn and the reversed input order
+both verify/run to 42 in neoCLR. A division expression in the later helper file
+produces NEOMETA001 with that file's source location and leaves output unchanged.
+The original one-file and adapter contract checks still pass. Validation evidence
+includes hashes for all three applications. Native symbol loading and production
+registration remain separate next steps; the metadata library stays independent.
+
+### Native dependency input through a reference projection — 2026-09-30
+
+The independent metadata project now reads its bounded native format-5 declaration
+contract with `NativeAssemblyDefinition.ReadAssembly`. It checks manifest/name/origin
+consistency, duplicate and unsupported declaration fields, owner/signature contracts
+and resource bounds. Bodies remain opaque: successful metadata reading does not imply
+successful native verification or execution. General native schemas, arbitrary types,
+structural metadata and executable rewriting remain unsupported.
+
+The snapshot can create a reference-only PE using an explicit core identity. The
+projection preserves supported callable/type declarations and marks the assembly with
+ReferenceAssemblyAttribute; placeholder bodies throw. It omits the native entry point
+and implementation dependency references. These signatures need only primitive types.
+This is the temporary native-input bridge, following the .NET separation of compilation
+contracts and executable implementations, not a new executable CLI representation of
+native code. The cost is an extra PE and the existing .NET symbol provider. Native
+ISemanticDataLoader/symbol construction should ultimately consume native declarations
+directly; the projection must then be retired, not made a permanent platform rule.
+Primary comparison: [Microsoft reference assemblies](https://learn.microsoft.com/en-us/dotnet/standard/assembly/reference-assemblies).
+
+The Raven probe now emits only the original native dependency from its producer,
+reads that native artifact, and creates MetadataProbeLibrary.reference.dll from the
+reader. It binds that reference with the existing .NET primitive Runtime Contract,
+imports the read-only callable contract, and emits native applications. The original
+native dependency (never the reference PE) is supplied to neoCLR. The one-file and
+both two-file orders verify/run to 42; diagnostic/stream checks still pass. The report
+records the reference projection hash alongside the native dependency/application hashes.
+
+Ownership: the metadata project owns reading/projection; Raven owns compiler binding
+and emission; the host supplies matching explicit core identities and native runtime
+dependencies. Ordinary .NET defaults and existing CLI targets are unchanged. The
+metadata project stays separate, and all work remains on the existing feature branches.
+C# contracts pass (23 groups), including malformed inputs, projection ownership,
+reference marking and rejection of execution loading by .NET. No production native
+semantic loader or target registration is claimed.
+
+### Raven library-to-application native case — 2026-09-30
+
+Both sides of the integration case now originate in Raven source. The optional adapter
+accepts library output without an entry point and public nongeneric static classes in
+the global namespace containing public static Int32 methods. Ordinary Raven default
+public method accessibility is accepted. Nonpublic members/types/library globals and
+additional type contracts are rejected; the public-only metadata writer must not
+silently widen a library's visibility. Console top-level functions remain native
+functions outside types. Broader visibility/namespace/type support is still pending.
+
+The producer declares MathLibrary.Twice overloads and a Multiply helper. Raven emits
+the library as native format 5; the independent metadata API reads it and projects
+reference-only declarations. A separate Raven application binds the one-argument
+overload, emits a native external call, and neoCLR executes the original library's
+local helper call. The one-file and both multi-file input orders return 42. No producer
+builder graph or hand-authored native dependency body is used in the case.
+
+The new case first failed with NEOMETA002 because the adapter accepted only console
+output. Focused C# checks now confirm entry-less library output, overload/local-call
+execution, source-located visibility/type rejection with unchanged output, and native
+missing-dependency/wrong-revision errors. Existing diagnostic/stream and multi-file
+checks pass. The .NET primitive Runtime Contract and reference-only input bridge remain
+explicit; no default .NET behavior, general binder, metadata library API or runtime
+format change was needed. The next replacement remains a native semantic provider and
+production target composition, with further supported constructs driven by real cases.
+
+### Transitive native runtime acceptance — 2026-09-30
+
+The end-to-end chain now consists entirely of Raven-compiled native assemblies:
+application -> MetadataProbeLibrary -> ArithmeticDependency. The outer library imports
+the inner library's native declarations through the temporary reference projection.
+The application references only the outer projection; Arithmetic is absent from its
+symbol lookup and the outer reference PE's AssemblyRef rows, since all public
+signatures use primitives. Like .NET reference assemblies, implementation dependencies
+remain outside that compile-time signature surface. They are still required at runtime.
+
+`NativeAssemblyDefinition.References` now exposes the exact direct native identities
+in manifest order as an owned read-only list. It does not resolve dependencies or build
+a transitive closure. The host explicitly supplies both native dependencies to neoCLR.
+The existing runtime reference validator (`src/references.rs` in neoCLR), loader,
+verifier and VM accept the emitted chain: all three application variants return 42,
+and reversed runtime module order also returns 42. Missing direct/transitive modules
+and wrong direct/transitive revisions fail verification with the expected diagnostics.
+No runtime implementation change was necessary for this supported format-5 graph.
+
+This is actual loading and execution of the emitted native format, not a claim based
+on PE readability or reader roundtrips. Reference-only PEs are compiler input only.
+The author reiterated runtime loading as a required acceptance gate. Direct PE/#Neo
+loading and structural NEOX semantics are still unimplemented, and the .NET primitive
+binding bootstrap remains temporary. Neither limitation is hidden by this test.
+
+Validation: 24 C# metadata contract groups pass, including direct identity/list
+ownership and rejection checks; Raven adapter/library/multi-file contracts pass; the
+runtime checks above pass. Reports include both native dependencies and both reference
+projection hashes. Compiler integration remains on codex/metadata-consumer and the
+independent metadata/runtime checkout on codex/extended-cli-metadata.
+
+## Initial direct runtime container — 2026-09-30
+
+The optional `NeoClrCompilationEmitter.EmitMetadataAssembly` now uses the independent
+metadata API to produce PE/#Neo files. The existing .NET primitive Runtime Contract
+and semantic provider remain the bootstrap: bind against reference-only CLI declarations
+in those files and pair them with `RuntimeAssemblyContainer.ReadCliProjection` snapshots.
+The metadata project owns encoding/projection; Raven owns semantic mapping and backend
+diagnostics; neoCLR owns native admission, dependency linking, verification and execution.
+Default .NET and existing production target composition are unchanged.
+
+The same PE library files are now runtime inputs. Required section 256/schema 1 carries
+authoritative native format-5 metadata and bodies; CLI stubs do not execute. This
+supersedes the earlier JSON-only runtime checkpoint above. Native bodies and dependency
+identities retain their semantics, including top-level functions and transitive references.
+The report records application/library/runtime/API hashes; single/multi-file cases
+and reversed module order execute to 42 and dependency rejection checks pass. C#
+adapter checks cover equivalent native payloads and unchanged failed output.
+
+This bridge still stores JSON inside the PE and makes no performance improvement claim.
+The author highlighted parsing cost; binary native encoding and separate loading, linking,
+verification and execution measurements are the next evaluation. Required structural
+schemas, native compiler symbol loading and production emitter registration remain
+pending. There is no guest Introspection assembly loader API yet. Work stays on
+`codex/metadata-consumer` with neoCLR's `codex/extended-cli-metadata`; ordinary .NET
+behavior and shared main are unaffected. See the [adapter API](../api/neoclr-emission.md#peneo-output)
+and the probe's tracked validation report for the tested artifacts.
+
+### Hello World acceptance — 2026-09-30
+
+The author selects Hello World, then an entry-point call to another function, as
+the first acceptance targets. Both now pass through PE/#Neo runtime loading: the
+first prints in Main, the second calls Greet; both print exactly one line and exit 0.
+The host explicitly supplies `NeoClrEmitOptions.ConsoleReference`, an exact registered
+reference authorizing only System.Console.WriteLine with a non-null string literal.
+This adds no global Runtime Contract/default .NET mapping. The metadata API emits
+native ldstr/call/pop; pop discards the bundled System library's current Void value.
+Native string signatures, arbitrary Console overloads and no-result source entry
+points remain outside this slice. The production replacement belongs in the native
+platform-call/type contracts; Raven owns semantic matching, the independent API owns
+encoding, and neoCLR owns System output. C# checks reject missing/wrong/unregistered
+bindings and unsupported overloads without touching output.
+
+### Binary payload boundary — 2026-09-30
+
+The opt-in PE emitter now uses the independent `RuntimeAssemblyContainer.WriteBinary`
+API. Required section 256/schema 2 carries bounded CBOR of the same native format-5
+model. neoCLR's CLI/module path preserves binary input and deserializes directly into
+runtime metadata, without JSON text conversion. The compiler-host intermediate and
+reference-only CLI projection remain unchanged. Explicit core/Console bindings and
+ordinary .NET target defaults are unchanged. Schema-1 containers remain readable;
+schema-1-only runtimes reject new output. Match the experimental runtime branch.
+
+Hello World, entry-point function calls, both source-file orders and the transitive
+library case pass with binary containers. Required schema/bounds/UTF-8/duplicate-key
+rejections are covered by the metadata/runtime tests. Native symbol-provider work,
+indexed tables, wider signatures and production registration remain open. The runtime
+repository records load/link/verify/execute timings separately; no execution-speed
+claim follows from avoiding JSON parsing.
+
+### Class-library bootstrap direction
+
+The author identifies compiling neoCLR's runtime class library and loading its symbols
+into Raven as the next important consumer. Existing JSON may first be translated into
+neoCLR assemblies, preserving native metadata and bodies, before direct emission
+covers the complete library. The current bounded writer/reader is not yet a general
+class-library translator. A real library slice should drive missing signature/member
+coverage, with unsupported information rejected rather than omitted.
+
+The existing .NET semantic provider can initially consume an explicit CLI reference
+projection because the declaration models are still similar. Native metadata remains
+authoritative as semantics diverge; keep projection mappings behind the compiler's
+loader contract so a native ISemanticDataLoader can replace them. The independent
+metadata project stays separate from Raven. This is a bootstrap plan, not a claim
+that System.Runtime already compiles through this experimental emitter.

@@ -12,16 +12,39 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     protected CompilationOptions Options { get; } = options;
 
     internal abstract string TupleTypeName { get; }
+    internal virtual string RecordEquatableTypeName => "System.IEquatable`1";
+    internal virtual string UnionInterfaceTypeName => "System.Runtime.CompilerServices.IUnion";
+    internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";
+    internal virtual bool UsesStructuralCompositions => false;
+    internal virtual bool UsesStructuralTuples => false;
+    internal virtual bool UsesStructuralFunctions => false;
+
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }
+    internal virtual bool UsesSourceObjectRoot => false;
 
     protected abstract string? GetPlatformConfigurationError();
 
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (Options.MetadataImportOptions?.UseNativeMetadata == true && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native metadata loading requires the NeoCLR target";
         if (GetPlatformConfigurationError() is { } platformError)
             return platformError;
+
+        if (Options.MetadataImportOptions is { } imports && (imports.PrimitiveAssemblies.Count > 0 || imports.SourcePrimitiveTypes.Count > 0) && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native primitive providers require the NeoCLR target";
+
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is not null &&
+            (Options.TargetPlatform != TargetPlatform.NeoCLR || !Options.UseHeapAsyncStateMachines))
+            return "native async providers require the NeoCLR heap state-machine target";
+
+        if (Options.MetadataImportOptions?.ObjectAssemblyName is not null && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "imported Object ownership requires the NeoCLR target";
+
+        if (Options.MetadataImportOptions?.UseSourceObjectRoot == true && !UsesSourceObjectRoot)
+            return "source Object ownership requires the NeoCLR target";
 
         if (Options.TargetCoreAssemblyName is { } coreName &&
             (string.IsNullOrWhiteSpace(coreName) ||
@@ -33,12 +56,21 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.RuntimeUnitContract is { } unit &&
             (string.IsNullOrWhiteSpace(unit.AssemblyName) ||
              string.IsNullOrWhiteSpace(unit.TypeName) ||
-             (!unit.MapClrVoidToUnit && Options.TargetCoreAssemblyName != unit.AssemblyName) ||
+             (!unit.MapClrVoidToUnit && Options.TargetPlatform != TargetPlatform.NeoCLR && Options.TargetCoreAssemblyName != unit.AssemblyName) ||
              (unit.MapClrVoidToUnit && (Options.TargetPlatform != TargetPlatform.DotNet ||
                  Options.TargetCoreAssemblyName is { } selectedCore && selectedCore != unit.AssemblyName))))
         {
             return "the unit contract requires an explicit target core, or the .NET void-to-unit bootstrap policy";
         }
+
+        if (Options.RuntimeFailureContract is { } failure &&
+            (Options.TargetPlatform != TargetPlatform.NeoCLR || string.IsNullOrWhiteSpace(failure.AssemblyName) ||
+             string.IsNullOrWhiteSpace(failure.NamespaceName) || string.IsNullOrWhiteSpace(failure.FunctionName)))
+            return "the failure contract requires an explicit NeoCLR namespace-function owner";
+
+        if (Options.RuntimeDisposalContract is { } disposal &&
+            (string.IsNullOrWhiteSpace(disposal.AssemblyName) || string.IsNullOrWhiteSpace(disposal.InterfaceTypeName)))
+            return "the disposal contract requires assembly and interface type names";
 
         if (Options.RuntimeTypeOfContract is { } typeOf &&
             (string.IsNullOrWhiteSpace(typeOf.AssemblyName) ||
@@ -56,6 +88,66 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (GetConfigurationError() is { } error)
             return error;
 
+        if (Options.MetadataImportOptions is { UseNativeMetadata: true } nativeImports &&
+            !nativeImports.UseSourceCore &&
+            compilation.ReferencedAssemblySymbols.Count(assembly => assembly.Name == nativeImports.CoreAssemblyName &&
+                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null }) != 1)
+            return "native metadata loading requires exactly one native semantic core with the configured identity";
+
+        if (Options.MetadataImportOptions is { UseSourceCore: true } sourceCore &&
+            (!sourceCore.UseNativeMetadata || !sourceCore.UseSourceObjectRoot ||
+             compilation.AssemblyName != sourceCore.CoreAssemblyName || Options.OutputKind != OutputKind.DynamicallyLinkedLibrary ||
+             compilation.ReferencedAssemblySymbols.Any(a => a.Name == sourceCore.CoreAssemblyName)))
+            return "source core requires native metadata, source Object ownership, a matching library identity and no imported core";
+
+        if (Options.RuntimeFailureContract is { } failure)
+        {
+            INamespaceSymbol? ns = compilation.GlobalNamespace;
+            foreach (var part in failure.NamespaceName.Split('.'))
+                ns = ns?.GetMembers(part).OfType<INamespaceSymbol>().SingleOrDefault();
+            var members = ns?.GetMembers() ?? [];
+            var methods = members.OfType<IMethodSymbol>().Concat(members.OfType<INamedTypeSymbol>()
+                .SelectMany(type => type.GetMembers().OfType<IMethodSymbol>()));
+            if (methods.Where(failure.Matches).Distinct(SymbolEqualityComparer.Default).Count() != 1)
+                return "the failure contract requires one public namespace function with the configured owner and string-to-unit signature";
+        }
+
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider)
+        {
+            bool IsAsyncProviderAssembly(IAssemblySymbol? assembly) =>
+                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } ||
+                (compilation.AssemblyName == asyncProvider && ReferenceEquals(assembly, compilation.Assembly));
+            var stateMachine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
+            if (stateMachine.TypeKind != TypeKind.Interface || stateMachine.Arity != 0 ||
+                stateMachine.DeclaredAccessibility != Accessibility.Public || stateMachine.ContainingAssembly?.Name != asyncProvider ||
+                !IsAsyncProviderAssembly(stateMachine.ContainingAssembly))
+                return "native async provider requires its public state-machine interface";
+            foreach (var special in new[] { SpecialType.System_Threading_Tasks_Task_T, SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T })
+            {
+                var type = compilation.GetSpecialType(special);
+                if (type.TypeKind != TypeKind.Class || type.Arity != 1 || type.IsStatic ||
+                    type.DeclaredAccessibility != Accessibility.Public || type.ContainingAssembly?.Name != asyncProvider ||
+                    !IsAsyncProviderAssembly(type.ContainingAssembly))
+                    return "native async provider requires public generic Task and builder declarations from its registered native assembly";
+            }
+        }
+
+        if (Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
+        {
+            var root = compilation.GetSpecialType(SpecialType.System_Object);
+            if (root is not
+                {
+                    SpecialType: SpecialType.System_Object, TypeKind: TypeKind.Class, Arity: 0,
+                    IsAbstract: true, IsStatic: false, BaseType: null, DeclaredAccessibility: Accessibility.Public
+                } ||
+                root.ContainingAssembly?.Name != objectProvider ||
+                root.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                return "imported Object ownership requires the selected native assembly's public abstract fieldless root";
+        }
+
+        if (compilation.GetSourceObjectRootError() is { } rootError)
+            return rootError;
+
         if (Options.RuntimeSelfTypeContract is not null &&
             (compilation.ResolveRuntimeSelfType() is not { Arity: 0, DeclaredAccessibility: Accessibility.Public } selfType ||
              selfType.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic)))
@@ -66,8 +158,10 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.RuntimeUnitContract is { } unit)
         {
-            var type = compilation.GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
-            if (type is null || unit.MapClrVoidToUnit && (type.SpecialType == SpecialType.System_Void || type.DeclaredAccessibility != Accessibility.Public) || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
+            if (Options.TargetPlatform == TargetPlatform.NeoCLR && unit.AssemblyName == compilation.Assembly.Name)
+                compilation.EnsureSourceDeclarationsComplete();
+            var type = compilation.ResolveRuntimeUnitType();
+            if (type is null || (Options.TargetPlatform == TargetPlatform.NeoCLR || unit.MapClrVoidToUnit) && type.DeclaredAccessibility != Accessibility.Public || unit.MapClrVoidToUnit && type.SpecialType == SpecialType.System_Void || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
                 || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
                 return "the unit contract must name a public empty non-void value type in its configured assembly";
         }
@@ -89,7 +183,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             SpecialType.System_ValueType => "System.ValueType",
             SpecialType.System_Void => "System.Void",
             SpecialType.System_Boolean => "System.Boolean",
-            SpecialType.System_Char => "System.Char",
+            SpecialType.System_Char => Options.TargetPlatform == TargetPlatform.NeoCLR ? "System.Character" : "System.Char",
             SpecialType.System_SByte => "System.SByte",
             SpecialType.System_Byte => "System.Byte",
             SpecialType.System_Int16 => "System.Int16",
@@ -129,7 +223,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute => "System.Runtime.CompilerServices.AsyncStateMachineAttribute",
             SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute => "System.Runtime.CompilerServices.IteratorStateMachineAttribute",
             SpecialType.System_Threading_Tasks_Task => "System.Threading.Tasks.Task",
-            SpecialType.System_Threading_Tasks_Task_T => Options.UseHeapAsyncStateMachines && Options.TargetCoreAssemblyName is not null ? "System.Tasks.Task`1" : "System.Threading.Tasks.Task`1",
+            SpecialType.System_Threading_Tasks_Task_T => Options.UseHeapAsyncStateMachines && Options.TargetCoreAssemblyName is not null ? "System.Concurrency.Tasks.Task`1" : "System.Threading.Tasks.Task`1",
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken",
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1",
             SpecialType.System_ValueTuple_T1 => $"{TupleTypeName}`1",
@@ -142,7 +236,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             SpecialType.System_ValueTuple_TRest => $"{TupleTypeName}`8",
             SpecialType.System_Type => "System.Type",
             SpecialType.System_Exception => "System.Exception",
-            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => "System.Runtime.CompilerServices.IAsyncStateMachine",
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => AsyncStateMachineTypeName,
             _ => throw new InvalidOperationException("Special type is not supported."),
         };
     }

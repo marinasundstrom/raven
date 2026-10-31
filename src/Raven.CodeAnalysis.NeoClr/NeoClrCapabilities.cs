@@ -1,0 +1,48 @@
+using NeoCLR.Metadata.Experimental.Model;
+
+using Raven.CodeAnalysis.CodeGen.Portable;
+
+namespace Raven.CodeAnalysis.NeoClr;
+
+// Adapter-owned admission profile for both declarations and shared bodies.
+internal static class NeoClrCapabilities
+{
+    internal static EmissionCapabilities Shared { get; } = new(
+        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte, EmissionPrimitiveType.Single, EmissionPrimitiveType.Double, EmissionPrimitiveType.SByte, EmissionPrimitiveType.Int16, EmissionPrimitiveType.UInt16, EmissionPrimitiveType.UInt32, EmissionPrimitiveType.UInt64, EmissionPrimitiveType.IntPtr, EmissionPrimitiveType.UIntPtr],
+        [
+            LinearInstructionKind.NewTuple, LinearInstructionKind.LoadTupleElement, LinearInstructionKind.StoreTupleElement,
+            LinearInstructionKind.LoadTypeToken, LinearInstructionKind.DirectInstanceCall, LinearInstructionKind.BaseConstructorCall, LinearInstructionKind.ConstrainedCall, LinearInstructionKind.EnumFromInt32, LinearInstructionKind.EnumToInt32, LinearInstructionKind.LoadCapture, LinearInstructionKind.UnboxAny, LinearInstructionKind.ReferenceIsNull, LinearInstructionKind.TypeTest, LinearInstructionKind.FieldAddress, LinearInstructionKind.BoxToObject, LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
+            LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
+            LinearInstructionKind.CheckedConvert, LinearInstructionKind.CheckedAdd, LinearInstructionKind.UnsignedCheckedAdd, LinearInstructionKind.CheckedSubtract, LinearInstructionKind.UnsignedCheckedSubtract, LinearInstructionKind.CheckedMultiply, LinearInstructionKind.UnsignedCheckedMultiply,
+            LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return, LinearInstructionKind.CompilerFailure,
+            LinearInstructionKind.LoadLocal, LinearInstructionKind.StoreLocal, LinearInstructionKind.Boolean,
+            LinearInstructionKind.Not, LinearInstructionKind.Equal, LinearInstructionKind.Less,
+            LinearInstructionKind.Greater, LinearInstructionKind.Label, LinearInstructionKind.Branch,
+            LinearInstructionKind.BranchTrue, LinearInstructionKind.BranchFalse, LinearInstructionKind.Pop,
+            LinearInstructionKind.ConstantSingle, LinearInstructionKind.ConstantDouble, LinearInstructionKind.ConvertSingle, LinearInstructionKind.ConvertDouble, LinearInstructionKind.LessOrUnordered, LinearInstructionKind.GreaterOrUnordered,
+            LinearInstructionKind.ConvertSByte, LinearInstructionKind.ConvertInt16, LinearInstructionKind.ConvertUInt16, LinearInstructionKind.ConvertUInt32, LinearInstructionKind.ConvertUInt64, LinearInstructionKind.ConvertNativeInt, LinearInstructionKind.ConvertNativeUInt, LinearInstructionKind.PointerCast, LinearInstructionKind.UnsignedDivide, LinearInstructionKind.UnsignedRemainder, LinearInstructionKind.UnsignedShiftRight, LinearInstructionKind.UnsignedLess, LinearInstructionKind.UnsignedGreater, LinearInstructionKind.UnsignedConvertDouble,
+            LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32, LinearInstructionKind.ConvertByte,
+            LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide, LinearInstructionKind.Remainder,
+            LinearInstructionKind.BitwiseAnd, LinearInstructionKind.BitwiseOr, LinearInstructionKind.BitwiseXor,
+            LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight, LinearInstructionKind.Receiver, LinearInstructionKind.LoadField, LinearInstructionKind.StoreField, LinearInstructionKind.ValueInstanceCall, LinearInstructionKind.InstanceCall, LinearInstructionKind.InterfaceCall, LinearInstructionKind.NewObject,
+            LinearInstructionKind.NewArray, LinearInstructionKind.ElementAddress, LinearInstructionKind.LoadElement, LinearInstructionKind.StoreElement, LinearInstructionKind.ArrayLength, LinearInstructionKind.LocalAddress, LinearInstructionKind.ArgumentAddress, LinearInstructionKind.LoadIndirect, LinearInstructionKind.StoreIndirect, LinearInstructionKind.DefaultValue, LinearInstructionKind.Duplicate
+        ],
+        [EmissionDeclarationKind.ValueTypeAncestry, EmissionDeclarationKind.PositionalReferenceRecordStorage, EmissionDeclarationKind.PositionalRecordStorage, EmissionDeclarationKind.InitAccessor, EmissionDeclarationKind.AsyncMethod, EmissionDeclarationKind.AsyncStateMachine, EmissionDeclarationKind.ObjectRoot, EmissionDeclarationKind.ObjectRootSlot, EmissionDeclarationKind.StaticInterfaceMethod, EmissionDeclarationKind.Enum, EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.ValueType, EmissionDeclarationKind.ValueInterfaceImplementation, EmissionDeclarationKind.ValueObjectOverride, EmissionDeclarationKind.ReferenceObjectOverride, EmissionDeclarationKind.NestedType, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.Constructor, EmissionDeclarationKind.PropertyAccessor, EmissionDeclarationKind.IndexerAccessor, EmissionDeclarationKind.Interface, EmissionDeclarationKind.InterfaceMethod, EmissionDeclarationKind.InterfaceProperty, EmissionDeclarationKind.InterfaceIndexer, EmissionDeclarationKind.InterfaceInheritance, EmissionDeclarationKind.InterfaceImplementation],
+        [Accessibility.Public, Accessibility.Internal],
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private],
+        [Accessibility.Public, Accessibility.Internal], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericInterfaceMethods: true, allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsConstructedFieldReferences: true, allowsNominalTypeBounds: true, allowsSpecialTypeConstraints: true, allowsGenericInterfaceDeclarations: true, allowsExternalInterfaceDeclarations: true, allowsConstructedInterfaceInheritance: true, allowsConstructedInterfaceImplementations: true, allowsInterfaceSignatures: true, allowsInterfaceDispatch: true, allowsExternalReferenceSignatures: true, allowsExternalValueSignatures: true, allowsExternalInstanceCalls: true, allowsManagedReferences: true, allowsExternalValueInstanceCalls: true, allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsFunctionValues: true, allowsLoweredExtensionCalls: true, allowsCasePatterns: true, allowsReferenceEnumeration: true, allowsObjectDisplayDispatch: true, allowsObjectHashDispatch: true, allowsRangeEnumeration: true, allowsMethodInterfaceBounds: true, allowsClassVirtualSlots: true, allowsLocalClassInheritance: true, allowsClosedClassFamilies: true, allowsProtectedConstructors: true, allowsClosedInterfaceFamilies: true, allowsParameterArrays: true, allowsParameterDefaults: true, allowsUnmanagedPointers: true, allowsGenericPointerTargets: true, allowsValuePointerTargets: true, allowsGenericObjectRootBase: true, allowsCustomAttributes: true, allowsExternalFieldlessClassInheritance: true, allowsInternalExternalSymbols: true, allowsExternalClassInheritance: true, allowsGenericFunctionCaptures: true, allowsStaticFields: true, allowsImportedCompositionCalls: true, allowsInterfaceVariance: true, allowsGenericLocalClassInheritance: true, allowsConstructedClassBases: true, allowsGenericExternalClassInheritance: true, allowsGenericClassVirtualSlots: true, allowsAbstractGenericClasses: true, allowsFunctionReturnProjection: true, allowsFunctionTypeConstraints: true, allowsMethodFunctionTypeConstraints: true, allowsMethodCategoryConstraints: true, allowsMethodClassBounds: true, allowsDecimalValueContracts: true, allowsRefLikeType: type =>
+            type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
+            source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
+            type.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1",
+        allowsDefaultEmptyCollection: type =>
+            type.OriginalDefinition is NativeNamedTypeSymbol { MemoryView: MemoryViewKind.Slice or MemoryViewKind.ReadOnlySlice } ||
+            type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
+            source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
+            type.OriginalDefinition.ToFullyQualifiedMetadataName() is "System.Slice`1" or "System.ReadOnlySlice`1",
+        allowsValueCapture: type =>
+            type.OriginalDefinition is NativeNamedTypeSymbol { IsRuntimeCancellationToken: true } ||
+            type.OriginalDefinition is NativeNamedTypeSymbol { MemoryView: MemoryViewKind.Memory or MemoryViewKind.ReadOnlyMemory } ||
+            type.ContainingAssembly is Raven.CodeAnalysis.Symbols.SourceAssemblySymbol source &&
+            source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true &&
+            type.OriginalDefinition.ToFullyQualifiedMetadataName() is "System.Memory`1" or "System.ReadOnlyMemory`1");
+}

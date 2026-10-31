@@ -992,6 +992,26 @@ internal partial class TypeMemberBinder : Binder
             ? defaultReturnType
             : ResolveTypeSyntaxForSignature(methodBinder, methodDecl.ReturnType.Type, RefKind.None, signatureTypeResolutionOptions);
 
+        ITypeSymbol? functionOperand = null;
+        if (methodDecl.FunctionType is { } functionAnnotation)
+        {
+            functionOperand = ResolveTypeSyntaxForSignature(methodBinder, functionAnnotation.Type, RefKind.None, signatureTypeResolutionOptions);
+            if (Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR ||
+                functionOperand is not ITypeParameterSymbol { ConstraintKind: TypeParameterConstraintKind.FunctionType } ||
+                isAsync || isVirtual || isOverride || isExtern || isExtensionMember || methodSymbol.TypeParameters.Length != 0)
+            {
+                _diagnostics.ReportInvalidFunctionMethod("requires a nonvirtual neoCLR method and a declaring-type parameter constrained as func", functionAnnotation.GetLocation());
+                functionOperand = null;
+            }
+            else
+            {
+                methodSymbol.SetDeclaredFunctionType(functionOperand);
+                returnType = new FunctionReturnTypeSymbol(functionOperand, Compilation.GetSpecialType(SpecialType.System_Unit));
+                if (methodDecl.ArgumentsBinding is null && !isAbstract)
+                    _diagnostics.ReportInvalidFunctionMethod("an implementation requires a with arguments binding", functionAnnotation.GetLocation());
+            }
+        }
+
         if (isAsync && methodDecl.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -1171,6 +1191,15 @@ internal partial class TypeMemberBinder : Binder
                 hasImplicitName: syntax.Pattern is not null
             );
             parameters.Add(pSymbol);
+        }
+
+        if (functionOperand is not null && methodDecl.ArgumentsBinding is { } argumentsBinding)
+        {
+            var nullableObject = new NullableTypeSymbol(Compilation.GetSpecialType(SpecialType.System_Object),
+                null, null, null, []);
+            parameters.Add(new SourceParameterSymbol(argumentsBinding.Identifier.ValueText,
+                Compilation.CreateArrayTypeSymbol(nullableObject), methodSymbol, _containingType, CurrentNamespace,
+                [argumentsBinding.Identifier.GetLocation()], [argumentsBinding.GetReference()]));
         }
 
         methodSymbol.SetReturnType(returnType);
@@ -3497,7 +3526,11 @@ internal partial class TypeMemberBinder : Binder
         var modifiers = indexerDecl.Modifiers;
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var isStatic = hasStaticModifier; var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isStatic = hasStaticModifier;
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)
+            || _containingType.TypeKind == TypeKind.Interface && indexerDecl.ExpressionBody is null
+                && indexerDecl.AccessorList is { } interfaceAccessors
+                && interfaceAccessors.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
@@ -4622,12 +4655,13 @@ internal partial class TypeMemberBinder : Binder
     {
         foreach (var typeParameter in typeParameters.OfType<SourceTypeParameterSymbol>())
         {
+            TypeParameterConstraintAnalyzer.ValidateStructuralConstraints(typeParameter, diagnostics);
             for (var i = 0; i < typeParameter.ConstraintTypes.Length; i++)
             {
                 var constraintType = typeParameter.ConstraintTypes[i];
                 var location = i < typeParameter.ConstraintTypeReferences.Length &&
-                    typeParameter.ConstraintTypeReferences[i].GetSyntax() is TypeConstraintSyntax constraintSyntax
-                        ? constraintSyntax.Type.GetLocation()
+                    typeParameter.ConstraintTypeReferences[i].GetSyntax() is TypeSyntax constraintSyntax
+                        ? constraintSyntax.GetLocation()
                         : typeParameter.Locations.FirstOrDefault() ?? Location.None;
 
                 ValidateTypeAccessibility(

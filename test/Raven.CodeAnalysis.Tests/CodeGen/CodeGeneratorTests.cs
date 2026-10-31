@@ -853,6 +853,7 @@ interface IFactory<TSelf, TValue> {
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void Emit_StaticInterfaceImplementation_EmitsMethodOverrideMapping()
     {
         const string code = """
@@ -861,7 +862,7 @@ interface IFactory<TSelf, TValue> {
 }
 
 class Factory<T> : IFactory<Factory<T>, T> {
-    static func Create(value: T) -> Factory<T> => default
+    static func Create(value: T) -> Factory<T> => Factory<T>()
 }
 """;
 

@@ -1,0 +1,85 @@
+{
+  "methodology": "Current Raven ordinary CLI target emission -> current legacy bridge -> existing generated collection library -> current runtime. This is a control, not direct metadata-backend or fresh full-library compilation evidence.",
+  "bridgeSha256": "62513E073898423ED57D80A981F3C1ADA75AB891684740141BE7921428F74B72",
+  "coreSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
+  "systemSha256": "92C2B7018EC9638D5C8BFDC1AAB9562EE5236CB099E8EE40751024834181BABA",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "cases": [
+    {
+      "sample": "application-interfaces",
+      "cliSha256": "7BA14A940007725882483D150D6CDCB8491554DCFC23E29361FC2E6B12344461",
+      "import": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "verification": {
+        "exitCode": 0,
+        "stdout": "ImportedUnion: typed-stack/control-flow verification passed (4130 IL functions; maximum stack 7; runtime value checks remain)\n",
+        "stderr": ""
+      },
+      "run": {
+        "exitCode": 0,
+        "stdout": "42\n99\n",
+        "stderr": ""
+      },
+      "expectedStdout": "42\n99\n",
+      "passed": true
+    },
+    {
+      "sample": "application-inheritance",
+      "cliSha256": "6E6A99823D421CCE1837F078CF1F27F295B335C4D920F9BEFDED893A543DC90E",
+      "import": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "verification": {
+        "exitCode": 0,
+        "stdout": "ImportedUnion: typed-stack/control-flow verification passed (4131 IL functions; maximum stack 7; runtime value checks remain)\n",
+        "stderr": ""
+      },
+      "run": {
+        "exitCode": 0,
+        "stdout": "7\n42\n",
+        "stderr": ""
+      },
+      "expectedStdout": "7\n42\n",
+      "passed": true
+    },
+    {
+      "sample": "application-delegates",
+      "cliSha256": "69CD30C3FC789FC6E8EA99A796B2D47AF594B5F31DCB793CFB4FC92AA64CF266",
+      "import": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "verification": {
+        "exitCode": 0,
+        "stdout": "ImportedUnion: typed-stack/control-flow verification passed (4156 IL functions; maximum stack 7; runtime value checks remain)\n",
+        "stderr": ""
+      },
+      "run": {
+        "exitCode": 0,
+        "stdout": "8\n42\n99\n12\n15\n42\n42\n123\n123\n1\n-2147483648\n",
+        "stderr": ""
+      },
+      "expectedStdout": "8\n42\n99\n12\n15\n42\n42\n123\n123\n1\n-2147483648\n",
+      "passed": true
+    },
+    {
+      "sample": "application-order-collections",
+      "cliSha256": "DE7ABFAFF1875B3C8AFBA2731D950604DF3D9FC466AFBC3463B2CFC90115DAF5",
+      "import": {
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "Input stack type mismatch in System.Option`1<Order> NamespaceMembers::PendingOrder(System.Collections.Map`2<System.Int32,Order>,System.Int32) at IL_0045: expected System.Option.Some<Application.V1_T_343A7479706536363A496E76656E746F727932332C2056657273696F6E3D312E302E302E302C2043756C747572653D6E65757472616C2C205075626C69634B6579546F6B656E3D6E756C6C303A353A4F72646572>, found System.Option.None.\n"
+      },
+      "verification": null,
+      "run": null,
+      "expectedStdout": "Duplicate order rejected\n3\n3\nUnknown order\nOrder already shipped\nMultiple\n2\nFiltered orders share identity\n2\n303\n303\n0\nEmpty\n",
+      "passed": false
+    }
+  ]
+}

@@ -139,7 +139,7 @@
     - name: "Values, expressions, and statements"
       href: values-and-statements.md
 
-    - name: "Namespaces and imports"
+    - name: "Namespaces, modules and imports"
       href: namespaces-and-imports.md
 
     - name: "Top-level code and Main"
@@ -171,6 +171,17 @@
 
     - name: ".NET representation and compatibility"
       href: dotnet-implementation.md
+
+- name: neoCLR only
+  items:
+    - name: "neoCLR-only language features"
+      href: neoclr-features.md
+    - name: "Native Self contracts"
+      href: neoclr-features.md#native-self-contracts
+    - name: "Intersection types"
+      href: neoclr-features.md#intersection-types
+    - name: "Structural function category constraints"
+      href: neoclr-features.md#structural-function-category-constraints
 
 - name: Design notes
   href: design-notes.md

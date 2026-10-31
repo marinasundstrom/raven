@@ -120,16 +120,35 @@ No external type-union analyzer project is part of this repository.
 
 - General Raven fixes belong on main, including fixes useful when targeting .NET
   Framework or NanoFramework, even when discovered through neoCLR integration.
-- Keep main and the neoCLR compiler branch separate (author direction, 2026-10-11).
-  General fixes belong on main and may be carried deliberately to the neoCLR line
-  with target-specific validation. Do not treat full branch reconciliation or
-  merging the native compiler into main as the default next step.
+- .NET remains Raven's primary/default target. Existing samples, SDK templates and
+  getting-started workflows continue to target .NET unless explicitly native;
+  integrating neoCLR support does not authorize retargeting that corpus.
+- Develop one compiler with explicit .NET and neoCLR targets on main (author
+  direction, 2026-10-30). Reconcile the existing compiler branches with both
+  main regression coverage and native target validation. Preserve target-owned
+  contracts and record experimental limitations. Follow integration with separately
+  validated architectural refactorings; target implementations may diverge while
+  their ownership remains explicit.
 - Keep target-specific mappings, capabilities and policies behind explicit target
   contracts, preserving ordinary .NET behavior by default. Keep general regression
   fixtures independent of neoCLR when they test general Raven behavior.
 - Completing a native neoCLR loader/backend or the entire target feature matrix
   is not a prerequisite for integration. Document experimental limitations and
   continue the architecture work on the shared line after merging.
+- Make target-specific tests identifiable with `Trait("Target", "DotNet")` or
+  `Trait("Target", "NeoCLR")` and explicit target names for target-dependent cases.
+  Use `Target=Shared` only for target-independent contracts, not as a claim that
+  both runtimes executed. See `docs/testing/target-test-classification.md`.
+- In docs, website content and grammar notes, leave shared features unmarked and
+  label exclusive features/representations `.NET only` or `neoCLR only` at the
+  relevant section or example. Distinguish experimental implementation gaps from
+  permanent exclusivity; highlighting does not establish target validity. Describe
+  shared language semantics first: structural unions have target-specific runtime
+  implementations; intersection types are neoCLR-only, while `A & B` remains valid
+  on .NET as ordinary generic-constraint conjunction syntax. Group neoCLR-exclusive
+  features, including native `Self`, in the language reference and website navigation.
+  Explain neoCLR `module` declarations alongside .NET `namespace` declarations,
+  without changing the default .NET learning path.
 - Report the targets actually tested. Modern .NET validation is not proof of
   execution on .NET Framework or NanoFramework.
 

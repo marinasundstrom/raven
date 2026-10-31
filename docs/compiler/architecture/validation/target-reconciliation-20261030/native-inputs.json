@@ -1,0 +1,9 @@
+{
+  "purpose": "Frozen production native inputs used by signal consumer qualification",
+  "sha256": {
+    "/tmp/raven-reconcile-signals/System.Runtime.dll": "8dd1a576b51e93c04edc3344fe3e19fe48b03e76d3d1c402d7ff8e42d9adcc21",
+    "/tmp/raven-reconcile-signals/Neo.Signals.dll": "31fa805a3f45ff60efe1b8d021d5166b940742e1bd93581b6a6105c529145fbd",
+    "/tmp/raven-reconcile-signals/ownership.json": "3187b2a737c59df3f9b131d9fe3ad613f81bd1e151da12cbbd1cd91fa92ccc76",
+    "/tmp/raven-reconcile-signals/System.neox": "ffeb28eefd8e74baeede19208a692cacb7780deff7086cbe978a46c603db606a"
+  }
+}

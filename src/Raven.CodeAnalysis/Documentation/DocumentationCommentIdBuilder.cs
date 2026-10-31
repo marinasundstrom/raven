@@ -40,16 +40,17 @@ internal static class DocumentationCommentIdBuilder
     public static string GetMethodMemberId(IMethodSymbol method)
     {
         var declaringType = method.ContainingType;
-        if (declaringType is null)
+        var ownerName = GetMemberOwnerName(method);
+        if (ownerName is null)
             return string.Empty;
 
-        if (TryGetSourceExtensionType(declaringType) is { } extensionType)
+        if (declaringType is not null && TryGetSourceExtensionType(declaringType) is { } extensionType)
             return GetSourceExtensionMethodMemberId(method, extensionType);
 
         var builder = new StringBuilder();
         builder.Append("M:");
-        builder.Append(GetTypeName(declaringType));
-        builder.Append('.');
+        if (ownerName.Length > 0)
+            builder.Append(ownerName).Append('.');
         builder.Append(GetMethodName(method));
         AppendParameterList(builder, method.Parameters);
 
@@ -157,14 +158,30 @@ internal static class DocumentationCommentIdBuilder
 
     public static string GetFieldMemberId(IFieldSymbol field)
     {
-        var declaringType = field.ContainingType;
-        if (declaringType is null)
+        var ownerName = GetMemberOwnerName(field);
+        if (ownerName is null)
             return string.Empty;
         var metadataName = GetMetadataName(field);
         if (metadataName.Length == 0)
             return string.Empty;
 
-        return $"F:{GetTypeName(declaringType)}.{metadataName.Replace('.', '#')}";
+        var prefix = ownerName.Length == 0 ? "" : ownerName + ".";
+        return $"F:{prefix}{metadataName.Replace('.', '#')}";
+    }
+
+    private static string? GetMemberOwnerName(ISymbol member)
+    {
+        // Native namespace members have no CLI carrier in their emitted identity.
+        // Imported members already expose that ownership through ordinary symbols;
+        // source binding temporarily retains the synthesized namespace container.
+        if (member.ContainingType is null ||
+            member.ContainingType is SynthesizedNamespaceMembersClassSymbol
+            {
+                Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR
+            })
+            return member.ContainingNamespace?.ToMetadataName();
+
+        return GetTypeName(member.ContainingType);
     }
 
     public static string GetEventMemberId(IEventSymbol @event)

@@ -1,0 +1,112 @@
+{
+  "scope": "Merge candidate validation checkpoint; see reconciliation ledger for final status and limits.",
+  "evidence": {
+    "commands": [
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Library.dll",
+          "--native-core-reference",
+          "/private/tmp/raven-reconcile-signals/System.Runtime.dll",
+          "--reference",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Renamed.dll",
+          "-o",
+          "/private/tmp/raven-reconcile-native-doc-checks/direct"
+        ],
+        "exitCode": 0,
+        "stdout": "RavenDoc wrote /private/tmp/raven-reconcile-native-doc-checks/direct\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "--site",
+          "/private/tmp/raven-reconcile-native-doc-checks/site.json"
+        ],
+        "exitCode": 0,
+        "stdout": "RavenDoc wrote /private/tmp/raven-reconcile-native-doc-checks/site\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "--site",
+          "/private/tmp/raven-reconcile-native-doc-checks/site.json"
+        ],
+        "exitCode": 0,
+        "stdout": "RavenDoc wrote /private/tmp/raven-reconcile-native-doc-checks/grouped\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Library.dll",
+          "--native-core-reference",
+          "/private/tmp/raven-reconcile-signals/System.Runtime.dll",
+          "-o",
+          "/private/tmp/raven-reconcile-native-doc-checks/direct"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "RavenDoc failed: System.IO.InvalidDataException: error RAVT003: Target core configuration cannot be used: missing or mismatched native dependency: Models.\n   at NativeDocumentationInput.Generate(IReadOnlyList`1 inputs, String output, String corePath, IReadOnlyList`1 dependencies, DocumentationSiteOptions options) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/NativeDocumentationInput.cs:line 35\n   at RavenDocCommand.GenerateFromAssemblies(IReadOnlyList`1 assemblyPaths, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 154\n   at RavenDocCommand.GenerateFromAssembly(String assemblyPath, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 142\n   at RavenDocCommand.Run(String[] args) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 55\n"
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Library.dll",
+          "--native-core-reference",
+          "/private/tmp/raven-reconcile-signals/System.Runtime.dll",
+          "--reference",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Poison.dll",
+          "-o",
+          "/private/tmp/raven-reconcile-native-doc-checks/direct"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "RavenDoc failed: System.IO.InvalidDataException: Selected native metadata cannot be resolved; an image is invalid or a structural signature dependency is missing or cyclic. /private/tmp/raven-reconcile-native-doc-fixture/Poison.dll: invalid DOS signature\n ---> System.IO.InvalidDataException: invalid DOS signature\n   at NeoCLR.Metadata.Experimental.MetadataArtifactReader.ContainerMetadata(Byte[] image) in /Users/robert/Projects/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/MetadataArtifactReader.cs:line 124\n   at NeoCLR.Metadata.Experimental.MetadataArtifactReader.ReadEnvelope(ReadOnlySpan`1 image, Boolean expectedExtended, Int32 maxImageSize) in /Users/robert/Projects/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/MetadataArtifactReader.cs:line 38\n   at NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Read(ReadOnlySpan`1 image) in /Users/robert/Projects/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/RuntimeAssemblyContainer.cs:line 149\n   at NeoCLR.Metadata.Experimental.Model.AssemblyDefinition.ReadNativeAssembly(ReadOnlySpan`1 image, IAssemblyResolver resolver) in /Users/robert/Projects/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/Model/NativeDefinitionReader.cs:line 20\n   at Raven.CodeAnalysis.NeoClr.NeoClrMetadataReference.ReadDocumentedAssembly(ReadOnlySpan`1 image, NeoClrPrimitiveBootstrap bootstrap, String assemblyPath, IAssemblyResolver resolver) in /Users/robert/Projects/Raven-reconcile/src/Raven.CodeAnalysis.NeoClr/NeoClrMetadataReference.cs:line 26\n   at Raven.CodeAnalysis.NeoClr.NeoClrReferenceCatalog.ReadSelectedReferences(String[] paths, NeoClrPrimitiveBootstrap bootstrap) in /Users/robert/Projects/Raven-reconcile/src/Raven.CodeAnalysis.NeoClr/NeoClrReferenceCatalog.cs:line 184\n   --- End of inner exception stack trace ---\n   at Raven.CodeAnalysis.NeoClr.NeoClrReferenceCatalog.ReadSelectedReferences(String[] paths, NeoClrPrimitiveBootstrap bootstrap) in /Users/robert/Projects/Raven-reconcile/src/Raven.CodeAnalysis.NeoClr/NeoClrReferenceCatalog.cs:line 198\n   at Raven.CodeAnalysis.NeoClr.NeoClrReferenceCatalog.ReadNative(String corePath, IEnumerable`1 nativeReferencePaths) in /Users/robert/Projects/Raven-reconcile/src/Raven.CodeAnalysis.NeoClr/NeoClrReferenceCatalog.cs:line 136\n   at NativeDocumentationInput.Generate(IReadOnlyList`1 inputs, String output, String corePath, IReadOnlyList`1 dependencies, DocumentationSiteOptions options) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/NativeDocumentationInput.cs:line 24\n   at RavenDocCommand.GenerateFromAssemblies(IReadOnlyList`1 assemblyPaths, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 154\n   at RavenDocCommand.GenerateFromAssembly(String assemblyPath, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 142\n   at RavenDocCommand.Run(String[] args) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 55\n"
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "--site",
+          "/private/tmp/raven-reconcile-native-doc-checks/site.json"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "RavenDoc failed: Duplicate native assembly identity: Models\n"
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "--site",
+          "/private/tmp/raven-reconcile-native-doc-checks/site.json"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "RavenDoc failed: Conflicting native documentation type: Example.Book\n"
+      },
+      {
+        "command": [
+          "dotnet",
+          "/Users/robert/Projects/Raven-reconcile/src/RavenDoc/bin/Debug/net11.0/RavenDoc.dll",
+          "/private/tmp/raven-reconcile-native-doc-fixture/Renamed.dll",
+          "--native-core-reference",
+          "/private/tmp/raven-reconcile-signals/System.Runtime.dll",
+          "-o",
+          "/private/tmp/raven-reconcile-native-doc-fixture"
+        ],
+        "exitCode": 1,
+        "stdout": "",
+        "stderr": "RavenDoc failed: System.ArgumentException: Native documentation output must not contain metadata inputs.\n   at NativeDocumentationInput.Generate(IReadOnlyList`1 inputs, String output, String corePath, IReadOnlyList`1 dependencies, DocumentationSiteOptions options) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/NativeDocumentationInput.cs:line 23\n   at RavenDocCommand.GenerateFromAssemblies(IReadOnlyList`1 assemblyPaths, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 154\n   at RavenDocCommand.GenerateFromAssembly(String assemblyPath, String outputPath, String targetFramework, DocumentationSiteOptions siteOptions, String nativeCoreReference, IReadOnlyList`1 referencePaths) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 142\n   at RavenDocCommand.Run(String[] args) in /Users/robert/Projects/Raven-reconcile/src/RavenDoc/Program.cs:line 55\n"
+      }
+    ],
+    "result": "PASS native docs: grouped navigation, XML/Markdown, namespace comments, overloads, generics, fields/properties, inheritance/extensions, API content/source links, search, ownership, local links and input/output guards"
+  }
+}

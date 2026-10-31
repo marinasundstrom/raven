@@ -71,6 +71,7 @@ public class NativeSelfContractTests
         """;
 
     [Theory]
+    [Trait("Target", "NeoCLR")]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
@@ -87,17 +88,19 @@ public class NativeSelfContractTests
         var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
-        using var stream = new MemoryStream();
-        var emitted = compilation.Emit(stream);
-        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
-        stream.Position = 0;
-        using var module = ModuleDefinition.ReadModule(stream);
-        Assert.Equal("Base", module.GetType("Base").Methods.Single(m => m.Name == "Clone").ReturnType.FullName);
+        var baseType = compilation.GetTypeByMetadataName("Base")!;
+        Assert.Same(baseType, baseType.GetMembers("Clone").OfType<IMethodSymbol>().Single().ReturnType);
+        var derived = compilation.GetTypeByMetadataName("Derived")!;
+        if (variant == 1)
+            Assert.Same(baseType, derived.GetMembers("Clone").OfType<IMethodSymbol>().Single().ReturnType);
         if (variant == 2)
-            Assert.Equal("Derived", module.GetType("Derived").Methods.Single(m => m.HasOverrides).ReturnType.FullName);
+            Assert.Same(derived, derived.GetMembers().OfType<IMethodSymbol>()
+                .Single(method => !method.ExplicitInterfaceImplementations.IsEmpty).ReturnType);
+        AssertRequiresNativeBackend(compilation);
     }
 
     [Theory]
+    [Trait("Target", "NeoCLR")]
     [InlineData(false)]
     [InlineData(true)]
     public void InheritedSelfDoesNotPromiseDerivedResult(bool inferred)
@@ -109,6 +112,7 @@ public class NativeSelfContractTests
     }
 
     [Theory]
+    [Trait("Target", "NeoCLR")]
     [InlineData(false)]
     [InlineData(true)]
     public void RedeclaredSelfRejectsInheritedBaseResult(bool wrongExplicitResult)
@@ -122,6 +126,7 @@ public class NativeSelfContractTests
     }
 
     [Theory]
+    [Trait("Target", "NeoCLR")]
     [InlineData(false)]
     [InlineData(true)]
     public void SelfPropertyRedeclarationRequiresDerivedResult(bool redeclared)
@@ -139,7 +144,8 @@ public class NativeSelfContractTests
     }
 
     [Fact]
-    public void NativeSelfKeepsInterfaceArityAndEmitsMarkerAndGenericResult()
+    [Trait("Target", "NeoCLR")]
+    public void NativeSelfKeepsInterfaceArityAndGenericResult()
     {
         var contract = new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker");
         var options = SelfOptions()
@@ -151,26 +157,35 @@ public class NativeSelfContractTests
         var compilation = Compilation.Create("NativeSelfProbe", [SyntaxTree.ParseText(Source)], References(), options);
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        stream.Position = 0;
-        using var module = ModuleDefinition.ReadModule(stream);
-        var number = module.GetType("Number");
-        Assert.Empty(number.GenericParameters);
-        var count = module.GetType("Count");
-        Assert.Contains(count.Interfaces, i => i.InterfaceType.FullName == "Comparable`1<Count>");
-        Assert.True(count.Methods.Single(m => m.Name == "Compare").IsVirtual);
-        Assert.Equal("NativeSelfMarker", number.Methods.Single(m => m.Name == "Add").ReturnType.FullName);
-        Assert.Equal("Count", module.GetType("Count").Methods.Single(m => m.Name == "Add").ReturnType.FullName);
-        Assert.Single(module.GetType("Consumer").Methods.Single(m => m.Name == "Sum").GenericParameters);
-        var copy = module.GetType("Consumer").Methods.Single(m => m.Name == "Copy");
-        Assert.Single(copy.GenericParameters);
-        Assert.IsType<GenericParameter>(copy.ReturnType);
-        Assert.Equal("Cloneable", copy.GenericParameters[0].Constraints.Single().ConstraintType.FullName);
+        var number = compilation.GetTypeByMetadataName("Number")!;
+        Assert.Empty(number.TypeParameters);
+        var count = compilation.GetTypeByMetadataName("Count")!;
+        var comparable = Assert.Single(number.Interfaces);
+        Assert.Equal("Comparable", comparable.Name);
+        Assert.Equal("NativeSelfMarker", Assert.Single(comparable.TypeArguments).Name);
+        Assert.Same(count, count.GetMembers("Compare").OfType<IMethodSymbol>().Single().Parameters.Single().Type);
+        Assert.Same(count, count.GetMembers("Add").OfType<IMethodSymbol>().Single().ReturnType);
+        var consumer = compilation.GetTypeByMetadataName("Consumer")!;
+        Assert.Single(consumer.GetMembers("Sum").OfType<IMethodSymbol>().Single().TypeParameters);
+        var copy = consumer.GetMembers("Copy").OfType<IMethodSymbol>().Single();
+        Assert.Same(Assert.Single(copy.TypeParameters), copy.ReturnType);
+        Assert.Equal("Cloneable", copy.TypeParameters[0].ConstraintTypes.Single().Name);
+        AssertRequiresNativeBackend(compilation);
+    }
+
+    private static void AssertRequiresNativeBackend(Compilation compilation)
+    {
+        // Native signature emission is covered by NeoClrMetadataProbe's source-core gate.
+        using var output = new MemoryStream();
+        output.Write([1, 2, 3]);
+        var result = compilation.Emit(output);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "RAVT003");
+        Assert.Equal(new byte[] { 1, 2, 3 }, output.ToArray());
     }
 
     [Fact]
+    [Trait("Target", "NeoCLR")]
     public void ErasedSelfCallAndWrongImplementationAreRejected()
     {
         foreach (var source in new[] {
@@ -186,6 +201,7 @@ public class NativeSelfContractTests
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void DotNetRejectsConfiguredSelfBeforeLoadingReferencesOrWritingOutput()
     {
         var options = CompilationOptions.DotNet.WithRuntimeSelfTypeContract(new("Missing", "Self"));
@@ -200,6 +216,7 @@ public class NativeSelfContractTests
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void DotNetSemanticQueriesKeepUserDefinedSelfOrdinaryEvenWithInvalidContract()
     {
         var tree = SyntaxTree.ParseText("class Self {}\nclass Example { val Value: Self { get; } }");
@@ -214,6 +231,7 @@ public class NativeSelfContractTests
     }
 
     [Theory]
+    [Trait("Target", "NeoCLR")]
     [InlineData(false)]
     [InlineData(true)]
     public void NeoClrWithoutSelfMappingKeepsUserDefinedSelfOrdinary(bool diagnosticsFirst)
@@ -233,6 +251,7 @@ public class NativeSelfContractTests
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void OrdinaryClrCompilationDoesNotEnableNativeSelf()
     {
         var compilation = Compilation.Create("Ordinary", [SyntaxTree.ParseText(Source)], TestMetadataReferences.Default,

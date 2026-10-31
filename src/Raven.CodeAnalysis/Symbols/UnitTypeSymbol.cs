@@ -12,11 +12,12 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
         : base(SymbolKind.Type, compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit", compilation.Assembly, null, containingNamespace, [], [], addAsMember: compilation.Options.RuntimeUnitContract is null)
     {
         _compilation = compilation;
-        RuntimeRepresentation = runtimeRepresentation;
+        _runtimeRepresentation = runtimeRepresentation;
         TypeKind = TypeKind.Unit;
     }
 
-    internal INamedTypeSymbol? RuntimeRepresentation { get; }
+    private readonly INamedTypeSymbol? _runtimeRepresentation;
+    internal INamedTypeSymbol? RuntimeRepresentation => _runtimeRepresentation ?? _compilation.ResolveRuntimeUnitType();
 
     public override string Name => _compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit";
 

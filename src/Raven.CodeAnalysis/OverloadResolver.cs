@@ -968,6 +968,10 @@ internal sealed class OverloadResolver
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
+                case IFunctionReturnTypeSymbol projection:
+                    return ContainsTypeParameter(projection.FunctionType);
+                case StructuralFunctionTypeSymbol function:
+                    return ContainsTypeParameter(function.ReturnType) || function.ParameterTypes.Any(ContainsTypeParameter);
                 case ITupleTypeSymbol tuple:
                     return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
                 case INamedTypeSymbol named:
@@ -1335,6 +1339,14 @@ internal sealed class OverloadResolver
             return true;
         }
 
+        if (parameterType is StructuralFunctionTypeSymbol parameterFunction && argumentType is StructuralFunctionTypeSymbol argumentFunction)
+        {
+            if (!parameterFunction.ParameterRefKinds.SequenceEqual(argumentFunction.ParameterRefKinds)) return false;
+            for (var i = 0; i < parameterFunction.ParameterTypes.Length; i++)
+                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod)) return false;
+            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod);
+        }
+
         if (parameterType is INamedTypeSymbol paramNamed)
         {
             if (TryGetSpanTypeInfo(paramNamed, out var parameterElementType, out var parameterIsReadOnly) &&
@@ -1483,6 +1495,12 @@ internal sealed class OverloadResolver
             var typeParameter = typeParameters[i];
             var typeArgument = typeArguments[i];
             var constraintKind = typeParameter.ConstraintKind;
+
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                constraintFailure = CreateConstraintFailure(method, typeArgument, "func", typeParameter);
+                return false;
+            }
 
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
                 !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
@@ -1714,6 +1732,12 @@ internal sealed class OverloadResolver
                         : new ArrayTypeSymbol(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
                 }
 
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteType(t, substitutions));
+
+            case StructuralFunctionTypeSymbol function:
+                return function.Substitute(t => SubstituteType(t, substitutions));
+
             case ITupleTypeSymbol tuple:
                 return TypeSubstitution.SubstituteTupleElements(
                     tuple,
@@ -1770,6 +1794,12 @@ internal sealed class OverloadResolver
                 }
 
                 return type;
+
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteType(t, substitutions));
+
+            case StructuralFunctionTypeSymbol function:
+                return function.Substitute(t => SubstituteType(t, substitutions));
 
             case INamedTypeSymbol named:
                 {
@@ -2193,6 +2223,17 @@ internal sealed class OverloadResolver
                      leftArray.Rank == rightArray.Rank)
             {
                 Compare(leftArray.ElementType, rightArray.ElementType);
+            }
+            else if (left is StructuralFunctionTypeSymbol leftFunction &&
+                     right is StructuralFunctionTypeSymbol rightFunction &&
+                     leftFunction.ParameterTypes.Length == rightFunction.ParameterTypes.Length &&
+                     leftFunction.ParameterRefKinds.SequenceEqual(rightFunction.ParameterRefKinds))
+            {
+                // Native function types have no nominal generic definition. Compare
+                // their declared signatures just as we compare delegate type arguments.
+                for (var i = 0; i < leftFunction.ParameterTypes.Length; i++)
+                    Compare(leftFunction.ParameterTypes[i], rightFunction.ParameterTypes[i]);
+                Compare(leftFunction.ReturnType, rightFunction.ReturnType);
             }
             else if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed &&
                      leftNamed.OriginalDefinition.MetadataIdentityEquals(rightNamed.OriginalDefinition))

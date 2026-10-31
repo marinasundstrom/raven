@@ -144,6 +144,7 @@ internal static class WorkspaceSymbolSearchService
     {
         return symbol switch
         {
+            INamespaceSymbol { IsModule: true } => LspSymbolKind.Module,
             INamespaceSymbol => LspSymbolKind.Namespace,
             IMethodSymbol method when method.MethodKind == MethodKind.Constructor => LspSymbolKind.Constructor,
             IMethodSymbol => LspSymbolKind.Method,

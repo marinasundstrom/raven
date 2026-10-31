@@ -3,6 +3,14 @@
 Look up a language feature, keyword, or operator. For a guided introduction,
 start with the [language tour](../../introduction.md).
 
+.NET remains Raven's primary and default target. Existing samples and walkthroughs
+use .NET unless explicitly stated otherwise.
+
+Shared language features are unmarked. **.NET only** or **neoCLR only** marks an exclusive
+feature or target-specific representation. Library availability and experimental
+support limits are documented separately. Exclusive native capabilities are grouped
+under [neoCLR-only language features](neoclr-features.md); see [target availability](../../compiler/target-platforms.md#reading-target-availability).
+
 <div class="raven-reference-finder" data-reference-finder hidden>
   <label for="reference-query">Find a language feature</label>
   <div class="raven-reference-search"><input id="reference-query" type="search" placeholder="Try records, lambda, nullable, ?, or !" aria-controls="reference-topics" autocomplete="off"><button type="button" data-reference-clear>Clear</button></div>
@@ -93,7 +101,7 @@ start with the [language tour](../../introduction.md).
 <ul>
 <li data-reference-topic data-keywords="lexical identifier escape keyword comment pragma"><a href="lexical-structure.md">Source text, keywords, and comments</a><p>Read token, identifier, comment, and trivia rules.</p></li>
 <li data-reference-topic data-keywords="unit () expression statement value"><a href="values-and-statements.md">Values, expressions, and statements</a><p>Understand the basic parts of a Raven program.</p></li>
-<li data-reference-topic data-keywords="namespace import alias using"><a href="namespaces-and-imports.md">Namespaces and imports</a><p>Organize names and import types or members.</p></li>
+<li data-reference-topic data-keywords="namespace module neoclr import alias using"><a href="namespaces-and-imports.md">Namespaces, modules and imports</a><p>Organize names and import types or members.</p></li>
 <li data-reference-topic data-keywords="Main entry point top level program args"><a href="top-level-code-and-entry-points.md">Top-level code and Main</a><p>Start an executable and organize file-level code.</p></li>
 <li data-reference-topic data-keywords="grammar ebnf formal syntax"><a href="grammar.md">Grammar</a><p>Consult the non-normative EBNF syntax grammar.</p></li>
 </ul>
@@ -112,6 +120,15 @@ start with the [language tour](../../introduction.md).
 <li data-reference-topic data-keywords="ref struct scoped lifetime borrow safety"><a href="ref-structs-and-ref-safety.md">Ref structs and ref safety</a><p>Understand references, lifetimes, and escape restrictions.</p></li>
 <li data-reference-topic data-keywords="unsafe pointer fixed extern native pin interop"><a href="unsafe-code-and-interop.md">Unsafe code and native interop</a><p>Use pointers and call native code.</p></li>
 <li data-reference-topic data-keywords="dotnet CLR ABI metadata runtime C# interoperability"><a href="dotnet-implementation.md">.NET representation and compatibility</a><p>See how Raven constructs map to the CLR.</p></li>
+</ul>
+</section>
+<section class="raven-reference-group">
+<h2>neoCLR only</h2>
+<ul>
+<li data-reference-topic data-keywords="neoclr exclusive native target Self intersection structural constraint"><a href="neoclr-features.md">neoCLR-only language features</a><p>Opt-in native capabilities and their current implementation limits.</p></li>
+<li data-reference-topic data-keywords="Self clone conformance neoclr"><a href="neoclr-features.md#native-self-contracts">Native Self contracts</a><p>Express the concrete conforming type in an interface.</p></li>
+<li data-reference-topic data-keywords="intersection &amp; neoclr"><a href="neoclr-features.md#intersection-types">Intersection types</a><p>Describe values satisfying multiple types.</p></li>
+<li data-reference-topic data-keywords="where func structural category neoclr"><a href="neoclr-features.md#structural-function-category-constraints">Structural function category constraints</a><p>Constrain a type parameter to native function types.</p></li>
 </ul>
 </section>
 </div>

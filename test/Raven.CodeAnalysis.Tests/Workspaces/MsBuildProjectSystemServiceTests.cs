@@ -45,6 +45,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.Equal(preset.AllowArrayCovariance, options.AllowArrayCovariance);
             Assert.Equal(preset.AllowNullableValueTypes, options.AllowNullableValueTypes);
             Assert.False(evaluation.UseHostFrameworkReferences);
+            Assert.False(evaluation.ParseOptions.EnableCharKeyword);
         }
         finally { DeleteDirectoryIfExists(root); }
     }

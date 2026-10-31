@@ -1,4 +1,7 @@
 using System.Collections.Immutable;
+using System.Linq;
+
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -36,6 +39,10 @@ internal static class TypeParameterConstraintAnalyzer
         {
             switch (constraint)
             {
+                case FunctionConstraintSyntax:
+                    kind |= TypeParameterConstraintKind.FunctionType;
+                    break;
+
                 case ClassConstraintSyntax:
                     kind |= TypeParameterConstraintKind.ReferenceType;
                     break;
@@ -52,7 +59,7 @@ internal static class TypeParameterConstraintAnalyzer
                     }
 
                     kind |= TypeParameterConstraintKind.TypeConstraint;
-                    typeRefs.Add(typeConstraint.GetReference());
+                    AddTypeReferences(typeConstraint.Type, typeRefs);
                     break;
 
                 case ConstructorConstraintSyntax:
@@ -72,5 +79,60 @@ internal static class TypeParameterConstraintAnalyzer
     {
         return typeConstraint.Type is IdentifierNameSyntax identifier &&
                string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
+    }
+
+    private static void AddTypeReferences(TypeSyntax type, ImmutableArray<SyntaxReference>.Builder references)
+    {
+        switch (type)
+        {
+            case ParenthesizedTypeSyntax parenthesized:
+                AddTypeReferences(parenthesized.Type, references);
+                break;
+            case IntersectionTypeSyntax intersection:
+                foreach (var constituent in intersection.Types)
+                    AddTypeReferences(constituent, references);
+                break;
+            default:
+                references.Add(type.GetReference());
+                break;
+        }
+    }
+
+    internal static void ValidateStructuralConstraints(SourceTypeParameterSymbol parameter, DiagnosticBag diagnostics)
+    {
+        if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) &&
+            (parameter.ContainingSymbol?.ContainingAssembly is not SourceAssemblySymbol assembly || !assembly.Compilation.UsesStructuralFunctions ||
+             parameter.ConstraintKind != TypeParameterConstraintKind.FunctionType))
+            diagnostics.ReportInvalidFunctionConstraint(parameter.Locations.FirstOrDefault() ?? Location.None);
+
+        if (!parameter.ConstraintTypeReferences.Any(reference =>
+                reference.GetSyntax().Ancestors().Any(node => node is IntersectionTypeSyntax)))
+            return;
+
+        ITypeSymbol? classBound = null;
+        for (var i = 0; i < parameter.ConstraintTypes.Length; i++)
+        {
+            var type = parameter.ConstraintTypes[i];
+            var syntax = parameter.ConstraintTypeReferences[i].GetSyntax();
+            if (syntax is UnionTypeSyntax)
+            {
+                diagnostics.ReportInvalidIntersectionConstraint(syntax.GetLocation());
+                continue;
+            }
+
+            if (type.TypeKind is TypeKind.Error or TypeKind.Interface)
+                continue;
+
+            if (type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsClosed: false } &&
+                (parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) == 0 &&
+                (classBound is null || SymbolEqualityComparer.Default.Equals(classBound, type)))
+            {
+                classBound = type;
+                continue;
+            }
+
+            diagnostics.ReportInvalidIntersectionConstraint(
+                syntax.GetLocation());
+        }
     }
 }

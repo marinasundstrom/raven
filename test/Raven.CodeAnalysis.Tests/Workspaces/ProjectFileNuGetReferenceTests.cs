@@ -1842,6 +1842,7 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void OpenProject_Mfrc522Sample_ResolvesReaderErrorUnionForEditorQueries()
     {
         var repoRoot = FindRepositoryRoot();
@@ -1866,7 +1867,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var describe = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(describeSyntax));
         Assert.True(readerError.IsUnion);
         Assert.Equal("ReaderError", readerError.Name);
-        Assert.True(Assert.Single(describe.Parameters).Type.IsUnion);
+        Assert.Same(readerError, Assert.Single(describe.Parameters).Type);
 
         var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);

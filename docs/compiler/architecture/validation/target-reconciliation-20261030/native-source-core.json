@@ -1,0 +1,65 @@
+{
+  "scope": "Merge candidate validation checkpoint; see reconciliation ledger for final status and limits.",
+  "evidence": [
+    {
+      "case": "Consumer",
+      "command": [
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core/Consumer.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll"
+      ],
+      "expected": 42,
+      "exitCode": 42,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "case": "ReadUninitialized",
+      "command": [
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core/ReadUninitialized.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll"
+      ],
+      "expected": 1,
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "RuntimeError: Runtime error\n   at System.Example.ReadUninitialized [instruction 3]\n   at Main [instruction 0]\n"
+    },
+    {
+      "case": "NegativeLength",
+      "command": [
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core/NegativeLength.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core/SourceCore.dll"
+      ],
+      "expected": 1,
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "RuntimeError: Runtime error\n   at neoCLR.Runtime.ReserveArray [instruction 1]\n   at System.Example.NegativeLength [instruction 1]\n   at Main [instruction 0]\n"
+    }
+  ]
+}

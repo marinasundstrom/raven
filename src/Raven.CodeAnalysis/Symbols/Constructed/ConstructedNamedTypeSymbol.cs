@@ -276,6 +276,36 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is FunctionReturnTypeSymbol projection)
+            {
+                result = projection.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
+            if (type is StructuralFunctionTypeSymbol function)
+            {
+                result = function.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
+            if (type is IStructuralUnionTypeSymbol union)
+            {
+                result = TypeSubstitution.SubstituteStructuralUnion(union,
+                    constituent => SubstituteCore(constituent, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
+            if (type is IIntersectionTypeSymbol intersection)
+            {
+                result = TypeSubstitution.SubstituteIntersection(intersection,
+                    constituent => SubstituteCore(constituent, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is NullableTypeSymbol nullableTypeSymbol)
             {
                 var underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress, cache);
@@ -734,7 +764,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     {
         var substitutedMembers = _originalDefinition.GetMembers().Select(SubstituteMember).ToImmutableArray();
 
-        if (ShouldCacheMutableSourceUnionState())
+        if (HasMutableSourceDeclarationState())
             return substitutedMembers;
 
         return _members ??= substitutedMembers;
@@ -745,7 +775,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         if (string.IsNullOrEmpty(name))
             return GetMembers();
 
-        if (ShouldCacheMutableSourceUnionState())
+        if (HasMutableSourceDeclarationState())
             return BuildMembersByName(name);
 
         return _membersByName.GetOrAdd(name, BuildMembersByName);
@@ -1088,11 +1118,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>
-        HasIncompleteSourceDeclarationState()
+        HasMutableSourceDeclarationState()
             ? BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces)
             : _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-        HasIncompleteSourceDeclarationState()
+        HasMutableSourceDeclarationState()
             ? BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces)
             : _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
     public ImmutableArray<ITypeSymbol> Variants
@@ -1102,7 +1132,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             if (!TryGetUnionDefinition(out var unionDefinition))
                 return ImmutableArray<ITypeSymbol>.Empty;
 
-            if (!ShouldCacheMutableSourceUnionState() && _variants is not null)
+            if (!HasMutableSourceDeclarationState() && _variants is not null)
                 return _variants.Value;
 
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.Variants.Length);
@@ -1110,7 +1140,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 builder.Add(Substitute(variant));
 
             var substitutedVariants = builder.MoveToImmutable();
-            if (ShouldCacheMutableSourceUnionState())
+            if (HasMutableSourceDeclarationState())
                 return substitutedVariants;
 
             _variants = substitutedVariants;
@@ -1127,7 +1157,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
             var substitutedCases = SubstituteUnionCases(unionDefinition.DeclaredCaseTypes);
 
-            if (ShouldCacheMutableSourceUnionState())
+            if (HasMutableSourceDeclarationState())
                 return substitutedCases;
 
             return _declaredCases ??= substitutedCases;
@@ -1140,7 +1170,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             if (!TryGetUnionDefinition(out var unionDefinition))
                 return ImmutableArray<ITypeSymbol>.Empty;
 
-            if (!ShouldCacheMutableSourceUnionState() && _memberTypes is not null)
+            if (!HasMutableSourceDeclarationState() && _memberTypes is not null)
                 return _memberTypes.Value;
 
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.MemberTypes.Length);
@@ -1150,7 +1180,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                     : Substitute(memberType));
 
             var substitutedMembers = builder.MoveToImmutable();
-            if (ShouldCacheMutableSourceUnionState())
+            if (HasMutableSourceDeclarationState())
                 return substitutedMembers;
 
             _memberTypes = substitutedMembers;
@@ -1184,11 +1214,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         }
     }
 
-    private bool HasIncompleteSourceDeclarationState()
-        => _originalDefinition.ContainingAssembly is SourceAssemblySymbol { Compilation.SourceDeclarationsComplete: false };
-
-    private bool ShouldCacheMutableSourceUnionState()
-        => _originalDefinition is SourceUnionSymbol or SourceUnionCaseTypeSymbol;
+    private bool HasMutableSourceDeclarationState()
+        => _originalDefinition is SourceUnionSymbol or SourceUnionCaseTypeSymbol ||
+            _originalDefinition.ContainingAssembly is SourceAssemblySymbol { Compilation.SourceDeclarationsComplete: false };
     public IFieldSymbol PayloadField
     {
         get
@@ -1530,13 +1558,17 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
         }
     }
 
+    public ITypeSymbol? DeclaredFunctionType => _original.DeclaredFunctionType is { } type ? _constructed.Substitute(type, _methodTypeParameterMap) : null;
     public string Name => _original.Name;
     public ITypeSymbol ReturnType => _returnType ??= _constructed.ReanchorNestedTypeIfNeeded(
         _constructed.Substitute(_original.ReturnType, _methodTypeParameterMap),
         _methodTypeParameterMap);
 
     public ImmutableArray<IParameterSymbol> Parameters =>
-        _parameters ??= _original.Parameters
+        _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
+            ? shape.ParameterTypes.Select((type, index) => (IParameterSymbol)new SourceParameterSymbol(
+                $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
+            : _original.Parameters
             .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(
                 p,
                 _constructed,

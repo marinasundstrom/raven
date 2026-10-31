@@ -960,6 +960,90 @@ With `copyCode` enabled, copy controls float at the visible top-right edge of ea
 sample or signature. Only the code scrolls horizontally; the control stays in
 place without reserving extra space above the code.
 
+
+## Native neoCLR metadata inputs (development, 2026-10-08)
+
+Build RavenDoc with `-p:NeoClrMetadataProject=/absolute/path/to/NeoCLR.Metadata.Experimental.csproj`
+to enable the native adapter. Ordinary builds and commands keep .NET metadata loading.
+The native selection is explicit and never falls back to framework or adjacent DLLs:
+
+```sh
+dotnet RavenDoc.dll Library.dll --native-core-reference Core.dll \
+  --reference Models.dll -o native-docs
+```
+
+The input is documented; `--reference` supplies dependencies without documenting them.
+The core must contain the native primitive, Object and System.Void contracts needed
+by its libraries. Typeof runtime services are not required for metadata documentation.
+No target CLI projection, importer, runtime execution or emission is involved; .NET
+still hosts the tool. `--framework` does not select references in native mode.
+Source/project native documentation is not yet supported: supply compiled metadata.
+A build without the adapter reports an explicit unsupported-mode error.
+
+A single namespace/type tree across libraries uses `apiInputs` and `nativeCoreReference`:
+
+```json
+{
+  "name": "Class library",
+  "output": "_site",
+  "apiPath": "docs",
+  "apiInputs": ["Models.dll", "Library.dll"],
+  "nativeCoreReference": "Core.dll",
+  "references": [],
+  "search": true,
+  "pages": [{ "source": "index.md", "output": "index.html" }]
+}
+```
+
+Paths resolve relative to the configuration file. An `apis` entry may override
+`nativeCoreReference` and add references, but do not create separate groups merely
+because one class library occupies several files. Adjacent XML and `.docs` documentation
+use the catalog's existing documentation reader. Metadata symbol ownership supplies
+assembly labels; dependency-only assemblies do not acquire pages. Native duplicate
+artifact identities, missing dependencies, malformed files and conflicting public type
+names reject before rendering. Existing namespace/type page URLs cannot represent two
+public types with the same qualified name in one group, so this case is diagnosed.
+Native input files cannot be inside the output directory.
+
+This enables a native documentation loader, not complete source-library migration or
+full native signature coverage. Existing CoreProbe-based pages keep their real bridge
+ownership until their inputs are replaced with native libraries. Tests live in
+`tools/NeoClrMetadataProbe/native-doc-checks.py`, with native fixtures produced by
+`--native-doc-fixture`; existing .NET RavenDoc generation/site tests remain controls.
+
+
+Qualification preserves the full existing renderer, rather than a reduced native
+reference layout. The native regression fixture covers namespace/type/member comments,
+Markdown and XML, parameter/return documentation, overloads, fields, properties, generic
+classes/interfaces, inherited member links, extension discovery, unified navigation,
+search, authored API content, configured source links and local link integrity. Native
+namespace comment forwarding was missing and is now fixed in the compiler adapter.
+The 63 existing .NET RavenDoc generation/site checks also pass. These fixtures do not
+establish every native metadata signature's coverage; the complete library snapshot
+must retain its public-API inventory before switching publication inputs.
+
+
+Assembly-level functions and constants retain namespace-qualified member IDs and
+actual declaring assembly labels. They do not need a synthetic declaring type.
+Native comments follow `M:Namespace.Function(parameter-types)` / `F:Namespace.Constant`;
+existing type-owned .NET IDs keep their previous shape. Global members omit the
+namespace prefix. This corrects the production native-library renderer crash found
+on 2026-10-09, independently of completing the production native core.
+
+
+Native assembly functions and constants participate in namespace sidebar navigation.
+Combined rendering enumerates declarations from the selected libraries, keeping
+bootstrap/dependency primitives from displacing documented Object declarations.
+NeoCLR source documentation uses the same canonical IDs as native metadata; ordinary
+.NET documentation retains its CLI carrier IDs. Historical sidecars require explicit
+migration or regeneration, not cosmetic ownership relabeling.
+
+Assembly-level overloads share one member-group page. Native Math int/Double
+overloads and the reduced native Score fixture retain both signatures and comments;
+sidebar entries identify overload groups rather than showing only the last signature.
+Validation: 43 focused compiler/renderer tests and the native documentation fixture
+pass, alongside neoCLR's integrated HTML/link and browser checks.
+
 ## Namespace and module member presentation
 
 API navigation uses the same function and field icons as member lists, including
@@ -1018,3 +1102,13 @@ Applicable extension properties and indexers appear once on receiver pages. Thei
 implementation accessors do not appear as separate callable methods or links.
 Source and metadata fixtures verify that the logical indexer page exists and
 receiver pages do not link to nonexistent getter-method pages.
+
+### Target-specific namespace member identities
+
+Namespace function and constant documentation IDs follow emitted ownership.
+For .NET, IDs retain the generated `NamespaceMembers` type. For neoCLR, IDs use
+the namespace directly (`M:Samples.Score(System.Int32)` and `F:Samples.Scale`),
+or no owner prefix for global members (`M:Score(System.Int32)` and `F:Scale`).
+Generic function arity and parameter encoding remain unchanged. Native imported
+symbols use these same IDs to find XML comments; source XML and Markdown sidecars
+must agree. Target-specific representation does not change ordinary .NET IDs.

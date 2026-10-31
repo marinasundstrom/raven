@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
+internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, Raven.CodeAnalysis.Metadata.IArrayTypeProvider
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private readonly object _membersGate = new();
@@ -158,7 +158,29 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         TypeKind == TypeKind.Delegate ||
         TypeKind == TypeKind.Array;
 
-    public SpecialType SpecialType => SpecialType.None;
+    public SpecialType SpecialType
+    {
+        get
+        {
+            var compilation = GetDeclaringCompilation();
+            if (compilation?.GetSourceCoreSpecialType(this) is { } sourceSpecial && sourceSpecial != SpecialType.None)
+                return sourceSpecial;
+            if (Name == "Object" && MetadataName == "Object" && TypeKind == TypeKind.Class &&
+                ContainingType is null && ContainingNamespace?.ToDisplayString() == "System" &&
+                compilation?.UsesSourceObjectRoot == true)
+                return SpecialType.System_Object;
+            if (ContainingType is null && compilation?.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+                compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly?.Name)
+                return (ContainingNamespace?.ToMetadataName() + "." + MetadataName) switch
+                {
+                    "System.Runtime.CompilerServices.AsyncStateMachine" => SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine,
+                    "System.Concurrency.Tasks.Task`1" => SpecialType.System_Threading_Tasks_Task_T,
+                    "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1" => SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+                    _ => SpecialType.None
+                };
+            return SpecialType.None;
+        }
+    }
 
     public virtual INamedTypeSymbol? BaseType { get; private set; }
 
@@ -423,7 +445,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         _allInterfaces = null;
     }
 
-    internal void SetBaseType(INamedTypeSymbol baseType)
+    internal void SetBaseType(INamedTypeSymbol? baseType)
     {
         BaseType = baseType;
         _allInterfaces = null;

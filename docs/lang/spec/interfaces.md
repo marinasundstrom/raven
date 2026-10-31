@@ -106,3 +106,11 @@ possible null: `Producer<string?>` cannot implicitly become `Producer<object>`,
 and `Consumer<object>` cannot become `Consumer<string?>`. Nullable value types do
 not become reference arguments through this rule. Runtime generic arguments and
 emitted interface variance annotations are unchanged.
+
+## Target-specific contracts
+
+**neoCLR only:** native `Self` contracts express the concrete conforming type
+without adding an interface type parameter. See the grouped
+[neoCLR-only features](neoclr-features.md#native-self-contracts) for semantics,
+examples and current native metadata limitations. Ordinary interface declarations
+remain part of the shared language reference.

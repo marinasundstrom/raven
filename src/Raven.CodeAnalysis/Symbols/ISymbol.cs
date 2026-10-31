@@ -241,6 +241,11 @@ public interface INamespaceOrTypeSymbol : ISymbol
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
+    /// <summary>Whether this lookup scope represents logical modules (explicit source or neoCLR target).</summary>
+    /// <remarks>A merged lookup scope may include multiple assembly-owned modules. ContainingModule
+    /// continues to denote the physical compiler module; this flag does not merge declaration identities.</remarks>
+    bool IsModule => false;
+
     bool IsGlobalNamespace { get; }
 
     INamespaceSymbol? LookupNamespace(string name);
@@ -265,6 +270,8 @@ public interface IAliasSymbol : ISymbol
 public interface IMethodSymbol : ISymbol
 {
     MethodKind MethodKind { get; }
+    /// <summary>The explicit whole-signature operand, or null for an ordinary declaration.</summary>
+    ITypeSymbol? DeclaredFunctionType => null;
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
     ImmutableArray<AttributeData> GetReturnTypeAttributes();
@@ -547,7 +554,9 @@ public interface IPropertySymbol : ISymbol
     bool IsMutable => SetMethod is { MethodKind: MethodKind.PropertySet };
     bool IsIndexer { get; }
     bool IsRequired { get; }
-    ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
+    /// <summary>Gets ordered index parameters, excluding a setter's value parameter; empty for ordinary properties.</summary>
+    ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] : GetMethod?.Parameters ??
+        (SetMethod is { Parameters: var parameters } && !parameters.IsEmpty ? parameters.RemoveAt(parameters.Length - 1) : []);
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
     bool IsExtensionProperty => false;
 }
@@ -673,6 +682,27 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     }
 }
 
+/// <summary>A semantic all-of type expression without an implied runtime representation.</summary>
+public interface IIntersectionTypeSymbol : ITypeSymbol
+{
+    /// <summary>Gets normalized bounds in presentation order; identity ignores this order.</summary>
+    ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+}
+
+/// <summary>An experimental any-of type expression, distinct from nominal union carriers.</summary>
+public interface IStructuralUnionTypeSymbol : ITypeSymbol
+{
+    /// <summary>Gets alternatives in presentation order; identity ignores ordering.</summary>
+    ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+}
+
+/// <summary>A dependent projection of a structural function's result type.</summary>
+public interface IFunctionReturnTypeSymbol : ITypeSymbol
+{
+    /// <summary>The function-constrained operand whose result will be substituted.</summary>
+    ITypeSymbol FunctionType { get; }
+}
+
 public enum TypeKind
 {
     Unknown,
@@ -690,7 +720,10 @@ public enum TypeKind
     Tuple,
     Nullable,
     Null,
-    Unit
+    Unit,
+    Intersection,
+    StructuralUnion,
+    FunctionReturn
 }
 
 [Flags]
@@ -703,6 +736,8 @@ public enum TypeParameterConstraintKind
     NotNull = 1 << 3,
     Constructor = 1 << 4,
     AllowByRefLike = 1 << 5,
+    /// <summary>A native neoCLR structural function signature; nominal delegates do not satisfy this constraint.</summary>
+    FunctionType = 1 << 6,
 }
 
 public enum VarianceKind

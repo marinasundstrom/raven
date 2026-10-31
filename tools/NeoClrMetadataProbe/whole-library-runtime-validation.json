@@ -1,0 +1,16 @@
+{
+  "source": "System/Globalization/Language.rvn",
+  "wholeFile": true,
+  "sourceSha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "consumerSha256": "11759421514C7BA67EB2E2D9715F5F664DE4431B5C1F107BC1D2EFF2AA5FCD8A",
+  "cliResult": 42,
+  "nativeResult": 42,
+  "stdout": "und\nsv\nhe\n",
+  "sourceOrders": 2,
+  "staticSetter": true,
+  "genericStaticGetter": true,
+  "staticStorageRejections": 2,
+  "bootstrap": "host core and explicit console bridge; no native symbol importer",
+  "fullClassLibrary": false
+}

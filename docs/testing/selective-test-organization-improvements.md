@@ -35,14 +35,17 @@ selection more precise, maintainable, and eventually automatable.
 
 ## Proposed classification model
 
-Classify each test on three independent axes. Do not encode one axis indirectly
+Classify each test on four independent axes. Do not encode one axis indirectly
 through another.
 
 | Axis | Examples | Purpose |
 |---|---|---|
+| Target | `Shared`, `DotNet`, `NeoCLR` | Identify target-independent contracts and target-specific expectations |
 | Feature | `macros`, `patterns`, `unions`, `functions`, `imports`, `nullability` | Select behavior owned by the change |
 | Layer | `syntax`, `binding`, `semantic-api`, `operations`, `lowering`, `emit`, `runtime`, `lsp-presentation`, `workspace`, `project-system` | Select the affected implementation boundary |
 | Profile | `hermetic`, `fixture`, `process`, `runtime`, `sample`, `performance` | Select the required environment and cost |
+
+Follow [target ownership in tests](target-test-classification.md) for the adopted target-trait convention. The remaining axes below describe the broader organization proposal.
 
 A test can belong to multiple features, but should normally have one primary
 layer and one profile. Cross-feature tests are useful when they protect a real

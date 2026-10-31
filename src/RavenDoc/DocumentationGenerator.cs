@@ -68,6 +68,7 @@ public static partial class DocumentationGenerator
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
     private static DocumentationSiteOptions CurrentSiteOptions = DocumentationSiteOptions.Empty;
+    private static bool UseExplicitLibraryDeclarations;
     private static readonly Dictionary<string, DocumentationNavigationItem> ApiNavigation = new(StringComparer.Ordinal);
 
     internal static IReadOnlyList<DocumentationNavigationItem> GetApiNavigation()
@@ -220,6 +221,7 @@ public static partial class DocumentationGenerator
         try { Directory.CreateDirectory(outputDir); } catch { }
 
         DocumentationGenerator.outputDir = outputDir;
+        UseExplicitLibraryDeclarations = assemblies is not null;
         DocumentedAssemblies.Clear();
         DocumentedAssemblies.UnionWith(assemblies ?? [assembly]);
         documentedAssemblyName = assembly.Name;
@@ -377,7 +379,7 @@ public static partial class DocumentationGenerator
         if (PageNavigation is null)
         {
             PageNavigation = DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation());
-            var fullNavigation = DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, RootDir, "");
+            var fullNavigation = DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, RootDir, "", CurrentSiteOptions.ModuleTerminology);
             if (CurrentSiteOptions.SharedApiNavigation)
             {
                 SharedNavigationFile = Path.Combine(RootDir, "api-navigation.html");
@@ -387,7 +389,7 @@ public static partial class DocumentationGenerator
             }
         }
         if (SharedNavigationFile is null)
-            return DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, currentDirectory);
+            return DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, currentDirectory, moduleTerminology: CurrentSiteOptions.ModuleTerminology);
 
         // Namespace links remain usable without JavaScript or if the shared asset cannot load.
         DocumentationNavigationItem Fallback(DocumentationNavigationItem item) => item with
@@ -396,7 +398,7 @@ public static partial class DocumentationGenerator
         };
         var overview = new DocumentationNavigationItem("API overview",
             Path.GetRelativePath(SiteRootDirectory, Path.Combine(RootDir, "index.html")).Replace('\\', '/'));
-        var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory);
+        var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory, moduleTerminology: CurrentSiteOptions.ModuleTerminology);
         return fallback.Replace("<nav class=\"api-navigation-panel\"",
             "<nav data-navigation-src=\"" + HtmlEscape(RelLink(currentDirectory, SharedNavigationFile) + "?v=" + SharedNavigationVersion) + "\" class=\"api-navigation-panel\"");
     }
@@ -599,7 +601,7 @@ public static partial class DocumentationGenerator
 
     private static string GetSectionTitle(MemberSectionKind kind) => kind switch
     {
-        MemberSectionKind.Namespaces => "Namespaces",
+        MemberSectionKind.Namespaces => CurrentSiteOptions.ModuleTerminology ? "Modules" : "Namespaces",
         MemberSectionKind.Types => "Types",
         MemberSectionKind.TypeExtensions => "Type extensions",
         MemberSectionKind.Functions => "Functions",
@@ -1316,7 +1318,7 @@ public static partial class DocumentationGenerator
             IMacroDeclarationSymbol => "Macro",
             IMethodSymbol method when IsOperatorLike(method) => "Operator",
             IMethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
-            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Namespace function",
+            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Function",
             IMethodSymbol => "Method",
             IPropertySymbol { IsIndexer: true } => "Indexer",
             IPropertySymbol => "Property",
@@ -1455,7 +1457,7 @@ public static partial class DocumentationGenerator
 
             if (s is INamespaceOrTypeSymbol nts)
             {
-                foreach (var m in PreferDocumentableGenericDefinitions(nts.GetMembers()))
+                foreach (var m in PreferDocumentableGenericDefinitions(nts is INamespaceSymbol ns ? GetDocumentedNamespaceMembers(ns) : nts.GetMembers()))
                     Visit(m);
             }
         }
@@ -1490,6 +1492,8 @@ public static partial class DocumentationGenerator
             var label = symbol is INamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
                 : symbol is ITypeSymbol navigationType ? GetTypeName(navigationType) : GetNavigationName(symbol);
+            if (symbol is IMethodSymbol && ApiNavigation.ContainsKey(target))
+                label = symbol.Name + " (overloads)";
             ApiNavigation[target] = new DocumentationNavigationItem(label,
                 Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'), Kind: GetSymbolKindLabel(symbol));
         }
@@ -1668,12 +1672,17 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
+    private static string GetMemberOwnerDocPrefix(ISymbol member)
+    {
+        if (member.ContainingType is { } type) return GetTypeDocName(type) + ".";
+        return member.ContainingNamespace is { IsGlobalNamespace: false } ns ? GetNamespaceFullName(ns) + "." : "";
+    }
+
     private static string GetMethodDocName(IMethodSymbol ms)
     {
         // Type.Method(params...)
         var sb = new StringBuilder();
-        sb.Append(GetTypeDocName(ms.ContainingType!));
-        sb.Append('.');
+        sb.Append(GetMemberOwnerDocPrefix(ms));
         sb.Append(ms.Name);
 
         if (ms.Parameters is { Length: > 0 })
@@ -1743,7 +1752,7 @@ public static partial class DocumentationGenerator
     }
 
     private static string GetFieldDocName(IFieldSymbol fs)
-        => $"{GetTypeDocName(fs.ContainingType!)}.{fs.Name}";
+        => GetMemberOwnerDocPrefix(fs) + fs.Name;
 
     private static string GetEventDocName(IEventSymbol es)
         => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
@@ -1840,7 +1849,7 @@ public static partial class DocumentationGenerator
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             metadataLines.Add(
-                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+                $"**{(CurrentSiteOptions.ModuleTerminology || containingNamespace.IsModule ? "Module" : "Namespace")}**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
         var receivers = GetExtensionReceivers(typeSymbol);
@@ -1979,7 +1988,7 @@ public static partial class DocumentationGenerator
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             metadataLines.Add(
-                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+                $"**{(CurrentSiteOptions.ModuleTerminology || containingNamespace.IsModule ? "Module" : "Namespace")}**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
         metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, members[0]));
@@ -2032,18 +2041,18 @@ public static partial class DocumentationGenerator
         var namespaceName = GetNamespaceFullName(namespaceSymbol);
 
         if (namespaceSymbol.IsGlobalNamespace)
-            name = CurrentSiteOptions.ApiDisplayName ?? "Global namespace";
+            name = CurrentSiteOptions.ApiDisplayName ?? (CurrentSiteOptions.ModuleTerminology ? "Global module" : "Global namespace");
 
         var heroHtml = SiteTemplate.RenderHero(
             RavenDocSymbolKind.Namespace,
-            namespaceSymbol.IsGlobalNamespace && CurrentSiteOptions.ApiDisplayName is not null ? "API reference" : "Namespace",
+            namespaceSymbol.IsGlobalNamespace && CurrentSiteOptions.ApiDisplayName is not null ? "API reference" : (CurrentSiteOptions.ModuleTerminology || namespaceSymbol.IsModule ? "Module" : "Namespace"),
             name,
             string.IsNullOrWhiteSpace(namespaceName)
                 ? null
-                : $"namespace {name}");
+                : $"{(CurrentSiteOptions.ModuleTerminology || namespaceSymbol.IsModule ? "module" : "namespace")} {name}");
 
         var declaredNamespaceMembers =
-            PreferDocumentableGenericDefinitions(namespaceSymbol.GetMembers())
+            PreferDocumentableGenericDefinitions(GetDocumentedNamespaceMembers(namespaceSymbol))
                 .Where(member => !IsProjectedUnionCaseType(member))
                 .ToArray();
         var namespaceMemberContainers = declaredNamespaceMembers
@@ -2109,13 +2118,14 @@ public static partial class DocumentationGenerator
             GenerateTypePage(compilation, t2);
         }
 
-        foreach (var m in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol))
+        foreach (var group in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol).GroupBy(GetMemberGroupKey))
         {
+            var first = group.First();
             GenerateMemberGroupPage(
                 compilation,
-                IsAdditionalNamespaceMember(m) ? null : m.ContainingType,
-                GetMemberGroupKey(m),
-                new[] { m });
+                IsAdditionalNamespaceMember(first) ? null : first.ContainingType,
+                group.Key,
+                group.ToArray());
         }
 
         var contentMarkdown = ContentTemplate.RenderNamespacePage(
@@ -2192,6 +2202,8 @@ public static partial class DocumentationGenerator
     {
         var constraints = new List<string>();
         var kind = parameter.ConstraintKind;
+        if (kind.HasFlag(TypeParameterConstraintKind.FunctionType))
+            constraints.Add("func");
         if (kind.HasFlag(TypeParameterConstraintKind.ReferenceType))
             constraints.Add("class");
         if (kind.HasFlag(TypeParameterConstraintKind.ValueType))
@@ -2376,7 +2388,8 @@ public static partial class DocumentationGenerator
            symbol.ContainingType is { } containing && IsSelected(containing) ||
            symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
                IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
-           symbol is not INamespaceSymbol && IncludedTypes.Contains(GetTypeDocName(symbol as ITypeSymbol ?? symbol.ContainingType!).Replace('+', '.'));
+           symbol is not INamespaceSymbol && (symbol as ITypeSymbol ?? symbol.ContainingType) is { } selectedType &&
+           IncludedTypes.Contains(GetTypeDocName(selectedType).Replace('+', '.'));
 
     private static bool IsDocumentableSymbol(ISymbol symbol)
         => IsSelected(symbol) &&
@@ -2461,6 +2474,24 @@ public static partial class DocumentationGenerator
         return type.TypeParameters.IsDefaultOrEmpty ? 1 : 2;
     }
 
+    private static IEnumerable<ISymbol> GetDocumentedNamespaceMembers(INamespaceSymbol namespaceSymbol)
+    {
+        if (!UseExplicitLibraryDeclarations) return namespaceSymbol.GetMembers();
+        // A consumer's merged namespace may collapse equivalent primitive symbols
+        // from its bootstrap and the documented library. Render the library's own
+        // declarations, regardless of reference enumeration order.
+        var members = namespaceSymbol.GetMembers().Where(member => member is INamespaceSymbol).ToList();
+        var name = GetNamespaceFullName(namespaceSymbol);
+        foreach (var assembly in DocumentedAssemblies)
+        {
+            IEnumerable<INamespaceSymbol> current = [assembly.GlobalNamespace];
+            foreach (var segment in name.Split('.', StringSplitOptions.RemoveEmptyEntries))
+                current = current.SelectMany(owner => owner.GetMembers(segment).OfType<INamespaceSymbol>()).ToArray();
+            members.AddRange(current.SelectMany(owner => owner.GetMembers()).Where(member => member is not INamespaceSymbol));
+        }
+        return members.Distinct(ReferenceEqualityComparer<ISymbol>.Instance);
+    }
+
     private static bool IsFromDocumentedAssembly(ISymbol symbol)
     {
         if (symbol is INamespaceSymbol namespaceSymbol)
@@ -2468,7 +2499,7 @@ public static partial class DocumentationGenerator
             var name = GetNamespaceFullName(namespaceSymbol);
             return AdditionalNamespaceMembers.Keys.Any(key => name.Length == 0 || key == name ||
                        key.StartsWith(name + ".", StringComparison.Ordinal)) ||
-                   namespaceSymbol.GetMembers().Any(IsFromDocumentedAssembly);
+                   GetDocumentedNamespaceMembers(namespaceSymbol).Any(IsFromDocumentedAssembly);
         }
 
         // Explicit source members can belong to the separate compile-time macro assembly.
@@ -2480,6 +2511,10 @@ public static partial class DocumentationGenerator
 
     private static bool IsAdditionalNamespaceMember(ISymbol symbol)
     {
+        if (symbol is IMethodSymbol or IFieldSymbol && symbol.ContainingType is null &&
+            symbol.ContainingSymbol is INamespaceSymbol)
+            return true;
+
         if (symbol.ContainingType is INamedTypeSymbol containingType &&
             IsNamespaceMemberContainer(containingType))
         {
@@ -2515,7 +2550,7 @@ public static partial class DocumentationGenerator
 
     private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol, bool includeDescendants = true)
     {
-        foreach (var member in namespaceSymbol.GetMembers())
+        foreach (var member in GetDocumentedNamespaceMembers(namespaceSymbol))
         {
             if (member is INamespaceSymbol childNamespace)
             {
@@ -2594,7 +2629,8 @@ public sealed record DocumentationSiteOptions(
     string MemberGrouping = "kind",
     string? ApiDisplayName = null,
     DocumentationSourceRepository? SourceRepository = null,
-    bool SharedApiNavigation = false)
+    bool SharedApiNavigation = false,
+    bool ModuleTerminology = false)
 {
     internal bool IndexOnly { get; init; }
     internal IReadOnlyDictionary<string, string>? SharedXrefs { get; init; }

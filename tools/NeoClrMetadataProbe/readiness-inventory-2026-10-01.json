@@ -1,0 +1,1448 @@
+{
+  "targetReference": "api-docs/reference/NeoCLR.CoreProbe.dll",
+  "targetReferenceSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "targetProfile": "CompilationOptions.NeoCLR plus native Self marker; CLI declaration snapshot, not a native symbol importer",
+  "hostProfile": "Existing direct-emitter .NET primitive bootstrap; no native library dependencies",
+  "methodology": "Unchanged sources; grouped foundational contracts, individual library units, selected applications and entire library. Binding failures stop emission. Target configuration rejection is recorded, not bypassed. No application with failed emission is run. Ordinary CLI bridge emission is a nonexecuted control using a reference-only core. Full diagnostics saved per case; report retains first 12.",
+  "cases": [
+    {
+      "id": "iterator-contracts-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        }
+      ],
+      "phase": "emitted",
+      "bytes": 20480,
+      "diagnosticCount": 0,
+      "diagnostics": [],
+      "cliBridgeEmission": null,
+      "execution": {
+        "verification": {
+          "ExitCode": 0,
+          "Stdout": "NeoMetadata_13CF570388CE0B81106001226DE64209CC05068B4005CBE6DD54A13C6C7F872B: typed-stack/control-flow verification passed (641 IL functions; maximum stack 6; runtime value checks remain)\n",
+          "Stderr": ""
+        },
+        "run": null
+      }
+    },
+    {
+      "id": "iterator-contracts-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2048,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "collection-contract-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Collection.rvn",
+          "sha256": "31656DC5518001C9F925FC2427CB55CEB8B4D329D156C9C473889BFD5F5251DB"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA001: Native emission does not support only invariant owned interfaces with public abstract instance method contracts."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "collection-contract-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Collection.rvn",
+          "sha256": "31656DC5518001C9F925FC2427CB55CEB8B4D329D156C9C473889BFD5F5251DB"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "sequence-contract-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Collection.rvn",
+          "sha256": "31656DC5518001C9F925FC2427CB55CEB8B4D329D156C9C473889BFD5F5251DB"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Sequence.rvn",
+          "sha256": "11493EBBB8F28CB614D5E09AB5D9604C43DD5EE8596D16D6DDA826BAE0894C8A"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA001: Native emission does not support only invariant owned interfaces with public abstract instance method contracts."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "sequence-contract-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Collection.rvn",
+          "sha256": "31656DC5518001C9F925FC2427CB55CEB8B4D329D156C9C473889BFD5F5251DB"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Sequence.rvn",
+          "sha256": "11493EBBB8F28CB614D5E09AB5D9604C43DD5EE8596D16D6DDA826BAE0894C8A"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "language-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Globalization/Language.rvn",
+          "sha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760"
+        }
+      ],
+      "phase": "emitted",
+      "bytes": 20480,
+      "diagnosticCount": 0,
+      "diagnostics": [],
+      "cliBridgeEmission": null,
+      "execution": {
+        "verification": {
+          "ExitCode": 0,
+          "Stdout": "NeoMetadata_7BFCB11F456560AA700F8ED70C63A16835A965F82F2B8544E0E89181C2D381C9: typed-stack/control-flow verification passed (646 IL functions; maximum stack 6; runtime value checks remain)\n",
+          "Stderr": ""
+        },
+        "run": null
+      }
+    },
+    {
+      "id": "language-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Globalization/Language.rvn",
+          "sha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "array-list-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Collections/ArrayList.rvn",
+          "sha256": "FCE400113FD50CAAB17288BACC3AFE5458FF006309CD86D6838DD316E73B7005"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 24,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027List\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0103: \u0027Iterator\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Option\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Some\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "array-list-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Collections/ArrayList.rvn",
+          "sha256": "FCE400113FD50CAAB17288BACC3AFE5458FF006309CD86D6838DD316E73B7005"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 3,
+      "diagnostics": [
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "option-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Option.rvn",
+          "sha256": "D691D1E10B36C5484CD9D7E410CB12B11397E6B6BCFFD5CC273A147C67399B96"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error RAV0103: \u0027Propagatable\u003COption\u003CT\u003E, T, System.Void\u003E\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "option-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Option.rvn",
+          "sha256": "D691D1E10B36C5484CD9D7E410CB12B11397E6B6BCFFD5CC273A147C67399B96"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 5632,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "result-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Result.rvn",
+          "sha256": "E251512B797A3EB0D536E3DF32AED723E10541952CD9F6949F1B58C19B132835"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error RAV0103: \u0027Propagatable\u003CResult\u003CT, E\u003E, T, E\u003E\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "result-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Result.rvn",
+          "sha256": "E251512B797A3EB0D536E3DF32AED723E10541952CD9F6949F1B58C19B132835"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 6144,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "math-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Math/Functions.rvn",
+          "sha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 26,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027System.Result\u003Cint, OverflowError\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Error\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Result\u003Cint, InvalidRangeError\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Error\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "math-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Math/Functions.rvn",
+          "sha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 16,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "gc-host",
+      "profile": "host",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Runtime/GC.rvn",
+          "sha256": "1C672A79B8EB146F353D73EC5D075235976DBC68397843D2E1B7CE669DD915D0"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 9,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "gc-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Runtime/GC.rvn",
+          "sha256": "1C672A79B8EB146F353D73EC5D075235976DBC68397843D2E1B7CE669DD915D0"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 9,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    },
+    {
+      "id": "application-interfaces-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-interfaces.rvn",
+          "sha256": "05FCFD884F69E11149CCEABFF8C7D766FD3E6A2828702478215EC6EAD8A0C004"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 3072,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "application-inheritance-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-inheritance.rvn",
+          "sha256": "F9F305A0DF804B150D37530C80600FF6992E5F7FF4D8701F2590A26587E404C1"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 3072,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "application-types-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-types.rvn",
+          "sha256": "99B0C95011238B848004EA9F9EAA7C1D0B09B7D844A31615F16FBAF909538F44"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 3072,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "application-delegates-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-delegates.rvn",
+          "sha256": "FED0CEDDAD4D479C3CEEA370FF71F6DCE11ECA336F251B882553A26AF0790CB6"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 4608,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "application-iterable-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-iterable.rvn",
+          "sha256": "6512FF7178ED63F93234F55CB374C0E21E8F88A26A107CE39E7375170680A19F"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 4096,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "application-order-collections-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/application-order-collections.rvn",
+          "sha256": "D775C2C648591482CF53A0A735603CA51AEA48C2F2BB33633C95830E57B6550B"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 7168,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-arrays-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-arrays.rvn",
+          "sha256": "15D2E34A3B7DCD83377CFF55888D4453714179B14F0B2A9C7FCB801FC2D684CA"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-math-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-math.rvn",
+          "sha256": "8C2D37C48E24C527BDCA8DAB7457EA4D7F1E798DBC769B10FBB3A6D89E335E5F"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-option-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-option.rvn",
+          "sha256": "66E5D193209CB652154F2D6FCD66F41F885E9844C1E6B4FBD65DFA529712F0A6"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-result-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-result.rvn",
+          "sha256": "EC57186AC6C949CD14EBDE8DE263047798B29AB5B2DAF064EED254036C2F164F"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 2560,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-async-default-queue-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-async-default-queue.rvn",
+          "sha256": "FF15929A00D48462332C863BE3F6381AAF58869F904D89F8ECBCFD9C7A9A178D"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 3584,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "library-strings-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "docs/experiments/raven-target/samples/library-strings.rvn",
+          "sha256": "290174A6F50E8DFDC4B91BF1F3B5854A5F72D89685C9BF6EF5549DE86E17B4B1"
+        }
+      ],
+      "phase": "emission",
+      "bytes": 0,
+      "diagnosticCount": 1,
+      "diagnostics": [
+        "error NEOMETA002: Native emission configuration: requires the .NET primitive bootstrap and console or library output."
+      ],
+      "cliBridgeEmission": {
+        "success": true,
+        "bytes": 3072,
+        "diagnostics": []
+      },
+      "execution": null
+    },
+    {
+      "id": "whole-library-target",
+      "profile": "target",
+      "sources": [
+        {
+          "path": "runtime/raven/src/System/Array.rvn",
+          "sha256": "66FA427261B3F9D17616E989F64BA6BCEEA8664F625691391B907FF174DDD4FC"
+        },
+        {
+          "path": "runtime/raven/src/System/Boolean.rvn",
+          "sha256": "72900F5DDFE7FDFD3F2B3D9B872FC033B10800CF2F9B515166E6385F1A3A0211"
+        },
+        {
+          "path": "runtime/raven/src/System/BooleanParseError.rvn",
+          "sha256": "77BBE4D2B205DD8668BDB99539C3E4B1229B79CC3B251E86ACF3DCAB25A2B555"
+        },
+        {
+          "path": "runtime/raven/src/System/Byte.rvn",
+          "sha256": "51B79F8CF41AA520FB52CC0AC490BD5941EC90909FCAF5415CDC0FA7ECF437F2"
+        },
+        {
+          "path": "runtime/raven/src/System/Calendar.rvn",
+          "sha256": "ECA97A91AD9D567A5A5EDCB014E58236B81DEFB4A0EE3466C15AB40A96ED595F"
+        },
+        {
+          "path": "runtime/raven/src/System/Char.rvn",
+          "sha256": "2CB86A72E75EC04DD70643B2B5C5DC2BC0AD199076F7C1407CF3357F185A8C46"
+        },
+        {
+          "path": "runtime/raven/src/System/Clock.rvn",
+          "sha256": "1043B7BBABBD554AE9BFAB607A9CA6AC16618C76D1CDCC3DC9C69D0175EF98D2"
+        },
+        {
+          "path": "runtime/raven/src/System/Clonable.rvn",
+          "sha256": "5D9A79E29E66942A525B1A579C920682B31100D7F41E70A47C81C058D4C786EE"
+        },
+        {
+          "path": "runtime/raven/src/System/Closable.rvn",
+          "sha256": "934D043200F2E1284005444B53E3BBEECCFAD9E1069C58B7C252E543E8D126A7"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/ArrayList.rvn",
+          "sha256": "FCE400113FD50CAAB17288BACC3AFE5458FF006309CD86D6838DD316E73B7005"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Collection.rvn",
+          "sha256": "31656DC5518001C9F925FC2427CB55CEB8B4D329D156C9C473889BFD5F5251DB"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Comparer.rvn",
+          "sha256": "BEA7287FDDAB87AD0716AAB38E82EB9837A03C121D6DD4FDE96AB2F87C793592"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/DelegateComparer.rvn",
+          "sha256": "E01B43BE2CFFE9A23939A7C3E717CC718CFB72CCC90C98FE4EE9E896F41095B1"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/DelegateEqualityComparer.rvn",
+          "sha256": "6FF0664A303A7A368DB1C1602922DEA7C58A73ACD38FEB4161E64B93EA380472"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/EqualityComparer.rvn",
+          "sha256": "820C9AB4936879F8F60A4882C3EA0BD266C3DE4F562C8F61C49B8AAC9801258B"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/HashMap.rvn",
+          "sha256": "8010A8AAA91201B315EC2021FFFFE1A0755094E03824F1755A242B6FCD57F994"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterable.rvn",
+          "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Iterator.rvn",
+          "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/List.rvn",
+          "sha256": "101D76F2F4D2B950BC59ABD89938CB2E9EBEA1D6E43087E80309B0DE963A22D2"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Map.rvn",
+          "sha256": "2E62350AEC516E1F74EED496EC08375FE367AF09655BD42397680B275636640D"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/MutableMap.rvn",
+          "sha256": "109B64C49882B813D5C532E6CF7CCC06CB907D38CB5EB6E3FFDFAF2CA72AF627"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/MutableSequence.rvn",
+          "sha256": "2864330E194DC665A65A4A3A31CAE18C6FFB5473CB0086B14D02DF05D6DC69D8"
+        },
+        {
+          "path": "runtime/raven/src/System/Collections/Sequence.rvn",
+          "sha256": "11493EBBB8F28CB614D5E09AB5D9604C43DD5EE8596D16D6DDA826BAE0894C8A"
+        },
+        {
+          "path": "runtime/raven/src/System/ComparableTo.rvn",
+          "sha256": "6143925DE5041AC427FDADBE31AAB03C391E48B520AB8EA706801D425E2552F1"
+        },
+        {
+          "path": "runtime/raven/src/System/Concurrency/Cancellation.rvn",
+          "sha256": "9CFBD287F0F30F89A5C7BBA725903D62E8642CC6C8DA6FE876B73065218AA5F5"
+        },
+        {
+          "path": "runtime/raven/src/System/Concurrency/Workers.rvn",
+          "sha256": "EC30D2A0B2B1C55D496608B9E41542EBA09E7AFE4CB5B65CE297491B1E904428"
+        },
+        {
+          "path": "runtime/raven/src/System/Console/Functions.rvn",
+          "sha256": "A80C7F3D64C3E859C8C2C9823FD64D258AD397A93BCC2AD64381E62B7833ABB7"
+        },
+        {
+          "path": "runtime/raven/src/System/Console/Streams.rvn",
+          "sha256": "2DF30B451AEE6DC2361CAA46FFD22A8F0D18EBFEA45F1534E4B514EAA8E71BB3"
+        },
+        {
+          "path": "runtime/raven/src/System/ConsoleReadError.rvn",
+          "sha256": "FDD6065F06CAA3EDEFF9C719D60B23321A9B99DDAB0D769F5786BF48D3233A2E"
+        },
+        {
+          "path": "runtime/raven/src/System/ConvertibleInto.rvn",
+          "sha256": "3B711DB6244747A305C60DF7D33324B655EF50E66E7D86F850BE7C8EC660E7BB"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/JsonDocument.rvn",
+          "sha256": "9A76A1609410D41737CE39EB4315DD799228BF923651265D4054A4336E32EB14"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/JsonError.rvn",
+          "sha256": "91C54CCAE315E879E1BA14B40386E95D7061E4B1C07A67E74ECCBE0E116E8713"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/JsonSerializer.rvn",
+          "sha256": "C43EC8A0FB5FE2B73E0B0CFEC8B24AD921AF16B92868D373BFD64F1628A4E7B1"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/JsonSyntax.rvn",
+          "sha256": "545324A12836301DAC9458AF43AEB4293B538C7EC06470800ADF2FA5539880A0"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/JsonValue.rvn",
+          "sha256": "0C2084DCA1BCDF2D1494D9F1942FCEB25D060A7A25CD8256A4BFEE3FC46A5426"
+        },
+        {
+          "path": "runtime/raven/src/System/Data/Json/ObjectMapper.rvn",
+          "sha256": "1C1781678AD49D5BC8AD5ACB0D075351BE10CCEB41888EB7BBEB4E895B09FF4B"
+        },
+        {
+          "path": "runtime/raven/src/System/Date.rvn",
+          "sha256": "43D0F6BCDB8529DE2FD85B5D99E6D2C535F7AD8A73B3B9BD680DE9B9C9C13102"
+        },
+        {
+          "path": "runtime/raven/src/System/DateTime.rvn",
+          "sha256": "8BA1677CD951CD8DA8449ED57F76DF8805756C5FA3DADBDCAAFAC9BBD7F6F870"
+        },
+        {
+          "path": "runtime/raven/src/System/Disposable.rvn",
+          "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+        },
+        {
+          "path": "runtime/raven/src/System/Double.rvn",
+          "sha256": "A9C834D952DA5BECA2EA9A90BAC8B5291CFF44962028D77D472718EA6A22A214"
+        },
+        {
+          "path": "runtime/raven/src/System/Duration.rvn",
+          "sha256": "C721BE8CD945E3CA1DD94020D624880B3BD3240EE4844187DB487577BF67D0BF"
+        },
+        {
+          "path": "runtime/raven/src/System/Environment/Functions.rvn",
+          "sha256": "39D1FA62DCDBED3275D991716FC784FF07D617E1531A4E94BECF73BA6C16157D"
+        },
+        {
+          "path": "runtime/raven/src/System/EnvironmentError.rvn",
+          "sha256": "08D7CA88CD6395E47A000C413B910C7C61B501417C9827DDA7EF40B63B5C11F4"
+        },
+        {
+          "path": "runtime/raven/src/System/EquatableTo.rvn",
+          "sha256": "0ABE8CC42A1A0430C85A80FEDF1A450E909370276DDE862846DD9DBD0BA4FBD9"
+        },
+        {
+          "path": "runtime/raven/src/System/Func.rvn",
+          "sha256": "4720A0463A88BE11A4FF213363CAD1C6680CD41AFD457C813E247E5C4E3CBD2E"
+        },
+        {
+          "path": "runtime/raven/src/System/Functions.rvn",
+          "sha256": "AC8C17CD3CDE8CFD78B2D1214454A92120D7F65B93D27D5D8E7258981FB1A70D"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/Culture.rvn",
+          "sha256": "AA59EB4B5D3D65E2EF7E9FFDAA3C946C20877B674019749144DB3E81D5D04741"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/CultureProvider.rvn",
+          "sha256": "ACFD6F76927C0058BE1ECB895280BF1B2823E97CF5E808F2A86B69DA25DC41AF"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/DateTimeFormat.rvn",
+          "sha256": "6CF8550B80074817FBA34E70D6F3E1630561B43C1A8308990585E3E60515D0CB"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/DateTimeFormatDigits.rvn",
+          "sha256": "430CDEAD1746C75C5A6EC951C127E5A0AE8236A784D0B4EEA4D1CFC588161E4B"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/FixedCultureProvider.rvn",
+          "sha256": "4E98C0A7E46E21DAE3077935329A7E8C12311175373940BDF921EC3272C1A452"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/HebrewDateTimeFormat.rvn",
+          "sha256": "69CADBE05690B40AA318D8EEBB007DCB2344C4D92B2330CE33E90FD45C973B8D"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/InvariantDateTimeFormat.rvn",
+          "sha256": "FCA49C1822E9F2E2EF7992827091E1D9C8706E324B5280717BBFF015CE2C1498"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/Language.rvn",
+          "sha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/SwedishDateTimeFormat.rvn",
+          "sha256": "DC9CF0D525317DBDF44497CA8F761D4671B0CC0D07EABCFAB0C4F5ADA29A33BD"
+        },
+        {
+          "path": "runtime/raven/src/System/Globalization/SystemCultureProvider.rvn",
+          "sha256": "C26C8CC06C13202AB38D69713B834663B9B6B4168FF924977E3C9C4D2961EB2C"
+        },
+        {
+          "path": "runtime/raven/src/System/GregorianCalendar.rvn",
+          "sha256": "991C7CDA20EDF39EFB1A97E9CAD37D03379CFC82EB0A1B36830EB7249A9208A4"
+        },
+        {
+          "path": "runtime/raven/src/System/HashCode.rvn",
+          "sha256": "E6937956209544DCF3B1326132FF18204C894F8C1BBD7C3C69889E488CED9103"
+        },
+        {
+          "path": "runtime/raven/src/System/HebrewCalendar.rvn",
+          "sha256": "A899AA592F325777819034DF6521E0E1D58353E5BBA4BC1D1CD51D7EDF1FF2E0"
+        },
+        {
+          "path": "runtime/raven/src/System/Instant.rvn",
+          "sha256": "321CFF97417A63671689CBF22F8668EA2B5A1306012B6433293C2076FDF5E40F"
+        },
+        {
+          "path": "runtime/raven/src/System/Int16.rvn",
+          "sha256": "95087F4D459995B0DBAA90C84AAC5BBF649F0F2D37FF770F71AC412ACB0B8DAD"
+        },
+        {
+          "path": "runtime/raven/src/System/Int32.rvn",
+          "sha256": "D06F7132ED722146DF5D57C12D9C6B0864FB84FD757EFB7CCDC033759211D261"
+        },
+        {
+          "path": "runtime/raven/src/System/Int64.rvn",
+          "sha256": "8EF80258DC447A71217FDD0F178F59EB54BE176B9445D0EB1AB27752D6532A00"
+        },
+        {
+          "path": "runtime/raven/src/System/IntegerDivisionError.rvn",
+          "sha256": "6F163EAC97FDE065414A7748C4773D8D9DB63F3114A0715FF22E9AEA220CA433"
+        },
+        {
+          "path": "runtime/raven/src/System/IntPtr.rvn",
+          "sha256": "D9D4B9EDFC3C6B1E412D8F511189560CE3413F002EA02E60FCFD918D4D181CAD"
+        },
+        {
+          "path": "runtime/raven/src/System/Introspection/AssemblyInfo.rvn",
+          "sha256": "137B4758422D334157BAB90B8D2DADC99E47C7328C683DF9A52D19D26CCFF2C3"
+        },
+        {
+          "path": "runtime/raven/src/System/Introspection/BindingFlags.rvn",
+          "sha256": "D653A79EDEA57D664431EE9B6A1BD5E7980F873B6543308610A33286703F7D4E"
+        },
+        {
+          "path": "runtime/raven/src/System/Introspection/Descriptors.rvn",
+          "sha256": "394A5F5AE67374A03E252D6E310B5BCB1F1FE848F3BB23822EF2AFF5E84E4A94"
+        },
+        {
+          "path": "runtime/raven/src/System/Introspection/ModuleInfo.rvn",
+          "sha256": "3F5342A964CBE95317E56CA8F2856DC87C4ABE12A4D730CB6278DE577003EF6D"
+        },
+        {
+          "path": "runtime/raven/src/System/Introspection/ParameterInfo.rvn",
+          "sha256": "B14DF0CDA91C7E2A43D15249006E70C2D4A08E54E1AB1B47D86F13CFADF82627"
+        },
+        {
+          "path": "runtime/raven/src/System/InvalidDateError.rvn",
+          "sha256": "9B47A6F1F4B41B6E64988A61239C7AC80F6667AF7325B68D6D60FCD5D91F68F8"
+        },
+        {
+          "path": "runtime/raven/src/System/InvalidRangeError.rvn",
+          "sha256": "863B25E049DB2A970292CB404CDA670EBB08DDEBC2F99D7EAA87A1B405AEAC59"
+        },
+        {
+          "path": "runtime/raven/src/System/InvalidTimeError.rvn",
+          "sha256": "F845856F6F260641C2C2823DEAA4565FEB0ECB003932904F1BF8BD22C37F0410"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/FileInputStream.rvn",
+          "sha256": "1A53D432E3AFB810DA5CF2D7EB971E22A12910C65A6CBEFC511091BE4B9F452C"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/FileOutputStream.rvn",
+          "sha256": "E9FB30FF5146680DB47C8F43A12D8518B4B83A2DFCB1FC13A8A115861FC348DC"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/InputStream.rvn",
+          "sha256": "8E0B77CA49FF0C4C0A6526787AF800E47AE999F4C48D8F8BC6FF97DC324287D4"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/MemoryStream.rvn",
+          "sha256": "BD81A43F0F196D2ACD8B85AA97876BD472588B0C2D5E2C81C3FC5606A631EA7C"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/OutputStream.rvn",
+          "sha256": "7AECCDE6FC270A70F18CB6F5A9D0EC2CEFB41C9D807FDC1742566E8E44533824"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/SeekableStream.rvn",
+          "sha256": "B330B07C1E8EA6D2411C4CD78FB74C1A094E6BFCEBAFE81B815CFB98E230ECF3"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/StreamError.rvn",
+          "sha256": "5227CC18432784B84D349F114EBF067F9AC3F7EA1AEC239A58F3243C64B5559C"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/StreamReader.rvn",
+          "sha256": "5AB8F57F7CB647113E614542F88082C10E3E03A63A5D2F13A593E5496480EFDB"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/StreamWriter.rvn",
+          "sha256": "8B0048EAF183D95D15A078283A8989FCF1D5456804B4CA132F608B80FC405A0F"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/TextReader.rvn",
+          "sha256": "6F9F6159741CEC9ACADED9E5B2705D3C1BEAAC4FA3FBB1BE8A2146F18F575CE0"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/TextReadError.rvn",
+          "sha256": "E17E37B80DD1F36335D5C891B6FB7CE867522871379A0D2BDB4E5C3C70004E53"
+        },
+        {
+          "path": "runtime/raven/src/System/IO/TextWriter.rvn",
+          "sha256": "EE053D0893F533207E580EBA37509ACA9284DD0C37D13DFF1941A2485B506FEC"
+        },
+        {
+          "path": "runtime/raven/src/System/Linq/Operators.rvn",
+          "sha256": "BAFD0709C9BE2461A0F08B5B8B0E2758EA1FF984DC899B7327FC7826E9CF8E3A"
+        },
+        {
+          "path": "runtime/raven/src/System/Linq/SingleError.rvn",
+          "sha256": "BB496EC19E71B91857388B0499EFD86C7A60612E1D533662C280165284B217D4"
+        },
+        {
+          "path": "runtime/raven/src/System/LocalDateTime.rvn",
+          "sha256": "4B98B0BDAF6541D2F510CEDCF6887F78FA9F59823C610402CB313D489ACCFE9B"
+        },
+        {
+          "path": "runtime/raven/src/System/LocalTimeMapping.rvn",
+          "sha256": "5D38E9BAA2795E3D4E2208B5F19F4A457F39C0075A9458152A3B6BF7658647B9"
+        },
+        {
+          "path": "runtime/raven/src/System/Math/Functions.rvn",
+          "sha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/Dns.rvn",
+          "sha256": "750806E7716026FCFC5D0CF1B77B90C4D9175B1C32D5BDC4A612F1B469EA1074"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/DnsError.rvn",
+          "sha256": "3D29E8B2008D54270CB35A581F4BA38E6D0672F4576B334100FC72D8F729A7BD"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/IPAddress.rvn",
+          "sha256": "5ECDD9EB17020955570880789A4F8EE4C80EB45A5575E8E26CBF9D85A4FF7322"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/IPAddressError.rvn",
+          "sha256": "FF7036E74BF83A7F5FC62CD2CF194BF27D4D4255C996F9D1D45437DC51F3DCE9"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/Sockets/Socket.rvn",
+          "sha256": "493311AAAF400F03B32E9977E45E1C8CFBE65710BCCAC87562BE1E4E8F32F250"
+        },
+        {
+          "path": "runtime/raven/src/System/Networking/Sockets/SocketError.rvn",
+          "sha256": "15F9D2BB496458F8F4077C3A0B4F7606C4F4C35FEFF62C277D76E324C0C4D4EF"
+        },
+        {
+          "path": "runtime/raven/src/System/Number.rvn",
+          "sha256": "1080546358F76BC15DDAF82CEF0774C4A3675E7CABF67D3A1DE5998EE839564D"
+        },
+        {
+          "path": "runtime/raven/src/System/NumberParseError.rvn",
+          "sha256": "BD2C461D481A292AA0D1758254E890A16E4A9A91B95DBE0F3789F0A8DECA7C88"
+        },
+        {
+          "path": "runtime/raven/src/System/Object.rvn",
+          "sha256": "08AB2CED4F543F591A1CDA673445363D68ADE4A898B415628DF01954A3A9766A"
+        },
+        {
+          "path": "runtime/raven/src/System/Option.rvn",
+          "sha256": "D691D1E10B36C5484CD9D7E410CB12B11397E6B6BCFFD5CC273A147C67399B96"
+        },
+        {
+          "path": "runtime/raven/src/System/OptionOperators.rvn",
+          "sha256": "9D050657D00BB373FFC17C6B5F3AB4C2411585E63BBDA5AFB0D6E9BD7F919774"
+        },
+        {
+          "path": "runtime/raven/src/System/OverflowError.rvn",
+          "sha256": "EAA0F653EF045D8C0898BAA8006D9DEC11A676FA814BBE79AE277909ED6F46A8"
+        },
+        {
+          "path": "runtime/raven/src/System/Propagatable.rvn",
+          "sha256": "0F8AF6A1FE29CA4BE08F496E5B485C762ECDF6AE8D9197700697E6203E9BA98E"
+        },
+        {
+          "path": "runtime/raven/src/System/Result.rvn",
+          "sha256": "E251512B797A3EB0D536E3DF32AED723E10541952CD9F6949F1B58C19B132835"
+        },
+        {
+          "path": "runtime/raven/src/System/ResultOperators.rvn",
+          "sha256": "654A6D1E024239EAABD1BCEAAA8034F58BD7904A50B713AD0B253B8C78B565DF"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/CompilerServices/UnionAttribute.rvn",
+          "sha256": "2B5DC7ACA6883217188DF40CE57C31025703CAA869BCDCF775309EDA34C804D9"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/GC.rvn",
+          "sha256": "1C672A79B8EB146F353D73EC5D075235976DBC68397843D2E1B7CE669DD915D0"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/InteropServices/NativeMemory/Functions.rvn",
+          "sha256": "EF66171B634C2E59249DD875A8D13B275C0C8243C8A8E7F575238683A91CED7D"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/Reflection/ReflectionError.rvn",
+          "sha256": "6E033D4FAFDF7B49578BBAE8CEA6AF0719BAFC025031E659CB42382F679E1A4F"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/Reflection/ReflectionExtensions.rvn",
+          "sha256": "445F72510BDC8387A8CD27EFA07E46CE92B4E5B1B763C3EF6D3D682D3DEE5765"
+        },
+        {
+          "path": "runtime/raven/src/System/Runtime/RuntimeContext.rvn",
+          "sha256": "157FB5DCE345C541090F1E9C395C6074CD475DB41F34FFC8517C6F587CBD91E0"
+        },
+        {
+          "path": "runtime/raven/src/System/RuntimeTypeHandle.rvn",
+          "sha256": "6E00ED2472076A61B7A7E670C048F6197166D8FC1E4BAD7A44593EEFFB4AD85B"
+        },
+        {
+          "path": "runtime/raven/src/System/SByte.rvn",
+          "sha256": "08BDAD543490B2643091715A46054441F2329821C0AF157EF4A5404495429017"
+        },
+        {
+          "path": "runtime/raven/src/System/Single.rvn",
+          "sha256": "E74C36C4729DBA7FE3C38B21D1B84FDFE52D121F90C02B9D953F765F1E8DD512"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/EntryKind.rvn",
+          "sha256": "6EE11545B34B72D7C2BF649839B1CB8DA0E05B99BDF5A8A1F8873CC77F1D41AF"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/FileReadError.rvn",
+          "sha256": "DC1C5D2B68F505A77F4D7EAE8C77826499BA9BBFDA78EECFAAA781444212712C"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/FileSystem.rvn",
+          "sha256": "317025C6492B1494E415C098F121CE90C48C7AD8047B078BC588D03E5565D84B"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/FileText.rvn",
+          "sha256": "4828F58A9CE26B067D23B09CC90BD587E35EEB64D16578C4C4FDFF1D42E70122"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/FileWriteError.rvn",
+          "sha256": "D568CC2EA9BBC19CD897D65AA94785ADA30CDBA30E2CC52F0834A6E3B3F17D95"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/InvalidPathError.rvn",
+          "sha256": "9545D4B15C35A592037178548CE68694CE5E82FCCC14B8D3C1F5A50A34EC5C6B"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/Metadata.rvn",
+          "sha256": "0D7759C96D71C56AF66B73DCABD68D8E30DFD838EF17FB3DFEB0B69E9319D8C4"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/Path.rvn",
+          "sha256": "E151A0ABE2685CDFB32F5889D83263865435F3ABDA7E38581F2C18C70CE40BC2"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/StorageItems.rvn",
+          "sha256": "15AEB42F992E6108999CC21807D3F3F579FE2852EB7E17CB3F7122E4B2B7F3DF"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/StorageLookupError.rvn",
+          "sha256": "101BA6C0E46D20C780F1FE35AD515231A12A986F7C1DD293618D8D944630AACB"
+        },
+        {
+          "path": "runtime/raven/src/System/Storage/StorageProvider.rvn",
+          "sha256": "7CB416A6ACF5C7A9795A70646DF341D7E86EF388E426B67FEFBCA01A8654A6BC"
+        },
+        {
+          "path": "runtime/raven/src/System/String.rvn",
+          "sha256": "A8C7130708CE1146602928ECA6DE5F97CD83CC455275B238A624857D141FA2A9"
+        },
+        {
+          "path": "runtime/raven/src/System/StringComparer.rvn",
+          "sha256": "B436F00A4B16F9D3121E367860DAA7808A458B849C6C2F516ACA5C5F4DC7CF97"
+        },
+        {
+          "path": "runtime/raven/src/System/StringComparison.rvn",
+          "sha256": "AA73D44C5E53D5487D092998401033E82F4E11D86D1A4537BABD3BD3C9986944"
+        },
+        {
+          "path": "runtime/raven/src/System/SystemClock.rvn",
+          "sha256": "78356174343DCE6F38E1797576FE19E64CB20EA6779406A0BAE9ABB5F73508D0"
+        },
+        {
+          "path": "runtime/raven/src/System/Tasks/TaskOperators.rvn",
+          "sha256": "0A6A8D5D36753D916D8028C28540597E8F145ED2D262037CB1A83C6E27C306B7"
+        },
+        {
+          "path": "runtime/raven/src/System/Tasks/TaskOutcome.rvn",
+          "sha256": "04B19787AEB87C96D8E6B89C8753158DD08E152173640A1017A6382FF15692D2"
+        },
+        {
+          "path": "runtime/raven/src/System/Tasks/Tasks.rvn",
+          "sha256": "5503828E7D3B5D949177CA0DD1BFF589411D6A78896949ED26DB2CB85B989648"
+        },
+        {
+          "path": "runtime/raven/src/System/Tasks/TaskState.rvn",
+          "sha256": "297CECD35247B5D8B83E6B9C2D7288A556BD6EC81071F4C0D269D251B64ACC87"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Decoder.rvn",
+          "sha256": "ECE9DE5CBE29AD0D6F20F037ED7B81A8D980ABE52E5F8B46584027383073EA56"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Encoder.rvn",
+          "sha256": "F64587F4CFCDE9A66078A4F11DD6CAA6C6720B7CB81C0650616098831B78A646"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/EncoderProgress.rvn",
+          "sha256": "B977D8354120E00CE6C223A2B235774FA4E59E6A0FE9CD86F439A2560D80F094"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/EncoderState.rvn",
+          "sha256": "0AFCB0818EBC85D40EBBB77FFD6AB1F46AC7B758F716D26DF7F9F59B4F89414E"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Encoding.rvn",
+          "sha256": "C7A7C4F7D9F80CC885BE254335CA1505A19DF55D2903E9E2629EF909EEF119CE"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/EncodingError.rvn",
+          "sha256": "CB1CE7C39CA745C8FFB990BED967D0BDEF5787200D16613209FB801766EBCAD2"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Encodings.rvn",
+          "sha256": "7AFF6AD99D1DE7B00F561B46998F0ABFE5971FC74DCBB89D3DCF5C93D8FC89B3"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/InvalidUtf8Error.rvn",
+          "sha256": "5C03B55B9AF6557E60123E50600E5B968A7B0020BD5BDB2FBA9D355D90391D91"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/UnicodeScalar.rvn",
+          "sha256": "ED347A9D60B3D7A13DA14DF968BC0B55F7B2C4A74D94D9524BD639DA7F8C8FA8"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Utf8.rvn",
+          "sha256": "FEE5B25307E2B88264EF99C57F93874CF2525D69B4592611E34C57230A165E54"
+        },
+        {
+          "path": "runtime/raven/src/System/Text/Utf8SliceError.rvn",
+          "sha256": "F29A15EE4B50179E8478F0A8B8898E69B867306AA09547E579DB62929D79FE7D"
+        },
+        {
+          "path": "runtime/raven/src/System/Time.rvn",
+          "sha256": "FAB4422E41FC4C1CD5F656734FC108E3AAE049F25F04365913DF9DA418931E78"
+        },
+        {
+          "path": "runtime/raven/src/System/TimeOffset.rvn",
+          "sha256": "819D58E4C836B27CB3CC3BF09E52548B88F20F09A9B0393CF058A36DDBA96827"
+        },
+        {
+          "path": "runtime/raven/src/System/TimeZone.rvn",
+          "sha256": "66F4E5BDF453C06411DB1A5EBEBA4DA6DF808151204BD294F1DC2C42676208BE"
+        },
+        {
+          "path": "runtime/raven/src/System/TimeZoneError.rvn",
+          "sha256": "3B835374C354EFDC8357D8D9BF0235C1EC441B6F7255BBA4F9915126C5FFF538"
+        },
+        {
+          "path": "runtime/raven/src/System/Tuple.rvn",
+          "sha256": "64032BA68457D933DEECFE7CF8DA40D70699B9D98AEDB307A147053BF12043E5"
+        },
+        {
+          "path": "runtime/raven/src/System/UInt16.rvn",
+          "sha256": "8D49893E24FD8EC60A00E7DCB96DE9B8E4E25F334F4564890C1DADA025318CAE"
+        },
+        {
+          "path": "runtime/raven/src/System/UInt32.rvn",
+          "sha256": "613081FC79C465C8A3455FBB99EB79CD8DB010BE9EEA027D1DB40BE588BD269D"
+        },
+        {
+          "path": "runtime/raven/src/System/UInt64.rvn",
+          "sha256": "360727F1E670B7DCF49D356281CE353F2E4DDA5F57C2AE219007264AEC12FBEB"
+        },
+        {
+          "path": "runtime/raven/src/System/UIntPtr.rvn",
+          "sha256": "ACAACF21FE23322691B0A95EA71E8821B22963B6813C9E29E9DAA56B42A89BC5"
+        },
+        {
+          "path": "runtime/raven/src/System/Uri.rvn",
+          "sha256": "E73FC3C47BC8659C23EB787D8E38FF481B4D5D0646311FDA49A5697B907F61C9"
+        },
+        {
+          "path": "runtime/raven/src/System/UriError.rvn",
+          "sha256": "4CB6C1AA4D9C8BB51E3EB1964A5E5C57330E0B9091BD44BF5125A8A99C027DCE"
+        },
+        {
+          "path": "runtime/raven/src/System/Value.rvn",
+          "sha256": "3D005BA17DC0C055B21E21183A857DCB23C5B34882AD26B4583234DFF33D8162"
+        },
+        {
+          "path": "runtime/raven/src/System/Void.rvn",
+          "sha256": "CEC6E383555235C0144B80860E7E384061F3A74D26E8B74178F1547D2BD12E75"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/HttpClient.rvn",
+          "sha256": "85F731B614E379BDC97ABBEC86330FDBB4F39A91FE60F64538341A34DFC93EAA"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/HttpError.rvn",
+          "sha256": "00F12572824367A63DDD439A42B19397EC9580102F48A2257BCD9F1790F365B2"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/HttpServer.rvn",
+          "sha256": "49223BB426E3D19C92F8EFA180E400D35343206D80B2440D6EE0E4E48A3880D5"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/HttpStatusCode.rvn",
+          "sha256": "AFB26063D246D1D6A4FE8111050A0B6C6166FB0AA70060075E77F1D445794142"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/Json/HttpClientJsonExtensions.rvn",
+          "sha256": "41BD95BD77A24E43E7E28061B624F91E11406AE113BB96BF22826DC4BB95A2F2"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/Json/HttpJsonError.rvn",
+          "sha256": "F10AF4BC1EE9818F697F7AA7210C4AB85D55184C0752FF6CEE48F768B48DDCCE"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/Json/JsonClientOperations.rvn",
+          "sha256": "A9208357E5D15E3B690A1ABE619871EB9AAE22730F3824708784508DBDF5BE6A"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/Json/JsonContent.rvn",
+          "sha256": "AEB57EB5D04D850552ACE53E8330EF5289D7962D140FEEDD7D9B6EEF0E645775"
+        },
+        {
+          "path": "runtime/raven/src/System/Web/Http/Routes.rvn",
+          "sha256": "D928C737333E3D3E09006D0E641180FD62DF170D2FF3DF1F9BD5C5273F97E4EB"
+        },
+        {
+          "path": "runtime/raven/src/System/ZonedDateTime.rvn",
+          "sha256": "69FB6CAC5174B6E4B240996F66A09077E985BBD2531C41B49B6D0BD41B8924F9"
+        }
+      ],
+      "phase": "binding",
+      "bytes": 0,
+      "diagnosticCount": 702,
+      "diagnostics": [
+        "error RAVT003: Target core configuration cannot be used: the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface.",
+        "error RAV0234: \u0027CheckedStorage\u0027 was not found in \u0027CompilerServices\u0027.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ],
+      "cliBridgeEmission": null,
+      "execution": null
+    }
+  ]
+}

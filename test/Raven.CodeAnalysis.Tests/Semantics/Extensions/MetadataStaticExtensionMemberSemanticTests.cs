@@ -98,7 +98,8 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         Assert.Contains("## Usage", formatted, StringComparison.Ordinal);
         Assert.Contains("```raven", formatted, StringComparison.Ordinal);
         Assert.Equal(2, formatted.Split("## Usage", StringSplitOptions.None).Length);
-        Assert.Equal(4, formatted.Split("```raven", StringSplitOptions.None).Length);
+        Assert.Equal(documentation.Content.Split("```raven", StringSplitOptions.None).Length,
+            formatted.Split("```raven", StringSplitOptions.None).Length);
         Assert.DoesNotContain("**Remarks**", formatted, StringComparison.Ordinal);
     }
 

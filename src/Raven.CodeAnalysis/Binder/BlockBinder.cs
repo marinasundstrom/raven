@@ -995,6 +995,8 @@ partial class BlockBinder : Binder
         {
             var preferAsyncDispose = PrefersAsyncUseDisposal();
             var expectedTargetDisplay = UseDisposalUtilities.GetExpectedUseTargetDisplay(Compilation, preferAsyncDispose);
+            if (Compilation.Options.RuntimeDisposalContract is { UseExceptionHandling: false } && UseRequiresSuspensionCleanup(variableDeclarator))
+                _diagnostics.Report(Targets.TargetDiagnostics.UnsupportedScopeExitCleanup(variableDeclarator.GetLocation()));
 
             var initializerSupportsDispose = initializerValueType is not null &&
                 IsValidUseDeclarationTarget(initializerValueType, preferAsyncDispose);
@@ -1281,6 +1283,33 @@ partial class BlockBinder : Binder
             [],
             isConst: false,
             constantValue: null);
+    }
+
+    private bool UseRequiresSuspensionCleanup(SyntaxNode declaration)
+    {
+        var allowAsync = Compilation.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup == true;
+        var allowIterator = allowAsync && _containingSymbol is IMethodSymbol { IsAsync: true } owner &&
+            AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, owner.ReturnType, out _, out _);
+        var function = declaration.Ancestors().FirstOrDefault(node => node is
+            MethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax or AccessorDeclarationSyntax);
+        if (!allowIterator && function is not null && function.ChildNodes().Any(Compilation.ContainsYieldOutsideNestedFunctions))
+            return true;
+
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            switch (current.ContainingSymbol)
+            {
+                case SourceLambdaSymbol lambda:
+                    return (lambda.IsAsync && !allowAsync) || (lambda.IsIterator && !allowIterator);
+                case SourceMethodSymbol method:
+                    return (method.IsAsync && !allowAsync) || (method.IsIterator && !allowIterator);
+                case ILambdaSymbol lambda:
+                    return lambda.IsAsync && !allowAsync;
+                case IMethodSymbol method:
+                    return method.IsAsync && !allowAsync;
+            }
+        }
+        return false;
     }
 
     private bool PrefersAsyncUseDisposal()
@@ -3249,7 +3278,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -3309,7 +3338,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, propertyAccess, out backingField))
             {
@@ -7496,9 +7525,9 @@ partial class BlockBinder : Binder
                 return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
+            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments, requireGetter: true);
 
-            if (indexer is null || !indexer.IsMutable || indexer.SetMethod is { } setter && !IsSymbolAccessible(setter))
+            if (indexer is null || !HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -7689,7 +7718,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7845,7 +7874,7 @@ partial class BlockBinder : Binder
         if (left is BoundIndexerAccessExpression indexerAccess)
         {
             var indexer = indexerAccess.Indexer;
-            if (!indexer.IsMutable)
+            if (!HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
@@ -7920,7 +7949,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -8006,7 +8035,7 @@ partial class BlockBinder : Binder
         if (left is BoundIndexerAccessExpression indexerAccess)
         {
             var indexer = indexerAccess.Indexer;
-            if (!indexer.IsMutable)
+            if (!HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
@@ -8050,7 +8079,7 @@ partial class BlockBinder : Binder
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -8967,7 +8996,7 @@ partial class BlockBinder : Binder
                     return unionCaseFromLookup;
                 }
 
-                return new BoundTypeExpression(type);
+                return new BoundTypeExpression(EnsureTypeAccessible(type, syntax.Identifier.GetLocation()));
             }
 
             var ns = LookupNamespace(name);
@@ -9013,7 +9042,7 @@ partial class BlockBinder : Binder
                     if (BindDiscriminatedUnionCaseType(aliasType) is { } unionCase)
                         return unionCase;
 
-                    return new BoundTypeExpression(aliasType);
+                    return new BoundTypeExpression(EnsureTypeAccessible(aliasType, syntax.Identifier.GetLocation()));
                 }
             case INamespaceSymbol ns:
                 return new BoundNamespaceExpression(ns);
@@ -9067,7 +9096,7 @@ partial class BlockBinder : Binder
                         return unionCase;
                     }
 
-                    return new BoundTypeExpression(type);
+                    return new BoundTypeExpression(EnsureTypeAccessible(type, syntax.Identifier.GetLocation()));
                 }
             case IEventSymbol @event:
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
@@ -9787,7 +9816,7 @@ partial class BlockBinder : Binder
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering &&
-            !propertySymbol.IsMutable &&
+            !HasAccessibleOrdinarySetter(propertySymbol) &&
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
@@ -10079,7 +10108,8 @@ partial class BlockBinder : Binder
     private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
-        var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
+        var provider = EnsureSourceMemberSignatureDeclaredForExactLookup(stringType, "Concat");
+        var candidates = provider.GetMembers("Concat").OfType<IMethodSymbol>();
 
         var resolution = OverloadResolver.ResolveOverload(
             candidates.ToArray(),
@@ -11452,7 +11482,7 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
             if (!topLevelMethods.IsDefaultOrEmpty)
             {
-                var methodGroupReceiver = new BoundTypeExpression(topLevelMethods[0].ContainingType!);
+                BoundExpression? methodGroupReceiver = topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null;
                 var accessibleMethods = GetAccessibleMethods(DistinctMethodCandidates(topLevelMethods), callSyntax.GetLocation());
                 var candidatesForArgumentBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : topLevelMethods;
                 candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgumentBinding, argumentList.Arguments);

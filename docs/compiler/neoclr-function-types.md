@@ -1,3 +1,11 @@
+> 2026-10-02 update: the author authorized integrating runtime Function work with
+> the metadata target. neoCLR codex/extended-cli-metadata now incorporates
+> codex/structural-types at a081c6e3. Raven codex/metadata-consumer already contains
+> the target-owned inhabited-result transport policy; no new Runtime Contract option
+> is required. The independent metadata API and shared emission plan still need direct
+> structural Function creation/invocation. Existing CLI bridge controls do not prove
+> that direct native emission is complete. Ordinary .NET continues using delegates.
+
 # Deferred neoCLR structural Function types
 
 Native structural Function work stays on Raven's

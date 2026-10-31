@@ -53,7 +53,7 @@ internal partial class BlockBinder
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(receiver, operand)]),
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(output, null)]),
             new BoundIfStatement(condition, new BoundBlockStatement([]),
-                new BoundBlockStatement([new BoundThrowStatement(failure)])),
+                new BoundBlockStatement([new BoundThrowStatement(failure, compilerFailure: "Carrier unwrap failed")])),
             new BoundExpressionStatement(value)
         ], Compilation.UnitTypeSymbol);
     }

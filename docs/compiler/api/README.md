@@ -408,3 +408,6 @@ nominal tuple type, including in generic arguments. Without this option, tuple
 symbols and imported `System.ValueTuple` types retain their source-oriented
 spelling. Tuple declaration hovers use the expanded form for the declaration
 and its interface list; ordinary value displays retain tuple element names.
+
+The optional [native neoCLR emission adapter](neoclr-emission.md) documents the
+experimental compiler-owned API, explicit reference contracts, diagnostics and stream behavior.

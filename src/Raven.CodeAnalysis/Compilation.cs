@@ -248,6 +248,8 @@ public partial class Compilation
         return SourceGlobalNamespace.AsSourceNamespace();
     }
 
+    /// <summary>Gets the reflection metadata core for the CLI target path.</summary>
+    /// <exception cref="InvalidOperationException">Native-only metadata mode has no reflection core. Use GetAssemblyOrModuleSymbol on the supplied native reference.</exception>
     public Assembly CoreAssembly => _target.CoreAssembly;
     public Assembly RuntimeCoreAssembly => _target.RuntimeCoreAssembly;
     internal Assembly EmitCoreAssembly => _target.EmitCoreAssembly;
@@ -886,6 +888,7 @@ public partial class Compilation
             || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
             || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
+            || Options.RuntimeDisposalContract != previousCompilation.Options.RuntimeDisposalContract
             || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)
             return;
 
@@ -1327,6 +1330,14 @@ public partial class Compilation
         var members = ImmutableArray.CreateBuilder<ISymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        if (namespaceSymbol is SourceNamespaceSymbol)
+            namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
+        foreach (var member in namespaceSymbol.GetMembers(name))
+        {
+            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+                members.Add(member);
+        }
+
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
             foreach (var member in container.GetMembers(name))
@@ -1351,6 +1362,14 @@ public partial class Compilation
 
         var members = ImmutableArray.CreateBuilder<ISymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        if (namespaceSymbol is SourceNamespaceSymbol)
+            namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
+        foreach (var member in namespaceSymbol.GetMembers())
+        {
+            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+                members.Add(member);
+        }
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
@@ -1718,6 +1737,17 @@ public partial class Compilation
         public SynthesizedMainAsyncMethodSymbol? AsyncMainMethod { get; set; }
     }
 
+    internal INamedTypeSymbol? ResolveRuntimeUnitType()
+    {
+        if (Options.RuntimeUnitContract is not { } contract) return null;
+        var selected = Options.TargetPlatform == TargetPlatform.NeoCLR && Assembly.Name == contract.AssemblyName
+            ? Assembly.GetTypeByMetadataName(contract.TypeName)
+            : ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName);
+        // Source lookup can fall back to references while declaration shells are still
+        // being created. Never cache that fallback as the selected unit representation.
+        return selected?.ContainingAssembly?.Name == contract.AssemblyName ? selected : null;
+    }
+
     private UnitTypeSymbol CreateUnitTypeSymbol()
     {
         var global = SourceGlobalNamespace;
@@ -1732,9 +1762,7 @@ public partial class Compilation
             global.AddMember(system);
         }
 
-        var selectedUnit = Options.RuntimeUnitContract is { } contract
-            ? ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName)
-            : null;
+        var selectedUnit = ResolveRuntimeUnitType();
         var unit = new UnitTypeSymbol(this, selectedUnit?.ContainingNamespace ?? system, selectedUnit);
         if (Options.RuntimeUnitContract is null)
             system.AddMember(unit);
@@ -2264,11 +2292,30 @@ public partial class Compilation
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
     }
 
+    /// <summary>
+    /// Creates a normalized semantic intersection, or returns its sole remaining
+    /// constituent. This does not select a runtime representation.
+    /// </summary>
+    public ITypeSymbol CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)
+        => IntersectionTypeSymbol.Create(constituentTypes);
+
+    /// <summary>Creates an experimental structural union without selecting a carrier representation.</summary>
+    public ITypeSymbol CreateStructuralUnionTypeSymbol(params ITypeSymbol[] constituentTypes)
+        => StructuralUnionTypeSymbol.Create(constituentTypes);
+
     public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)
     {
         return new PointerTypeSymbol(pointedAtType);
     }
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
+        => CreateFunctionTypeSymbol(parameterTypes, returnType, applyRuntimeResultPolicy: true);
+
+    // Metadata no-result signatures must retain their ABI even when source unit
+    // callbacks use an inhabited result under the selected runtime contract.
+    internal ITypeSymbol CreateNoResultFunctionTypeSymbol(ITypeSymbol[] parameterTypes)
+        => CreateFunctionTypeSymbol(parameterTypes, GetSpecialType(SpecialType.System_Void), applyRuntimeResultPolicy: false);
+
+    private ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType, bool applyRuntimeResultPolicy)
     {
         var systemNamespace = SymbolLookup.GetNamespace("System");
 
@@ -2276,11 +2323,16 @@ public partial class Compilation
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
         // The neoCLR nominal delegate ABI uses an inhabited unit result too.
         // This transport rule does not introduce structural function semantics.
-        if (isAction && _target.RuntimeContract.UsesInhabitedDelegateResults)
+        if (isAction && applyRuntimeResultPolicy && _target.RuntimeContract.UsesInhabitedDelegateResults)
         {
             returnType = GetSpecialType(SpecialType.System_Unit);
             isAction = false;
         }
+
+        if (_target.RuntimeContract.UsesStructuralFunctions)
+            return new StructuralFunctionTypeSymbol(parameterTypes.ToImmutableArray(),
+                ImmutableArray.CreateRange(Enumerable.Repeat(RefKind.None, parameterTypes.Length)), returnType,
+                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object));
 
         if (!isAction)
             allTypes.Add(returnType);
@@ -2304,6 +2356,18 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
+    internal bool UsesStructuralFunctions => _target.RuntimeContract.UsesStructuralFunctions;
+
+    internal bool UsesStructuralTuples => _target.RuntimeContract.UsesStructuralTuples;
+
+    internal bool UsesStructuralCompositions => _target.RuntimeContract.UsesStructuralCompositions;
+
+    internal string RuntimeUnionInterfaceTypeName => _target.RuntimeContract.UnionInterfaceTypeName;
+
+    internal string RuntimeAsyncStateMachineTypeName => _target.RuntimeContract.AsyncStateMachineTypeName;
+
+    internal string RuntimeRecordEquatableTypeName => _target.RuntimeContract.RecordEquatableTypeName;
+
     internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;
 
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
@@ -2312,6 +2376,9 @@ public partial class Compilation
         var arity = elementArray.Length;
         if (arity == 0)
             return GetSpecialType(SpecialType.System_Unit);
+
+        if (UsesStructuralTuples)
+            return new StructuralTupleTypeSymbol(elementArray);
 
         var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"{RuntimeTupleTypeName}`{arity}")
             ?? GetTypeByMetadataName($"{RuntimeTupleTypeName}`{arity}");
@@ -2422,6 +2489,8 @@ public partial class Compilation
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)
     {
         var keywordKind = predefinedType.Keyword.Kind;
+        if (keywordKind == SyntaxKind.CharKeyword && Options.TargetPlatform == TargetPlatform.NeoCLR)
+            return ErrorTypeSymbol;
 
         var specialType = keywordKind switch
         {
@@ -2556,6 +2625,18 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceCoreType)
+                return sourceCoreType;
+        }
+        if ((UsesSourceObjectRoot || Options.MetadataImportOptions?.ObjectAssemblyName is not null) && metadataName == "System.Object")
+            return GetSpecialType(SpecialType.System_Object) is { TypeKind: not TypeKind.Error } root ? root : null;
+        if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } imports)
+            foreach (var special in imports.PrimitiveAssemblies.Keys)
+                if (_target.RuntimeContract.GetSpecialTypeMetadataName(special) == metadataName)
+                    return GetSpecialType(special) is { TypeKind: not TypeKind.Error } selected ? selected : null;
 
         if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
             return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
@@ -2699,6 +2780,11 @@ public partial class Compilation
     internal INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
     {
         EnsureSetup();
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true && preferredAssembly == AssemblyName)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(metadataName);
+        }
 
         var cacheKey = preferredAssembly + "\0" + metadataName;
         if (_preferredMetadataTypeCache.TryGetValue(cacheKey, out var cached))
@@ -2725,15 +2811,69 @@ public partial class Compilation
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true &&
+            specialType != SpecialType.System_Unit)
+        {
+            EnsureSetup();
+            if (setup) EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(_target.RuntimeContract.GetSpecialTypeMetadataName(specialType))
+                ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
+        if (specialType == SpecialType.System_Object && UsesSourceObjectRoot)
+        {
+            EnsureSetup();
+            if (setup)
+                EnsureSourceTypeDeclarationsDeclared();
+            if (_sourceTypeDeclarationsDeclared)
+                return _sourceObjectRoot ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         if (specialType is SpecialType.System_Unit)
             return UnitTypeSymbol;
 
         return _specialTypeCache.GetOrAdd(specialType, ResolveSpecialType);
     }
 
+    internal INamedTypeSymbol GetPrimitiveMemberProvider(SpecialType specialType)
+    {
+        var storage = GetSpecialType(specialType);
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(specialType) == true)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(storage.ToFullyQualifiedMetadataName()) ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
+        return storage;
+    }
+
     private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
         var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);
+        if (specialType == SpecialType.System_Object && Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
+        {
+            var selected = GetTypeByMetadataName(metadataName, objectProvider);
+            return Options.TargetPlatform == TargetPlatform.NeoCLR && selected?.ContainingAssembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+                selected.SpecialType == SpecialType.System_Object ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
+        if (Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(specialType, out var provider) == true)
+        {
+            var selected = GetTypeByMetadataName(metadataName, provider);
+            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider &&
+            specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine)
+        {
+            INamedTypeSymbol? selected;
+            if (Options.TargetPlatform == TargetPlatform.NeoCLR && AssemblyName == asyncProvider)
+            {
+                EnsureSourceTypeDeclarationsDeclared();
+                selected = Assembly.GetTypeByMetadataName(metadataName);
+            }
+            else
+            {
+                selected = GetTypeByMetadataName(metadataName, asyncProvider);
+            }
+            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;
 
         var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);

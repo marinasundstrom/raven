@@ -1,5 +1,9 @@
 # The meaning of Raven features
 
+Shared feature meanings are unmarked. **.NET only** and **neoCLR only** identify
+exclusive facilities or representations; temporary backend gaps and library
+requirements are stated separately. See [target availability](../compiler/target-platforms.md#reading-target-availability).
+
 Raven features are modeling tools, not merely alternative spellings for C#
 constructs. Read Raven code by asking what distinction a construct communicates
 about the program. Write Raven code by identifying that distinction before
@@ -164,7 +168,10 @@ union DeliveryStatus {
 Nominal unions come in the case-declaration form shown above and a parenthesized
 form that gives a union of existing types a declared name. When the alternatives
 do not need a new domain name, write an ad-hoc union directly, such as
-`string | null`.
+`string | null`. Structural/ad-hoc unions are a shared language feature; .NET
+carrier classes and neoCLR structural metadata are different runtime implementations
+of that feature. Intersection types (`A & B`) are neoCLR only, while the same
+spelling remains available on .NET as shorthand for ordinary generic constraints.
 
 Case payloads may instead be positional when their names add no domain meaning,
 for example `case Some(T)` or `case Pair(int, string)`. Positional cases remain

@@ -1,0 +1,221 @@
+using NeoCLR.Metadata.Experimental.Model;
+
+namespace Raven.CodeAnalysis.NeoClr;
+
+/// <summary>Loads explicit native project artifacts using the same catalog as rvnc neoclr.</summary>
+/// <remarks>Select RavenTargetPlatform=NeoCLR and RavenMetadataFormat=NeoCLR. This adapter supplies
+/// semantic references, not build/run orchestration or automatic reference refresh.</remarks>
+public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, NeoClrProjectConfiguration> configurations = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Gets the last successfully loaded immutable host configuration for a project.</summary>
+    public NeoClrProjectConfiguration GetConfiguration(string projectFilePath) => configurations.TryGetValue(Path.GetFullPath(projectFilePath), out var configuration)
+        ? configuration : throw new InvalidOperationException("Project must successfully load RavenMetadataFormat=NeoCLR first.");
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> GetInputPaths(string projectFilePath, IReadOnlyDictionary<string, string> properties)
+        => new[] { "RavenNeoClrCoreReference", "RavenNeoClrNativeCoreReference", "RavenNeoClrRuntimeSeed", "RavenNeoClrBootstrapOwnership", "RavenNeoClrRuntimeContracts" }
+            .Where(name => properties.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value))
+            .Select(name => Path.GetFullPath(properties[name], Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!)).ToArray();
+
+    /// <inheritdoc />
+    public string MetadataFormat => "NeoCLR";
+
+    /// <inheritdoc />
+    public string GetOutputPath(string projectFilePath, string assemblyName)
+        => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!, "bin", "neoclr", assemblyName + ".dll");
+
+    /// <inheritdoc />
+    public void ValidateProjectArtifact(string path, string assemblyName)
+    {
+        // Identity validation uses the native reader; Load resolves selected semantic dependencies.
+        var definition = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path));
+        if (definition.Name != assemblyName)
+            throw new InvalidDataException("Native project artifact identity does not match " + assemblyName + ": " + path);
+    }
+
+    /// <inheritdoc />
+    public ProjectMetadataConfiguration Load(string projectFilePath, string assemblyName, CompilationOptions options,
+        IReadOnlyDictionary<string, string> properties, IReadOnlyList<string> referencePaths)
+    {
+        if (options.TargetPlatform != TargetPlatform.NeoCLR)
+            throw new InvalidDataException("Native metadata requires RavenTargetPlatform=NeoCLR.");
+        var directory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!;
+        string? PathProperty(string name) => properties.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? Path.GetFullPath(value, directory) : null;
+        var core = PathProperty("RavenNeoClrCoreReference");
+        var nativeCore = PathProperty("RavenNeoClrNativeCoreReference");
+        var runtimeContractsPath = PathProperty("RavenNeoClrRuntimeContracts");
+        if (runtimeContractsPath is not null && PathProperty("RavenNeoClrBootstrapOwnership") is not null)
+            throw new InvalidDataException("Select only one runtime contract manifest.");
+        var sourceCoreText = properties.GetValueOrDefault("RavenNeoClrSourceCore");
+        var sourceCore = false;
+        if (!string.IsNullOrWhiteSpace(sourceCoreText) && !bool.TryParse(sourceCoreText, out sourceCore))
+            throw new InvalidDataException("RavenNeoClrSourceCore must be true or false.");
+        if (sourceCore)
+        {
+            if (core is not null || nativeCore is not null || options.OutputKind != OutputKind.DynamicallyLinkedLibrary ||
+                !string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrBootstrapIntrinsics")) ||
+                !string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrObjectLibrary")))
+                throw new InvalidDataException("Source core requires a library without reference cores, imported Object or bootstrap intrinsics.");
+            if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrSourceObjectRoot")) &&
+                (!bool.TryParse(properties["RavenNeoClrSourceObjectRoot"], out var ownsRoot) || !ownsRoot))
+                throw new InvalidDataException("Source core requires source Object ownership.");
+            foreach (var key in new[] { "RavenMetadataCoreAssemblyName", "RavenTargetCoreAssemblyName" })
+                if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(key)) && properties[key] != assemblyName)
+                    throw new InvalidDataException("Source core identity must match " + key + ".");
+            var sourceCatalog = NeoClrReferenceCatalog.ReadSourceCore(new(assemblyName, new Version(1, 0, 0, 0)), referencePaths);
+            var sourceOwnershipPath = runtimeContractsPath ?? PathProperty("RavenNeoClrBootstrapOwnership");
+            if (sourceOwnershipPath is null)
+                throw new InvalidDataException("Source core requires an explicit RavenNeoClrBootstrapOwnership declaration manifest.");
+            var sourceOwnership = BootstrapOwnershipManifest.Read(sourceOwnershipPath);
+            options = sourceOwnership.Apply(options, assemblyName, assemblyName);
+            options = options.WithTargetCoreAssemblyName(assemblyName)
+                .WithRuntimeTypeOfContract(sourceOwnership.TypeOf ?? (new[] { "RavenTypeOfAssemblyName", "RavenTypeOfInfoType", "RavenTypeOfContextType" }
+                    .Any(properties.ContainsKey) ? options.RuntimeTypeOfContract : null))
+                .WithRuntimeUnitContract(new(assemblyName, "System.Void"))
+                .WithMetadataImportOptions(new MetadataImportOptions(assemblyName, null, options.MetadataImportOptions?.SourcePrimitiveTypes, true)
+                    .WithNativeMetadata().WithSourceCore()
+                    .WithAsyncAssemblyName(properties.GetValueOrDefault("RavenNeoClrAsyncLibrary")));
+            if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrAsyncLibrary")) &&
+                options.RuntimeDisposalContract is { } sourceDisposal)
+                options = options.WithRuntimeDisposalContract(sourceDisposal with { AllowAsyncScopeExitCleanup = true });
+            configurations[Path.GetFullPath(projectFilePath)] = new(sourceCatalog, referencePaths.ToArray(),
+                PathProperty("RavenNeoClrRuntimeSeed"), sourceOwnership, false, null,
+                properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper"));
+            return new(options, sourceCatalog.References);
+        }
+        if ((core is null) == (nativeCore is null))
+            throw new InvalidDataException("Select exactly one of RavenNeoClrCoreReference or RavenNeoClrNativeCoreReference.");
+        if (nativeCore is not null)
+            foreach (var property in new[] { "RavenNeoClrBootstrapOwnership", "RavenNeoClrBootstrapIntrinsics",
+                "RavenNeoClrSourceObjectRoot", "RavenNeoClrObjectLibrary" })
+                if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
+                    throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
+        var catalog = nativeCore is not null
+            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths.Where(path =>
+                !string.Equals(Path.GetFullPath(path), Path.GetFullPath(nativeCore), StringComparison.OrdinalIgnoreCase)))
+            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
+        var metadataCore = nativeCore is null ? options.MetadataImportOptions?.CoreAssemblyName
+            : properties.GetValueOrDefault("RavenMetadataCoreAssemblyName");
+        if (!string.IsNullOrWhiteSpace(metadataCore) && metadataCore != catalog.CoreIdentity.Name)
+            throw new InvalidDataException("Native project core identity does not match RavenMetadataCoreAssemblyName.");
+        if (properties.TryGetValue("RavenTargetCoreAssemblyName", out var targetCore) &&
+            !string.IsNullOrWhiteSpace(targetCore) && targetCore != catalog.CoreIdentity.Name)
+            throw new InvalidDataException("Native project core identity does not match RavenTargetCoreAssemblyName.");
+        if (nativeCore is not null)
+        {
+            var contracts = runtimeContractsPath is null ? null : BootstrapOwnershipManifest.Read(runtimeContractsPath);
+            var nativeAsync = properties.GetValueOrDefault("RavenNeoClrAsyncLibrary");
+            var nativeHelper = properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper");
+            if (contracts is null && (!string.IsNullOrWhiteSpace(nativeAsync) || !string.IsNullOrWhiteSpace(nativeHelper)))
+                throw new InvalidDataException("Native async providers require explicit RavenNeoClrRuntimeContracts.");
+            if (!string.IsNullOrWhiteSpace(nativeHelper) && string.IsNullOrWhiteSpace(nativeAsync))
+                throw new InvalidDataException("RavenNeoClrRuntimeAsyncHelper requires RavenNeoClrAsyncLibrary.");
+            if (contracts is not null) options = contracts.Apply(options, assemblyName, catalog.CoreIdentity.Name);
+            var seed = PathProperty("RavenNeoClrRuntimeSeed");
+            var executionPaths = new[] { nativeCore }.Concat(referencePaths).Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (seed is not null && (executionPaths.Contains(seed, StringComparer.OrdinalIgnoreCase) || !File.Exists(seed)))
+                throw new InvalidDataException("Native runtime seed must exist and differ from semantic references.");
+            options = options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
+                .WithRuntimeTypeOfContract(contracts?.TypeOf ?? (new[] { "RavenTypeOfAssemblyName", "RavenTypeOfInfoType", "RavenTypeOfContextType" }
+                    .Any(properties.ContainsKey) ? options.RuntimeTypeOfContract : null))
+                .WithRuntimeUnitContract(new(catalog.CoreIdentity.Name, "System.Void"))
+                .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name, options.MetadataImportOptions?.PrimitiveAssemblies,
+                    options.MetadataImportOptions?.SourcePrimitiveTypes)
+                    .WithObjectAssemblyName(catalog.CoreIdentity.Name).WithNativeMetadata().WithAsyncAssemblyName(nativeAsync));
+            if (!string.IsNullOrWhiteSpace(nativeAsync) && options.RuntimeDisposalContract is { } nativeDisposal)
+                options = options.WithRuntimeDisposalContract(nativeDisposal with { AllowAsyncScopeExitCleanup = true });
+            if (!string.IsNullOrWhiteSpace(nativeHelper) && options.RuntimeIterationContract is { Async: { } nativeIteration } iteration)
+                options = options.WithRuntimeIterationContract(iteration with { Async = nativeIteration with { AllowGeneratorBodies = true } });
+            configurations[Path.GetFullPath(projectFilePath)] = new(catalog, executionPaths, seed, contracts, false, nativeCore, nativeHelper);
+            return new(options, catalog.References);
+        }
+        if (runtimeContractsPath is not null)
+            throw new InvalidDataException("RavenNeoClrRuntimeContracts requires native source-core or native core-reference mode.");
+        var ownershipPath = PathProperty("RavenNeoClrBootstrapOwnership");
+        var ownership = ownershipPath is null ? null : BootstrapOwnershipManifest.Read(ownershipPath);
+        catalog.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
+        if (ownership is not null) options = ownership.Apply(options, assemblyName, catalog.CoreIdentity.Name);
+        if (properties.TryGetValue("RavenNeoClrAsyncLibrary", out var asyncLibrary) && !string.IsNullOrWhiteSpace(asyncLibrary))
+        {
+            options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithAsyncAssemblyName(asyncLibrary));
+            if (options.RuntimeDisposalContract is { } disposal)
+                options = options.WithRuntimeDisposalContract(disposal with { AllowAsyncScopeExitCleanup = true });
+        }
+        var runtimeAsyncHelper = properties.GetValueOrDefault("RavenNeoClrRuntimeAsyncHelper");
+        if (string.IsNullOrWhiteSpace(runtimeAsyncHelper)) runtimeAsyncHelper = null;
+        if (runtimeAsyncHelper is not null)
+        {
+            if (string.IsNullOrWhiteSpace(asyncLibrary))
+                throw new InvalidDataException("RavenNeoClrRuntimeAsyncHelper requires RavenNeoClrAsyncLibrary.");
+            if (options.RuntimeIterationContract is { Async: { } asyncIteration } iteration)
+                options = options.WithRuntimeIterationContract(iteration with
+                { Async = asyncIteration with { AllowGeneratorBodies = true } });
+        }
+        var sourceRootText = properties.GetValueOrDefault("RavenNeoClrSourceObjectRoot");
+        var sourceRoot = false;
+        if (!string.IsNullOrWhiteSpace(sourceRootText) && !bool.TryParse(sourceRootText, out sourceRoot))
+            throw new InvalidDataException("RavenNeoClrSourceObjectRoot must be true or false.");
+        if (sourceRoot)
+        {
+            if (options.OutputKind != OutputKind.DynamicallyLinkedLibrary ||
+                !string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrObjectLibrary")))
+                throw new InvalidDataException("Source Object root requires a library and no RavenNeoClrObjectLibrary selection.");
+            var sourceImports = options.MetadataImportOptions;
+            options = options.WithRuntimeTypeOfContract(ownership?.TypeOf)
+                .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name,
+                    sourceImports?.PrimitiveAssemblies, sourceImports?.SourcePrimitiveTypes, useSourceObjectRoot: true)
+                    .WithAsyncAssemblyName(sourceImports?.AsyncAssemblyName));
+        }
+        string? objectRootPath = null;
+        if (properties.TryGetValue("RavenNeoClrObjectLibrary", out var objectLibrary) && !string.IsNullOrWhiteSpace(objectLibrary))
+        {
+            var nativeReferences = catalog.References.OfType<NeoClrMetadataReference>().ToArray();
+            var selected = nativeReferences.Select((reference, index) => (reference, index))
+                .Where(item => item.reference.Definition.Name == objectLibrary).ToArray();
+            if (selected.Length != 1)
+                throw new InvalidDataException("Object library must select exactly one registered native reference: " + objectLibrary);
+            objectRootPath = Path.GetFullPath(referencePaths[selected[0].index]);
+            options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name))
+                .WithObjectAssemblyName(objectLibrary));
+        }
+        var intrinsicText = properties.GetValueOrDefault("RavenNeoClrBootstrapIntrinsics");
+        var intrinsic = false;
+        if (!string.IsNullOrWhiteSpace(intrinsicText) && !bool.TryParse(intrinsicText, out intrinsic))
+            throw new InvalidDataException("RavenNeoClrBootstrapIntrinsics must be true or false.");
+        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath, runtimeAsyncHelper);
+        return new(options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
+            .WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name))), catalog.References);
+    }
+}
+
+/// <summary>Explicit host artifact snapshot shared by project import and native emission.</summary>
+public sealed class NeoClrProjectConfiguration
+{
+    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath, string? runtimeAsyncHelper = null)
+    { this.runtimeAsyncHelper = string.IsNullOrWhiteSpace(runtimeAsyncHelper) ? null : runtimeAsyncHelper; this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
+    private readonly BootstrapOwnershipManifest? ownership;
+    private readonly bool bootstrapIntrinsics;
+    private readonly string? runtimeAsyncHelper;
+    /// <summary>Semantic and emission artifact identities from one read.</summary>
+    public NeoClrReferenceCatalog Catalog { get; }
+    /// <summary>Explicit native runtime dependency paths.</summary>
+    public IReadOnlyList<string> ReferencePaths { get; }
+    /// <summary>Exact registered native artifact selected as the runtime Object root, if configured.</summary>
+    public string? ObjectRootPath { get; }
+    /// <summary>Optional retained runtime System seed.</summary>
+    public string? RuntimeSeedPath { get; }
+    /// <summary>Creates the native adapter from explicit artifacts, never from importer symbols.</summary>
+    public NeoClrEmissionBackend CreateEmissionBackend(string assemblyName) => new(new(
+        new(assemblyName, new Version(1, 0, 0, 0)), Catalog.CoreIdentity, Catalog.Dependencies,
+        Catalog.UsesNativeMetadata ? null : Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
+            .Where(p => p.Value == assemblyName && p.Key != "System.Character").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
+        implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Character") == assemblyName,
+        runtimeAsyncHelperTypeName: runtimeAsyncHelper));
+
+    /// <summary>Checks source/imported declaration ownership before publishing an assembly.</summary>
+    public void Validate(Compilation compilation) => ownership?.Validate(compilation);
+}

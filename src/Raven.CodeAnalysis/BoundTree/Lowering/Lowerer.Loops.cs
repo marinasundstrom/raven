@@ -1,10 +1,105 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
+    // Array and signed-range expansion belong to the bounded portable emitter. Ordinary .NET
+    // lowering retains for-loops for its established iteration/closure handling.
+    private bool _lowerPortableArrays;
+    private bool _lowerPortableRanges;
+
+    internal static BoundBlockStatement LowerPortableLoops(IMethodSymbol owner, BoundBlockStatement body, bool arrays, bool ranges)
+        => (BoundBlockStatement)new PortableLoopRewriter(owner, arrays, ranges).VisitStatement(body)!;
+
+    private sealed class PortableLoopRewriter(IMethodSymbol owner, bool arrays, bool ranges) : BoundTreeRewriter
+    {
+        private readonly Lowerer lowerer = new(owner, null) { _lowerPortableArrays = arrays, _lowerPortableRanges = ranges };
+
+        public override BoundNode? VisitForStatement(BoundForStatement node)
+            => lowerer.CanLowerPortableFor(node) ? lowerer.VisitForStatement(node) : base.VisitForStatement(node);
+
+        public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
+        {
+            BoundStatement statement = node;
+            while (statement is BoundLabeledStatement labeled) statement = labeled.Statement;
+            return statement is BoundForStatement loop && lowerer.CanLowerPortableFor(loop)
+                ? lowerer.VisitLabeledStatement(node) : base.VisitLabeledStatement(node);
+        }
+
+        // Function bodies are planned separately under their own symbol and scope.
+        public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
+    }
+
+    private bool CanLowerPortableFor(BoundForStatement node) => CanLowerArrayFor(node) || CanLowerRangeFor(node) || CanLowerScopedEnumeration(node);
+
+    private bool CanLowerArrayFor(BoundForStatement node) =>
+        _lowerPortableArrays && _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
+        node.Iteration is { Kind: ForIterationKind.Array, ArrayType: { Rank: 1 } array } &&
+        node.Local is { } local && SymbolEqualityComparer.Default.Equals(local.Type, array.ElementType);
+
+    public override BoundNode? VisitForStatement(BoundForStatement node)
+    {
+        if (!CanLowerPortableFor(node))
+        {
+            // A loop retained for general codegen owns its unlabeled transfers.
+            // Do not redirect them into an enclosing lowered while/vector loop.
+            _loopStack.Push((null, null));
+            try { return base.VisitForStatement(node); }
+            finally { _loopStack.Pop(); }
+        }
+        if (CanLowerScopedEnumeration(node))
+            return LowerPortableEnumeration(node, CreateLabel("iterator_end"), CreateLabel("iterator_continue"), dispose: true);
+        return CanLowerRangeFor(node)
+            ? LowerRangeForStatement(node, CreateLabel("range_break"), CreateLabel("range_continue"))
+            : LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
+    }
+
+    private BoundStatement LowerArrayForStatement(BoundForStatement node, ILabelSymbol breakLabel, ILabelSymbol continueLabel)
+    {
+        var compilation = ((SourceAssemblySymbol)_containingSymbol.ContainingAssembly!).Compilation;
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        var arrayType = node.Iteration.ArrayType!;
+        var array = CreateTempLocal("forArray", arrayType, isMutable: false);
+        var index = CreateTempLocal("forIndex", intType, isMutable: true);
+        var begin = CreateLabel("for_begin");
+        var collection = (BoundExpression)VisitExpression(node.Collection)!;
+        BoundStatement body;
+        _loopStack.Push((breakLabel, continueLabel));
+        try { body = (BoundStatement)VisitStatement(node.Body)!; }
+        finally { _loopStack.Pop(); }
+        BoundExpression Number(int value) => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, value, intType);
+        BoundExpression Binary(BoundExpression left, SyntaxKind kind, BoundExpression right)
+        {
+            if (!BoundBinaryOperator.TryLookup(compilation, kind, left.Type, right.Type, out var op))
+                throw new InvalidOperationException("Missing built-in vector-loop operator");
+            return new BoundBinaryExpression(left, op, right);
+        }
+        var length = arrayType.GetMembers("Length").OfType<IPropertySymbol>().Single();
+        return new BoundBlockStatement([
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(array, collection)]),
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(index, Number(0))]),
+            CreateLabelStatement(begin),
+            new BoundConditionalGotoStatement(breakLabel,
+                Binary(new BoundLocalAccess(index), SyntaxKind.LessThanToken,
+                    new BoundMemberAccessExpression(new BoundLocalAccess(array), length)), jumpIfTrue: false),
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(node.Local!,
+                new BoundArrayAccessExpression(new BoundLocalAccess(array), [new BoundLocalAccess(index)], arrayType.ElementType))]),
+            body,
+            CreateLabelStatement(continueLabel),
+            new BoundAssignmentStatement(new BoundLocalAssignmentExpression(index, new BoundLocalAccess(index),
+                Binary(new BoundLocalAccess(index), SyntaxKind.PlusToken, Number(1)), unitType)),
+            new BoundGotoStatement(begin, isBackward: true),
+            CreateLabelStatement(breakLabel)
+        ]);
+    }
+
     public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
     {
         var breakLabel = CreateLabel("while_break");
@@ -71,6 +166,12 @@ internal sealed partial class Lowerer
 
         BoundStatement? loweredLoop = current switch
         {
+            BoundForStatement iteratorStatement when CanLowerScopedEnumeration(iteratorStatement) => LowerLabeledLoop(labels, "iterator", iteratorStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerPortableEnumeration(statement, breakLabel, continueLabel, dispose: true)),
+            BoundForStatement rangeStatement when CanLowerRangeFor(rangeStatement) => LowerLabeledLoop(labels, "range", rangeStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerRangeForStatement(statement, breakLabel, continueLabel)),
+            BoundForStatement forStatement when CanLowerArrayFor(forStatement) => LowerLabeledLoop(labels, "for", forStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerArrayForStatement(statement, breakLabel, continueLabel)),
             BoundWhileStatement whileStatement => LowerLabeledLoop(labels, "while", whileStatement, static (lowerer, statement, breakLabel, continueLabel) =>
                 lowerer.LowerWhileStatement(statement, breakLabel, continueLabel)),
             BoundLoopStatement loopStatement => LowerLabeledLoop(labels, "loop", loopStatement, static (lowerer, statement, breakLabel, continueLabel) =>
@@ -130,7 +231,7 @@ internal sealed partial class Lowerer
             return base.VisitBreakStatement(node);
 
         var (breakLabel, _) = _loopStack.Peek();
-        return new BoundGotoStatement(breakLabel);
+        return breakLabel is null ? base.VisitBreakStatement(node) : new BoundGotoStatement(breakLabel);
     }
 
     public override BoundNode? VisitContinueStatement(BoundContinueStatement node)
@@ -147,7 +248,7 @@ internal sealed partial class Lowerer
             return base.VisitContinueStatement(node);
 
         var (_, continueLabel) = _loopStack.Peek();
-        return new BoundGotoStatement(continueLabel, isBackward: true);
+        return continueLabel is null ? base.VisitContinueStatement(node) : new BoundGotoStatement(continueLabel, isBackward: true);
     }
 
     public override BoundNode? VisitBreakExpression(BoundBreakExpression node)

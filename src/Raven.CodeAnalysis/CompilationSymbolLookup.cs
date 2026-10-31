@@ -223,13 +223,13 @@ internal sealed class CompilationSymbolLookup
         {
             foreach (var metadataNamespace in GetMetadataNamespacesFor(currentNamespace))
                 if (metadataNamespace.LookupType(name) is { } siblingType)
-                    return siblingType;
+                    return CanonicalMetadataType(siblingType);
         }
 
         if (currentNamespace is not SourceNamespaceSymbol and not null &&
             currentNamespace.LookupType(name) is { } metadataOrMergedType)
         {
-            return metadataOrMergedType;
+            return CanonicalMetadataType(metadataOrMergedType);
         }
 
         sourceType = _compilation.SourceGlobalNamespace?.LookupTypeDeclared(name);
@@ -239,10 +239,17 @@ internal sealed class CompilationSymbolLookup
         foreach (var assembly in _compilation.ReferencedAssemblySymbols)
         {
             if (assembly.GlobalNamespace.LookupType(name) is { } metadataType)
-                return metadataType;
+                return CanonicalMetadataType(metadataType);
         }
 
         return null;
+
+        // Namespace enumeration can expose duplicate bridge/facade declarations in
+        // a different order than metadata-name lookup. Use the same canonical
+        // selection as ImportBinder, while preserving explicitly declared source types.
+        ITypeSymbol CanonicalMetadataType(ITypeSymbol type) => type is INamedTypeSymbol named
+            ? _compilation.GetTypeByMetadataName(named.ToFullyQualifiedMetadataName()) ?? type
+            : type;
     }
 
     public INamedTypeSymbol? GetTypeByMetadataNameSourceFirst(string metadataName)

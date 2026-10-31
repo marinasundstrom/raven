@@ -16,6 +16,10 @@ should not be added to required CI merely because a regression appeared there.
 
 All ad hoc `dotnet test` commands should include `/property:WarningLevel=0`.
 
+See [target ownership in tests](target-test-classification.md) for explicit .NET,
+neoCLR and shared classification. Target filters are incremental coverage selectors,
+not substitutes for the baseline or native runtime gates.
+
 ## Selection Rules
 
 1. Start with the row that owns the code you are about to touch.

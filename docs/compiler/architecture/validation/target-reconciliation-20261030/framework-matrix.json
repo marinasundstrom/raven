@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "command": "NeoClrMetadataProject=/Users/robert/Projects/neoclr-raven-reconcile/tools/metadata/NeoCLR.Metadata.Experimental/NeoCLR.Metadata.Experimental.csproj scripts/test-target-framework-matrix.sh",
+  "sdk": "11.0.100-rc.1.26425.128",
+  "libraryTargetFrameworks": [
+    "net10.0",
+    "net11.0"
+  ],
+  "executedSamples": [
+    "data-literal-macros",
+    "timer-macro",
+    "runtime-async-net11"
+  ],
+  "log": "/tmp/raven-reconcile-framework-matrix.log"
+}

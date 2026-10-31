@@ -13,6 +13,24 @@ internal interface IConstructedTypeSubstitutionInfo
 
 internal static class TypeSubstitution
 {
+    internal static ITypeSymbol SubstituteStructuralUnion(
+        IStructuralUnionTypeSymbol union, Func<ITypeSymbol, ITypeSymbol> substitute)
+    {
+        var types = union.ConstituentTypes.Select(substitute).ToImmutableArray();
+        return types.Where((type, index) => !ReferenceEquals(type, union.ConstituentTypes[index])).Any()
+            ? StructuralUnionTypeSymbol.Create(types)
+            : union;
+    }
+
+    internal static ITypeSymbol SubstituteIntersection(
+        IIntersectionTypeSymbol intersection, Func<ITypeSymbol, ITypeSymbol> substitute)
+    {
+        var types = intersection.ConstituentTypes.Select(substitute).ToImmutableArray();
+        return types.Where((type, index) => !ReferenceEquals(type, intersection.ConstituentTypes[index])).Any()
+            ? IntersectionTypeSymbol.Create(types)
+            : intersection;
+    }
+
     internal static INamedTypeSymbol GetDefinitionForSubstitution(INamedTypeSymbol type)
     {
         if (type is IConstructedTypeSubstitutionInfo constructed)
@@ -55,7 +73,10 @@ internal static class TypeSubstitution
         if (!changed)
             return tuple;
 
-        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType);
+        if (tuple is StructuralTupleTypeSymbol)
+            return new StructuralTupleTypeSymbol(elements.Select((element, index) => ((string?)element.Name, substitutedElements[index])));
+
+        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType!);
         if (underlyingDefinition.Arity != substitutedElements.Length)
             return tuple;
 

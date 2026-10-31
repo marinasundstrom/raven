@@ -382,6 +382,756 @@ schema, binary loading in another runtime, or removal of every downstream adapte
 The neoCLR experiment independently verifies emitted dependency closure and execution;
 Raven retains normal metadata/CIL emission rather than a neoCLR-specific backend.
 
+## Direct neoCLR metadata importing: next integration work (2026-10-02)
+
+Author direction now prioritizes native semantic importing over expanding CLI reference
+translation. This follows neoCLR's existing metadata-library architecture: optional
+builders over definitions, definitions encoded as metadata and packaged in PE, with
+readers reversing those boundaries. The independent library remains the common model
+for authoring, reading and eventual Introspection. Raven owns semantic symbols and
+binding; it must not parse native JSON/CBOR records or introduce a parallel metadata model.
+
+The detailed sequence is recorded in neoCLR's docs/design/extended-cli-metadata.md,
+“Direct native semantic import: implementation alignment (2026-10-02)”. This is an
+application of the existing direction and ADR-0003, not a replacement architecture.
+
+The audit found an existing ISemanticDataLoader/IImportedAssemblySymbol boundary, but
+Compilation still owns DotNetCompilationTarget; target setup opens a .NET metadata
+session, and PE symbols require ReflectionTypeLoader/reflection objects. A native
+loader therefore also needs target composition and core-selection work. Do not route
+a native reference through CreateReferenceAssembly or MetadataLoadContext to claim
+completion. Preserve current .NET loader behavior while making native selection explicit.
+
+First complete native declaration materialization in the metadata library's existing
+definition model, including exact identity/scopes and namespace functions. Then add a
+bounded native-reference semantic test through Compilation/SemanticModel: lookup,
+GetSymbolInfo/GetTypeInfo, accessibility, overloads and unsupported/missing references.
+An explicit CLI core can temporarily supply primitive symbols for that first test,
+provided the native dependency itself is never projected or reflection-loaded. Record
+that limitation; native System/core import is a later acceptance step.
+
+Retain original native definition identity into codegen and prove a Raven consumer calls
+the library and executes on neoCLR (42). Expand nominal members, generic substitution,
+interfaces and structural Function signatures through the same definitions, then resolve
+core/iteration/propagation contracts from native System. Symbols belong to each compilation;
+reuse only compatible immutable reader data. Never unify distinct source and imported
+assemblies by name to bypass the currently observed bootstrap identity failure.
+
+No native importer, new Runtime Contract setting or semantic behavior is implemented by
+this audit. Existing source collection and translated-library execution evidence remains
+valid; broad source bootstrap work follows the native import foundation.
+
+Dependency resolution is not reflection emulation. The metadata library already exposes
+IAssemblyResolver (exact identity to AssemblyDefinition) and rechecks references against
+the returned identity. Native materialization should use that same contract. A compiler
+import session supplies explicit sources, caches immutable definitions and creates its
+own symbols; discovery/probing remains caller policy. Publish declaration identities
+before resolving dependent signatures to support legal assembly cycles without duplicate
+symbols or authoritative queries observing incomplete members. Diagnose missing,
+conflicting, mismatched and unsupported dependencies distinctly. Exact registered inputs
+are sufficient initially; host Assembly.Load, Type and MemberInfo are not prerequisites.
+Native diamond/cycle and snapshot-isolation tests remain part of the planned integration.
+
+### Reader foundation available (2026-10-02)
+
+The independent metadata library now exposes AssemblyDefinition.ReadNativeAssembly
+for native PE/#Neo containing primitive nongeneric namespace functions. It returns the
+existing definitions with exact assembly references, native namespace ownership and
+entry identity. MethodDefinition.TryGetSignature reads logical signatures without a
+CLI conversion; IAssemblyResolver accepts native snapshots and checks exact scopes.
+The native manifest has no MVID, so snapshot/definition ownership must participate in
+compiler identity rather than relying on Guid.Empty. Bodies are opaque; loaded editing
+and broader nominal/generic signatures are not admitted by this first profile.
+
+96 C# metadata groups validate this foundation, including ordinary CLI compatibility.
+Raven's semantic loader is not yet connected. Next support a native function dependency
+in the compiler and preserve its identity into native emission, while retaining existing
+.NET load/emit behavior. No new Runtime Contract configuration is introduced here.
+
+The author has deferred evaluating Cecil as a replacement for .NET reflection until
+the neoCLR target is implemented. Current work remains support for both targets'
+assembly loading and emission, not recreating reflection or replacing the .NET backend.
+
+### First native-reference semantic provider (2026-10-02)
+
+NeoClrMetadataReference.ReadAssembly(ReadOnlySpan<byte>) in the independent adapter
+project now accepts the metadata library's bounded native-function PE profile. Definition
+exposes its owned immutable AssemblyDefinition; input is neither converted to CLI nor
+loaded through reflection. The compiler's internal semantic-reference provider boundary
+composes with the existing .NET loader. Only the neoCLR target admits this reference.
+An explicitly registered CLI primitive core remains required by the current target
+setup, so this is not a standalone native-core importer.
+
+Native assembly/module/namespace/method/parameter symbols belong to each compilation.
+Lookup and GetSymbolInfo/GetTypeInfo consume them directly, including overload and
+accessibility checks, without inventing a declaring type for namespace functions.
+Imported parameters have implicit ordinal display names because this reader profile
+does not retain declared parameter names; only positional calls are supported.
+Native no-result signatures map to the selected language Unit type.
+
+References use snapshot identity for input equality; exact artifact identity governs
+dependency matching and native assembly-symbol equality. The import configuration
+requires one explicitly supplied native reference per required full identity. Missing
+or mismatched dependencies, duplicate identities and wrong target selection report
+RAVT003 before loading. No package/filesystem probing or version roll-forward is added.
+Dependency symbols are resolved through the compilation after declaration publication;
+the first consumer tests direct dependencies, not full cyclic-graph qualification.
+
+Compilation.Emit's default CLI emitter rejects these references before output. The
+native emitter currently reports its missing native callable adapter (NEOMETA001),
+also without output. Next connect original native definition identity to metadata call
+imports and execute a cross-assembly consumer. Generic/nominal/structural import and
+native System/core loading remain subsequent work.
+
+The --native-symbols C# probe validates both reference orders, native namespace overloads,
+semantic type and repeated lookup identity, compilation isolation, accessibility, invalid
+arguments, missing/version-mismatched dependencies, distinct assembly versions, duplicate
+inputs and output-free emission rejection. All 67 focused .NET target and symbol-equality tests pass as separate
+regression evidence. Existing public MetadataReference file/image factories still mean
+CLI references; this native entry point is explicit and its experimental API may evolve.
+
+### Direct native function emission (2026-10-02)
+
+NativeMethodSymbol retains its metadata definition, so native call emission imports
+that exact declaration through AssemblyBuilder.ImportReference rather than searching
+CLI types or projecting the library. Supply a NeoClrMetadataDependency whose Reference
+is the registered NeoClrMetadataReference and whose Definition is that reference's
+Definition, with the matching explicit core identity. A replacement snapshot or a
+translated implementation binding is rejected with NEOMETA002 before output is written.
+This is the current host configuration contract, not automatic dependency discovery.
+
+The --native-symbols-runtime C# probe now covers API-authored and Raven-authored native
+libraries, direct native symbol loading, consumer emission and actual runtime calls
+returning 42. No native dependency is loaded through .NET reflection. The primitive
+core still uses the explicit CLI bootstrap. Nominal/generic native declarations, full
+native System loading and dependency probing remain pending; ordinary .NET behavior
+and its reflection provider are unchanged.
+
+### Direct native static types (2026-10-02)
+
+NeoClrMetadataReference also accepts fieldless nongeneric top-level static classes
+with primitive static methods. The metadata reader supplies canonical TypeDefinition
+and MethodDefinition ownership. Raven's native provider now exposes named-type lookup,
+static/abstract/closed classification, public/internal types and public/internal/private
+members. Method calls retain their exact native definition and use the existing native
+import/emission path. Ordinary .NET loading remains unchanged.
+
+The C# native-symbol runtime probe compiles NativeTypeLibrary from Raven source, reads
+its native metadata directly, binds Boolean and Int32 overloads, emits NativeTypeConsumer
+and executes it in neoCLR. Both reference orders and access/signature failures are
+checked. Explicit CLI primitive core and exact native emission bindings remain required.
+Instance types, nominal signatures, fields/properties, nested types and generics are
+still rejected by this reader profile; no unsupported members are silently omitted.
+
+An ordinary .NET metadata regression also exposed a shared identifier-expression
+accessibility gap for public static methods on internal types. Its binder fix and test
+are isolated from the native provider changes for independent integration.
+
+Validation: all three native consumers return 42; 96 metadata contract groups and
+39 .NET accessibility tests pass. The independent binder fix is e3afed13c on the
+integration branch, not merged to main by this slice.
+
+### Direct native instance construction (2026-10-02)
+
+The native reader/provider now also admits fieldless nongeneric top-level instance
+classes with primitive method signatures and constructors. Type flags, receiver
+presence and constructor attributes/kind are preserved in the shared definitions and
+compiler symbols. No constructors are invented. Public constructor/instance imports
+reuse the existing metadata references, NewObject and Call emission paths. A Raven
+consumer constructs Calculator, stores its reference in locals and invokes Add(20, 22)
+through an alias; the native runtime returns 42. Private constructors/methods produce
+RAV0500. Existing namespace-function and static-overload controls remain in the probe.
+
+The CLI primitive core bootstrap and exact explicit dependency bindings remain required.
+Fields/properties, value/interface/nested/generic declarations and nominal signatures
+are still outside this direct-reader profile. An additional `alias != calculator` /
+`Calculator() == calculator` consumer reached NEOMETA001 (BoundBinaryExpression): the
+portable lowerer currently admits primitive comparisons, not these reference comparisons.
+That exploratory case is recorded as a separate lowering gap, not executable evidence.
+No new shared binder change or runtime-format change is part of this slice.
+
+### Native primitive field symbols and stateful consumers (2026-10-02)
+
+NativeNamedTypeSymbol now owns field symbols from the shared FieldDefinition graph,
+including primitive type, access, readonly flag and exact containing type/assembly.
+The reader retains native field origin tokens and answers TryGetPrimitiveType directly;
+it does not translate the dependency into CLI metadata. Core primitive resolution stays
+lazy so symbol publication does not recursively load the bootstrap.
+
+NativeTypeLibrary's Calculator stores its constructor argument in a private Int32 field.
+The consumer constructs Calculator(20), stores an alias and invokes Add(22), which reads
+the stored value and returns 42 in neoCLR. Public field binding and RAV0500 for private
+field access are tested too. Direct public field reads across assemblies bind, but
+emission reports NEOMETA001 with empty output: external field operands still need an
+adapter. This limit is tested and is not worked around with a CLI projection.
+
+The explicit CLI primitive core and exact native dependency binding are unchanged.
+Nominal/vector/structural field signatures, properties and wider type categories remain
+outside this direct-reader slice. Shared .NET loading/emission paths are unchanged.
+
+### Direct native field operands (2026-10-02)
+
+The earlier external-field emission gap is closed for public primitive instance fields
+on public nongeneric top-level reference classes. The emitter resolves NativeFieldSymbol's
+exact definition through the explicit dependency snapshot, then uses an immutable
+ImportedFieldReference for Ldfld/Stfld. Existing owned/constructed field paths remain.
+Readonly stores are rejected; source accessibility checks continue to reject private
+members. Native operands use the validated declaring field ordinal, including preceding
+private fields, rather than looking up fields by name at runtime.
+
+The class consumer writes Visible through a local alias, reads it through the original
+reference and passes it to Add, returning 42. A separate NativeFieldConsumer constructs
+Calculator(42) and directly reads Visible (42). The explicit CLI primitive core and
+matching native dependency bindings remain required. Nominal field signatures, generic/
+value owners, translated layouts and reference-comparison lowering remain separate gaps.
+The library also writes ordinary CLI MemberRefs for its imported-field API; C# tests
+execute that encoding on the CLR. Raven's existing .NET backend remains unchanged.
+
+### Native local nominal signatures (2026-10-02)
+
+The opt-in native provider now resolves SignatureType.ReferencedType through the loaded
+module's definition-keyed symbol map. Parameter and result symbols are lazy and cached,
+so signatures may reference classes declared later without exposing a partially built
+module or recursively loading the primitive core. Factory results, namespace/static/
+instance method arguments/results and constructor arguments preserve canonical type
+identity. The emitter imports these definitions through the independent metadata API;
+no translated CLI dependency is introduced. Ordinary .NET providers are unchanged.
+
+NeoClrMetadataProbe validates both reference orders, semantic identity, bad arguments,
+native emission and four runtime consumers returning 42. The source native type library
+uses a factory, class identity calls and a constructor receiving another class. The
+explicit CLI primitive core and exact dependency bindings remain the bootstrap contract.
+Only local nongeneric root class signatures are newly admitted; nominal fields, external
+signature dependencies, value/interface/generic types and full native System import
+remain pending. This changes neither language syntax nor Runtime Contract configuration.
+
+### Native local nominal fields (2026-10-02)
+
+NativeFieldSymbol uses the metadata library's FieldDefinition.TryGetSignature and lazily
+resolves local nominal references through the module's canonical type map. This preserves
+forward/cyclic field declarations without querying an incompletely published module.
+The existing emitter imports the exact field snapshot, now with nominal storage types;
+no shared binder, .NET provider or Runtime Contract configuration changes are required.
+
+The C# probe's native library includes a Calculator-valued field. Its consumer replaces
+the value, mutates the replacement, checks the original is unchanged and returns 42 in
+neoCLR. Wrong field assignments diagnose. Both reference orders and canonical type
+identity are tested. All four native consumers pass; CLI primitive core/translated
+System bootstrap inputs remain explicit. External/generic/value/interface/array field
+signatures and full native System loading remain pending.
+
+### Explicit external native signature resolution (2026-10-02)
+
+Native references now carry assembly-scoped TypeReferences in method/constructor and
+field signatures. Validate checks the complete explicitly supplied native reference set
+for duplicate identities, missing/wrong versions and missing exported types, reporting
+RAVT003. Lazy signature resolution uses IAssemblyResolver over immutable snapshots and
+then the referenced compilation-owned module's canonical symbol map. It never loads
+runtime reflection types or probes files. Emission uses an analogous resolver over exact
+validated metadata bindings; Runtime Contract configuration is unchanged.
+
+The new C# ExternalNativeChecks probe compiles PayloadLibrary, HolderLibrary and a
+consumer with references in both orders. Method/constructor/field types must be the same
+Payload symbol. Invalid dependencies diagnose even when source does not use the member.
+The five-consumer runtime harness supplies both libraries and verifies 42 from the
+three-assembly consumer. Ordinary .NET provider/import behavior is unchanged. Full native
+System loading and generic/value/interface/array signatures remain outside this profile.
+
+### Direct native array signatures (2026-10-02)
+
+NativeModuleSymbol shares signature mapping for methods and fields, with a concurrent
+module-local cache for primitive, nominal and one-dimensional array symbols. Resolution
+remains lazy until module publication; external array elements resolve through explicit
+native dependencies. Fields and methods with the same signature in a module share array
+symbols, and their element is the canonical symbol from the declaring assembly.
+
+The existing emitter imports array method/field contracts through the independent metadata
+library's recursive signature mapping. No new syntax, binder policy, .NET provider or
+Runtime Contract setting is introduced. The C# probe checks array symbol identity in both
+reference orders and executes cross-library array aliasing/element replacement in neoCLR
+(42); all five runtime consumers pass. Jagged/multidimensional/generic/value/interface
+array profiles and full native System importing remain pending.
+
+### Imported setter accessibility (2026-10-02)
+
+The shared binder requires an accessible ordinary setter for property assignment,
+compound assignment, pipeline writes and increments. IsMutable alone cannot grant access to a private
+setter on an imported property. Existing constructor auto-property initialization and
+field-only storage rules remain separate. This is a general .NET/compiler correction,
+reproduced with a C# metadata fixture independently of the native provider; it changes
+diagnostics for formerly accepted invalid writes, not metadata encoding or Runtime
+Contract configuration.
+
+Validation: the C# fixture reproduced four missing diagnostics before the fix;
+76 focused property/accessibility tests pass afterward, including pipeline writes.
+This correction is isolated for independent shared-line integration.
+
+### Direct native non-indexed properties (2026-10-02)
+
+NativePropertySymbol consumes PropertyDefinition.TryGetSignature and shares the lazy
+module signature map with fields/methods. Properties reuse the exact accessor symbols
+in the declaring type's member list, setting AssociatedSymbol and PropertyGet/PropertySet
+MethodKind before publication. Property visibility follows the most visible accessor;
+each accessor retains its own visibility. No reflection/CLI projection is used.
+
+The emitter uses the target's signature capabilities for source properties and imports
+canonical getter/setter method operands. Shared lowering admits static properties on
+external reference owners only when that capability is enabled; default .NET capabilities
+are unchanged. The separately committed setter-accessibility fix (23161cffb) applies
+to both providers and has independent .NET tests. No Runtime Contract change is needed.
+
+C# semantic checks cover both reference orders, accessor identity, nominal/vector types,
+static/readonly/private setters and invalid assignments. All five runtime consumers
+execute (42), including source native libraries with class/array properties. The CLI
+primitive core and translated System remain bootstrap inputs; indexed properties,
+generic/value/interface owners and full native System importing remain pending.
+
+### Imported indexer accessibility (2026-10-02)
+
+Indexer candidate selection now checks property and relevant accessor accessibility.
+Assignment fallback to a readable indexer still requires an accessible setter or the
+existing writable-byref contract. This shared binder correction is independently
+reproduced with C#/.NET private indexer setters for simple and compound assignment;
+public overloads remain usable. No Runtime Contract or metadata format change is needed.
+
+### Shared emission name normalization (2026-10-02)
+
+SourceTypePlan splits the normalized fully qualified metadata name into namespace
+and local name instead of subtracting the raw MetadataName length. Synthesized
+owners may expose an already qualified MetadataName, which previously caused a
+negative substring length before emission. The existing .NET self-override/indexer
+regression now passes. This general correction is isolated from native loading;
+75 focused indexer/accessibility tests pass with both corrections applied.
+
+### Direct native indexed properties (2026-10-02)
+
+NativePropertySymbol uses the full logical property-signature overload and exposes
+IsIndexer plus a lazily cached parameter list from its canonical accessor symbols.
+Setter-only metadata excludes the setter value from that list, though source indexer
+resolution still requires a getter. Existing overload binding and accessor-call
+emission handle supported primitive/nominal/vector contracts. Source indexer value
+admission now uses explicit NeoCLR capabilities; no Runtime Contract change is needed.
+
+The native payload/holder/consumer test verifies Int32/String overloads, canonical
+external value types, indexed replacement/read, private setters and wrong index types
+in both reference orders. All five native consumers return 42; 102 metadata groups
+and 75 focused .NET indexer/accessibility tests pass. General binder/name-normalization
+corrections are isolated in 9ee5aad97 and 2df6f3f6d for independent integration.
+Native core loading and broader owner categories remain pending.
+
+### Setter-only indexed access (2026-10-02)
+
+The shared binder resolves index arguments through IPropertySymbol.Parameters rather
+than getter parameters. The property contract now exposes setter-only index parameters
+without the trailing value parameter; PEPropertySymbol caches this immutable list.
+NativePropertySymbol already provides the same contract. Hiding and overload comparison
+use the property signature, and ambiguous setter calls report setter candidates.
+Assignments require an accessible setter; reads and compound assignments require an
+accessible getter as well. Writable-byref fallback remains unchanged.
+
+An independent C#/.NET fixture reproduces the former rejected assignment and now
+executes to 42. Read, compound assignment and increment remain diagnostics. All 79
+focused indexer/accessibility tests pass. This general correction is isolated from
+native integration for shared-line adoption. Runtime Contract settings, metadata
+encoding and the default .NET target are unchanged.
+
+### Direct native interfaces (2026-10-02)
+
+NativeNamedTypeSymbol classifies interface definitions and lazily maps direct and
+transitive relationships after module publication. NativeMethodSymbol preserves
+abstract/virtual flags so inherited method/property access follows the shared binder
+and existing interface-call emission path. The independent metadata library owns
+relationship validation and imported nominal conformance; native libraries are never
+projected to CLI for these symbols. Runtime Contract settings are unchanged.
+
+The new C# NativeInterfaceChecks compiles factories returning a derived interface and
+a separate consumer. Both reference orders preserve symbol identity; two concrete
+implementations execute inherited methods/properties in neoCLR (42). All six native
+consumers and 103 metadata groups pass. External implementation edges, generic/value
+owners and full System loading remain pending; CLI primitive core remains bootstrap.
+
+Author direction: this native path also tests whether semantic and emission contracts
+can support a future .NET provider/backend using Cecil or another mechanism instead
+of Reflection/Reflection.Emit. It is evidence for that evaluation, not a backend choice
+or proof of complete .NET parity. Keep default .NET behavior and provider-specific
+identity/capability policy explicit as native coverage grows.
+
+### External interface storage acceptance (2026-10-02)
+
+NativeInterfaceChecks now compiles a second library with fields and constructor
+parameters typed as the first library's Value interface and Value[]. Existing lazy
+signature mapping resolves them to canonical symbols in both reference orders. The
+consumer passes derived-interface values, replaces a field and array element, preserves
+reference aliases, then invokes through the stored interface (42). An unrelated class
+conversion diagnoses. No compiler implementation changes were needed for this slice.
+
+All six native consumers pass. The independent metadata tests execute equivalent
+interface field/array stores on CLR (103 groups pass). This supports the author's
+provider-neutral architecture criterion while leaving the explicit CLI core bootstrap,
+generic/value imports and a separate .NET backend evaluation open.
+
+Resolved shared diagnostic gap (2026-10-02): the previously deferred incompatible
+expression-bodied return was reproduced independently with .NET references. Diagnostic
+traversal now binds the complete arrow body through MethodBodyBinder, reusing its return
+conversion checks instead of inspecting only the expression. Functions and methods now
+report CannotConvertFromTypeToType before emission, including after GetTypeInfo and on
+repeated GetDiagnostics calls. The focused .NET regression/return suite passes 106 tests.
+This is a general compiler fix, with no Runtime Contract, metadata encoding or target
+policy change; native import/bootstrap limitations remain unchanged.
+
+### Native generic metadata boundary (2026-10-02 development)
+
+The independent metadata library reads/imports unconstrained static generic methods
+and namespace functions, preserving names, arity and parameter/vector signatures. An
+initial explicit rejection boundary kept Raven safe during that library expansion;
+the subsequent symbol integration now admits this profile.
+
+Native method parameters are owned by their declaration and compilation. Parameter
+vectors are cached per method; ordinary nominal/primitive vectors retain module-wide
+identity. Construct uses the shared ConstructedMethodSymbol, inference/substitution and
+callable lowering. No .NET reflection objects or CLI projections are created for these
+native declarations. Existing generic metadata imports emit the calls; no backend,
+Runtime Contract or encoding change was needed.
+
+The seventh native consumer compiles its library from Raven, imports it directly, and
+executes inferred/explicit namespace identity, generic forwarding, static generic
+methods, overloads with different arities, Int64 vectors and reference/array aliases (42).
+C# checks validate canonical parameter ownership, vector identity, compilation isolation,
+both reference orders and invalid argument diagnostics. All seven consumers pass.
+Generic owners, constraints and instance generic imports remain outside this profile;
+the explicit CLI primitive core and translated System bootstrap remain required.
+
+### Native generic root class import (2026-10-02 development)
+
+Direct native references now include unconstrained generic root classes whose member
+signatures use positional owner parameters and vectors. NativeNamedTypeSymbol preserves
+simple and metadata names, arity and declaring-type parameter ownership. Fields,
+properties and methods resolve through the owner's scope; method parameters remain
+independent. Construct uses the shared ConstructedNamedTypeSymbol and ordinary member
+substitution. No Reflection/Reflection.Emit dependency or new codegen route was added.
+
+The native generic library/consumer case now exercises Box<int> construction, Set and
+Current, Box<Item> reference aliases and generic-owner vector arguments/results. C#
+checks assert names, owner identity and constructor/property substitution. All seven
+native consumers compile and execute (42); 105 metadata groups and the standalone
+CLR/native generic-owner consumers pass. No Runtime Contract or encoding change.
+
+Constraints, constructed nominal signatures in imported declarations, generic interface
+inheritance and direct field emission on constructed imported owners remain unsupported.
+The CLI primitive core and translated System bootstrap are still required.
+
+### Closed native constructed signatures (2026-10-02 development)
+
+Native parameter/result signatures now include local closed generic root classes such
+as Box<int>. The metadata model exposes immutable definition references and arguments;
+NativeModuleSymbol resolves them through the existing signature cache and shared
+constructed-type symbols. The generic consumer now calls native CreateBox and EchoBox
+namespace functions instead of allocating its integer box locally. All seven consumers
+execute (42); the C# metadata/CLR counterpart passes. No Runtime Contract, codegen
+abstraction or metadata encoding change was needed. Open/external generic constructions,
+constraints and the full native core/bootstrap remain separate work.
+
+### Scoped native constructions (2026-10-02 development)
+
+Open local signatures such as Box<T> now resolve recursively through the declaring
+method or type's cache. Closed signatures retain module caching. Scope checks remain
+in the metadata reader; no synthetic parameters or reflection objects are created.
+Shared constructed-type/member substitution and inference handle OpenBox/OpenBoxes
+namespace functions and Box<TItem>.Same without new emission logic.
+
+The C# consumer checks exact method/owner parameter identity and incompatible generic
+return diagnostics; arrays of open constructions preserve aliases at runtime. All seven
+native consumers execute (42), and metadata CLR/native generic import consumers pass.
+No Runtime Contract or encoding changes. External generic constructions, constraints
+and full native core/bootstrap remain pending.
+
+### External native generic constructions (2026-10-02 development)
+
+NativeGenericBridge now exposes closed and method-scoped Box<T> signatures owned by
+NativeGenericLibrary, including vectors. The consumer resolves the exact original
+definition in both reference orders and retains bridge-method parameter ownership.
+Missing dependencies diagnose. The existing importer, recursive substitution and emitter
+needed no changes: this slice expands the metadata reader and executable coverage.
+All seven consumers execute (42); 106 C# metadata groups pass, including CLR forwarding
+through three assemblies and missing/wrong-version resolver rejection.
+
+No Runtime Contract, metadata encoding or core bootstrap change. Constraints and generic
+inheritance remain pending. During development, qualified calls
+GenericBridge.Forward(...) and GenericBridge.ForwardArray(...) reported RAV0234 for
+generic namespace functions, while imported unqualified calls compile and execute.
+This is an observed lookup candidate, not yet independently reproduced on .NET or
+attributed to a specific binder path. Follow it up separately; no workaround was added
+to the importer or emitter.
+
+### Qualified native namespace functions resolved (2026-10-02)
+
+The earlier RAV0234 lookup candidate was narrowed with independent .NET source controls:
+qualified inferred/explicit generic calls already passed on .NET. The shared namespace
+member query only collected functions promoted from container types; native providers
+also expose methods owned directly by a namespace. It now includes those static methods,
+using the same deduplication and namespace-import option gate. Binding uses a null
+receiver for ownerless functions instead of inventing a containing type.
+
+This is a provider-neutral contract fix, not a .NET generic inference regression.
+A focused 156-test namespace/generic/completion/codegen run passes, along with four
+qualified-call controls (three overlap that run). An incompatible explicit type argument
+still diagnoses. Native inferred/explicit qualified calls now compile and execute; all
+seven consumers return 42. No Runtime Contract, metadata encoding or runtime change.
+Constraint import and full native System/bootstrap remain pending.
+
+
+### Independent importer and emitter contracts (2026-10-02 direction)
+
+The importer must populate Raven symbols; emission must reconstruct references from
+those symbols without reusing loader definitions, resolvers or handles. Raven's shared
+emission contracts are separate from the Cecil-like library's proposed body-generator
+API. See [ownership, current violations and migration slices](metadata-backend-boundaries.md).
+The current native path has not yet completed this separation. Explicit Runtime
+Contract selection, CLI primitive bootstrap and translated System requirements are
+unchanged; existing execution evidence does not prove the proposed separation.
+
+
+### First symbol-only emission slice (2026-10-02)
+
+Native namespace functions with primitive, method-parameter and single-vector signatures
+now reconstruct output references using IMethodSymbol and a compiler-owned
+ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
+selected input image's SHA-256, not a reader handle. The importer copies method flags
+into symbol state. The backend maps the signature from symbols, compares the host
+binding's captured digest, and calls the metadata library's CreateFunctionReference.
+It does not use NativeMethodSymbol.Definition, input tokens or the metadata resolver on
+this path. Resolver creation is lazy so this profile does not instantiate it.
+
+This is intentionally bounded. Nominal signatures, type-owned methods and fields still
+use the old reader-backed path; host dependency setup still accepts definitions and
+performs existing validation. Native symbol lazy materialization is unchanged. No claim
+is made that readers can yet be disposed before emission or that all compiler boundaries
+are independent. The metadata library's separate IILGenerator is still planned.
+
+The format remains unchanged: native linking selects namespace/name/signature. The
+artifact digest guards compiler/output consistency; it is not encoded runtime integrity.
+Explicit Runtime Contract selection, CLI primitive core and translated System remain
+required. .NET emission is unchanged. The seven native consumers compile and execute
+with exit 42, including generic vector calls and negative reference checks; the library's
+107 C# test groups pass and its generic vector reference executes in both containers.
+Next remove nominal type-reference reconstruction's dependency on input definitions.
+
+
+Native public root-class identities now also reconstruct from symbols and artifact
+values, including unconstrained generics. Other type profiles and member references
+remain reader-backed. See [scope and validation](metadata-backend-boundaries.md#symbol-only-root-class-references-2026-10-02).
+
+
+Namespace functions with external root-class signatures now reconstruct references
+from symbols too, including open/closed constructions and arrays across dependencies.
+See [the bounded contract](metadata-backend-boundaries.md#nominal-namespace-call-reconstruction-2026-10-02).
+Type-owned members and richer type profiles remain reader-backed; bootstrap and
+Runtime Contract requirements are unchanged.
+
+
+Public nonvirtual root-class methods and constructors now author references from
+symbols, including generic-owner substitution. See [scope and validation](metadata-backend-boundaries.md#root-class-member-contracts-2026-10-02).
+Fields and richer dispatch/type profiles remain reader-backed; Runtime Contract and
+bootstrap requirements are unchanged.
+
+
+Supported native root-class fields now emit from symbols and an explicit compiler-owned
+layout ordinal. See [layout contract and limits](metadata-backend-boundaries.md#explicit-native-field-layout-2026-10-02).
+Artifact validation and Runtime Contract/bootstrap requirements are unchanged.
+
+
+Nongeneric interface inheritance/implementation edges and abstract dispatch references
+now author from semantic symbols. See [scope and evidence](metadata-backend-boundaries.md#interface-relationships-and-dispatch-2026-10-02).
+Generic interfaces and broader inheritance remain pending; bootstrap and Runtime
+Contract requirements are unchanged.
+
+
+The NeoCLR body adapter now uses the metadata library's own IILGenerator while Raven's
+shared emission interfaces remain independent. See [implementation and remaining audit](metadata-backend-boundaries.md#independent-library-body-generator-2026-10-02).
+Runtime Contract/bootstrapping behavior is unchanged.
+
+
+Native static containers now author method references from symbols as declaration
+owners, while remaining excluded from signature value types. See [validation and limits](metadata-backend-boundaries.md#static-declaration-containers-2026-10-02).
+Runtime Contract/bootstrap requirements and translated CLI compatibility paths are unchanged.
+
+
+Native callable emission now fails closed on incomplete symbol contracts instead of
+using a reader-definition fallback. See [boundary and native/CLI flag distinction](metadata-backend-boundaries.md#native-callable-fallback-removed-2026-10-02).
+Translated CLI compatibility binding and bootstrap requirements are unchanged.
+
+
+Native type and field reference fallbacks are now removed alongside callable fallback.
+Unsupported semantic contracts diagnose; the emitter no longer creates a native resolver.
+See [boundary, validation and remaining host/lifetime work](metadata-backend-boundaries.md#native-typefield-fallbacks-removed-2026-10-02).
+Translated CLI and bootstrap requirements remain unchanged.
+
+
+Native host binding checkpoint (2026-10-02): native dependencies now use
+`new NeoClrMetadataDependency(nativeReference, coreIdentity)` without a separately
+supplied reader definition. Seven native consumers execute (42); duplicate binding,
+wrong core, unregistered reference and legacy snapshot mismatch reject without output.
+The compiler reference retains lazy semantic reader state; explicit primitive core,
+Runtime Contract and translated System bootstrap requirements are unchanged.
+See the [API and compatibility contract](metadata-backend-boundaries.md#native-host-bindings-without-reader-definitions-2026-10-02).
+
+
+### Generic native interface imports (2026-10-02)
+
+The native reader now retains constructed same-assembly interface relationships and
+their type arguments, including open owner parameters. Raven maps these into existing
+constructed symbols, preserving parameter owner identity, inherited interfaces and
+invariant argument checking. Its emitter authors generic interface identities and
+conversion edges from symbols, then binds interface calls to constructed references.
+The loader is not consulted by emission. Metadata consumers may also import generic
+interface methods and generic-owner fields from loaded native definitions.
+
+NativeGenericConsumer now dispatches through MutableValue<int> -> Value<int> and
+Value<Item>, including generic forwarding and class-to-inherited-interface conversion.
+Both reference orders and incompatible argument diagnostics pass; all seven consumers
+execute (42). NativeGenericOwnerChecks validates immutable reader relationships,
+cycles/scope rejection, authored and reader-import dispatch, and field substitution.
+All 108 C# groups pass; equivalent field/dispatch code executes on .NET and both native
+containers. CLI TypeSpec/MemberRef and native dispatch/slot encodings are unchanged.
+
+The supported interfaces are public, top-level, unconstrained and invariant. Native
+relationship declarations currently resolve within their defining assembly. Emitting a
+new class that implements an external interface or a new interface inheriting an
+external interface remains a separate capability; this slice consumes already declared
+relationships. Variance, constrained/value/nested profiles and instance generic methods
+remain outside this native reader profile. Explicit primitive core, translated System
+bootstrap and Runtime Contract configuration remain unchanged. This does not claim full
+class-library import or remove the lazy semantic reader lifetime.
+
+
+### Metadata facade integration (2026-10-02)
+
+The C# metadata library now supplies MetadataLoadContext and Introspection-shaped
+assembly/module/nominal views. Raven removes NativeAssemblyResolver and uses one fixed
+context per immutable compilation, retained through an internal weak-key lifetime
+adapter. The context owns exact dependency resolution and canonical view identity;
+Raven maps assembly identity and module-local type token into compiler-owned symbols.
+Validation still applies Raven's target and duplicate-reference diagnostic policy.
+
+All seven native consumers compile and execute (42); 109 metadata C# groups pass,
+including exact versions, snapshot conflicts, diamonds, legal assembly cycles and
+context isolation. No runtime loading or Reflection facade is introduced. The emitter
+remains symbol-only. Runtime Contract, explicit CLI primitive core and translated
+System bootstrap are unchanged. Signature substitution and member mapping remain in
+the importer pending constructed/member facade views. This prototype follows the
+runtime System.Introspection shape without committing a future identical port or API.
+
+
+Method/parameter facade checkpoint (2026-10-02): MethodInfo, ParameterInfo and
+MethodGenericParameterTypeInfo now project namespace functions and declared methods,
+including methods viewed on constructed owners. Owner and method argument scopes are
+separate and substitution is simultaneous. Method/parameter identities remain canonical
+within the context; no invocation or runtime loading is introduced.
+
+Raven now builds native return/parameter symbols from these views and maps scoped
+parameter identities back to the declaring compiler symbols. Its recursive signature
+walkers and type/method generic-signature caches have been removed; the view-to-symbol
+cache preserves signature identity. Language binding and special constructor return
+semantics stay in Raven. This changes no Runtime Contract, primitive core/System
+bootstrap, emission contract or metadata/runtime encoding. Properties and interface
+relationship views remain next; generic method construction is not yet a facade API.
+
+109 C# groups pass, including mixed owner/method scopes, generic function vectors,
+constructed-owner returns, canonical method identity and invalid/foreign scopes.
+All seven Raven native consumers compile and execute (42).
+
+
+Native member import simplification (2026-10-03): fields and properties consume their
+owner's introspection views directly. Property accessor association reuses module-canonical
+method symbols. Reader-definition searches and the extra accessor dictionary are removed;
+Raven retains accessibility policy. Seven native consumers and existing semantic contracts
+pass before/after. See [the boundary inventory](metadata-backend-boundaries.md#nativelegacy-consumer-inventory-2026-10-03).
+
+
+Native callable facade adoption (2026-10-03): NativeMethodSymbol now accepts only the
+metadata library's MethodInfo view. Declared type methods and constructors come from
+GetMethods/GetConstructors, merged by metadata token to preserve declaration order.
+Module functions come from ModuleInfo.GetFunctions, with namespaces supplied by the
+facade. The definition-taking constructor and redundant MethodView helper are removed.
+All methods register once in the module's canonical symbol table before properties bind
+their accessors. Type/union construction still uses definitions in other places; this
+change does not imply a fully definition-free importer or new static-constructor support.
+
+The C# native probe now checks that constructor enumeration and GetMembers return the
+same single constructor symbol with correct ownership and classification. Existing
+namespace overload, generic method/owner substitution, accessor and dependency rejection
+checks pass, and all seven native consumers execute with expected exit 42. This uses the
+same explicit CoreProbe/System bootstrap as the preceding member-facade validation.
+No Runtime Contract, public metadata API, encoding, .NET loader or emitter changes.
+
+
+Native type declaration facade adoption (2026-10-03): the symbol constructor resolves
+its NominalTypeInfo once and uses it for metadata name, arity, accessibility, generic
+parameter names/positions and interface traversal. GenericParameterTypeInfo.Name is the
+matching metadata library addition; it preserves declared names and reports unsupported
+CLI name materialization explicitly. Raven's native path uses supported native snapshots.
+Definitions remain for type identity/materialization and union signature transport, rather
+than being reopened for these declaration facts. No constraint, base-type, variance or
+static-constructor support is added by this cleanup.
+
+All seven native consumers and their generic scope/identity checks pass; the library's
+127 C# contract groups pass, including native parameter names and the explicit CLI limit.
+No ordinary .NET path, Runtime Contract configuration or output encoding changes.
+
+### Native type materialization cleanup (2026-10-03)
+
+Native type materialization now enumerates ModuleInfo.GetTypes and passes canonical
+NominalTypeInfo views to ordinary type, union, case and companion symbols. Physical
+nesting and Raven union membership remain distinct; ownership checks use canonical
+views rather than reader definitions. Removed unused raw-signature mapping helpers.
+This is importer cleanup only: Runtime Contract configuration, explicit primitive
+bootstrap/runtime seed, emitter operands, metadata encoding and ordinary .NET behavior
+are unchanged. No additional CLI projection or fallback is introduced.
+
+Validation: the source-union driver gate compiles and consumes the native library and
+runs unchanged application-order-collections with exact expected output (exit 0).
+All seven native consumers also pass (exit 42), including semantic and rejection checks.
+
+### Native catalog rejection (2026-10-03)
+
+Native metadata catalog construction participates in configuration diagnostic translation.
+A native snapshot that claims the explicit CLI primitive bootstrap's exact identity now
+produces RAVT003 (conflicting metadata snapshots), rather than an uncaught exception
+before semantic setup. The introspection context remains responsible for exact-identity
+validation; Raven converts its InvalidDataException/NotSupportedException into the
+existing native-reference diagnostics. No fallback or identity rewriting is introduced.
+
+The C# NativeCatalogChecks regression verifies both reference orders, GetDiagnostics,
+and failed native emission preserving pre-existing output bytes and stream position.
+The seven native execution consumers continue to pass (exit 42). Runtime Contract
+configuration, normal .NET loading/emission and native encoding are unchanged. This is
+native-adapter validation, not a general binder fix requiring a main-based port.
+
+### Imported no-result callbacks and nested vectors (2026-10-03)
+
+Native Function signatures marked no_result now enter Raven through an internal explicit
+no-result factory. It preserves Action-shaped callable transport instead of applying the
+source runtime policy that selects an inhabited Func<..., Unit>. Ordinary source function
+construction and .NET target defaults remain unchanged. Native emission consumes the
+resulting symbols; it never reopens the importer. This extends the existing callback
+transport and does not integrate structural Function feature branches.
+
+Portable emission admits recursively nested one-dimensional vectors within the existing
+signature depth limit. Projected array receivers also convert to the exact configured
+nominal Array<T> backing, not only its interfaces. The runtime accepts that exact backing
+view without allocating or copying array storage. No covariance, rectangular arrays,
+new opcode or metadata version is introduced; the writer uses nested CLI SZARRAY/native
+ArrayRef signatures. Existing unsupported malformed/by-reference elements remain rejected.
+
+The native driver gate now executes unchanged library-array-callbacks (7, 42, First,
+Second), including its empty nested vector, and a nonempty nested-vector callback that
+mutates the original inner arrays and returns 42. The broad application remains passing.
+C# tests distinguish imported no-result and inhabited source callback identities and
+exercise nested vector planning/.NET execution; metadata tests cover CLI/native round
+trips, introspection, generic substitution, malformed elements and nesting limits.
+The portable and factory changes are retained general candidates pending independent
+main-line callers; no ordinary .NET behavior fix is inferred from native support.
+
 ## Assembly ownership and qualified expressions (2026-10-08)
 
 `IAssemblySymbol.GetTypeByMetadataName` on a source assembly now searches that
@@ -412,3 +1162,5 @@ member binding and deduplication. `import Shared.*` therefore agrees with qualif
 Namespace scopes, aliases, type-scope static members and accessibility checks retain
 their existing roles. A missing configured provider does not fall back to the original
 namespace candidate. The regression covers all three forms and both reference orders.
+
+Experimental native composition source and catalog configuration is documented in [the neoCLR bridge contract](neoclr-cli-bridge.md#source-structural-unions-2026-10-14-experiment).

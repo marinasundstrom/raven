@@ -88,7 +88,7 @@ public static class TypeSymbolExtensionsForCodeGen
         {
             var compilation = codeGen.Compilation;
 
-            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType is (SpecialType.None or >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest or SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder) &&
+            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType is (SpecialType.None or >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest or SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine) &&
                 TryGetTargetMetadataType(typeSymbol) is { } metadataType)
                 return metadataType;
 
@@ -548,7 +548,7 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T => FromRuntime(compilation, "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1"),
             SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute => FromRuntime(compilation, "System.Runtime.CompilerServices.AsyncStateMachineAttribute"),
             SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute => FromRuntime(compilation, "System.Runtime.CompilerServices.IteratorStateMachineAttribute"),
-            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => FromRuntime(compilation, "System.Runtime.CompilerServices.IAsyncStateMachine"),
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => FromRuntime(compilation, compilation.RuntimeAsyncStateMachineTypeName),
             SpecialType.System_Threading_Tasks_Task => FromRuntime(compilation, "System.Threading.Tasks.Task"),
             SpecialType.System_Threading_Tasks_Task_T => FromRuntime(compilation, "System.Threading.Tasks.Task`1"),
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => FromRuntime(compilation, "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken"),

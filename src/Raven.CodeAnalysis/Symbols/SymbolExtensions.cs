@@ -51,6 +51,11 @@ public static partial class SymbolExtensions
         if (left is null || right is null)
             return false;
 
+        // Structural signatures have no nominal metadata name. Falling back to
+        // names would erase their kinds/bounds inside constructed type arguments.
+        if (ContainsStructuralComposition(left) || ContainsStructuralComposition(right))
+            return false;
+
         if (HaveEquivalentMetadataIdentity(left, right))
             return true;
 
@@ -58,6 +63,20 @@ public static partial class SymbolExtensions
         var rightIdentity = GetStableMetadataIdentity(right);
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
     }
+
+    private static bool ContainsStructuralComposition(ITypeSymbol type) => type switch
+    {
+        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or StructuralTupleTypeSymbol or StructuralFunctionTypeSymbol => true,
+        ITupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
+            named.ContainingType is { } owner && ContainsStructuralComposition(owner),
+        IArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType),
+        IPointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType),
+        IAddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType),
+        NullableTypeSymbol nullable => ContainsStructuralComposition(nullable.UnderlyingType),
+        LiteralTypeSymbol literal => ContainsStructuralComposition(literal.UnderlyingType),
+        _ => false
+    };
 
     private static bool HaveEquivalentMetadataIdentity(ITypeSymbol left, ITypeSymbol right)
     {
@@ -791,7 +810,7 @@ public static partial class SymbolExtensions
             symbol is INamespaceSymbol namespaceSymbol &&
             !namespaceSymbol.IsGlobalNamespace)
         {
-            kindPrefix = "namespace";
+            kindPrefix = namespaceSymbol.IsModule ? "module" : "namespace";
         }
         // member keyword (currently disabled; GetMemberKindKeyword returns null)
         else if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword))
@@ -955,6 +974,8 @@ public static partial class SymbolExtensions
 
     private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (typeSymbol is IFunctionReturnTypeSymbol projection)
+            return "ReturnType<" + FormatType(projection.FunctionType, format) + ">";
         if (typeSymbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
         {
@@ -964,6 +985,21 @@ public static partial class SymbolExtensions
         // Format literal pseudo-types using their constant value
         if (typeSymbol is LiteralTypeSymbol literal)
             return literal.Name;
+
+        if (typeSymbol is IStructuralUnionTypeSymbol union)
+            return string.Join(" | ", union.ConstituentTypes.Select(type =>
+                type is IIntersectionTypeSymbol ? $"({FormatType(type, format)})" : FormatType(type, format)));
+
+        if (typeSymbol is IIntersectionTypeSymbol intersection)
+        {
+            return string.Join(" & ", intersection.ConstituentTypes.Select(type =>
+            {
+                var display = FormatType(type, format);
+                return IsStandardUnionType(type) || type.TypeKind == TypeKind.Delegate
+                    ? $"({display})"
+                    : display;
+            }));
+        }
 
         // Nullable<T> => T?
         if (typeSymbol is NullableTypeSymbol nullable)
@@ -978,7 +1014,7 @@ public static partial class SymbolExtensions
             }
 
             var underlyingDisplay = FormatType(underlying, format);
-            if (IsStandardUnionType(underlying))
+            if (IsStandardUnionType(underlying) || underlying is IIntersectionTypeSymbol)
                 underlyingDisplay = $"({underlyingDisplay})";
 
             return underlyingDisplay + "?";
@@ -996,6 +1032,9 @@ public static partial class SymbolExtensions
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementDisplay = FormatType(arrayType.ElementType, format);
+
+            if (arrayType.ElementType is IIntersectionTypeSymbol)
+                elementDisplay = $"({elementDisplay})";
 
             if (arrayType.Rank == 1)
                 return arrayType.FixedLength is int fixedLength
@@ -1252,6 +1291,12 @@ public static partial class SymbolExtensions
     {
         if (typeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
         {
+            if (named is StructuralFunctionTypeSymbol function)
+            {
+                display = FormatFunctionSignature(function.ParameterTypes, function.ParameterRefKinds, function.ReturnType, format, true);
+                return true;
+            }
+
             if (named is SynthesizedDelegateTypeSymbol synthesized)
             {
                 display = FormatFunctionSignature(
@@ -2008,6 +2053,8 @@ public static partial class SymbolExtensions
 
     private static string? GetTypeKeyword(INamedTypeSymbol typeSymbol)
     {
+        if (typeSymbol is StructuralFunctionTypeSymbol) return null;
+
         return typeSymbol.TypeKind switch
         {
             TypeKind.Struct when typeSymbol.IsUnion => "union struct",

@@ -13,6 +13,20 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerDefinitionMappingTests
 {
     [Fact]
+    public void MetadataDeclaration_ProvidesReadOnlySignatureSnapshot()
+    {
+        var compilation = Compilation.Create("metadata", [], [.. LanguageServerTestReferences.Default], new CompilationOptions());
+        var type = compilation.GetTypeByMetadataName("System.Math")!;
+        var method = type.GetMembers("Abs").OfType<IMethodSymbol>().First();
+        var target = MetadataDeclarationDocument.Create(method)!.Location;
+        target.Uri.ToString().ShouldStartWith("raven-metadata:");
+        var text = MetadataDeclarationDocument.Get(target.Uri)!;
+        text.ShouldContain("Metadata declarations");
+        text.Split('\n')[target.Range.Start.Line].ShouldContain("Abs");
+        MetadataDeclarationDocument.Get(DocumentUri.Parse("raven-metadata:/missing")).ShouldBeNull();
+    }
+
+    [Fact]
     public void DeclarationMacroFragmentDefinition_MapsParameterBackToHeader()
     {
         const string code = """

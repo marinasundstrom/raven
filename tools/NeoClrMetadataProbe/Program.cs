@@ -1,0 +1,676 @@
+using System.Diagnostics;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+using RuntimeAssemblyContainer = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer;
+using NeoCLR.Metadata.Experimental.Model;
+
+using NeoClrMetadataProbe;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.NeoClr;
+
+using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
+using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
+
+if (args is ["--inlining", var inlineCore]) { NativeInliningChecks.Run(inlineCore); return; }
+
+if (args is ["--explicit-methods", var explicitCore, var explicitOutput]) { ExplicitMethodChecks.Run(explicitCore, explicitOutput); return; }
+
+if (args is ["--native-function-inference", var inferenceProject]) { NativeFunctionInferenceChecks.Run(inferenceProject); return; }
+
+if (args is ["--method-category-import", var categoryCore]) { MethodCategoryImportChecks.Run(categoryCore); return; }
+
+if (args is ["--function-constraint-import", var functionCore]) { FunctionConstraintImportChecks.Run(functionCore); return; }
+
+if (args is ["--interface-variance", var varianceCore, var varianceOutput]) { NativeVarianceChecks.Run(varianceCore, varianceOutput); return; }
+
+if (args is ["--source-tuples", var tupleInputs, var tupleOutput]) { SourceTupleChecks.Run(tupleInputs, tupleOutput); return; }
+
+if (args is ["--structural-constraints", var constraintInputs, var constraintOutput]) { StructuralConstraintChecks.Run(constraintInputs, constraintOutput); return; }
+
+if (args is ["--source-compositions", var sourceInputs, var sourceOutput]) { SourceCompositionChecks.Run(sourceInputs, sourceOutput); return; }
+
+if (args is ["--composition-calls", var compositionCore, var compositionOutput]) { CompositionCallChecks.Run(compositionCore, compositionOutput); return; }
+
+if (args is ["--intersection-calls", var intersectionCallCore, var intersectionCallOutput]) { IntersectionCallChecks.Run(intersectionCallCore, intersectionCallOutput); return; }
+
+if (args is ["--intersection-symbols", var intersectionCore]) { IntersectionSymbolChecks.Run(intersectionCore); return; }
+
+if (args is ["--static-fields", var staticCore, var staticRuntime, var staticOutput]) { await StaticFieldChecks.Run(staticCore, staticRuntime, staticOutput); return; }
+
+if (args is ["--readonly-fields", var readonlyCore, var readonlyRuntime, var readonlyOutput]) { await ReadonlyFieldChecks.Run(readonlyCore, readonlyRuntime, readonlyOutput); return; }
+
+if (args is ["--native-foreign-source", var foreignSourceCore, var foreignSourceLibrary, var foreignSourceOutput, var foreignSource]) { NativeForeignChecks.Run(foreignSourceCore, foreignSourceLibrary, foreignSourceOutput, foreignSource); return; }
+
+if (args is ["--native-foreign", var foreignCore, var foreignLibrary, var foreignOutput]) { NativeForeignChecks.Run(foreignCore, foreignLibrary, foreignOutput); return; }
+
+if (args is ["--native-friends", var friendCore, var friendOutput]) { NativeFriendChecks.Run(friendCore, friendOutput); return; }
+
+if (args is ["--native-attributes", var attributeCore]) { NativeAttributeChecks.Run(attributeCore); return; }
+
+if (args is ["--native-array-shape", var arrayCore]) { NativeArrayShapeChecks.Run(arrayCore); return; }
+
+if (args.Length == 3 && args[0] == "--task-composition-await")
+{
+    TaskCompositionAwaitChecks.Run(args[1], args[2]); return;
+}
+
+if (args.Length == 3 && args[0] == "--native-doc-fixture")
+{
+    NativeDocFixture.Write(args[1], args[2]); return;
+}
+
+if (args is ["--native-runtime-services", var serviceCore, var serviceOutput])
+{
+    NativeRuntimeServiceChecks.Run(serviceCore, serviceOutput); return;
+}
+
+if (args is ["--native-parameter-arrays", var nativeParamsCore, var nativeParamsOutput])
+{
+    NativeParameterArrayChecks.Run(nativeParamsCore, nativeParamsOutput); return;
+}
+
+if (args.Length == 2 && args[0] == "--native-source-core")
+{
+    NativeSourceCoreChecks.Run(args[1]); return;
+}
+if (args.Length == 2 && args[0] == "--native-runtime-project")
+{
+    NativeRuntimeProjectChecks.Run(args[1]); return;
+}
+
+if (args.Length == 4 && args[0] == "--native-core-project")
+{
+    NativeCoreProjectChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 4 && args[0] == "--native-core-catalog")
+{
+    NativeCoreCatalogChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 2 && args[0] == "--imported-object-root")
+{
+    ImportedObjectRootChecks.Run(args[1]); return;
+}
+
+if (args.Length == 2 && args[0] == "--native-value-symbols")
+{
+    NativeValueSymbolChecks.Run(args[1]); return;
+}
+
+if (args.Length == 4 && args[0] == "--constructor-union-symbols")
+{
+    ConstructorUnionSymbolChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 2 && args[0] == "--nullable-symbols")
+{
+    NullableSymbolChecks.Run(args[1]); return;
+}
+
+if (args.Length == 4 && args[0] == "--native-bundle-project")
+{
+    NativeBundleProjectChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 4 && args[0] == "--native-project")
+{
+    NativeProjectChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 4 && args[0] == "--reference-catalog")
+{
+    ReferenceCatalogChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length is 3 or 4 && args[0] == "--native-async-symbols")
+{
+    NativeAsyncSymbolChecks.Run(args[1], args[2], args.Length == 4 ? args[3] : null); return;
+}
+
+if (args.Length == 6 && args[0] == "--source-object-root-driver")
+{
+    await SourceObjectRootDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+
+if (args.Length is 2 or 3 && args[0] == "--source-object-root")
+{
+    SourceObjectRootChecks.Run(args[1], args.Length == 3 ? args[2] : null); return;
+}
+
+if (args.Length == 2 && args[0] == "--flags-symbols")
+{
+    FlagsSymbolChecks.Run(args[1]); return;
+}
+
+if (args.Length == 6 && args[0] == "--unit-storage-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.RuntimeUnitStorage); return;
+}
+if (args.Length == 6 && args[0] == "--null-literals-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.NullLiterals); return;
+}
+if (args.Length == 6 && args[0] == "--object-display-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.ObjectDisplay); return;
+}
+if (args.Length == 6 && args[0] == "--reference-operations-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.ReferenceOperations); return;
+}
+if (args.Length == 6 && args[0] == "--field-address-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.FieldAddresses); return;
+}
+if (args.Length == 6 && args[0] == "--boxing-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+if (args.Length == 6 && args[0] == "--value-override-driver")
+{
+    await ValueOverrideDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+if (args.Length == 5 && args[0] == "--dual-driver-parameter-modes")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], false, external: true, parameterModes: true); return;
+}
+
+if (args.Length == 5 && args[0] is "--dual-driver-external" or "--dual-driver-external-inventory")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-external-inventory", external: true); return;
+}
+
+if (args.Length == 5 && args[0] == "--driver-controls")
+{
+    await DriverChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;
+}
+
+if (args.Length == 5 && args[0] is "--dual-driver" or "--dual-driver-inventory")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-inventory"); return;
+}
+
+if (args.Length == 5 && args[0] == "--value-interface-driver")
+{
+    await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4], valueInterface: true); return;
+}
+if (args.Length == 6 && args[0] == "--union-declaration-driver")
+{
+    await UnionDeclarationDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+if (args.Length == 5 && args[0] == "--byte-discriminator-driver")
+{
+    await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4], byteDiscriminator: true); return;
+}
+if (args.Length == 5 && args[0] == "--nested-value-driver")
+{
+    await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4], nested: true); return;
+}
+if (args.Length == 5 && args[0] == "--source-value-driver")
+{
+    await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4]); return;
+}
+if (args.Length == 5 && args[0] == "--native-symbols-runtime")
+{
+    await NativeSymbolChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;
+}
+if (args.Length == 3 && args[0] == "--native-symbols")
+{
+    NativeSymbolChecks.Run(args[1], args[2]); return;
+}
+
+if (args.Length == 4 && args[0] == "--scope-exit-cleanup-runtime")
+{
+    await ScopeExitCleanupChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 4 && args[0] == "--collection-contract-runtime")
+{
+    await CollectionContractChecks.Run(args[1], args[2], args[3]); return;
+}
+
+if (args.Length == 4 && args[0] == "--nested-constructor-runtime")
+{
+    await ValueReceiverChecks.Run(args[1], args[2], args[3], constructors: true, nested: true); return;
+}
+if (args.Length == 4 && args[0] == "--value-constructor-runtime")
+{
+    await ValueReceiverChecks.Run(args[1], args[2], args[3], constructors: true); return;
+}
+if (args.Length == 4 && args[0] == "--imported-interface-runtime")
+{
+    await ImportedInterfaceChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--value-receiver-runtime")
+{
+    await ValueReceiverChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--imported-value-runtime")
+{
+    await ImportedValueChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--external-signature-runtime")
+{
+    await ExternalSignatureChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--generic-library-runtime")
+{
+    await GenericLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--vector-library-runtime")
+{
+    await VectorLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 5 && args[0] == "--assess-source-application")
+{
+    LibrarySourceChecks.AssessApplication(args[1], args[2], args[3], args[4]);
+    return;
+}
+
+if (args.Length == 6 && args[0] == "--hash-map-source-runtime")
+{
+    await LibrarySourceChecks.RunHashMap(args[1], args[2], args[3], args[4], args[5]);
+    return;
+}
+
+if (args.Length == 6 && args[0] == "--comparer-source-runtime")
+{
+    await LibrarySourceChecks.RunComparers(args[1], args[2], args[3], args[4], args[5]);
+    return;
+}
+
+if (args.Length == 6 && args[0] == "--array-list-source-runtime")
+{
+    await LibrarySourceChecks.RunRuntime(args[1], args[2], args[3], args[4], args[5]);
+    return;
+}
+
+if (args.Length == 5 && args[0] == "--namespace-function-runtime")
+{
+    await NamespaceFunctionChecks.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--reserved-storage-runtime")
+{
+    await ReservedStorageChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--generic-collection-contract-runtime")
+{
+    await CollectionContractChecks.Run(args[1], args[2], args[3], genericImplementation: true);
+    return;
+}
+
+if (args.Length == 5 && args[0] == "--library-source")
+{
+    LibrarySourceChecks.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
+if (args.Length == 6 && args[0] == "--readiness-linked-sample")
+{
+    await ReadinessInventory.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+if (args.Length == 5 && args[0] == "--readiness-sample")
+{
+    await ReadinessInventory.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--native-profile-runtime")
+{
+    await NativeProfileChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--readiness-inventory")
+{
+    await ReadinessInventory.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args is ["--native-function-nullability", var nullableCore]) { NativeFunctionNullabilityChecks.Run(nullableCore); return; }
+
+if (args.Length == 3 && args[0] == "--generic-interface-runtime")
+{
+    await GenericInterfaceChecks.Run(args[1], args[2]);
+    return;
+}
+
+if (args.Length == 3 && args[0] == "--interface-dispatch-runtime")
+{
+    await InterfaceDispatchChecks.Run(args[1], args[2]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--interface-library-runtime")
+{
+    await InterfaceLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--whole-library-runtime")
+{
+    await WholeLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--generic-runtime")
+{
+    await GenericChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--indexer-runtime")
+{
+    await IndexerChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--array-runtime")
+{
+    await ArrayChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--order-runtime")
+{
+    await OrderObjectChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 3 && args[0] == "--consumer-emission")
+{
+    ConsumerEmissionChecks.Run(args[1], args[2]);
+    return;
+}
+
+if (args.Length == 4 && args[0] == "--class-library-runtime")
+{
+    await ClassLibraryEmissionChecks.RunRuntime(args[1], args[2], args[3]);
+    return;
+}
+
+if (args.Length == 3 && args[0] == "--class-library-emission")
+{
+    ClassLibraryEmissionChecks.Run(args[1], args[2]);
+    return;
+}
+
+if (args.Length == 5 && args[0] == "--system-symbols")
+{
+    await SystemSymbolChecks.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
+if (args.Length is < 2 or > 5 || args.Length == 4 || (args.Length == 3 && args[2] != "--hello-only") || (args.Length == 5 && args[2] != "--driver"))
+    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only | --driver rvnc.dll primitive-core.dll]");
+var runtime = Path.GetFullPath(args[0]);
+var output = Path.GetFullPath(args[1]);
+if (Directory.Exists(output)) throw new IOException("output directory must be fresh");
+Directory.CreateDirectory(output);
+var hostCore = typeof(object).Assembly.GetName();
+var core = new AssemblyIdentity(hostCore.Name!, hostCore.Version!, hostCore.CultureName ?? "", Convert.ToHexString(hostCore.GetPublicKeyToken() ?? []));
+if (args.Length == 3)
+{
+    await HelloWorldChecks.Run(core, output, Command);
+    return;
+}
+const string arithmeticSource = """
+public static class Arithmetic {
+    static func Multiply(value: int, factor: int) -> int {
+        return value * factor
+    }
+}
+""";
+File.WriteAllText(Path.Combine(output, "Arithmetic.rvn"), arithmeticSource);
+var arithmeticCompilation = Compilation.Create("ArithmeticDependency", [SyntaxTree.ParseText(arithmeticSource, path: "Arithmetic.rvn")],
+    [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+var arithmeticOptions = new NeoClrEmitOptions(new("ArithmeticDependency", new Version(1, 0, 0, 0)), core, []);
+using var arithmeticOutput = new MemoryStream();
+var arithmeticResult = NeoClrCompilationEmitter.EmitMetadataAssembly(arithmeticCompilation, arithmeticOutput, arithmeticOptions);
+if (!arithmeticResult.Success) throw new Exception(string.Join("\n", arithmeticResult.Diagnostics));
+var nativeArithmetic = Path.Combine(output, "ArithmeticDependency.neo.json");
+File.WriteAllBytes(nativeArithmetic, RuntimeAssemblyContainer.Read(arithmeticOutput.ToArray()));
+var arithmeticMetadata = NativeAssemblyDefinition.ReadAssembly(File.ReadAllBytes(nativeArithmetic));
+var arithmeticReferencePath = Path.Combine(output, "ArithmeticDependency.dll");
+File.WriteAllBytes(arithmeticReferencePath, arithmeticOutput.ToArray());
+var arithmeticReference = MetadataReference.CreateFromFile(arithmeticReferencePath);
+var arithmeticDefinition = RuntimeAssemblyContainer.ReadCliProjection(File.ReadAllBytes(arithmeticReferencePath));
+const string librarySource = """
+public static class MathLibrary {
+    static func Twice() -> int {
+        return 7
+    }
+    static func Twice(value: int) -> int {
+        return Multiply(value, 2)
+    }
+    static func Multiply(value: int, factor: int) -> int {
+        return Arithmetic.Multiply(value, factor)
+    }
+}
+""";
+File.WriteAllText(Path.Combine(output, "Library.rvn"), librarySource);
+var libraryCompilation = Compilation.Create("MetadataProbeLibrary", [SyntaxTree.ParseText(librarySource, path: "Library.rvn")],
+    [MetadataReference.CreateFromFile(typeof(object).Assembly.Location), arithmeticReference], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+var libraryOptions = new NeoClrEmitOptions(new("MetadataProbeLibrary", new Version(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(arithmeticReference, arithmeticDefinition, core)]);
+using var libraryOutput = new MemoryStream();
+var libraryResult = NeoClrCompilationEmitter.EmitMetadataAssembly(libraryCompilation, libraryOutput, libraryOptions);
+if (!libraryResult.Success) throw new Exception(string.Join("\n", libraryResult.Diagnostics));
+LibraryChecks.Run(libraryCompilation, librarySource, libraryOptions, RuntimeAssemblyContainer.Read(libraryOutput.ToArray()));
+var libraryPath = Path.Combine(output, "MetadataProbeLibrary.dll");
+var nativeLibrary = Path.Combine(output, "MetadataProbeLibrary.neo.json");
+File.WriteAllBytes(nativeLibrary, RuntimeAssemblyContainer.Read(libraryOutput.ToArray()));
+var nativeMetadata = NativeAssemblyDefinition.ReadAssembly(File.ReadAllBytes(nativeLibrary));
+if (nativeMetadata.References.Count != 1 || !nativeMetadata.References[0].Equals(arithmeticMetadata.Identity))
+    throw new Exception("native outer dependency identity not preserved");
+File.WriteAllBytes(libraryPath, libraryOutput.ToArray());
+var metadata = RuntimeAssemblyContainer.ReadCliProjection(File.ReadAllBytes(libraryPath));
+const string source = """
+func Offset(value: int) -> int {
+    return value + 2
+}
+func Main() -> int {
+    return Offset(MathLibrary.Twice(20))
+}
+""";
+File.WriteAllText(Path.Combine(output, "Program.rvn"), source);
+var libraryReference = MetadataReference.CreateFromFile(libraryPath);
+var emitOptions = new NeoClrEmitOptions(new("MetadataProbeApp", new Version(1, 0, 0, 0)), core,
+    [new NeoClrMetadataDependency(libraryReference, metadata, core)]);
+Compilation CreateCompilation(string code)
+{
+    var tree = SyntaxTree.ParseText(code);
+    return Compilation.Create("MetadataProbeApp", [tree], [
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        libraryReference], new CompilationOptions(OutputKind.ConsoleApplication));
+}
+using var nativeOutput = new MemoryStream();
+var applicationCompilation = CreateCompilation(source);
+if (applicationCompilation.GetTypeByMetadataName("Arithmetic") is not null)
+    throw new Exception("implementation-only transitive type leaked into application binding");
+if (metadata.MainModule.AssemblyReferences.Any(r => r.Identity.Equals(arithmeticMetadata.Identity)))
+    throw new Exception("primitive reference projection leaked an implementation dependency");
+var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(applicationCompilation, nativeOutput, emitOptions);
+if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+var image = nativeOutput.ToArray();
+var application = Path.Combine(output, "MetadataProbeApp.dll");
+File.WriteAllBytes(application, image);
+AdapterChecks.Run(CreateCompilation, source, emitOptions);
+var multiFileImages = MultiFileChecks.Run(CreateCompilation(source), source, emitOptions, output);
+await Command(0, "verify", application, "--module", libraryPath, "--module", arithmeticReferencePath);
+var result = await Command(42, "run", application, "--module", libraryPath, "--module", arithmeticReferencePath, "--show-result");
+if (!result.Contains("=> Int32(42)")) throw new Exception("wrong runtime result");
+var multiFilePaths = new List<string>();
+for (int i = 0; i < multiFileImages.Length; i++)
+{
+    var path = Path.Combine(output, $"MultiFile{i}.dll");
+    File.WriteAllBytes(path, RuntimeAssemblyContainer.WriteBinary(multiFileImages[i], core));
+    multiFilePaths.Add(path);
+    await Command(0, "verify", path, "--module", libraryPath, "--module", arithmeticReferencePath);
+    var multiResult = await Command(42, "run", path, "--module", libraryPath, "--module", arithmeticReferencePath, "--show-result");
+    if (!multiResult.Contains("=> Int32(42)")) throw new Exception("wrong multi-file runtime result");
+}
+var missingDependency = await Command(1, "verify", application);
+if (!missingDependency.Contains("missing referenced module")) throw new Exception("missing dependency diagnostic unavailable");
+var wrongRevision = JsonNode.Parse(File.ReadAllBytes(nativeLibrary))!;
+wrongRevision["revision"] = "2.0.0.0";
+var wrongRevisionPath = Path.Combine(output, "WrongRevision.neo.json");
+File.WriteAllText(wrongRevisionPath, wrongRevision.ToJsonString());
+var mismatchedDependency = await Command(1, "verify", application, "--module", wrongRevisionPath, "--module", arithmeticReferencePath);
+if (!mismatchedDependency.Contains("module revision mismatch")) throw new Exception("wrong revision diagnostic unavailable");
+var missingTransitive = await Command(1, "verify", application, "--module", libraryPath);
+if (!missingTransitive.Contains("missing referenced module")) throw new Exception("missing transitive dependency diagnostic unavailable");
+var wrongArithmetic = JsonNode.Parse(File.ReadAllBytes(nativeArithmetic))!;
+wrongArithmetic["revision"] = "2.0.0.0";
+var wrongArithmeticPath = Path.Combine(output, "WrongArithmeticRevision.neo.json");
+File.WriteAllText(wrongArithmeticPath, wrongArithmetic.ToJsonString());
+var wrongTransitive = await Command(1, "verify", application, "--module", libraryPath, "--module", wrongArithmeticPath);
+if (!wrongTransitive.Contains("module revision mismatch")) throw new Exception("wrong transitive revision diagnostic unavailable");
+await Command(0, "verify", application, "--module", arithmeticReferencePath, "--module", libraryPath);
+var reverseOrder = await Command(42, "run", application, "--module", arithmeticReferencePath, "--module", libraryPath, "--show-result");
+if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module order returned wrong result");
+var helloPaths = await HelloWorldChecks.Run(core, output, Command);
+await FunctionAccessChecks.Run(core, output, Command);
+var namespacePaths = await NamespaceChecks.Run(core, output, Command);
+await SharedLoweringChecks.Run(core, output, Command);
+await IntegerArithmeticChecks.Run(core, output, Command);
+await PartialTypeChecks.Run(core, output, Command);
+await PrimitiveSignatureChecks.Run(core, output, Command);
+if (args.Length == 5) await DriverChecks.Run(Path.GetFullPath(args[3]), Path.GetFullPath(args[4]), output, Command);
+File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
+{
+    date = "2026-10-01",
+    result = 42,
+    sharedDotNetAndNativeBodyLowering = true,
+    compilerLoweredBodyInput = true,
+    sharedCallableIdentityResolution = true,
+    sharedSourceCallablePlans = true,
+    sharedSourceStaticTypePlans = true,
+    partialStaticTypesBothFileOrders = true,
+    stringSignaturesLocalsUnicodeAndImports = true,
+    nativeUnsupportedConversionPreservesOutput = true,
+    explicitDeclarationCategoryAdmission = true,
+    signedDivisionResultsAndFaults = true,
+    signedRemainderResultsAndFaults = true,
+    integerBitwiseOperations = true,
+    integerShifts = true,
+    privateInternalMethodEmission = true,
+    publicInternalAssemblyFunctions = true,
+    expressionBodiedCallableEmission = true,
+    booleanBitwiseTruthTablesAndEagerEvaluation = true,
+    conditionalPrimitiveValues = true,
+    valueBlockLocalsAssignmentsAndCalls = true,
+    valueBlockInternalControlFlow = true,
+    unsupportedArrowExpressionPreservesOutput = true,
+    compilerAndRuntimeEnforceMethodAccess = true,
+    internalStaticTypesAcrossBothTargets = true,
+    internalTypeProjectionRejectsExternalAccess = true,
+    nativeRuntimeRejectsExternalInternalTypeCall = true,
+    nativeBodiesPreflightBeforeBuilders = true,
+    sharedInt32LocalsAndAssignments = true,
+    sharedComparisonsBranchesAndLoops = true,
+    negatedComparisonsAndLoopExits = true,
+    primitiveBooleanSignaturesAndImportedOverloads = true,
+    typedBooleanLocalsAndAssignments = true,
+    shortCircuitBooleanEvaluation = true,
+    discardedPrimitiveCallResults = true,
+    int64LocalsAndSignedConversions = true,
+    signedUnaryIntegerOperations = true,
+    sharedPrimitiveTypeContractAndBackendMappers = true,
+    nativeAssemblyFunctionOwnershipAndEmptyTypes = true,
+    implicitInt32Returns = true,
+    namedUnitCall = true,
+    sharedUnitFunctionsMethodsAndEntry = true,
+    sharedCallableSignatureDeclarations = true,
+    helloWorldDirectAndFunctionCall = true,
+    unitEntryPointsAndZeroExit = true,
+    compilerDriverNativeCommand = args.Length == 4,
+    compilerDriverSha256 = args.Length == 4 ? Hash(args[3]) : null,
+    namespacedLibrariesAndBothFileOrders = true,
+    namespacePeSha256 = namespacePaths.Select(Hash).ToArray(),
+    unitHelpersExplicitAndImplicitReturns = true,
+    importedUnitAndInt32Overloads = true,
+    unsupportedUnitCallsPreserveOutput = true,
+    helloWorldPeSha256 = helloPaths.Select(Hash).ToArray(),
+    source = "Raven compiler-lowered bound bodies",
+    metadataLibraryIndependent = true,
+    importedReadOnlyDependency = true,
+    emitterRequiresDependencyBuilder = false,
+    semanticLoader = "existing .NET provider over projected native declarations",
+    nativeDependencyInput = true,
+    dependencyCompiledFromRaven = true,
+    libraryLocalCallAndOverload = true,
+    libraryVisibilityChecksPassed = true,
+    transitiveDependencyCompiledFromRaven = true,
+    transitiveTypeAbsentFromApplicationBinding = true,
+    missingTransitiveDependencyRejected = true,
+    wrongTransitiveRevisionRejected = true,
+    bothRuntimeModuleOrdersExecuted = true,
+    transitiveDependencySha256 = Hash(nativeArithmetic),
+    transitiveReferenceProjectionSha256 = Hash(arithmeticReferencePath),
+    missingDependencyRejected = true,
+    wrongRevisionRejected = true,
+    referenceOnlyProjection = true,
+    referenceProjectionSha256 = Hash(libraryPath),
+    emitter = "compiler-owned opt-in adapter to PE/#Neo native format 5",
+    diagnosticAndStreamContractsChecked = true,
+    multiFileCrossFunctionCalls = true,
+    bothFileOrdersExecuted = true,
+    laterFileDiagnosticChecked = true,
+    multiFileApplicationSha256 = multiFilePaths.Select(Hash).ToArray(),
+    adapterSha256 = Hash(typeof(NeoClrCompilationEmitter).Assembly.Location),
+    productionTargetIntegrated = false,
+    nativeMetadataLoader = true,
+    nativeCompilerSymbolProvider = false,
+    nativePayloadEncoding = "CBOR execution schema 2, semantic format 5",
+    parsingSpeedupMeasured = false, // This correctness probe does not run the separate runtime benchmark.
+    runtimePayloadRequiresJsonParsing = false,
+    runtimeContainer = "PE/#Neo required native execution section 256 schema 2",
+    samePeFilesUsedForCompilerReferencesAndRuntime = true,
+    arbitraryCilExecution = false,
+    unsupportedOperationRejected = true,
+    bindingErrorRejected = true,
+    compilerSha256 = Hash(typeof(Compilation).Assembly.Location),
+    metadataApiSha256 = Hash(typeof(AssemblyBuilder).Assembly.Location),
+    runtimeSha256 = Hash(runtime),
+    applicationSha256 = Hash(application),
+    dependencySha256 = Hash(libraryPath)
+}, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+Console.WriteLine("PASS Raven compiler-lowered bodies -> separate metadata library -> neoCLR: 42");
+
+static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+async Task<string> Command(int expected, params string[] arguments)
+{
+    var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+    foreach (var argument in arguments) start.ArgumentList.Add(argument);
+    using var process = Process.Start(start)!;
+    var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+    try { await process.WaitForExitAsync(timeout.Token); }
+    catch (OperationCanceledException) { process.Kill(true); throw new TimeoutException("runtime probe timed out"); }
+    string text = await stdout + await stderr;
+    if (process.ExitCode != expected) throw new Exception($"runtime returned {process.ExitCode}, expected {expected}: {text}");
+    Console.WriteLine("PASS " + arguments[0] + " (exit " + process.ExitCode + ")");
+    return text;
+}

@@ -18,6 +18,7 @@ internal abstract partial class Binder
         None = 0,
 
         UnsupportedTypeSyntax,
+        IntersectionTypeNotSupported,
         TypeNotFound,
         GenericTypeNotFound,
         QualifiedTypeNotFound,
@@ -150,6 +151,7 @@ internal abstract partial class Binder
             ParenthesizedTypeSyntax p => BindTypeCore(p.Type, typeParams, importedScopes, allowBinderLookup),
             TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
             UnionTypeSyntax u => BindUnion(u, typeParams, importedScopes, allowBinderLookup),
+            IntersectionTypeSyntax i => BindIntersectionConstraint(i, typeParams, importedScopes, allowBinderLookup),
             FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),
             ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes, allowBinderLookup),
             ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes, allowBinderLookup),
@@ -157,6 +159,43 @@ internal abstract partial class Binder
             NullableTypeSyntax n => BindNullable(n, typeParams, importedScopes, allowBinderLookup),
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
+
+        // Namespace lookup can encounter the primitive bootstrap Object before the
+        // explicitly selected native root. Type spelling must not change ownership.
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.MetadataImportOptions is { ObjectAssemblyName: not null } rootImports &&
+            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
+            objectType.ContainingAssembly?.Name == rootImports.CoreAssemblyName &&
+            objectType.ToFullyQualifiedMetadataName() == "System.Object")
+        {
+            var root = Compilation.GetSpecialType(SpecialType.System_Object);
+            result = result with { ResolvedType = root, ResolvedNamedDefinition = root };
+        }
+
+        // A selected source handle declares the runtime-owned intrinsic; signatures
+        // retain the bootstrap identity while its implementation is being compiled.
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(SpecialType.System_RuntimeTypeHandle) == true &&
+            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } sourceHandle &&
+            SymbolEqualityComparer.Default.Equals(sourceHandle.ContainingAssembly, Compilation.Assembly) &&
+            sourceHandle.ToFullyQualifiedMetadataName() == "System.RuntimeTypeHandle")
+        {
+            var canonicalHandle = Compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle);
+            result = result with { ResolvedType = canonicalHandle, ResolvedNamedDefinition = canonicalHandle };
+        }
+
+        // Merged namespaces can return the bootstrap declaration first. Its
+        // spelling must select the same unit owner as the explicit native contract.
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.RuntimeUnitContract is { } unitContract &&
+            unitContract.AssemblyName != Compilation.Options.TargetCoreAssemblyName &&
+            Compilation.ResolveRuntimeUnitType() is { } selectedUnit &&
+            (SymbolEqualityComparer.Default.Equals(result.ResolvedType, selectedUnit) ||
+             unitContract.TypeName == "System.Void" &&
+             result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
+             bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName &&
+             bootstrapUnit.ContainingAssembly?.Name == Compilation.Options.MetadataImportOptions?.CoreAssemblyName))
+            result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
 
         if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&
             Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
@@ -302,6 +341,19 @@ internal abstract partial class Binder
         bool allowBinderLookup)
     {
         var name = g.Identifier.ValueText;
+
+        if (name == "ReturnType" && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR)
+        {
+            var arguments = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes, allowBinderLookup);
+            if (!arguments.Success) return arguments;
+            if (arguments.ResolvedTypeArguments.Length != 1) return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
+            var operand = arguments.ResolvedTypeArguments[0];
+            if (operand is StructuralFunctionTypeSymbol function)
+                return new ResolveTypeResult { ResolvedType = function.ReturnType.SpecialType == SpecialType.System_Void ? Compilation.GetSpecialType(SpecialType.System_Unit) : function.ReturnType };
+            if (operand is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
+                return new ResolveTypeResult { ResolvedType = new FunctionReturnTypeSymbol(operand, Compilation.GetSpecialType(SpecialType.System_Unit)) };
+            return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
+        }
 
         var arity = ComputeGenericArity(g);
         INamedTypeSymbol? definition = null;
@@ -504,9 +556,7 @@ internal abstract partial class Binder
 
         if (right is IdentifierNameSyntax identifier)
         {
-            var definition = SelectByArity(
-                namespaceSymbol.GetMembers(identifier.Identifier.ValueText).OfType<INamedTypeSymbol>(),
-                arity: 0);
+            var definition = SelectNamespaceDefinition(identifier.Identifier.ValueText, requiredArity: 0);
 
             return definition is null
                 ? null
@@ -521,9 +571,7 @@ internal abstract partial class Binder
             return null;
 
         var arity = ComputeGenericArity(generic);
-        var genericDefinition = SelectByArity(
-            namespaceSymbol.GetMembers(generic.Identifier.ValueText).OfType<INamedTypeSymbol>(),
-            arity);
+        var genericDefinition = SelectNamespaceDefinition(generic.Identifier.ValueText, arity);
 
         if (genericDefinition is null)
             return null;
@@ -546,6 +594,20 @@ internal abstract partial class Binder
         return arguments.Success
             ? Construct(genericDefinition, arguments.ResolvedTypeArguments)
             : arguments;
+
+        INamedTypeSymbol? SelectNamespaceDefinition(string name, int requiredArity)
+        {
+            var definition = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), requiredArity);
+            if (definition is null || definition.OriginalDefinition is SourceNamedTypeSymbol)
+                return definition;
+
+            // Namespace enumeration is not a metadata identity selection policy.
+            // Match imports and metadata-name queries without forcing declaration completion.
+            var metadataName = definition.ToFullyQualifiedMetadataName();
+            return (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName)
+                : Compilation.GetTypeByMetadataName(metadataName)) ?? definition;
+        }
     }
 
     private bool CanUseLogicalSealedHierarchyQualifier(
@@ -608,7 +670,7 @@ internal abstract partial class Binder
             SyntaxKind.SByteKeyword => SpecialType.System_SByte,
             SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
             SyntaxKind.StringKeyword => SpecialType.System_String,
-            SyntaxKind.CharKeyword => SpecialType.System_Char,
+            SyntaxKind.CharKeyword when Compilation.Options.TargetPlatform != TargetPlatform.NeoCLR => SpecialType.System_Char,
             SyntaxKind.FloatKeyword => SpecialType.System_Single,
             SyntaxKind.DoubleKeyword => SpecialType.System_Double,
             SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
@@ -765,6 +827,40 @@ internal abstract partial class Binder
         };
     }
 
+    private ResolveTypeResult BindIntersectionConstraint(
+        IntersectionTypeSyntax intersection,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        // Ordinary targets admit constraint conjunctions only. The explicit native
+        // composition contract also admits structural signature/storage positions.
+        SyntaxNode root = intersection;
+        while (root.Parent is ParenthesizedTypeSyntax or IntersectionTypeSyntax)
+            root = root.Parent;
+
+        if ((!Compilation.UsesStructuralCompositions && root.Parent is not TypeConstraintSyntax) || intersection.Types.Count == 0)
+            return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
+
+        var constituents = ImmutableArray.CreateBuilder<ITypeSymbol>(intersection.Types.Count);
+        foreach (var syntax in intersection.Types)
+        {
+            var result = BindTypeCore(syntax, typeParams, importedScopes, allowBinderLookup);
+            if (!result.Success)
+                return result;
+            if (result.ResolvedType is not IIntersectionTypeSymbol &&
+                (result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                 result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false }))
+                return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
+            constituents.Add(result.ResolvedType);
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = Compilation.CreateIntersectionTypeSymbol(constituents.ToArray())
+        };
+    }
+
     private ResolveTypeResult BindUnion(
         UnionTypeSyntax union,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
@@ -805,6 +901,15 @@ internal abstract partial class Binder
         }
 
         var resolvedTypeArguments = typeArguments.ToImmutable();
+        if (Compilation.UsesStructuralCompositions)
+        {
+            if (!resolvedTypeArguments.All(CompositionTypeBounds.IsUnionAlternative))
+                return Fail(union, TypeResolutionFailureKind.UnionElementFailed);
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.CreateStructuralUnionTypeSymbol(resolvedTypeArguments.ToArray())
+            };
+        }
         var unionMetadataName = $"System.Union`{resolvedTypeArguments.Length}";
         if (Compilation.GetTypeByMetadataName(unionMetadataName) is INamedTypeSymbol unionDefinition &&
             unionDefinition.TypeParameters.Length == resolvedTypeArguments.Length)
@@ -905,7 +1010,15 @@ internal abstract partial class Binder
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(p.ElementType, TypeResolutionFailureKind.PointerElementFailed))
             };
 
-        return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(element.ResolvedType) };
+        // Native unit has nominal storage, but an unmanaged pointer to the explicitly
+        // selected System.Void contract remains CLI PTR VOID, not a pointer to that carrier.
+        var pointedAt = element.ResolvedType;
+        if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.RuntimeUnitContract is { TypeName: "System.Void", MapClrVoidToUnit: false } &&
+            (pointedAt.SpecialType == SpecialType.System_Unit ||
+             SymbolEqualityComparer.Default.Equals(pointedAt, Compilation.ResolveRuntimeUnitType())))
+            pointedAt = Compilation.GetSpecialType(SpecialType.System_Void);
+        return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(pointedAt) };
     }
 
     private ResolveTypeResult BindNullable(
@@ -1268,7 +1381,10 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>()
+                        .Select(type => type.OriginalDefinition is SourceNamedTypeSymbol ? type :
+                            LookupMetadataType(type.ToFullyQualifiedMetadataName()) ?? type)
+                        .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToArray();
                     if (arity is not null && i == nameParts.Length - 1)
                         named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
@@ -1364,11 +1480,18 @@ internal abstract partial class Binder
                 : Compilation.GetTypeByMetadataName(metadataName);
 
         ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol namespaceSymbol, string name)
-            => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+        {
+            var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? namespaceSymbol is SourceNamespaceSymbol sourceNamespace
                     ? sourceNamespace.LookupTypeDeclared(name)
                     : namespaceSymbol.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault()
                 : namespaceSymbol.LookupType(name);
+            // Qualified and early namespace lookup must agree with ordinary imports;
+            // merged namespace enumeration is not a metadata identity selection policy.
+            return type is INamedTypeSymbol named && named.OriginalDefinition is not SourceNamedTypeSymbol
+                ? LookupMetadataType(named.ToFullyQualifiedMetadataName()) ?? type
+                : type;
+        }
     }
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)

@@ -1,5 +1,8 @@
 # .NET Implementation Notes
 
+**.NET only:** the runtime and metadata mappings described here. The underlying
+language constructs are shared unless their language-reference section states otherwise.
+
 This document explains how Raven constructs map to the .NET runtime and metadata. For source-language semantics, start with the [language reference](index.md).
 
 ## Unit type
@@ -22,6 +25,14 @@ against declaration position:
   merged in compilation syntax-tree order before metadata emission.
 * Target prefixes used in an invalid declaration context are rejected with an
   attribute-target diagnostic.
+
+Untargeted attributes on a property or event describe that declaration; only explicit
+`field:` attributes describe its backing field. Raven declarations emitted as fields
+retain their untargeted field attributes.
+
+Source attribute policies may describe themselves or participate in mutually attributed
+classes. Raven binds attribute data before applying usage validation so those
+relationships do not recurse; invalid targets and multiplicity still diagnose.
 
 Generic parameter attributes are emitted on CLR `GenericParam` metadata for
 both type and method parameters and are exposed again when importing .NET
@@ -365,3 +376,12 @@ Rewrite proxy operands before removing unused assembly scopes. Union-case member
 references use the case's actual metadata container, which may differ from its
 logical union carrier. These rules preserve existing CLI contracts and also apply
 to libraries produced by Raven; they introduce no new target policy or syntax.
+
+## Readonly value-type receivers
+
+**.NET only representation:** a mutating struct instance call on a readonly field
+uses a defensive value copy, so repeated calls do not mutate the stored field.
+Mutable fields remain addressable. The declaring instance constructor may mutate
+its own readonly instance field during initialization; the declaring static
+constructor may likewise initialize readonly static storage. This emitter rule
+also applies when a value-type receiver is used for property or indexer access.

@@ -1,0 +1,106 @@
+using System.Reflection;
+
+using Raven.CodeAnalysis.CodeGen.Portable;
+using Raven.CodeAnalysis.Syntax;
+
+namespace Raven.CodeAnalysis.Tests.CodeGen;
+
+public class SharedTypeConstraintTests
+{
+    private const string Source = """
+        class Payload { var Number: int = 42 }
+        class Restricted<Element> where Element: Payload {
+            private var stored: Element
+            init(value: Element) { stored = value }
+            val Value: Element => stored
+        }
+        func Main() -> int => Restricted<Payload>(Payload()).Value.Number
+        """;
+
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void InterfaceOwnerBoundsRetainConcreteErrorTypes(string kind)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            public interface Failure { func Code() -> int }
+            public {{kind}} Problem : Failure { func Code() -> int => 42 }
+            public class Context<E: Failure> {
+                private var cause: E
+                init(cause: E) { self.cause = cause }
+                val Cause: E => cause
+            }
+            func Main() -> int => Context<Problem>(Problem()).Cause.Code()
+            """);
+        var compilation = Compilation.Create("InterfaceOwner" + kind, [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Context");
+        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        Assert.Equal(42, loaded.EntryPoint!.Invoke(null, null));
+        var context = loaded.GetType("Context`1")!;
+        Assert.True(context.GetGenericArguments().Single().GetGenericParameterConstraints().Single().IsInterface);
+        Assert.Throws<ArgumentException>(() => context.MakeGenericType(typeof(int)));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void NominalOwnerBoundsSurviveSharedPlanning(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText(Source);
+        var compilation = Compilation.Create("NominalTypeBounds", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Restricted");
+        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
+        var noBounds = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
+            [Accessibility.Public], [Accessibility.Internal], allowsRootClassSignatures: true, allowsGenericClassOwners: true);
+        Assert.False(SourceTypePlan.TryCreate(owner, out _, noBounds));
+        using var image = new MemoryStream(); var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        Assert.Equal(42, loaded.EntryPoint!.Invoke(null, null));
+        var parameter = loaded.GetType("Restricted`1")!.GetGenericArguments().Single();
+        Assert.Equal("Payload", parameter.GetGenericParameterConstraints().Single().Name);
+    }
+
+    [Theory]
+    [InlineData("class", GenericParameterAttributes.ReferenceTypeConstraint)]
+    [InlineData("struct", GenericParameterAttributes.NotNullableValueTypeConstraint | GenericParameterAttributes.DefaultConstructorConstraint)]
+    [InlineData("new()", GenericParameterAttributes.DefaultConstructorConstraint)]
+    public void SpecialOwnerConstraintsSurvivePlanningAndEmission(string constraint, GenericParameterAttributes expected)
+    {
+        var tree = SyntaxTree.ParseText($"class Box<T> where T: {constraint} {{ }}");
+        var compilation = Compilation.Create("SpecialBounds", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var parameter = Assembly.Load(image.ToArray()).GetType("Box`1")!.GetGenericArguments().Single();
+        Assert.Equal(expected, parameter.GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask);
+    }
+
+    [Fact]
+    public void InvalidConcreteTypeArgumentIsRejectedByBinding()
+    {
+        var tree = SyntaxTree.ParseText(Source.Replace("Restricted<Payload>(Payload())", "Restricted<int>(42)"));
+        var compilation = Compilation.Create("InvalidBound", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error && d.Location.IsInSource);
+        using var image = new MemoryStream();
+        Assert.False(compilation.Emit(image).Success);
+        Assert.Equal(0, image.Length);
+    }
+}

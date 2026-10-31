@@ -1,5 +1,10 @@
 # Target boundaries and Raven bootstrap plan
 
+> Historical architecture and integration checkpoints. The earlier integration
+> succeeded; subsequent target development continued on separate branches.
+> For the current author-directed reconciliation and validation status, see
+> [October 2026 reconciliation](target-reconciliation-2026-10.md).
+
 Date: 2026-09-30. Status: incremental implementation; .NET bootstrap qualification remains open.
 
 Execution evidence and current work are tracked in the [slice ledger](target-boundary-slices.md).

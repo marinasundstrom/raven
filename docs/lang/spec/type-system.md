@@ -50,7 +50,10 @@ types do not become distinct merely because one spelling uses an alias.
 
 ## Built-in types
 
-Raven provides keywords for the most common .NET types:
+Raven provides keywords for common value types. The table below shows their
+.NET mappings; runtime identities and representation come from the selected
+target's core library. A mapping difference does not make the language feature
+exclusive.
 
 | Raven keyword | .NET type | Meaning |
 | --- | --- | --- |
@@ -68,12 +71,14 @@ Raven provides keywords for the most common .NET types:
 | `double` | `System.Double` | 64-bit floating point |
 | `decimal` | `System.Decimal` | 128-bit decimal floating point |
 | `bool` | `System.Boolean` | `true` or `false` |
-| `char` | `System.Char` | UTF-16 code unit |
+| `char` | `System.Char` | UTF-16 code unit; **.NET only** keyword |
 | `string` | `System.String` | UTF-16 text |
 | `object` | `System.Object` | Base type of .NET reference types |
 | `unit` | `System.Unit` | The single no-result value `()` |
 
-Other .NET types can be referenced by qualified name, imported name, or alias.
+Other library types can be referenced by qualified name, imported name, or alias.
+The neoCLR profile uses `System.Character` for grapheme character values and rejects
+the `char` keyword. Its text representation is not the .NET UTF-16 contract.
 
 `unit` is a value type and can flow through generics, tuples, and unions. It is
 described in [Values, expressions, and
@@ -123,7 +128,7 @@ Fixed-length inference is conservative. Raven infers or validates a length only
 when the collection expression makes its element count directly available.
 See [Collection expressions](collection-expressions.md#array-targets).
 
-Like CLR arrays, a one-dimensional `T[]` implements `IEnumerable<T>`,
+On .NET, a one-dimensional `T[]` implements `IEnumerable<T>`,
 `ICollection<T>`, `IList<T>`, and their read-only counterparts. These
 relationships participate in normal interface conversions. Multidimensional
 arrays provide the non-generic `System.Collections.IEnumerable` relationship
@@ -133,8 +138,7 @@ instead.
 
 Tuple types describe a small group of values without requiring a named type.
 
-Tuple types use parentheses with comma-separated element types and map to
-`System.ValueTuple`:
+Tuple types use parentheses with comma-separated element types:
 
 ```raven
 let pair: (int, string) = (42, "answer")
@@ -158,11 +162,13 @@ Console.WriteLine(tuple.Item1)
 ```
 
 Tuple types may nest or participate in other type constructs such as unions or
-nullability.
+nullability. On .NET they map to `System.ValueTuple`; neoCLR uses its structural
+tuple representation. This is a runtime mapping difference, not separate tuple
+syntax.
 
 ## Function types
 
-Function types describe callable delegates so they can be stored, passed as
+Function types describe callable values so they can be stored, passed as
 arguments, or returned from other functions. Their syntax mirrors a lambda
 signature: a comma-separated parameter list followed by `->` and the return
 type.
@@ -186,19 +192,24 @@ let increment: int -> int
 The return portion may itself be any Raven type. Nested arrows associate to the
 right, so `int -> string -> bool` is parsed as `int -> (string -> bool)`.
 
-Function annotations are sugar over delegates. When the parameter and return
+On .NET, function annotations map to delegates. When the parameter and return
 types match an existing declaration (including the built-in `Func`/`Action`
 families), the compiler binds to that delegate. Otherwise it synthesizes an
 internal delegate with the appropriate signature so interop with .NET remains
 transparent. Parameter modifiers and names are not permitted inside a function
-type; specify only the types that flow into and out of the delegate. A `unit`
+type; specify only the types that flow into and out of the function. A `unit`
 return represents an action with no meaningful result.
+
+On neoCLR, function types use structural function signatures and the native
+callable representation. They do not require a nominal .NET delegate declaration.
+The parameter/result meaning is shared; runtime interop and supported conversions
+follow the selected target.
 
 Function-expression syntax, including explicit `func` expressions, lambda
 shorthand, modifiers, and named recursive forms, is described under [Function
 expressions](functions.md#function-expressions).
 
-When a function expression is target-typed by a delegate requirement (for
+On .NET, when a function expression is target-typed by a delegate requirement (for
 example, assignment to `Action<int>` or passing to a delegate-typed parameter),
 Raven projects the function value to a compatible delegate. Built-in
 `Func`/`Action` delegate shapes are displayed as function signatures in Raven
@@ -325,8 +336,9 @@ let number = identity(42) // T is inferred as int
 ```
 
 Type parameters are in scope throughout their declaration. Constructed generic
-types use ordinary CLR generic instantiations and interoperate directly with
-.NET libraries.
+types preserve their type arguments. On .NET they use ordinary CLR generic
+instantiations and interoperate directly with .NET libraries; neoCLR uses native
+generic metadata and runtime support.
 
 A call can provide type arguments explicitly or let Raven infer them from
 arguments and the expected result. If those inputs do not produce one
@@ -342,7 +354,32 @@ queries expose the attributes on `ITypeParameterSymbol`; CLR emission writes
 custom attributes on the corresponding `GenericParam` row. Attributes on a
 parameter do not become attributes on its containing type or method.
 
+### Intersection types
+
+**neoCLR only:** intersection types in value and signature positions.
+
+`A & B` describes a value satisfying every constituent bound. A structural union
+`A | B` requires one alternative; an intersection requires all its bounds.
+Intersection types use neoCLR's structural type representation. Their current
+implementation limits are documented in the
+[compiler notes](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/intersection-types.md); these are not permanent
+language restrictions. Ordinary .NET rejects intersection types in value/storage
+positions. Its generic-constraint shorthand below remains supported.
+
 ### Constraints
+
+The spelling `A & B` is supported as a conjunction of ordinary generic
+constraints on both targets, equivalent to comma-separated bounds with every
+bound required. It binds more tightly than `A | B`; parentheses can group nested
+conjunctions. For example, `where T: A & B` and `where T: A, B` require the same
+bounds. On .NET this does not create an intersection runtime type or permit
+`A & B` in parameter, result, field or local type positions.
+
+Semantic queries on a constraint conjunction expose the normalized intersection
+of its bounds, while the type parameter retains individual `ConstraintTypes`.
+This compiler representation does not imply runtime intersection support.
+Constraint conjunctions accept interfaces and at most one distinct class bound;
+class bounds cannot accompany `struct`. Invalid combinations report RAV0364.
 
 Constraints restrict acceptable type arguments. They can follow a type
 parameter after `:` or appear in a `where` clause:

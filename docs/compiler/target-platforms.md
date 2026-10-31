@@ -1,15 +1,53 @@
 # Target platforms
 
-Raven emits ordinary managed CLI assemblies. A target is therefore defined by
-the reference assemblies used during compilation, the identity of its core
-library, and the tool that turns the emitted assembly into a deployable
-artifact. A target does not define a separate Raven language dialect.
+Raven has one compiler with explicit .NET and neoCLR targets. **.NET remains the
+primary and default target.** Existing samples, SDK templates and getting-started
+workflows continue to compile for .NET unless they explicitly select neoCLR.
+Integrating target support does not migrate those workloads.
+
+The .NET target
+emits managed CLI assemblies; the optional neoCLR backend emits native neoCLR
+metadata and code. Each target selects its runtime contracts, reference libraries
+and artifact pipeline. Shared language features retain shared semantics, while
+explicit target-specific facilities and representations may differ.
+
+## Reading target availability
+
+Shared language features are unmarked. **.NET only** and **neoCLR only** identify
+exclusive features or target-specific representations at the relevant section or
+example. This convention applies to the language reference, website and grammar
+notes. It does not promise that every library API or execution mode is available
+on both targets: examples require the libraries they reference, and experimental
+implementation gaps are stated separately from permanent target restrictions.
+
+Native `Self` contracts, intersection types and structural function category
+constraints are grouped under [neoCLR-only language features](../lang/spec/neoclr-features.md).
+
+Structural unions are shared language features with target-specific runtime
+implementations. Intersection types are **neoCLR only**, while `A & B` in generic
+constraints remains supported on .NET as ordinary conjunctive bounds.
+
+For example, the structural category constraint `where T: func` is **neoCLR only**;
+ordinary .NET rejects it. The CLI mappings described in the
+[.NET implementation notes](../lang/spec/dotnet-implementation.md) are **.NET only**
+representations of otherwise shared language features. Native AOT publishing
+through the .NET SDK below is **.NET only**, distinct from native neoCLR execution.
+
+neoCLR uses `module` declarations where .NET code uses `namespace` declarations.
+Both use qualified names and the same import syntax; see
+[namespaces and modules](../lang/spec/namespaces-and-imports.md#neoclr-module-declarations).
+The declaration keyword does not select the target.
+
+The [post-merge neoCLR semantic gap review](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/target-reconciliation-2026-10.md#neoclr-semantic-differences-and-gaps-to-revisit)
+separates deliberate runtime differences from missing implementation and lists
+what to revisit, especially native Self, cleanup/failure and async behavior.
 
 ## Support levels
 
 | Platform or deployment model | Level | What works | Important limitations |
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
+| neoCLR | Experimental | The optional native adapter imports and emits native metadata, with separately validated interpreter workloads. | Requires matching native metadata/runtime libraries and explicit contracts. Supported features and interpreter/JIT/AOT qualification differ; see the [reconciliation ledger](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/target-reconciliation-2026-10.md). |
 | Browser WebAssembly | Experimental | A framework-free Raven application composes `Raven.Sdk` with `Microsoft.NET.Sdk.WebAssembly`, starts the .NET runtime in a browser, and uses generated `[JSImport]`/`[JSExport]` interop without Blazor. | Requires the .NET WebAssembly build tools. The first generator slice supports string imports, string callbacks, and string-based named exports; interop macros and broader browser API projections remain future work. |
 | WASI WebAssembly | Investigation | The .NET runtime provides an experimental `wasi-wasm` path that can inform a host-neutral Raven target. | Raven has no WASI template yet. Host capabilities, .NET API mapping, WIT/component interfaces, diagnostics, and a host test matrix must be designed first. |
 | OCI containers | Supported | The .NET SDK can publish a Raven executable as a container image without a Dockerfile, load it into a local runtime, save it as an archive, or push it to a registry. | The selected base image and container runtime must support the application's target framework and architecture. |
@@ -46,6 +84,8 @@ also remains a general deployment option for command-line tools, services,
 containers, and other applications unrelated to IoT.
 
 ## Native AOT
+
+**.NET only.** This is a publishing mode of the .NET target.
 
 Native AOT is a .NET publishing mode, not a separate Raven target framework or
 backend. Raven first emits a normal managed assembly. The .NET SDK and IL

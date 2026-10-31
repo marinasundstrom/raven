@@ -41,11 +41,16 @@ internal sealed class AttributeBinder : BlockBinder
 
     internal BoundExpression BindAttribute(AttributeSyntax attribute)
     {
-        if (TryGetCachedBoundNode(attribute) is BoundExpression cached)
+        // Source-core declarations include the attribute classes themselves. Do not
+        // retain an early result before their constructors and constants are bound.
+        var canCache = Compilation.Options.MetadataImportOptions?.UseSourceCore != true ||
+            Compilation.SourceDeclarationsComplete;
+        if (canCache && TryGetCachedBoundNode(attribute) is BoundExpression cached)
             return cached;
 
         var bound = BindAttributeCore(attribute);
-        CacheBoundNode(attribute, bound);
+        if (canCache)
+            CacheBoundNode(attribute, bound);
         return bound;
     }
 

@@ -66,6 +66,24 @@ metadata names. The [author-supplied article](https://www.damirscorner.com/blog/
 illustrates the allocation/aliasing motivation. The former is the semantic model;
 the latter is context. Raven deliberately preserves its unit-valued assignments.
 
+
+## Native qualification on codex/neoclr
+
+The shared change is carried from Raven main `7819e2fea`. Native callable planning
+and linear invocation lowering admit instance compound operators through the
+existing instance-method capability. A separate `ElementAddress` linear instruction
+is enabled by the native adapter and maps to metadata-SDK `OpCode.Ldelema` (neoCLR
+main `1b4561f3b`). This reuses the runtime's existing managed array address operation.
+Build with a matching `NeoClrMetadataProject`; no Runtime Contract setting changes.
+
+The neoCLR fixture `docs/validation/compound-operators/Main.rvn` returns 42 in the
+interpreter and macOS ARM64 JIT/AOT. It tests reference alias identity, explicit
+operator precedence, struct-local mutation and single evaluation of a reference
+array index. `ValueArrays.rvn` additionally qualifies struct-array mutation in the
+interpreter. AOT rejects nominal struct-array allocation explicitly; this remains a
+runtime backend gap, not an alternative compound-assignment semantic. The checked-in
+neoCLR qualification record contains bundle/compiler hashes and commands. This does
+not claim native imported-library or all-platform coverage.
 The remainder/shift follow-up adds `%=` / `<<=` / `>>=` / `>>>=` and binary
 `>>>`, using .NET operator metadata names on both current targets. Predefined
 shifts preserve an `int` count independently of the left operand width, and
@@ -80,6 +98,14 @@ Follow-up validation on main: 101 focused compound/operator, assignment syntax,
 generic-name and binary-binding tests pass on .NET 11 (2026-10-16); the required
 generated-syntax solution build also passes.
 
+Remainder/shift native carry from main `b5e6bb0d3`: 104 focused tests pass on
+`codex/neoclr`. The expanded neoCLR consumer returns 42 in interpreter, macOS
+ARM64 AOT and managed JIT, including all four compound declarations, zero fill,
+masked counts and 64-bit operands. Native `>>>` lowers to the existing unsigned
+shift operation; no new metadata encoding or runtime opcode is introduced.
+The generator build reached a stale RavenDoc reference-resolution failure; an
+explicit restore/build with `-p:NeoClrMetadataProject=<matching SDK project>`
+succeeded. Use the explicit MSBuild property for this native compiler build.
 ## Instance increment and decrement
 
 `func ++()` and `func --()` declare public parameterless instance operators
@@ -103,6 +129,11 @@ Instance increment validation: 231 focused compound, increment and user-defined
 operator runtime tests pass on .NET 11, including class/struct results, array
 index side effects, readonly rejection and consumed-postfix static dispatch.
 
+Native increment carry from `94f133cab`: 233 focused compiler tests pass. The
+expanded native consumer returns 42 under interpreter, macOS ARM64 AOT and JIT,
+including class/struct prefix results and static consumed-postfix fallback.
+Callable planning admits parameterless instance increment methods; execution uses
+ordinary instance calls without new Runtime Contract settings or opcodes.
 ## Truth and conditional logical operators
 
 Paired static truth declarations emit `op_True`/`op_False`. Signature validation
@@ -124,6 +155,9 @@ operators return false.
 Truth/logical validation on main: generated-syntax solution build and 107 focused
 operator, if/while and logical tests pass, including an emitted-library consumer.
 
+Native truth/logical carry from main `7039b3e23`: 109 focused compiler tests
+pass; the consumer returns 42 in interpreter, macOS ARM64 JIT and AOT, including
+short-circuit side effects, neither-true-nor-false input and truth conditions.
 Member parsing gives `func !(...)` precedence over a bang macro invocation named
 `func`, restoring logical-not operator declarations. Declaration macros with an
 identifier after the bang keep their existing syntax.
@@ -137,6 +171,12 @@ Parser follow-up validation: 87 focused tests pass, including macro, cast and
 generic-name regressions. The expanded native-repository operator matrix also
 compiles and runs as an ordinary .NET 11 consumer.
 
+Native parser carry from main `75607f005` passes the same 87 focused tests.
+The full operator consumer returns 42 on .NET 11 and native interpreter, macOS
+ARM64 JIT and AOT. It covers arithmetic, bitwise, shifts, comparisons, unary
+operators, static/instance increments, conversions and truth-based short-circuiting.
+Checked contexts/forms and broader interface/virtual declarations are still open;
+this qualification does not claim those capabilities.
 ## Checked declaration and metadata foundation
 
 Development slice: `func checked` parses an optional `CheckedKeyword` slot on
@@ -172,3 +212,9 @@ lookup protected. A Roslyn 4.12 C# consumer selects exported checked arithmetic
 and explicit conversions; its older language version does not qualify C# 14
 instance syntax. Unit-valued arrow blocks now use normal method-body lowering,
 avoiding invalid IL in expression-bodied operators.
+
+Native carry validation: generated-syntax build, explicit metadata-SDK compiler
+build and 98 focused tests pass. The checked-declaration consumer returns 42 on
+.NET 11 and native interpreter/macOS ARM64 JIT/AOT. See the NeoCLR repository's
+`checked-declarations-native-results.json` and `checked-declarations-dotnet-results.json`
+for commands and artifact fingerprints. No checked-expression support is implied.

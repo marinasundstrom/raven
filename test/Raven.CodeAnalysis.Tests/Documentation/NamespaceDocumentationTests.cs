@@ -7,6 +7,89 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class NamespaceDocumentationTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, "Namespace")]
+    [InlineData(true, "Module")]
+    public void ModuleTerminologyRetainsAssemblyOwner(bool modules, string label)
+    {
+        var tree = SyntaxTree.ParseText("namespace Examples { public class Item {} }");
+        var compilation = Compilation.Create("Package", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var output = Path.Combine(Path.GetTempPath(), "module-docs-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessAssembly(compilation, compilation.Assembly, output,
+                new DocumentationSiteOptions([], ModuleTerminology: modules));
+            var html = File.ReadAllText(Path.Combine(output, "Examples/Item/index.html"));
+            Assert.Contains($"<strong>{label}</strong>", html);
+            Assert.Contains("<strong>Assembly</strong>", html);
+            Assert.Contains(label + " overview", html);
+            Assert.Contains("Package", html);
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [Trait("Layer", "documentation")]
+    [InlineData("Samples")]
+    [InlineData("")]
+    public void DotNetAssemblyMemberSidecarsUseCarrierIds(string namespaceName)
+        => VerifyAssemblyMemberSidecars(TargetPlatform.DotNet, "NamespaceMembers.", namespaceName);
+
+    [Theory]
+    [Trait("Target", "NeoCLR")]
+    [Trait("Layer", "documentation")]
+    [InlineData("Samples")]
+    [InlineData("")]
+    public void NeoClrAssemblyMemberSidecarsUseNamespaceIds(string namespaceName)
+        => VerifyAssemblyMemberSidecars(TargetPlatform.NeoCLR, "", namespaceName);
+
+    private static void VerifyAssemblyMemberSidecars(TargetPlatform target, string carrier, string namespaceName)
+    {
+        var declaration = namespaceName.Length == 0 ? "" : "namespace " + namespaceName + "\n";
+        var owner = (namespaceName.Length == 0 ? "" : namespaceName + ".") + carrier;
+        var tree = SyntaxTree.ParseText(declaration + "/// Function summary\npublic func Score(value: int) -> int { value }\n/// Generic summary\npublic func Identity<T>(value: T) -> T => value\n/// Constant summary\npublic const Scale: int = 2",
+            new ParseOptions { DocumentationMode = true, DocumentationFormat = DocumentationFormat.Markdown });
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var references = TestMetadataReferences.Default.ToArray();
+        if (target == TargetPlatform.NeoCLR)
+        {
+            var corePath = references.OfType<PortableExecutableReference>()
+                .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
+            using var core = Mono.Cecil.AssemblyDefinition.ReadAssembly(corePath);
+            core.Name.Name = "NeoCLR.CoreProbe";
+            core.Name.PublicKey = [];
+            using var image = new MemoryStream();
+            core.Write(image);
+            references = [.. references, MetadataReference.CreateFromImage(image.ToArray())];
+            options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+                .WithRuntimeTypeOfContract(null);
+        }
+        var compilation = Compilation.Create("MemberDocs", [tree], references, options);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var root = Path.Combine(Path.GetTempPath(), "member-docs-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            ExternalDocumentationEmitter.WriteXmlDocumentation(compilation, Path.Combine(root, "docs.xml"));
+            ExternalDocumentationEmitter.WriteMarkdownDocumentation(compilation, Path.Combine(root, "docs.docs"));
+            var xml = System.Xml.Linq.XDocument.Load(Path.Combine(root, "docs.xml"));
+            var ids = xml.Descendants("member").Select(member => member.Attribute("name")!.Value).ToArray();
+            ids.ShouldContain("M:" + owner + "Score(System.Int32)");
+            ids.ShouldContain("F:" + owner + "Scale");
+            ids.ShouldContain("M:" + owner + "Identity``1(``0)");
+            var markdown = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "docs.docs"), "*.md", SearchOption.AllDirectories).Select(File.ReadAllText));
+            markdown.ShouldContain("xref: M:" + owner + "Score(System.Int32)");
+            markdown.ShouldContain("xref: F:" + owner + "Scale");
+            markdown.ShouldContain("Function summary");
+            markdown.ShouldContain("Constant summary");
+            markdown.ShouldContain("xref: M:" + owner + "Identity``1(``0)");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Theory]
     [InlineData(false, "Samples")]
     [InlineData(true, "Samples")]
     [InlineData(false, "System")]

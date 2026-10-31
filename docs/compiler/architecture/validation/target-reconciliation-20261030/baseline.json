@@ -1,0 +1,123 @@
+{
+  "result": "PASS after fixture corrections and resuming failed batches",
+  "compilerCodeChangedDuringBaseline": false,
+  "compilerBatches": 76,
+  "compilerPassedExecutions": 6725,
+  "otherProjectPassedExecutions": 107,
+  "totalPassedExecutions": 6832,
+  "runs": [
+    {
+      "log": "/tmp/raven-reconcile-baseline.log",
+      "successfulBatches": [
+        "Passed!  - Failed:     0, Passed:    74, Skipped:     0, Total:    74, Duration: 13 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    70, Skipped:     0, Total:    70, Duration: 6 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    69, Skipped:     0, Total:    69, Duration: 11 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   150, Skipped:     0, Total:   150, Duration: 28 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 14 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    76, Skipped:     0, Total:    76, Duration: 16 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    69, Skipped:     0, Total:    69, Duration: 22 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   122, Skipped:     0, Total:   122, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    93, Skipped:     0, Total:    93, Duration: 27 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   113, Skipped:     0, Total:   113, Duration: 29 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   124, Skipped:     0, Total:   124, Duration: 24 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    42, Skipped:     0, Total:    42, Duration: 7 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    79, Skipped:     0, Total:    79, Duration: 20 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    40, Skipped:     0, Total:    40, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    63, Skipped:     0, Total:    63, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    85, Skipped:     0, Total:    85, Duration: 11 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    64, Skipped:     0, Total:    64, Duration: 9 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    39, Skipped:     0, Total:    39, Duration: 6 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    46, Skipped:     0, Total:    46, Duration: 12 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   117, Skipped:     0, Total:   117, Duration: 26 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 19 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   155, Skipped:     0, Total:   155, Duration: 56 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   159, Skipped:     0, Total:   159, Duration: 28 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   173, Skipped:     0, Total:   173, Duration: 50 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    54, Skipped:     0, Total:    54, Duration: 10 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    51, Skipped:     0, Total:    51, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    58, Skipped:     0, Total:    58, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   189, Skipped:     0, Total:   189, Duration: 1 m - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    82, Skipped:     0, Total:    82, Duration: 17 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    94, Skipped:     0, Total:    94, Duration: 14 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   142, Skipped:     0, Total:   142, Duration: 10 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 2 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 10 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   120, Skipped:     0, Total:   120, Duration: 2 m 56 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   265, Skipped:     0, Total:   265, Duration: 48 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    30, Skipped:     0, Total:    30, Duration: 7 s - Raven.CodeAnalysis.Tests.dll (net11.0)"
+      ]
+    },
+    {
+      "log": "/tmp/raven-reconcile-baseline-resumed.log",
+      "successfulBatches": [
+        "Passed!  - Failed:     0, Passed:   117, Skipped:     0, Total:   117, Duration: 1 m 1 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   101, Skipped:     0, Total:   101, Duration: 31 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   123, Skipped:     0, Total:   123, Duration: 1 m 5 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    68, Skipped:     0, Total:    68, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    93, Skipped:     0, Total:    93, Duration: 28 s - Raven.CodeAnalysis.Tests.dll (net11.0)"
+      ]
+    },
+    {
+      "log": "/tmp/raven-reconcile-baseline-resumed-2.log",
+      "successfulBatches": [
+        "Passed!  - Failed:     0, Passed:    75, Skipped:     0, Total:    75, Duration: 13 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    97, Skipped:     0, Total:    97, Duration: 23 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   144, Skipped:     0, Total:   144, Duration: 22 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   178, Skipped:     0, Total:   178, Duration: 17 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    59, Skipped:     0, Total:    59, Duration: 2 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    51, Skipped:     0, Total:    51, Duration: 6 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    17, Skipped:     0, Total:    17, Duration: 3 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 7 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 54 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    77, Skipped:     0, Total:    77, Duration: 20 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 9 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    37, Skipped:     0, Total:    37, Duration: 4 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    38, Skipped:     0, Total:    38, Duration: 28 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   100, Skipped:     0, Total:   100, Duration: 19 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   201, Skipped:     0, Total:   201, Duration: 31 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    59, Skipped:     0, Total:    59, Duration: 15 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 20 s - Raven.CodeAnalysis.Tests.dll (net11.0)"
+      ]
+    },
+    {
+      "log": "/tmp/raven-reconcile-baseline-resumed-3.log",
+      "successfulBatches": [
+        "Passed!  - Failed:     0, Passed:    90, Skipped:     0, Total:    90, Duration: 19 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    79, Skipped:     0, Total:    79, Duration: 20 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    29, Skipped:     0, Total:    29, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    93, Skipped:     0, Total:    93, Duration: 11 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    87, Skipped:     0, Total:    87, Duration: 9 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    91, Skipped:     0, Total:    91, Duration: 261 ms - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    71, Skipped:     0, Total:    71, Duration: 23 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    41, Skipped:     0, Total:    41, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    66, Skipped:     0, Total:    66, Duration: 11 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    48, Skipped:     0, Total:    48, Duration: 10 s - Raven.CodeAnalysis.Tests.dll (net11.0)"
+      ]
+    },
+    {
+      "log": "/tmp/raven-reconcile-baseline-resumed-4.log",
+      "successfulBatches": [
+        "Passed!  - Failed:     0, Passed:   121, Skipped:     0, Total:   121, Duration: 19 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:   220, Skipped:     0, Total:   220, Duration: 34 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    85, Skipped:     0, Total:    85, Duration: 13 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    69, Skipped:     0, Total:    69, Duration: 18 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    41, Skipped:     0, Total:    41, Duration: 5 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:    51, Skipped:     0, Total:    51, Duration: 8 s - Raven.CodeAnalysis.Tests.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:     9, Skipped:     0, Total:     9, Duration: 3 s - Raven.CodeAnalysis.Testing.dll (net10.0)",
+        "Passed!  - Failed:     0, Passed:     9, Skipped:     0, Total:     9, Duration: 3 s - Raven.CodeAnalysis.Testing.dll (net11.0)",
+        "Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 18 ms - AsyncEntryDiffRunner.Tests.dll (net10.0)",
+        "Passed!  - Failed:     0, Passed:    84, Skipped:     0, Total:    84, Duration: 8 s - Raven.Core.Tests.dll (net10.0)",
+        "Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 695 ms - Raven.Editor.Tests.dll (net10.0)"
+      ]
+    }
+  ],
+  "corrections": [
+    "Result documentation fence count follows source examples",
+    "native profile import requires native emission; legacy .NET bridge remains independently checked",
+    "native source root CLI rejection does not depend on capability guard order",
+    "custom Result test fixture calls its declared Error case"
+  ],
+  "scope": "Complete merge-candidate baseline before the subsequent qualified metadata lookup correction; see reconciliation ledger for later checks."
+}

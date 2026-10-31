@@ -341,6 +341,23 @@ declaration. Symbol display uses this structure when `IncludeName` is requested;
 `IncludeType` alone continues to display only the input type. Editor signature
 help delegates parameter formatting to this shared compiler display path.
 
+## Implicit auto-property identity during rebinding — 2026-10-01
+
+Repeated diagnostics, semantic queries and emission may revisit an implicit
+nonprivate auto-property declaration. The member binder now reuses its completed
+source accessor symbols, setter parameter and backing field within the compilation.
+It still replaces incomplete signature skeletons through the existing path. This
+prevents duplicate setter members and keeps property associations identical to the
+symbols enumerated by the containing type. Explicit accessors, interface/extension
+properties and private field-only storage retain their existing paths.
+
+The Order declaration from neoCLR's order-collections sample exposed this shared
+compiler issue while preparing object metadata emission. A regression reproduces the
+identity mismatch without a native backend, then checks repeated binding, canonical
+member enumeration and ordinary .NET constructor/property execution. This is a
+shared compiler fix, suitable for the shared line independently of native object
+support; it must not be treated as permanently target-specific.
+
 
 ### Unresolved overload return types
 
@@ -356,3 +373,8 @@ including when an available-type query ran first. Language services present thos
 compiler answers; no client-side task-name or callback-result substitution is
 needed. This changes no Runtime Contract option, metadata signature or ordinary
 .NET runtime convention.
+
+The native line carries main `752d240b4`. Its `NeoClrMetadataProbe
+--native-function-inference <project>` check loads the project’s native references
+and verifies a cold `Task.Run(() => 41)` local and its awaited value. The compiler
+answer must be `Task<int>` and `int`, independently of editor rendering.

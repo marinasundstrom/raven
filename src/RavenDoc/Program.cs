@@ -56,10 +56,12 @@ internal static class RavenDocCommand
                     inputPath,
                     outputPath,
                     options.TargetFramework,
-                    options.SiteOptions);
+                    options.SiteOptions, options.NativeCoreReference, options.ReferencePaths);
             }
             else
             {
+                if (options.NativeCoreReference is not null)
+                    throw new ArgumentException("Native documentation requires compiled .dll inputs; source/project loading is not supported.");
                 GenerateFromSource(
                     inputPath,
                     outputPath,
@@ -134,15 +136,24 @@ internal static class RavenDocCommand
         string assemblyPath,
         string outputPath,
         string targetFramework,
-        DocumentationSiteOptions siteOptions)
-        => GenerateFromAssemblies([assemblyPath], outputPath, targetFramework, siteOptions);
+        DocumentationSiteOptions siteOptions,
+        string? nativeCoreReference = null,
+        IReadOnlyList<string>? referencePaths = null)
+        => GenerateFromAssemblies([assemblyPath], outputPath, targetFramework, siteOptions, nativeCoreReference, referencePaths);
 
     internal static void GenerateFromAssemblies(
         IReadOnlyList<string> assemblyPaths,
         string outputPath,
         string targetFramework,
-        DocumentationSiteOptions siteOptions)
+        DocumentationSiteOptions siteOptions,
+        string? nativeCoreReference = null,
+        IReadOnlyList<string>? referencePaths = null)
     {
+        if (nativeCoreReference is not null)
+        {
+            NativeDocumentationInput.Generate(assemblyPaths, outputPath, nativeCoreReference, referencePaths ?? [], siteOptions);
+            return;
+        }
         var targetReferences = assemblyPaths.Select(MetadataReference.CreateFromFile).ToArray();
         var references = new List<MetadataReference>(targetReferences);
         var seenPaths = new HashSet<string>(assemblyPaths, StringComparer.OrdinalIgnoreCase);
@@ -225,6 +236,7 @@ internal static class RavenDocCommand
         var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
         var showHelp = false;
+        string? nativeCoreReference = null;
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -298,6 +310,14 @@ internal static class RavenDocCommand
                     }
                     templateValues[templateName] = replacement;
                     break;
+                case "--native-core-reference":
+                    if (nativeCoreReference is not null || !TryReadValue(args, ref index, out nativeCoreReference))
+                    {
+                        Console.Error.WriteLine("Specify --native-core-reference once with a native core path.");
+                        options = default;
+                        return false;
+                    }
+                    break;
                 case "-r":
                 case "--reference":
                     if (!TryReadValue(args, ref index, out var referencePath))
@@ -345,6 +365,7 @@ internal static class RavenDocCommand
                 templateValues,
                 siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle, NamespaceNavigation: namespaceNavigation, ShowEmptyNamespaces: showEmptyNamespaces),
             referencePaths,
+            nativeCoreReference,
             showHelp);
         return true;
     }
@@ -424,7 +445,8 @@ internal static class RavenDocCommand
                   --site-root <directory>  Link the header brand to this site's root
                   --nav <label=url>        Add a related-site link to the generated header
                   --value <name=value>     Replace {{name}} in Markdown; may be repeated
-              -r, --reference <assembly>   Add a metadata reference for source input
+              -r, --reference <assembly>   Add a source or native metadata dependency
+                  --native-core-reference <assembly>  Use explicit neoCLR native core metadata
               -h, --help                  Show help
 
             RavenDoc reads Markdown directly from Raven source symbols or from a
@@ -438,5 +460,6 @@ internal static class RavenDocCommand
         string TargetFramework,
         DocumentationSiteOptions SiteOptions,
         IReadOnlyList<string> ReferencePaths,
+        string? NativeCoreReference,
         bool ShowHelp);
 }

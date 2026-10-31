@@ -13,7 +13,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 {
     private static int s_lowererInstanceSeed;
     private readonly ISymbol _containingSymbol;
-    private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopStack = new();
+    private readonly Stack<(ILabelSymbol? BreakLabel, ILabelSymbol? ContinueLabel)> _loopStack = new();
     private readonly Dictionary<ILabelSymbol, (ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
     private readonly ILoweringTraceSink? _loweringTrace;
     private readonly int _lowererInstanceId;
@@ -38,6 +38,8 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
         var lowerer = CreateLowerer(containingSymbol);
         var lowered = (BoundBlockStatement)lowerer.VisitStatement(block);
+        if (lowerer.GetCompilation().Options.RuntimeDisposalContract is { UseExceptionHandling: false })
+            lowered = (BoundBlockStatement)lowerer.RewriteScopeExitCleanup(lowered);
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
@@ -69,6 +71,8 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
         var lowerer = CreateLowerer(containingSymbol);
         var lowered = (BoundStatement)lowerer.VisitStatement(statement);
+        if (lowerer.GetCompilation().Options.RuntimeDisposalContract is { UseExceptionHandling: false })
+            lowered = (BoundStatement)lowerer.RewriteScopeExitCleanup(lowered);
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
@@ -77,6 +81,8 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         expression = ConditionalCallRewriter.Rewrite(expression);
         var lowerer = CreateLowerer(containingSymbol);
         var lowered = (BoundExpression)lowerer.VisitExpression(expression)!;
+        if (lowerer.GetCompilation().Options.RuntimeDisposalContract is { UseExceptionHandling: false })
+            lowered = (BoundExpression)lowerer.RewriteScopeExitCleanup(lowered);
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 

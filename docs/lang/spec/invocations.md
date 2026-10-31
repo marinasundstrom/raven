@@ -18,9 +18,13 @@ type defines an invocation operator.
 When generic overloads have equivalent constructed parameter types, ignoring
 nullable reference annotations, Raven compares their declared parameter shapes.
 A concrete type shape is more specific than a type parameter; the comparison
-also applies inside matching generic types and arrays. For example,
+also applies inside matching generic types, arrays, and structural function
+signatures (matching parameter count and reference kinds). For example,
 `Func<Task<T>>` is more specific than `Func<T>` when both accept a
-`Func<Task<int>>` argument. Explicit type arguments still constrain selection.
+`Func<Task<int>>` argument. For neoCLR structural callbacks, `() -> Task<T>` likewise wins over `() -> T`
+when both accept `() -> Task<int>`. Specificity is compared across both input
+and result types; conflicting preferences remain ambiguous. Explicit type
+arguments still constrain selection.
 
 ## Optional arguments
 

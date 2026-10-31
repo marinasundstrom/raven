@@ -23,6 +23,40 @@ public class TargetCoreSelectionTests
         .WithTargetCoreAssemblyName("System.Runtime");
 
     [Fact]
+    public void SharedPrimitiveCallableSignaturesUseSelectedCore()
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var compilation = Compilation.Create("PrimitiveCore", [SyntaxTree.ParseText("""
+            public static class Example {
+                public static func Echo(value: int) -> int { let copy = value; return copy }
+                public static func Wide(value: long) -> long { let copy = value; return copy }
+                public static func Text(value: string) -> string { let copy = value; return copy }
+                public static func Flag(value: bool) -> bool { let copy = value; return copy }
+                public static func Notify(value: int) { }
+            }
+            """)], references.Select(MetadataReference.CreateFromFile).ToArray(), Options.WithOptimizationLevel(OptimizationLevel.Release));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        output.Position = 0;
+        using var assembly = AssemblyDefinition.ReadAssembly(output);
+        var methods = assembly.MainModule.GetType("Example").Methods.Where(m => m.Name is "Echo" or "Notify" or "Wide" or "Flag" or "Text").ToArray();
+        Assert.Equal(5, methods.Length);
+        foreach (var method in methods)
+        {
+            Assert.Equal("System.Runtime", method.ReturnType.Scope.Name);
+            Assert.Equal("System.Runtime", Assert.Single(method.Parameters).ParameterType.Scope.Name);
+            if (method.Name != "Notify")
+            {
+                var local = Assert.Single(method.Body.Variables);
+                Assert.Equal("System.Runtime", local.VariableType.Scope.Name);
+                Assert.Equal(method.ReturnType.FullName, local.VariableType.FullName);
+            }
+        }
+        Assert.DoesNotContain(assembly.MainModule.AssemblyReferences, reference => reference.Name == "System.Private.CoreLib");
+    }
+
+    [Fact]
     public async Task CompilerDriverKeepsProjectTargetReferencesIsolated()
     {
         var repository = new DirectoryInfo(AppContext.BaseDirectory);

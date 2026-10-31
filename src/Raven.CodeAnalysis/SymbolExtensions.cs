@@ -98,6 +98,21 @@ public static partial class SymbolExtensions
         if (type is null)
             return string.Empty;
 
+        if (type is IFunctionReturnTypeSymbol projection)
+            return $"FR:{GetTypeLookupIdentityKey(projection.FunctionType)}";
+
+        if (type is StructuralFunctionTypeSymbol function)
+            return $"SF:[{string.Join(";", function.ParameterTypes.Select((parameter, index) => $"{function.ParameterRefKinds[index]}:{GetTypeLookupIdentityKey(parameter)}"))}]->{GetTypeLookupIdentityKey(function.ReturnType)}";
+
+        if (type is IStructuralUnionTypeSymbol union)
+            return $"SU:[{string.Join(";", union.ConstituentTypes.Select(GetTypeLookupIdentityKey).Order(StringComparer.Ordinal))}]";
+
+        if (type is IIntersectionTypeSymbol intersection)
+            return $"SI:[{string.Join(";", intersection.ConstituentTypes.Select(GetTypeLookupIdentityKey).Order(StringComparer.Ordinal))}]";
+
+        if (type is StructuralTupleTypeSymbol tuple)
+            return $"ST:[{string.Join(";", tuple.TupleElements.Select(element => GetTypeLookupIdentityKey(element.Type)))}]";
+
         if (type is IArrayTypeSymbol array)
             return $"A:{array.Rank}:{GetTypeLookupIdentityKey(array.ElementType)}";
 

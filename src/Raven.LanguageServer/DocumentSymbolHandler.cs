@@ -71,7 +71,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             var syntaxTree = context.Value.SyntaxTree;
             var text = context.Value.SourceText;
 
-            var cacheKey = new DocumentSymbolCacheKey(request.TextDocument.Uri.ToString(), document.Version);
+            var cacheKey = new DocumentSymbolCacheKey(request.TextDocument.Uri.ToString(), document.Version, document.Project.CompilationOptions?.TargetPlatform == Raven.CodeAnalysis.TargetPlatform.NeoCLR);
             if (_cache.TryGetValue(cacheKey, out var cachedSymbols))
             {
                 cacheHit = true;
@@ -84,7 +84,10 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             rootMs = stopwatch.Elapsed.TotalMilliseconds - analysisContextMs;
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            var symbols = BuildMemberSymbols(root.Members, text)
+            var memberSymbols = BuildMemberSymbols(root.Members, text).ToArray();
+            if (cacheKey.Modules)
+                memberSymbols = memberSymbols.Select(ApplyModuleTerminology).ToArray();
+            var symbols = memberSymbols
                 .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
                 .ToArray();
             symbolBuildMs = stopwatch.Elapsed.TotalMilliseconds - analysisContextMs - rootMs;
@@ -161,7 +164,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             return false;
         }
 
-        if (!_cache.TryGetValue(new DocumentSymbolCacheKey(uri.ToString(), document.Version), out var cachedSymbols))
+        if (!_cache.TryGetValue(new DocumentSymbolCacheKey(uri.ToString(), document.Version, document.Project.CompilationOptions?.TargetPlatform == Raven.CodeAnalysis.TargetPlatform.NeoCLR), out var cachedSymbols))
             return false;
 
         symbols = cachedSymbols;
@@ -229,6 +232,15 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
         }
     }
 
+    private static DocumentSymbol ApplyModuleTerminology(DocumentSymbol symbol)
+        => symbol with
+        {
+            Kind = symbol.Kind == SymbolKind.Namespace ? SymbolKind.Module : symbol.Kind,
+            Children = symbol.Children is { } children
+                ? new Container<DocumentSymbol>(children.Select(ApplyModuleTerminology))
+                : null
+        };
+
     private static bool TryCreateSymbol(MemberDeclarationSyntax member, SourceText text, out DocumentSymbol symbol)
     {
         switch (member)
@@ -238,7 +250,12 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     var children = BuildMemberSymbols(namespaceDeclaration.Members, text).ToArray();
                     symbol = CreateSymbol(
                         namespaceDeclaration.Name.ToString(),
-                        SymbolKind.Namespace,
+                        namespaceDeclaration switch
+                        {
+                            NamespaceDeclarationSyntax { NamespaceKeyword.Kind: SyntaxKind.ModuleKeyword } => SymbolKind.Module,
+                            FileScopedNamespaceDeclarationSyntax { NamespaceKeyword.Kind: SyntaxKind.ModuleKeyword } => SymbolKind.Module,
+                            _ => SymbolKind.Namespace
+                        },
                         namespaceDeclaration.Span,
                         namespaceDeclaration.Name.Span,
                         text,
@@ -408,7 +425,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             text,
             BuildNestedFunctionSymbols(GetCallableBodyRoots(declaration), text).ToArray());
 
-    private readonly record struct DocumentSymbolCacheKey(string Uri, VersionStamp Version);
+    private readonly record struct DocumentSymbolCacheKey(string Uri, VersionStamp Version, bool Modules);
 
     private static DocumentSymbol CreateTypeSymbol(TypeDeclarationSyntax declaration, SymbolKind kind, SourceText text)
     {

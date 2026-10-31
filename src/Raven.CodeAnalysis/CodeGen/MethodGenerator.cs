@@ -145,6 +145,7 @@ internal class MethodGenerator
                 var emittedMethodName = GetEmittedMethodName(MethodSymbol);
 
                 MethodBuilder methodBuilder;
+                var sharedSignatureDefined = false;
                 if (hasPInvokeSignature)
                 {
                     var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
@@ -165,6 +166,19 @@ internal class MethodGenerator
                         dllImportData.CharSet);
 
                     MethodBase = methodBuilder;
+                }
+                // Generic declarations use the registration below before resolving their signatures;
+                // their bodies can still use the shared target-neutral plan.
+                else if (_lambdaClosure is null && !MethodSymbol.IsExtern && !MethodSymbol.IsGenericMethod &&
+                    MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
+                    TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
+                    Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration, Portable.ReflectionEmitCapabilities.Shared))
+                {
+                    var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
+                        specialType => ResolveClrType(Compilation.GetSpecialType(specialType)), type => ResolveClrType(type));
+                    methodBuilder = declaration!.Define(builder, emittedMethodName);
+                    MethodBase = methodBuilder;
+                    sharedSignatureDefined = true;
                 }
                 else
                 {
@@ -219,7 +233,7 @@ internal class MethodGenerator
 
                 try
                 {
-                    if (!hasPInvokeSignature)
+                    if (!hasPInvokeSignature && !sharedSignatureDefined)
                     {
                         var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
                             ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)

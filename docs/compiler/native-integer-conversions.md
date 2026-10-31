@@ -16,8 +16,10 @@ These rules follow the platform-independent integral subset of the
 [.NET/C# numeric conversion rules](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/numeric-conversions).
 The compiler does not assume native storage is 64 bits. CLI emission preserves source
 signedness when widening or changing native storage category. Checked conversions use
-standard overflow-checked instructions; .NET reports OverflowException. Native backend
-support and fault behavior require their own qualification.
+standard overflow-checked instructions; .NET reports OverflowException. The neoCLR backend emits native-width conversion instructions and uses source
+signedness for checked conversions. It widens UInt32 before signed native conversion
+and signed Int32 before unsigned native conversion to preserve their high bits.
+Checked failures use neoCLR ArithmeticOverflow faults rather than exceptions.
 
 Focused semantic checks classify conversions without user-defined operators, and
 execution tests cover signed widening, high UInt32 bits and checked negative-to-nuint

@@ -866,7 +866,7 @@ let result = Runner.Choose(handler)
             """
             import System.Runtime.CompilerServices.*
 
-            class Library {
+            public class Library {
                 [OverloadResolutionPriority(1)]
                 public static func Pick(value: object) -> int { 1 }
 

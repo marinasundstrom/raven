@@ -20,6 +20,7 @@ namespace Raven.LanguageServer;
 internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandlerBase
 {
     private readonly WorkspaceManager _workspaceManager;
+    private readonly HashSet<string> _reportedProjectFailures = new(StringComparer.OrdinalIgnoreCase);
     private readonly DocumentStore _documents;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<DidChangeWatchedFilesHandler> _logger;
@@ -42,6 +43,26 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
         {
             var openDocumentsToRefresh = new HashSet<LspDocumentUri>(
                 await _workspaceManager.ReloadForWatchedFilesAsync(request.Changes).ConfigureAwait(false));
+
+            var failures = _workspaceManager.GetProjectLoadFailures();
+            foreach (var path in _reportedProjectFailures.Concat(failures.Keys).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+                {
+                    Uri = LspDocumentUri.FromFileSystemPath(path),
+                    Diagnostics = failures.TryGetValue(path, out var message)
+                        ? new Container<LspDiagnostic>(new LspDiagnostic
+                        {
+                            Range = new(new(0, 0), new(0, 0)),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = "raven-project",
+                            Code = "RAVP001",
+                            Message = "Project reload failed; editor retains the last successful snapshot. " + message
+                        }) : new Container<LspDiagnostic>()
+                });
+            }
+            _reportedProjectFailures.Clear();
+            _reportedProjectFailures.UnionWith(failures.Keys);
 
             foreach (var uri in _workspaceManager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(request.Changes))
                 openDocumentsToRefresh.Add(uri);

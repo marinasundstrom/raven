@@ -3649,6 +3649,10 @@ internal partial class ExpressionGenerator : Generator
         emitBody(scope);
 
         ILGenerator.MarkLabel(loopNext);
+        // Comprehensions use the default positive unit step. An inclusive
+        // endpoint must terminate before incrementing (including MaxValue).
+        if (!upperExclusive)
+            EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive: true);
         EmitRangeLoopIncrement(elementType, startLocal, stepLocal, loopEnd);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
@@ -4192,6 +4196,10 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
 
         ILGenerator.MarkLabel(loopNext);
+        // Comprehensions use the default positive unit step. An inclusive
+        // endpoint must terminate before incrementing (including MaxValue).
+        if (!upperExclusive)
+            EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive: true);
         EmitRangeLoopIncrement(elementType, startLocal, stepLocal, loopEnd);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
@@ -7299,6 +7307,19 @@ internal partial class ExpressionGenerator : Generator
     private bool ShouldDiscardCurrentResult(BoundExpression expression)
         => !_preserveResult && ReferenceEquals(expression, _expression);
 
+    private bool RequiresDefensiveReceiverCopy(IFieldSymbol field, BoundExpression? owner)
+    {
+        if (field.IsConst)
+            return true;
+        if (!field.IsReadOnly)
+            return false;
+
+        var initializesOwner = SymbolEqualityComparer.Default.Equals(MethodSymbol.ContainingType, field.ContainingType);
+        return !(initializesOwner && (field.IsStatic
+            ? MethodSymbol.MethodKind == MethodKind.StaticConstructor
+            : MethodSymbol.MethodKind == MethodKind.Constructor && owner is null or BoundSelfExpression));
+    }
+
     private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
     {
         var effectiveType = runtimeType ?? declaredType;
@@ -7315,7 +7336,8 @@ internal partial class ExpressionGenerator : Generator
             return true;
         }
 
-        if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic)
+        if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic &&
+            !RequiresDefensiveReceiverCopy(fieldSymbol, member.Receiver))
         {
             var containingType = fieldSymbol.ContainingType;
 
@@ -7402,6 +7424,9 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
                 {
+                    if (RequiresDefensiveReceiverCopy(fieldSymbol, memberAccess.Receiver))
+                        return false;
+
                     if (fieldSymbol.IsStatic)
                     {
                         ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));

@@ -1,0 +1,39 @@
+{
+  "scope": "Merge candidate validation checkpoint; see reconciliation ledger for final status and limits.",
+  "evidence": [
+    {
+      "case": "SignalReflectionDemo",
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-SignalReflectionDemo/SignalReflectionDemo.rvnproj",
+        "--run",
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "exitCode": 0,
+      "stdout": "Native build output: /tmp/raven-reconcile-SignalReflectionDemo/bin/neoclr/SignalReflectionDemo.dll\nsignals: closed method reflection passed\n",
+      "stderr": ""
+    },
+    {
+      "case": "AsyncSignalsDemo",
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-AsyncSignalsDemo/AsyncSignalsDemo.rvnproj",
+        "--run",
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "exitCode": 0,
+      "stdout": "Native build output: /tmp/raven-reconcile-AsyncSignalsDemo/bin/neoclr/AsyncSignalsDemo.dll\nsignals: asynchronous callback observed through Promise\n",
+      "stderr": ""
+    }
+  ]
+}

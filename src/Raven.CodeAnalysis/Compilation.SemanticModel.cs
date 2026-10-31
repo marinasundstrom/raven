@@ -592,7 +592,13 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                SelectSourceObjectRoot();
                 _sourceTypeDeclarationsDeclared = true;
+
+                // The source core supplies primitive identities used by function
+                // signatures. Every type shell must exist before binding them.
+                foreach (var model in semanticModels)
+                    model.EnsureSourceCoreNamespaceValuesDeclared();
 
                 foreach (var model in semanticModels)
                     model.EnsureMemberSignaturesDeclared();
@@ -641,7 +647,13 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                SelectSourceObjectRoot();
                 _sourceTypeDeclarationsDeclared = true;
+
+                // The source core supplies primitive identities used by function
+                // signatures. Every type shell must exist before binding them.
+                foreach (var model in semanticModels)
+                    model.EnsureSourceCoreNamespaceValuesDeclared();
             }
             finally
             {

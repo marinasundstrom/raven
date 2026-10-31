@@ -321,6 +321,14 @@ rules also apply to resources acquired after an earlier await. Early returns
 introduced by carrier propagation (`?`) or exception capture and propagation
 (`(try expression)?`) perform the same cleanup as an explicit return.
 
+Targets without exception unwinding may select synchronous scope-exit cleanup through
+an explicit runtime disposal contract. In that mode, successfully initialized resources
+are disposed on ordinary block completion, returns, loop exits, outward/backward
+gotos, and failed carrier propagation. A goto cannot skip a use initializer and
+enter that resource's lifetime. Result values are computed before cleanup. Terminal faults do not unwind
+resources. Async and iterator `use` are currently rejected in that mode; this restriction
+belongs to the current target implementation, not the general language semantics.
+
 When you need a narrower lifetime than the enclosing block, Raven also supports
 an explicit nested-scope form:
 

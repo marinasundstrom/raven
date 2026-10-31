@@ -171,6 +171,9 @@ public partial class Compilation
         if (SymbolEqualityComparer.Default.Equals(source, destination))
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
+        if (source is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol || destination is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol)
+            return Finalize(ClassifyStructuralCompositionConversion(source, destination));
+
         if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&
             source is INamedTypeSymbol sourceDelegate &&
             (sourceDelegate.TypeKind == TypeKind.Delegate || sourceDelegate.GetDelegateInvokeMethod() is not null) &&
@@ -1748,6 +1751,8 @@ public partial class Compilation
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && source is IFunctionReturnTypeSymbol &&
+            destination.SpecialType == SpecialType.System_Object) return true;
         if (!source.IsValueType)
             return false;
 
@@ -1763,6 +1768,8 @@ public partial class Compilation
 
     private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && destination is IFunctionReturnTypeSymbol &&
+            source.GetNonNullableType().SpecialType == SpecialType.System_Object) return true;
         if (!destination.IsValueType)
             return false;
 

@@ -10,6 +10,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
+    internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
+
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private ITypeSymbol _returnType;
     private bool _isStatic;
@@ -89,6 +91,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     /// double-backtick notation belongs to documentation IDs.
     /// </summary>
     public override string MetadataName => Name;
+
+    public ITypeSymbol? DeclaredFunctionType { get; private set; }
+    internal void SetDeclaredFunctionType(ITypeSymbol type) => DeclaredFunctionType = type;
 
     public ITypeSymbol ReturnType => _returnType;
 

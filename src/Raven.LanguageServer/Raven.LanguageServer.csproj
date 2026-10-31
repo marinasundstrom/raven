@@ -6,6 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <WarningsAsErrors>Nullable</WarningsAsErrors>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(NeoClrMetadataProject)' != ''">
+    <DefineConstants>$(DefineConstants);NEOCLR_METADATA</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NeoClrMetadataProject)' != ''">
+    <ProjectReference Include="../Raven.CodeAnalysis.NeoClr/Raven.CodeAnalysis.NeoClr.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
     <PackageReference Include="OmniSharp.Extensions.LanguageProtocol" Version="0.19.9" />

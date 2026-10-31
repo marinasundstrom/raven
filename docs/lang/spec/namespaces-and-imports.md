@@ -1,10 +1,11 @@
-# Namespaces, imports, and aliases
+# Namespaces, modules, imports, and aliases
 
 Namespaces organize types and functions and prevent names from colliding.
 Imports make those names shorter to use, while aliases provide a different
 local name when that improves clarity or resolves a conflict.
 
-Use a file-scoped namespace when all declarations in a file belong together:
+For the primary .NET target, use a file-scoped `namespace` when all declarations
+in a file belong together:
 
 ```raven
 namespace Foo
@@ -14,6 +15,26 @@ namespace Foo
 
 The namespace name may contain several dot-separated parts, such as
 `Acme.Payments.Models`.
+
+## neoCLR module declarations
+
+neoCLR uses `module` declarations where .NET code uses `namespace` declarations:
+
+```raven
+module Acme.Payments.Models
+
+public class Payment { }
+```
+
+Module paths use the same dot-separated names, qualified lookup, imports and
+aliases as namespaces. Both file-scoped and block-scoped forms are recognized;
+for example, `module Acme.Payments.Models { public class Payment { } }`.
+
+This is a target-facing declaration distinction, not a separate import syntax.
+The shared parser accepts both keywords, and neoCLR also treats declarations
+spelled `namespace` as logical modules. The `module` spelling does not itself
+select the compilation target. It introduces neither module-private visibility
+nor re-export syntax. Existing .NET samples continue to use `namespace`.
 
 ## Imports
 

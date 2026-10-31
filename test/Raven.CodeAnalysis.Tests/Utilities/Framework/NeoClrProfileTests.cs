@@ -1,9 +1,100 @@
+using Mono.Cecil;
+
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis.Tests;
 
 public sealed class NeoClrProfileTests
 {
+    [Fact]
+    public void CharacterIdentityFollowsTheSelectedTarget()
+    {
+        Assert.Equal("System.Character", new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR)
+            .GetSpecialTypeMetadataName(SpecialType.System_Char));
+        Assert.Equal("System.Char", new DotNetRuntimeContract(CompilationOptions.DotNet)
+            .GetSpecialTypeMetadataName(SpecialType.System_Char));
+    }
+
+    [Fact]
+    public void NativeTargetDoesNotAcceptPreparsedCharAlias()
+    {
+        var tree = SyntaxTree.ParseText("let value: char = 'A'");
+        var type = tree.GetRoot().DescendantNodes().OfType<PredefinedTypeSyntax>().Single();
+        var native = Compilation.Create("NativeAlias", [tree], TestMetadataReferences.Default,
+            CompilationOptions.NeoCLR.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime"));
+        Assert.Equal(TypeKind.Error, native.ResolvePredefinedType(type).TypeKind);
+        var dotnet = Compilation.Create("DotNetAlias", [tree], TestMetadataReferences.Default, CompilationOptions.DotNet);
+        Assert.Equal(SpecialType.System_Char, dotnet.ResolvePredefinedType(type).SpecialType);
+    }
+
+    [Theory]
+    [InlineData("SourceTasks", "SourceTasks", true)]
+    [InlineData("SourceTasks", "OtherTasks", false)]
+    public void ExplicitAsyncProviderCanOwnSourceDeclarations(string assemblyName, string provider, bool selected)
+    {
+        var syntax = SyntaxTree.ParseText("""
+            namespace System.Concurrency.Tasks {
+                public class Task<T> { }
+            }
+            namespace System.Runtime.CompilerServices {
+                public interface AsyncStateMachine { }
+                public class AsyncTaskMethodBuilder<T> { }
+            }
+            """);
+        var options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime").WithAsyncAssemblyName(provider));
+        var compilation = Compilation.Create(assemblyName, [syntax], TestMetadataReferences.Default, options);
+        foreach (var special in new[] {
+            SpecialType.System_Threading_Tasks_Task_T,
+            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine })
+        {
+            var type = compilation.GetSpecialType(special);
+            if (selected)
+            {
+                Assert.Equal(special, type.SpecialType);
+                Assert.Same(compilation.Assembly, type.ContainingAssembly);
+            }
+            else
+            {
+                Assert.Equal(TypeKind.Error, type.TypeKind);
+            }
+        }
+    }
+
+    [Fact]
+    public void NativeMetadataSelectionIsExplicitAndImmutable()
+    {
+        var original = new MetadataImportOptions("NativeCore");
+        var native = original.WithNativeMetadata();
+        Assert.False(original.UseNativeMetadata);
+        Assert.True(native.UseNativeMetadata);
+        Assert.True(native.WithObjectAssemblyName("NativeCore").UseNativeMetadata);
+        Assert.False(native.WithNativeMetadata(false).UseNativeMetadata);
+        Assert.False(CompilationOptions.NeoCLR.MetadataImportOptions!.UseNativeMetadata);
+    }
+
+    [Fact]
+    public void NativeMetadataRejectsDotNetTargetWithoutLoadingReferences()
+    {
+        var options = CompilationOptions.DotNet.WithMetadataImportOptions(new MetadataImportOptions("NativeCore").WithNativeMetadata());
+        var compilation = Compilation.Create("WrongTarget", [], [], options);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVT003" &&
+            diagnostic.GetMessage().Contains("requires the NeoCLR target"));
+    }
+
+    [Fact]
+    public void NativeMetadataRejectsPortableReferencesInsteadOfFallingBack()
+    {
+        var options = CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null)
+            .WithMetadataImportOptions(new MetadataImportOptions("NeoCLR.CoreProbe").WithNativeMetadata());
+        var compilation = Compilation.Create("WrongReference", [], TestMetadataReferences.Default, options);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVT004" &&
+            diagnostic.GetMessage().Contains("semantic references exclusively"));
+    }
+
     [Fact]
     public void PresetSelectsExplicitCliContractsAndPreservesThemThroughCopies()
     {
@@ -11,6 +102,8 @@ public sealed class NeoClrProfileTests
         var options = preset.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
             .WithOptimizationLevel(OptimizationLevel.Release).WithRunAnalyzers(false);
         Assert.Equal(TargetPlatform.NeoCLR, options.TargetPlatform);
+        Assert.Equal(new RuntimeDisposalContract("NeoCLR.CoreProbe", "System.Disposable", UseExceptionHandling: false), options.RuntimeDisposalContract);
+        Assert.Null(CompilationOptions.DotNet.RuntimeDisposalContract);
         Assert.Equal("NeoCLR.CoreProbe", options.MetadataImportOptions!.CoreAssemblyName);
         Assert.Equal("NeoCLR.CoreProbe", options.TargetCoreAssemblyName);
         Assert.Equal(new RuntimeUnitContract("NeoCLR.CoreProbe", "System.Void"), options.RuntimeUnitContract);
@@ -37,6 +130,84 @@ public sealed class NeoClrProfileTests
         Assert.False(dotnet.UseGraphemeChar);
         Assert.True(dotnet.AllowArrayCovariance);
         Assert.True(dotnet.AllowNullableValueTypes);
+    }
+
+    [Fact]
+    public void UnionInterfaceNamesFollowExplicitAndLegacyNeoClrContracts()
+    {
+        Assert.Equal("System.Runtime.CompilerServices.UnionValue",
+            new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR).UnionInterfaceTypeName);
+        Assert.Equal("System.Runtime.CompilerServices.UnionValue",
+            new DotNetRuntimeContract(CompilationOptions.DotNet.WithTargetCoreAssemblyName("NeoCLR.CoreProbe")).UnionInterfaceTypeName);
+        Assert.Equal("System.Runtime.CompilerServices.IUnion",
+            new DotNetRuntimeContract(CompilationOptions.DotNet).UnionInterfaceTypeName);
+    }
+
+    [Fact]
+    public void AsyncInterfaceNamesFollowTheSelectedTargetContract()
+    {
+        var special = SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
+        Assert.Equal("System.Runtime.CompilerServices.AsyncStateMachine",
+            new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR).GetSpecialTypeMetadataName(special));
+        Assert.Equal("System.Runtime.CompilerServices.IAsyncStateMachine",
+            new DotNetRuntimeContract(CompilationOptions.DotNet).GetSpecialTypeMetadataName(special));
+        var dotnet = Compilation.Create("DotNetControl", [], TestMetadataReferences.Default, CompilationOptions.DotNet);
+        Assert.Equal("IAsyncStateMachine", dotnet.GetSpecialType(special).Name);
+    }
+
+    [Fact]
+    [Trait("Target", "NeoCLR")]
+    [Trait("Layer", "semantic-api")]
+    public void NeoClrImportRecognizesStateMachineInterfaceAndRequiresNativeEmission()
+        => VerifyUnprefixedStateMachineInterface(TargetPlatform.NeoCLR);
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    [Trait("Layer", "emit")]
+    public void DotNetLegacyCoreImportPreservesStateMachineInterfaceInCliMetadata()
+        => VerifyUnprefixedStateMachineInterface(TargetPlatform.DotNet);
+
+    private static void VerifyUnprefixedStateMachineInterface(TargetPlatform target)
+    {
+        var corePath = TestMetadataReferences.Default.OfType<PortableExecutableReference>()
+            .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
+        using var core = AssemblyDefinition.ReadAssembly(corePath);
+        core.Name.Name = "NeoCLR.CoreProbe";
+        core.Name.PublicKey = [];
+        core.MainModule.GetType("System.Runtime.CompilerServices.IAsyncStateMachine").Name = "AsyncStateMachine";
+        using var image = new MemoryStream();
+        core.Write(image);
+        var source = SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Pass(state: System.Runtime.CompilerServices.AsyncStateMachine) -> System.Runtime.CompilerServices.AsyncStateMachine => state
+            }
+            """);
+        var compilation = Compilation.Create("NeoClrAsyncNames", [source],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(image.ToArray())],
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null)
+                .WithTargetPlatform(target));
+        var machine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
+        Assert.Equal(TypeKind.Interface, machine.TypeKind);
+        Assert.Equal("AsyncStateMachine", machine.Name);
+        Assert.Equal("NeoCLR.CoreProbe", machine.ContainingAssembly.Name);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine, machine.SpecialType);
+        using var emitted = new MemoryStream();
+        var result = compilation.Emit(emitted);
+        if (target == TargetPlatform.NeoCLR)
+        {
+            // Import semantics do not authorize emission through the CLI backend.
+            Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+            Assert.False(result.Success);
+            Assert.Contains(result.Diagnostics, d => d.Id == "RAVT003");
+            Assert.Equal(0, emitted.Length);
+            return;
+        }
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        emitted.Position = 0;
+        using var consumer = AssemblyDefinition.ReadAssembly(emitted);
+        var pass = consumer.MainModule.GetType("Consumer").Methods.Single(m => m.Name == "Pass");
+        Assert.Equal("System.Runtime.CompilerServices.AsyncStateMachine", pass.ReturnType.FullName);
+        Assert.Equal("NeoCLR.CoreProbe", pass.ReturnType.Scope.Name);
     }
 
     public static IEnumerable<object[]> InvalidConfigurations()

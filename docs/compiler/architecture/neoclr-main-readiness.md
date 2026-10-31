@@ -1,5 +1,10 @@
 # neoCLR integration and target contract readiness
 
+> Historical architecture and integration checkpoints. The earlier integration
+> succeeded; subsequent target development continued on separate branches.
+> For the current author-directed reconciliation and validation status, see
+> [October 2026 reconciliation](target-reconciliation-2026-10.md).
+
 Status: integrated into main and synced to origin, 2026-09-30. Both retained
 feature branches include shared main. Target-boundary work has resumed; native
 neoCLR support and the target feature matrix remain experimental work.

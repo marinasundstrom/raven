@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
@@ -8,9 +9,11 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class AutoPropertySymbolStabilityTests
 {
     [Theory]
-    [InlineData(OptimizationLevel.Release)]
-    [InlineData(OptimizationLevel.Debug)]
-    public void RepeatedBindingKeepsOneCanonicalAccessorPerProperty(OptimizationLevel optimization)
+    [InlineData(OptimizationLevel.Release, "class")]
+    [InlineData(OptimizationLevel.Release, "struct")]
+    [InlineData(OptimizationLevel.Debug, "class")]
+    [InlineData(OptimizationLevel.Debug, "struct")]
+    public void RepeatedBindingKeepsOneCanonicalAccessorPerProperty(OptimizationLevel optimization, string kind)
     {
         var tree = SyntaxTree.ParseText("""
             class Order {
@@ -21,10 +24,10 @@ public class AutoPropertySymbolStabilityTests
                     Pending = pending
                 }
             }
-            """);
+            """.Replace("class Order", kind + " Order"));
         var compilation = Compilation.Create("OrderSymbolStability", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
-        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var declaration = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>().Single();
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         var properties = type.GetMembers().OfType<SourcePropertySymbol>().ToArray();
@@ -48,6 +51,26 @@ public class AutoPropertySymbolStabilityTests
                 Assert.Same(value, property.SetMethod!.Parameters.Single());
                 Assert.Same(get, Assert.Single(type.GetMembers(get.Name)));
                 Assert.Same(set, Assert.Single(type.GetMembers(set.Name)));
+            }
+        }
+        foreach (var (_, get, set, _) in accessors)
+        {
+            foreach (var accessor in new[] { get, set })
+            {
+                if (kind == "struct")
+                {
+                    // The conservative .NET portable profile still delegates value owners
+                    // to the ordinary generator; this native fix must not broaden it.
+                    Assert.False(SourceCallablePlan.TryCreate(accessor, out _, ReflectionEmitCapabilities.Shared));
+                    continue;
+                }
+                Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
+                Assert.Equal(EmissionDeclarationKind.PropertyAccessor, plan!.DeclarationKind);
+                Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+                var noFields = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+                    Enum.GetValues<LinearInstructionKind>().Where(k => k is not (LinearInstructionKind.LoadField or LinearInstructionKind.StoreField)),
+                    [EmissionDeclarationKind.PropertyAccessor], methodVisibilities: [Accessibility.Public]);
+                Assert.False(plan.TryLowerBody(compilation, _ => false, out _, out _, noFields));
             }
         }
         using var image = new MemoryStream();

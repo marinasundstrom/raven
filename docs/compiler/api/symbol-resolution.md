@@ -165,3 +165,25 @@ return the generic declaration.
 Qualified case-pattern type expressions use the same open-definition lookup;
 `if let Example.Maybe.None = value` must bind a case type rather than silently
 retaining an error type. Metadata-name lookup remains exact.
+
+### Consistent namespace-qualified metadata selection
+
+A qualified source type such as `Example.Base` or `Example.Base<int>` must select
+the same referenced definition as ordinary imported lookup and
+`Compilation.GetTypeByMetadataName` for its full metadata name and arity. Merged
+namespace enumeration order is not an assembly-selection policy. The qualified
+binding fast path uses the existing canonical metadata lookup, retaining local
+source declarations and the declaration-completion boundary used during early
+binding. Reference ordering and cold versus warmed metadata queries must not
+change the selected base type. No public cache API or target contract is added.
+
+## Cold source imports and signature binding
+
+A semantic query can discover an imported source type before the containing
+function's declared symbol is requested. Deferred import setup must make source
+type declarations available before resolving that scope; it must not complete
+member signatures while the scope is unfinished. `GetSymbolInfo`, `GetTypeInfo`
+and `GetDeclaredSymbol` return the same imported type regardless of whether a
+symbol, declaration or diagnostics query runs first, and regardless of source-file
+order. This remains compiler-owned lazy binding, with no language-service cache
+bypass or requirement to request diagnostics first.

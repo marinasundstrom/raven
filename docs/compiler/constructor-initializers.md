@@ -21,3 +21,6 @@ ConstructorChainingTests pass on .NET 11, including separate source trees and
 canonical symbol identity. The ordinary compiler sample returned 0 before the fix
 because base initialization was omitted; the paired integration fixture returns 42
 on .NET 10 and NeoCLR. This is not a claim of full test-suite coverage.
+
+The isolated main-based correction is commit `2416a1646`; the integration branch
+also passes its 22 existing EmissionCapabilityTests (34 focused tests total).

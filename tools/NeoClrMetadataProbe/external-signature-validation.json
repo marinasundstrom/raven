@@ -1,0 +1,23 @@
+{
+  "bindingProfile": "CompilationOptions.NeoCLR; projected CLI declarations; no host core",
+  "coreSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "librarySha256": "75EB7ED6152242BD25BE14F4B94D969291B29E06015AB9E8BE8C6D1894E77B9E",
+  "applicationSha256": "52F77DA193DD98529500A7B238884B6012B3A3278413B42344523CA8778E013E",
+  "verified": true,
+  "result": 42,
+  "coverage": [
+    "separate Raven library and application",
+    "external generic signatures with consumer-owned arguments",
+    "method generic forwarding",
+    "discarded nominal result",
+    "external interface arrays",
+    "unregistered dependency rejection",
+    "missing type rejection"
+  ],
+  "scope": "public top-level unconstrained reference signatures; imported constructors/member calls and translated System identity mapping remain unsupported",
+  "branches": {
+    "raven": "codex/metadata-consumer",
+    "metadata": "codex/extended-cli-metadata at 7f084f4c"
+  }
+}

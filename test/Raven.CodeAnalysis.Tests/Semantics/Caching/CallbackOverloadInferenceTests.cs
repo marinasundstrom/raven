@@ -15,9 +15,9 @@ public sealed class CallbackOverloadInferenceTests
         const string source = """
             class Box<T> { }
             static class Runner {
-                static func Run(callback: () -> unit) -> Box<unit> => default
-                static func Run<T>(callback: () -> T) -> Box<T> => default
-                static func Run<T>(callback: () -> Box<T>) -> Box<T> => default
+                static func Run(callback: () -> unit) -> Box<unit> => Box<unit>()
+                static func Run<T>(callback: () -> T) -> Box<T> => Box<T>()
+                static func Run<T>(callback: () -> Box<T>) -> Box<T> => Box<T>()
             }
             func Main() -> unit {
                 let operation = Runner.Run(() => 41)

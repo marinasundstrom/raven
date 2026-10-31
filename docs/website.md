@@ -35,3 +35,39 @@ keeps `Optional<T>` and compiler API member lists connected to their extensions
 without importing unrelated framework extensions. Extensions of external .NET
 types remain browsable on their extension pages; the site does not publish a copy
 of the entire .NET API reference.
+
+## Target availability in published content
+
+.NET remains the primary/default target. Keep existing samples, walkthroughs,
+SDK instructions and the landing-page focus on .NET. Explicit native examples
+select neoCLR; integrating its backend does not retarget the existing corpus.
+
+Keep shared language features unmarked. Mark an exclusive feature or representation
+with **.NET only** or **neoCLR only** at the owning section or example, not as a
+page-wide label when the page mixes shared and exclusive behavior. Use the same
+wording in the language reference, tour, feature descriptions and grammar comments.
+Explain library dependencies separately, and label temporary implementation gaps
+as current limitations rather than permanent exclusivity. The
+[target availability guide](compiler/target-platforms.md#reading-target-availability)
+and [language reference](lang/spec/index.md) explain this convention to readers.
+
+One Raven highlighting grammar recognizes source for both targets. Colorization
+is not a compatibility check; the compiler and language server report invalid
+constructs using the selected project's target. Keep .NET-only deployment examples
+and native runtime examples explicit, including their execution mode where relevant.
+
+Describe language semantics first. Structural unions are shared; explain their
+.NET carrier and neoCLR structural runtime representations only where behavior,
+interop or limits make the distinction relevant. Intersection types are neoCLR
+only, but `A & B` in generic constraints is also supported on .NET as shorthand
+for ordinary conjunctive bounds. Do not mark that shared syntax as exclusive.
+
+### Exclusive feature grouping
+
+Keep .NET as the default learning path. Group neoCLR-exclusive language features
+in the language reference navigation and feature finder, under **neoCLR only**.
+The [grouped reference](lang/spec/neoclr-features.md) includes native Self contracts,
+intersection types and structural function category constraints. Link from shared
+feature pages to that group; keep shared unions and lowercase `self` outside it.
+Document module/namespace spelling as a target distinction without implying that
+the shared parser gates the keyword or that it selects a target.

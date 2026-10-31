@@ -1,0 +1,52 @@
+{
+  "commands": [
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "/tmp/raven-reconcile-dotnet-driver/Main.rvn",
+        "--framework",
+        "net10.0",
+        "-o",
+        "/tmp/raven-reconcile-final-driver/Main.dll"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "Build succeeded in 3,0s\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/tmp/raven-reconcile-final-driver/Main.dll"
+      ],
+      "expectedExitCode": 42,
+      "exitCode": 42,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-native-driver-project/App.rvnproj",
+        "--run",
+        "/Users/robert/Projects/neoclr/target/release/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "expectedExitCode": 42,
+      "exitCode": 42,
+      "stdout": "Native build output: /tmp/raven-reconcile-native-driver-project/bin/neoclr/DriverConsumer.dll\n",
+      "stderr": ""
+    }
+  ],
+  "sha256": {
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll": "5eef356424da0d29259609895591b70fc323540660d7ea56992e5b5451693587",
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "c2e4414432f718c0ab575fbe44751e770d8ab23d5fadd104ed71a863b62957da",
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.NeoClr.dll": "8d1b4f880b3cc9b6e619e23cc9d525ed409ce2f4ff3bf0551ff12b9d303bc3d7",
+    "/Users/robert/Projects/neoclr/target/release/neoclr": "4962197d501dc13198a228b208ad20e5aac546905a18993f70e70b5842e751f4"
+  }
+}

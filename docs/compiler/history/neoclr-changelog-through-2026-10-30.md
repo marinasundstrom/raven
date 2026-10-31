@@ -1,0 +1,8566 @@
+# neoCLR compiler development changelog through 2026-10-30
+
+Historical record from codex/neoclr `f4fd726ad`, retained during reconciliation.
+Validation statements apply to their original checkpoints, not the merged compiler.
+
+# Raven Changelog
+
+Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
+
+## Unreleased
+
+### 2026-10-30
+
+- Bind null optional-parameter metadata constants on value types as zero initialization, including CancellationToken. Preserve reference-null defaults and avoid invoking value-type constructors for omitted arguments. Carried from Raven main 83e700ab6.
+
+- Adapt synchronous and asynchronous Result Main returns in the direct neoCLR emitter:
+  integer/unit successes produce their existing process status, failures print to stderr
+  and return one, and ordinary error conversions remain intact. Dispatch concrete
+  structural-error alternatives without whole-union boxing. Use normal bound Raven
+  for the private helper; no new Runtime Contract or metadata encoding is required.
+
+- Add neoCLR-target function-dependent method syntax `func name: T with args`, nullable Object argument arrays and general `ReturnType<T>` projection. Preserve whole signatures through native import and closed generic materialization, including unit-valued call results. Emit format-6 signature/boxed-body metadata through an explicit native capability. Ordinary .NET diagnoses this interop syntax. The typed FunctionReflection helper and separate Neo.Signals library live in neoCLR; Task handling remains separate. Focused compiler and cross-library runtime validation is recorded in the integration docs.
+
+
+- Native neoCLR emission/import now preserves scalar and reference-null parameter
+  defaults as parameter metadata, allowing omitted and named optional arguments
+  across library boundaries. Extend admission to ordinary struct zero defaults,
+  including CancellationToken, and interface contracts. CLI projection uses Param
+  flags and typed Constant rows without attributes; the general binder correction
+  is carried separately from main. Bare generic and union defaults remain unsupported.
+
+### 2026-10-29 — Generic function method investigation
+
+- Refine the generic function-method design around `with args: object?[]` semantics
+  (source spelling `with args`) and signature-derived reflection helper results.
+  Separate whole-signature substitution, result projection, multicast return
+  policy and reflection errors; Task behavior remains out of scope. These helper
+  contracts remain proposals.
+
+- Document the general `func name: T` proposal, function-type signature metadata,
+  partial substitution, argument representation and native generic materialization.
+  Record the proposed MethodInfo.FunctionType invariant: a function type or a
+  function-constrained type parameter. Identify parser, binder, import, lowering
+  and runtime integration gaps; no language or Runtime Contract behavior changes.
+
+### 2026-10-29 — neoCLR Panic rename
+
+- Rename the neoCLR terminal namespace function contract from System.Fail to System.Panic, including the default RuntimeFailureContract function name and temporary CLI identity check. Ordinary .NET methods remain ordinary calls; runtime behavior is unchanged.
+
+
+- Extend unsafe extraction warning `RAV9037` to carrier postfix `!` on Result and Optional; nullable suppression and plain-value `!` are excluded.
+
+- Add postfix carrier `!` (unwrap or fail), shared with main: .NET throws `InvalidOperationException`, while native neoCLR uses terminal failure. Chaining and custom propagation contracts expose the output type; nullable suppression is unchanged. Document the operand-dependent syntax in the website tour, C# guide, and searchable language reference.
+
+- **2026-10-28:** Preserve nested parameter/result nullability when native structural function signatures cross assembly boundaries. Generic formatter forwarding now binds after the Neo abstraction split. Keep legacy opaque-function outer annotations readable; missing nested facts require rebuilding with the updated producer. Qualify imported generic callbacks with a focused emit/import/forwarding regression.
+
+- **2026-10-28:** Preserve unconstrained generic instance interface contracts in neoCLR emission: opt-in portable admission, method parameter metadata and constructed virtual calls. Qualify native generic forwarding with Int32/String state and inherited contracts in both source orders. Ordinary .NET emission is unchanged; generic class virtual/static/default-interface support remains outside this slice.
+
+- **2026-10-28:** Fix neoCLR structural callback overload specificity: compare declared function inputs and results when generic candidates have equivalent constructed parameters. Task-returning callbacks select the async-unwrapping overload without explicit type arguments. Preserve ordinary .NET selection and ambiguity for conflicting specificity; no Runtime Contract or metadata format change.
+
+- **2026-10-28:** Document neoCLR’s initial dynamic-member parameter analysis using existing native custom-attribute transport. Record runtime JSON/DI annotations, unchanged Runtime Contract configuration, documentation-reference projection and remaining flow/target limits, including retained-body closure, explicit-policy seeds and nongeneric interface and reference-class override contract diagnostics with closed generic base substitution; those parameter slices require no compiler emission change. Extend native emission/import to ordinary return attributes with distinct return tokens and matching immutable metadata views; preserve CLI reference projection and foreign-return marshalling, with focused roundtrip/usage tests. neoCLR consumes these for TypeInfo return contracts; document neoCLR field/property flow and static-field attribute preservation in the metadata writer, with HTTP JSON storage annotations and native auto-property qualification. Document TypeInfo receiver contracts and matching runtime introspection annotations using existing method-attribute transport. Preserve type/method generic parameter annotations through native emission/import and CLI projection using optional GenericParam origin identities; neoCLR applies bounded argument/typeof flow and generic JSON API annotations. Additional categories and generic dispatch/graph gaps remain.
+
+- **2026-10-28:** Preserve core MethodImpl NoInlining/AggressiveInlining options in neoCLR native managed-method metadata; reject unsupported flags and keep InternalCall admission separate. Native source checks and the rebuilt neoCLR class libraries validate this target-specific integration. Ordinary .NET emission is unchanged.
+
+- **2026-10-28:** Support attributes on type and method generic parameters, including parsing before variance/constraints, semantic-symbol attributes, ordinary `AttributeUsage` validation, and CLR `GenericParam` custom-attribute emission/import. `GetDeclaredSymbol` now resolves generic parameter declarations.
+
+- Update Raven code highlighting for whole backtick and `@`-escaped identifiers, including function/type declarations, attribute arguments, and references; verify grammar-only rendering and use the highlight.js function scopes for consistent theme colors.
+
+- **2026-10-26:** Infer named function and method parameter types from nominal
+  deconstruction patterns, allowing `SubmitOrder(let orderId)` without repeating
+  `: SubmitOrder`. Resolve namespace-qualified pattern heads without spurious
+  union-qualifier diagnostics. Document nominal and positional parameter deconstruction,
+  including the single-component form `(let orderId): SubmitOrder`.
+
+- **2026-10-26:** Reduce compiler allocations when applying source edits, trimming multiline string indentation, and scanning identifiers and keywords. Preserve source snapshots, token text, values, and line endings.
+
+- **2026-10-26:** Align interface member accessibility with C#: preserve public
+  defaults and explicit access levels, reject private abstract requirements,
+  expose default instance virtualness consistently, emit private helpers as
+  nonvirtual, and require public members for implicit implementation.
+
+- **2026-10-26:** Support backtick-delimited identifiers in declarations, references, member access,
+  and macro-generated syntax. Preserve exact contents as symbol and metadata names
+  in the ordinary identifier namespace, without Unicode normalization; reject empty
+  and multiline names. Update completion insertion, symbol display, interface member
+  generation, syntax factories, and TextMate highlighting. Document post-release
+  neoCLR discovery integration: quoted generated references and scalar-text
+  literals preserve native Unicode/spaced names; runtime name storage, Runtime
+  Contract configuration and the published compiler pin are unchanged.
+
+- **2026-10-25:** Document neoCLR test-only immutable-byref SSA preservation with retained roots: focused/JIT checks pass and paired plaintext improves 16.2% throughput/12.8% CPU. Follow-up passes verifier rejection boundaries, 600 empty-caller-root cycles with lost-root controls and 36 additional native/JIT consumer runs. A further 90 standalone runs and 24,768 JSON responses show about 5% less tasks/collections CPU and 17.4% more JSON throughput/13.7% less CPU, with unchanged live allocations/retention. Disabled objects match controls; sync remains faster. JSON JIT now passes 512 responses/518 completed epochs; guarded-control and owner-operation profiles establish no pause advantage. Multi-owner and default qualification remain open. Raven emission, Runtime Contract and bridge encoding are unchanged.
+
+- **2026-10-25:** Document reuse of qualified neoCLR direct/forwarded stack elision in isolated HTTP benchmarks: 89,922 paired responses show +18.3% throughput/-14.8% CPU, with similar allocations; four-owner checks pass separately. Raven emission, Runtime Contract and bridge encoding remain unchanged; no concurrent-default or stable-scaling claim.
+
+- **2026-10-25:** Document neoCLR experimental equal-stack-address join proofs. 52 focused tests pass; five retained standalone/HTTP objects remain byte-identical, with no workload speedup claim. Raven emission, Runtime Contract and bridge encoding remain unchanged.
+
+- **2026-10-25:** Document neoCLR owner-local Task.Run provider admission for experimental concurrent GC and one/four-owner isolated AOT HTTP qualification (3,840 responses, 2,400 live epochs, sanitized cleanup/fault checks). Raven emission, CLI encoding and Runtime Contract are unchanged; shared-heap/JIT HTTP, throughput and default qualification remain open.
+
+- **2026-10-25:** Document neoCLR worker read-phase classification and its distinct native map import: potentially mutating/unreviewed operations require exclusive leases independently of allocation points. Rebuild experimental native images/hosts; Raven emission, Runtime Contract and CLI encoding remain unchanged. Compiled/native checks pass; concurrent/default qualification remains open.
+
+- **2026-10-25:** Document neoCLR complete test-only managed borrowed-store qualification, preserved ownership/cleanup and native capability correction from bit 16 to 32 (rebuild experimental hosts). Native/JIT/AOT and standalone/HTTP consumers pass, but matched acquisition-inclusive measurements regress CPU/throughput, so borrowing remains opt-in. Production defaults, Raven emission, Runtime Contract and CLI encoding are unchanged.
+
+- **2026-10-25:** Document neoCLR’s test-only bounded stack-store guard-removal experiment, with complete-call-closure/escape constraints, JIT width/alias tests and matched ordinary/HTTP evidence. Runtime Contract, CLI encoding and Raven emission remain unchanged; Follow-up managed-JIT execution passes 2,048 HTTP responses and six standalone runs with 2,557 completed concurrent epochs and index release; zero-epoch controls, pause-counter limitations and broader/default gaps are documented. Forwarded-argument follow-up qualifies separate opt-in removal through known caller chains: matched HTTP throughput improves 2–3% with about 2% less CPU and no allocation gain. Preserve incomplete-closure rejection, direct-only controls and synchronous defaults; exact validation and remaining gaps are recorded in the bridge notes.
+
+### Breaking changes
+
+- **Macro implementation metadata:** compact `macro Name` declarations now emit `NameMacro` instead of a position-derived provider class name. Macro symbols retain `Name`; attached lookup accepts `Name` or `NameMacro`, including qualified names, using exported names so existing compiled providers remain discoverable. Aliases and freestanding lookup are unchanged. Rebuild consumers that directly reference generated provider types. Raven.Macros Error/ErrorMessage cooperation recognizes both spellings when rebuilt.
+
+- **Optional naming:** `System.Option<T>` is now `System.Optional<T>`. Update type references, `System.Option.*` imports, and references to the renamed converter and extension container types. No `Option` compatibility alias is provided; rebuild libraries and consumers against matching runtime libraries. `Some`/`None` cases and the Optional JSON representation are unchanged. See [Optional migration details](docs/compiler/optional-naming.md).
+- **Result failure case:** `Result<T, E>.Error` is now `Failure`. Update construction, patterns, generated case-type/reflection references, and serialized case tags, then rebuild consumers. Tagged Result JSON now uses `"case": "Failure"`; migrate stored `"Error"` tags and external producers/consumers. No library `Error` or `Err` alias is provided. Compiler recognition of legacy Error-shaped results does not preserve the renamed library API or JSON contract. `Ok`, `MapError`, and `UnwrapError` retain their names. See [Result migration details](docs/compiler/result-case-names.md).
+
+### Changes
+
+- **2026-10-25:** Document neoCLR matched backend optimization qualification across JIT/AOT and synchronous/live collectors: 183 compiler checks and 2,160 native fixture cycles pass at `speed`. Production defaults, Runtime Contract, CLI encoding and Raven emission are unchanged; retained bundle validation and execution evidence are recorded in both bridge documents.
+
+- **2026-10-25:** Document neoCLR live-GC stack provenance across single incoming instruction edges, preserving bounds, ambiguous/byref guards and root/fault semantics. Forty-two compiler checks, 600 JIT/AOT entry cycles and 13,600 matched HTTP responses pass; observed live throughput/CPU improve 7–8% with equal allocations. Runtime Contract, CLI encoding and Raven emission are unchanged; retained bundle hashes and diagnostic limitations are documented.
+
+- **2026-10-25:** Document neoCLR live-GC primitive boxing/type-query qualification and guarded box publication into aliased results: 720 JIT/AOT cycles and 38 focused compiler checks pass. Runtime Contract, CLI representation, Raven emission and native ownership are unchanged; default/performance qualification remains open. Full plaintext/JSON JIT/AOT execution passes 1,024 checked responses with completed concurrent epochs and clean shutdown. The private JIT route rejects incompatible hosts; the harness samples counters on the invoking owner rather than from a destructor. This completes the bounded integration slice, with optimization/comparison and broader default acceptance next.
+
+- **2026-10-25:** Fix RavenDoc classifying static `Invoke` methods as `self(...)` invocation operators. Only instance `Invoke`/`self` methods follow this convention, for both source and imported metadata.
+
+- **2026-10-24:** Document neoCLR reference interface-dispatch live-GC qualification: 840 JIT/AOT cycles and 37 compiler checks pass; full plaintext live AOT execution then passes 512 checked requests with clean shutdown and completed concurrent collections. JSON helpers, full-server JIT and performance qualification remain open. Runtime Contract, CLI representation, ownership and Raven emission are unchanged.
+
+- **2026-10-24:** Document neoCLR memory-view conversion/bounds-fault live-GC qualification: 600 JIT/AOT cycles and 45 focused checks pass using existing ownership and publication contracts. Full HTTP qualification remains open; Runtime Contract, CLI encoding and Raven emission are unchanged.
+
+- **2026-10-24:** Document neoCLR callable-array live-GC qualification: existing descriptor/reference storage passes 720 JIT/AOT cycles, while full HTTP native-body admission remains open. Runtime Contract, CLI encoding and Raven emission remain unchanged; see the compiler bridge notes.
+
+- **2026-10-24:** Document neoCLR live host-I/O pump qualification (600 JIT/AOT cycles, 35 compiler checks) and private full HTTP AOT selection harness. Ordinary plaintext/JSON builds succeed; both live builds explicitly reject callable arrays. Runtime Contract/CLI semantics, public defaults and native ownership are unchanged; callable-array qualification is next.
+
+- **2026-10-24:** Document neoCLR live TLS wrapper qualification and guarded status publication: 600 real-provider JIT/AOT cycles and 34 compiler checks pass. Native ownership, Runtime Contract/CLI behavior and ordinary emission are unchanged. Retained HTTP imports have no missing providers; full host-entry/execution and performance qualification remain open.
+
+- **2026-10-24:** Document neoCLR live intern/ordinal/POSIX console qualification with 720 JIT/AOT cycles and 33 compiler checks. Existing invocation-scoped ownership, Runtime Contract/CLI behavior and ordinary emission remain unchanged. Retained HTTP import audits leave TLS alone; full host-entry/execution qualification remains open.
+
+- **2026-10-24:** Document neoCLR live inline value-array allocation qualification with 840 JIT/AOT cycles and 32 compiler checks. Historical record storage names describe layout, not special record semantics; existing conservative tracing, Runtime Contract/CLI behavior and ownership remain unchanged. Full HTTP qualification remains open.
+
+- **2026-10-24:** Document neoCLR live UTF-8 encode/decode and read-only slice qualification with 720 JIT/AOT cycles and 31 focused compiler checks. Exact native binding validation and existing result publication/ownership suffice; Runtime Contract/CLI semantics and ordinary emission remain unchanged. Full HTTP qualification remains open.
+
+- **2026-10-24:** Document neoCLR live integer-formatting admission and guarded native result publication, qualified by 720 JIT/AOT cycles and 30 focused compiler checks. Native ownership, Runtime Contract/CLI semantics and ordinary emission are unchanged; full HTTP qualification remains open.
+
+- **2026-10-24:** Document neoCLR live queue/timer service admission with 600 JIT/AOT cycles covering result publication, current/default ownership, cancellation, expiry and rejection. Native ownership/boundary contracts, Runtime Contract/CLI semantics and ordinary emission are unchanged; full HTTP qualification remains open.
+
+- **2026-10-24:** Document neoCLR generated default-queue live-GC dispatch qualification: 600 real task-scope JIT/AOT cycles cover managed allocation, ownership, rejection and faults. Also document prerequisite-gated generated async pumping: 600 JIT/AOT cycles cover 450 resumptions and 150 abandoned owners with real carriers/task scopes and an idle scheduler stub. A real-scheduler follow-up passes 600 cycles including 450 loopback accepts with generated result consumption. Runtime Contract/CLI semantics and ordinary emission are unchanged; payload exchange and full HTTP integration remain open.
+
+- **2026-10-24:** Document neoCLR live public-entry reset and generated-wrapper qualification: 600 JIT/AOT cycles cover allocation, repeated invocation, rejection and fault recovery. Runtime Contract/CLI semantics are unchanged; matching experimental hosts are required, with async pumps/bootstrap/full HTTP still open.
+
+- **2026-10-24:** Document neoCLR generated socket primitive/array-transfer and persistent-memory transfer live-GC qualification with protected heap results and exact capability binding. Each fixture passes 192 loopback JIT/AOT cases. Runtime Contract/CLI semantics remain unchanged; generated pump/full HTTP entry and throughput qualification remain open.
+
+- **2026-10-24:** Document neoCLR generated owned async startup and current-owner live-GC qualification, including self-reference, abandonment and late completion across JIT/AOT. Runtime Contract/CLI semantics remain unchanged; pumps and full HTTP entry remain open.
+
+- **2026-10-24:** Document neoCLR generated strong async startup under live GC, including suspended parent frames, guarded handles, callback failures and shutdown qualification. Runtime Contract/CLI semantics remain unchanged; owned startup and full HTTP entry remain open.
+
+- **2026-10-24:** Document neoCLR live-GC async operation wrappers, guarded results and actual generated suspension/resumption qualification across JIT/AOT. Runtime Contract and CLI semantics remain unchanged; owned/start wrappers, pumps and HTTP integration remain open.
+
+- **2026-10-24:** Document neoCLR ordinary host-callback live-GC store/closure integration and JIT/AOT pressure, fault and lifetime qualification. Runtime Contract and CLI semantics remain unchanged; entry pumps and full HTTP integration stay open.
+
+- **2026-10-24:** Document neoCLR scoped UTF-8 slicing integration, correctly sized two-lane result storage and 720 JIT/AOT qualification cycles. Runtime Contract, CLI semantics and ordinary emission remain unchanged; async/full HTTP qualification remains open.
+
+- **2026-10-24:** Document neoCLR live-GC admission of rooted primitive-buffer allocation/reservation, including JIT/AOT pressure, initialization and lifetime qualification. Runtime Contract, CLI semantics and default emission remain unchanged; full HTTP qualification is still open.
+
+- **2026-10-24:** Document neoCLR generated byte-view live-GC integration, guarded result publication and the live-only UTF-8 view frame. Six hundred JIT/AOT cycles and focused compiler/root checks pass; Runtime Contract, borrowed-view/UTF-8 and CLI semantics remain unchanged. Full HTTP qualification is still open.
+
+- **2026-10-24:** Document neoCLR live-GC qualification of canonical/case-insensitive comparison and ordinal-prefix providers, with Unicode, Boolean/scalar publication and fault tests across JIT/AOT. Existing Runtime Contract, UTF-8 and CLI semantics remain unchanged; HTTP entry/performance qualification is still open.
+
+- **2026-10-24:** Document neoCLR's live-GC text replacement integration: common frame/store/closure finalization, guarded native result publication and 1,200 JIT/AOT qualification cycles. Record remaining HTTP/native-service scope; Runtime Contract, language and temporary CLI metadata semantics are unchanged.
+
+- **2026-10-24:** Document neoCLR's live-GC initializer guard lowering/closure integration, reentry and cached-failure qualification, plus default interpreter/JIT/AOT regressions. Runtime Contract and CLI semantics remain unchanged; full native-service/HTTP admission is still open.
+
+- **2026-10-24:** Document neoCLR's distinct experimental static-storage provider, guarded table publication and JIT/AOT pressure/lifetime qualification. Ordinary emission and Runtime Contract/CLI semantics remain unchanged; initializer guards and broader HTTP integration remain open.
+
+- **2026-10-24:** Document neoCLR's grouped text-array live-GC stores and rooted array allocation, with JIT/AOT bounds/overflow qualification. Callable arrays and broader native services remain open; Raven Runtime Contract/CLI semantics are unchanged.
+
+- **2026-10-24:** Document neoCLR's internal grouped array-element/marker publication and rooted reference-array allocation qualification in JIT/AOT. Matching experimental hosts need the new private helper; text/callable array stores remain unqualified. Runtime Contract and CLI semantics are unchanged.
+
+- **2026-10-24:** Document rooted object-allocation admission to neoCLR's internal live-GC compiler path, with managed constructor/publication and pressure/exhaustion tests in JIT/AOT. Raven Runtime Contract/CLI semantics remain unchanged; array/services and full HTTP integration remain open.
+
+- **2026-10-24:** Document neoCLR's internal managed live-GC compiler integration, published-boundary capability and forced/paced JIT/AOT reference-write qualification. Default compilation and Raven Runtime Contract/CLI semantics remain unchanged; native-service and full HTTP integration remain open.
+
+- **2026-10-24:** Document neoCLR's versioned experimental live-GC host handshake and rejection of missing/legacy/partial hosts before isolated execution. Matching native JIT/AOT consumers pass. The query is trusted compatibility metadata, not implementation proof or general HTTP admission; Raven Runtime Contract/CLI semantics remain unchanged.
+
+- **2026-10-24:** Document neoCLR's isolated live-GC call-closure gate: direct targets require supplied generated bodies or explicit matching provider ABIs; indirect/tail/exceptional calls remain unadmitted. JIT/AOT fixtures use the gate and check emitted AOT imports. Provider implementation/capability and ordinary pipeline admission remain open; Raven Runtime Contract, CLI metadata and language semantics are unchanged.
+
+- **2026-10-24:** Document neoCLR's isolated scalar-store lowering for its live-GC experiment. Bit-preserving stores and fault exits pass focused compiler and real native-collector JIT/AOT tests; Windows coverage is object emission only. Generic stores proven inside compiler stack slots stay direct, covering pre-frame argument copies; uncertain byrefs remain checked, with executable value/hook-count and extent-rejection tests. Framed lowering checks initialization dominance and uses shared production cleanup; real-runtime JIT/AOT consumers verify root-chain restoration on success and rejected writes. Ordinary compilation, Raven Runtime Contract/CLI semantics and the synchronous default remain unchanged. Host/writer admission and managed workload qualification remain open; see the paired neoCLR concurrent-store evidence.
+
+- **2026-10-24:** Document neoCLR scoped native execution-state imports and compiler-owned handle storage. Matching hosts are required; owner-thread suspension/reentry is supported, migration/escape is forbidden. Raven Runtime Contract settings, semantic model and NEOX/CLI emission remain unchanged. Record compiler/native/HTTP qualification and measured stack/code-size/CPU tradeoffs in the paired neoCLR evidence.
+
+- **2026-10-24:** Document neoCLR's binary storage/transient execution headers, completing the versioned count-header path while preserving rich diagnostics and checked legacy hooks. New native objects require matching helpers; frame layout, GC tracing, Raven Runtime Contract settings, CLI representation and .NET semantics remain unchanged. Record focused generated/native validation and the scheduling-sensitive worker-concurrency gate with successful replays in the linked neoCLR evidence.
+
+- **2026-10-24:** Document neoCLR's typed native boundary headers: versioned eight-byte lane-count metadata replaces runtime boundary JSON scanning, with checked legacy hooks and byte-identical rich inspection retained. New native objects require matching runtime symbols and private frame readers must discriminate the format flag. Raven CLI/Runtime Contract behavior stays unchanged. Thirty focused tests plus native header, HTTP, worker and async-consumer checks pass; Windows qualification is object emission only.
+
+- **2026-10-24:** Document neoCLR compiler-owned transient descriptor publication: validate fixed descriptors once per published lifetime while tracing changing slot values and preserving the checked native fallback. New native objects need the matching runtime hook. Raven CLI emission, Runtime Contract configuration and .NET semantics remain unchanged; forced-GC HTTP, shared-worker checks and 40 async-consumer invocations pass.
+
+- **2026-10-24:** Document neoCLR native backend transient-root handoff reuse: omit empty tables and duplicate post-success publications while retaining pre-call/constructor roots, diagnostic phase events and all GC/worker boundaries. No Raven CLI emission, Runtime Contract configuration or .NET behavior changes; native ABI stays compatible. See paired neoCLR transient-handoff evidence and validation.
+
+- **2026-10-23:** Document neoCLR native backend generated-storage ownership: a new runtime entry validates fixed prologue descriptors once per frame, preserving mutable root values, transient/native checks and worker coordination. New native objects require the matching runtime symbol; existing objects remain checked. Raven CLI emission, Runtime Contract configuration and ordinary .NET behavior are unchanged. Eleven neoCLR codegen checks, native GC/parked-root tests, forced-GC HTTP and shared-worker optimized/UBSan checks pass; see the paired neoCLR experiment.
+
+- **2026-10-23 — neoCLR execution metadata:** document the neoCLR backend’s compact native-GC point/storage/transient schemas and separation from full diagnostic plans, guided by CLR metadata design. Raven Runtime Contract configuration and CLI emission remain unchanged; matching bundle 1128b98cf remains supported. See docs/compiler/neoclr-cli-bridge.md and neoCLR’s allocation-metadata and slot-metadata experiments for validation and limits.
+
+- **2026-10-23:** Document neoCLR’s opt-in compiled worker safepoints and shared-heap GC integration, native helper/type-initializer restrictions and optimized/UBSan evidence. Raven Runtime Contract configuration, language semantics and CLI metadata remain unchanged; shared async HTTP is still unqualified.
+
+- **2026-10-23:** Preserve source mappings when lowering arrow-bodied members, including constant-result macro expansions, so debugger sequence points retain the authored fragment or invocation.
+
+- **2026-10-23:** Carry main 694bbeae8: rename System.Option<T> to Optional<T>, retaining Some/None and the propagation/JSON semantics. Add internal OptionalFacts, and migrate compiler and SDK prelude imports, compiler conveniences, framework projections, analyzers, editor support, converters, samples and docs on both targets. This is a source/metadata breaking rename: rebuild consumers. Preserve independent Error names in domain-union regression fixtures. Use the owning semantic model for conditional-call symbols on detached macro syntax, fixing editor queries. 183 final regression checks and 84 Raven.Core tests pass; both branches also pass 18 conditional-attribute tests, and main passes 144 editor tests (three existing skips). Two unrelated lowering-trace failures reproduce with pre-migration compiler sources.
+
+- **2026-10-23:** Centralize compiler-known Result case names and legacy failure-case resolution in internal ResultFacts, keeping payload member names independent.
+
+- **2026-10-23:** Carry main 8a264cf8a: rename Raven.Core Result.Error to Result.Failure, retaining Ok for the common success path. The failure state carries an error payload; MapError, UnwrapError and diagnostic interfaces keep their names. Update propagation, conditional access, inferred/explicit entry-point emission, analyzer messages and samples. Compiler recognition retains legacy Error-shaped results, but source/metadata consumers must migrate and rebuild; tagged JSON now writes the Failure case. Fix top-level Result inference before full diagnostic binding. 184 focused compiler tests pass; main Raven.Core passes 84 tests. Optional naming is a separate subsequent migration.
+
+- **2026-10-23:** Carry main 59a8d09ea: shared ConditionalAttribute call/attribute omission and diagnostics from main, including receiver/argument suppression and conditional startup support. Preserve expression-bodied getter identity on rebinding to prevent duplicate accessors. All 27 focused conditional/property/shared-constraint tests pass on this branch; no new Runtime Contract switch.
+
+- **2026-10-23:** Admit nongeneric nominal interface bounds on native generic owners and retain them on import, enabling typed error decorators without treating value conformance as class inheritance. Uses existing TypeBound metadata and no new Runtime Contract configuration. Preserve generic closure owner bounds and extension parameter ownership, and box generic-to-interface conversions. Imported nominal closure bounds remain unsupported. Native-only integration; focused qualification is recorded in the compiler bridge documentation.
+
+- **2026-10-23:** Emit nested record cases deriving from their enclosing closed family behind existing native declaration capabilities. Preserve nested identity, imported class slots and interface conversions with the matching neoCLR metadata SDK. Eight built-in environment tests pass in interpreter/JIT/native modes on macOS ARM64 (24 executions), including nested patterns and exhaustive matches. No new Runtime Contract settings; unrelated nested inheritance and native abstract overrides remain bounded gaps.
+
+- **2026-10-23:** Carry main a271da192: preserve inherited slots for abstract overrides and supply zero-parameter Deconstruct bodies for empty records. Covers closed OS/architecture-style hierarchies; no new Runtime Contract settings or metadata representation. All 45 focused record tests pass; reduced closed records and the neoCLR System.Runtime source core compile natively. Carry main db41ad039 with nested-case exhaustive pattern/display coverage. Concrete base overrides remain required by native metadata; abstract override metadata is a separate gap.
+
+- **2026-10-22:** Preserve field-level MarshalAs on instance value-type fields in native metadata; retain rejection of unsupported targets. Carry main parser fix 2073ee766 so following field attributes do not become array suffixes. Fifty target parser tests and neoCLR's 23 source/native interop integration tests pass, including public layout attributes and generated Raven imports into AOT libraries. No new Runtime Contract configuration or metadata encoding; managed marshalling/by-value ABI remain separate gaps.
+
+- **2026-10-22:** Qualify Raven struct-pointer exports through neoCLR export-root selection: C11/C++17 callers preserve C-owned and null addresses through a Raven helper. Unused synthesized constructors remain verified source metadata without entering scalar code generation. All 22 native import/export tests pass; no additional compiler or Runtime Contract changes.
+
+- **2026-10-22:** Fix native value-struct pointer signature admission behind an explicit portable capability and preserve nominal pointee identity through the neoCLR mapper. Pair with the metadata SDK value-pointer encoding/import fix; source `*Point` exports now emit. Ordinary .NET behavior is unchanged; this native machinery is absent from main. Struct layout validation remains a runtime boundary, and source struct execution still needs export-root selection for synthesized constructors.
+
+- **2026-10-22:** Qualify a Raven-authored AOT free-function library called from C/C++ and re-imported through NativeImport in interpreter/scalar-JIT/AOT. neoCLR uses preserved source identity for versioned export names and NativeExportAttribute discovery, and generates optional C/C++ headers. All 19 import/export tests pass; no compiler, Runtime Contract, metadata encoding or .NET target changes. Callback export mapping remains open.
+
+- **2026-10-22:** Qualify existing uint NativeImport emission, unsigned widening and wide-value truncation against neoCLR scalar JIT/AOT support. The shared consumer passes across all three engines; all 17 import tests pass. No compiler, Runtime Contract or encoding changes.
+
+- **2026-10-22:** Qualify existing float/double native metadata emission across interpreter/scalar-JIT/AOT, including exact IEEE payloads and mixed C register/stack arguments. neoCLR now admits floating-point transport; all 17 import tests and three managed floating-point regressions pass. No compiler, Runtime Contract or encoding changes.
+
+- **2026-10-22:** Qualify existing long/ulong native metadata emission against neoCLR’s added scalar JIT/AOT Int64/UInt64 transport. The shared Raven consumer passes signed and unsigned full-width values through locals/helpers and C calls in all three engines; all 16 runtime import tests pass. No compiler, Runtime Contract or encoding changes.
+
+- **2026-10-22:** Qualify shared Raven native pointer/no-result/native-integer transport through interpreter, scalar JIT and AOT (32 runs each), using C-owned reads and release. The direct pointer read/write proof remains JIT/AOT-only because interpreter access requires tracked storage. Both focused source tests pass; no compiler, Runtime Contract or encoding changes.
+
+- **2026-10-22:** Qualify the existing Raven native-import consumer through both scalar JIT and AOT with explicit seed/core verification contexts and @entry. Each mode completes 32 native allocation/read/write/release calls with result 42. No compiler, Runtime Contract or encoding changes; ordinary managed JIT imports remain open.
+
+- **2026-10-22:** Document neoCLR’s opt-in scalar JIT import probe sharing the AOT thunks and native resolver. All 15 runtime import tests and 24 scalar regressions pass, including the paired Raven AOT consumer. No Raven compiler or Runtime Contract changes; seed/core load contexts for the scalar JIT and ordinary managed JIT imports remain open.
+
+- **2026-10-22:** Lower unmanaged pointer dereference and assignment from pointer values under AllowsUnmanagedPointers instead of requiring managed-reference address lowering. Four new local/parameter regressions reproduce the old rejection; all 22 portable/.NET pointer tests pass after repair. The native AOT consumer reads and updates a C allocation with the matching metadata SDK pointer LoadObject/StoreObject validator. This portable backend is absent from main; ordinary .NET emission and Runtime Contract settings are unchanged. Document the required compiler/SDK pairing and trusted-memory limits.
+
+- **2026-10-22:** Document scalar AOT pointer equality/null and native-integer equality/zero admission in neoCLR. The existing Raven emitter now supports the backend consumer checking allocation failure before use; all 13 import tests and 24 scalar regressions pass. No compiler, Runtime Contract or .NET behavior changes; pointer ordering, pinning and managed AOT integration remain open.
+
+- **2026-10-22:** Document native-sized integer transport and unchecked conversions in neoCLR’s scalar AOT NativeImport profile. The Raven 5966b5f84 consumer exercises size_t allocation sizes, high-bit nuint values and negative nint offsets through locals/helpers; all 12 runtime import tests and 24 scalar regressions pass. No compiler, Runtime Contract, CLI encoding or .NET behavior changes; native-width arithmetic, managed AOT imports and pinning remain open.
+
+- **2026-10-22:** Document Raven-to-native NativeImport qualification using neoCLR's scalar AOT profile with explicit metadata verification dependencies. Raven 5966b5f84 emits PE/#Neo consumed directly through @entry; a Rust integration test verifies C allocation/pointer transport/unit release over 32 native calls and rejects missing dependencies. The scalar backend now also accepts existing typed/void-pointer casts and default-pointer local initialization while rejecting managed-local address escape; the updated Raven consumer passes. No Raven compiler, Runtime Contract or .NET behavior changes; managed-library AOT imports and ordinary SDK deployment remain open.
+
+- **2026-10-22:** Project NativeImport structural Function parameters and results to explicit native callable descriptors on the neoCLR target. Preserve unit syntax mapped to System.Void; adapt managed unit-returning Functions to C no-result callbacks through an output-owned wrapper/thunk, including generic value returns closed over unit; adapt returned no-result native functions to managed unit-producing Functions. Ordinary .NET behavior and Runtime Contract settings are unchanged. Seven built-in neoCLR interpreter tests pass with real C callbacks, captured-state GC, bound receivers and returned functions passed back as callbacks; metadata SDK roundtrip/rejection checks pass. Document adapter allocations, wrapper metadata identity, and remaining retained-callback/JIT/AOT gaps.
+
+- **2026-10-22:** Document the neoCLR worker-notification and GC bridge migration to no-result calls; its completion callback remains on the legacy TaskQueue ABI. Raven compiler behavior and Runtime Contract settings are unchanged.
+
+- **2026-10-22:** Document neoCLR's terminal-failure CLI binding migration to canonical no-result calls and its interpreter/native fault validation. No Raven compiler, Runtime Contract or .NET behavior change; legacy callback migration remains open.
+
+- **2026-10-22:** Record neoIL return parity for void and System.Void, preserving generic value-return ABI. The existing bridge output and Raven lowering are unchanged; bare Void removal remains pending in the runtime migration. Focused interpreter and AOT import tests validate the runtime change.
+
+- **2026-10-22:** Document the matching neoCLR bridge migration from noresult to void in textual IL and function shapes. Raven code and Runtime Contract configuration are unchanged; legacy named-Void return migration remains a runtime gap. Record focused runtime/bridge validation separately from native compiler qualification.
+
+- **2026-10-22:** Lower empty native Slice/ReadOnlySlice collection expressions to ordinary typed default views through an explicit adapter capability. Restrict admission to recognized native memory-view contracts; preserve arbitrary collection constructors and ordinary .NET emission. The native-buffers built-in consumer covers empty views with default pointers, following main's pointer-default repair 9193bdff1 carried as fa8ecb50c. All four native-buffer interpreter tests pass.
+
+- **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly. Carried deliberately from main 9193bdff1; native validation follows.
+
+- **2026-10-21:** Map the neoCLR grapheme role to System.Character and disable the char keyword in native projects and CLI parsing. Reject preparsed char aliases; update source ownership, native emission/import, completion policy, hover and inlay display. Ordinary .NET Char remains unchanged. All 22 focused parser/profile/grapheme/project tests pass; the language server builds for net10/net11. The matching five-library native build and 21 built-in text/record tests pass in the interpreter. A wider profile run still exposes the unrelated legacy CLI structural-tuple emission fixture limitation; no full-suite or release qualification is claimed.
+
+- **2026-10-21:** Admit imported generic value types with the same supported special constraints as classes, retaining dependency facts through the metadata SDK. The three neoCLR built-in Ptr tests pass across the library boundary, including `where T: struct` forwarding, address operators, boxed equality and hashing. This fixes native import admission; ordinary .NET and Runtime Contract configuration are unchanged.
+
+- **2026-10-21:** Lower native pointer reinterpretation and equality through explicit portable capabilities. Apply the existing special-constraint contract to value types, allowing `where T: struct` without discarding its metadata. The matching SDK validates pointer casts/equality. All 42 focused pointer tests pass; ordinary .NET conversion behavior comes from the separately validated main commit `1e2b43ce4`. No Runtime Contract or ownership change.
+
+- **2026-10-21:** Preserve scoped generic unmanaged pointer targets in opt-in native emission, including owner/method parameter mapping and nested pointers. The matching metadata SDK substitutes pointer targets through fields and calls and rejects invalid scopes/closed targets. Ten focused pointer tests pass, and a source generic pointer wrapper executes a native buffer release in the interpreter. Ordinary .NET emission and Runtime Contract configuration are unchanged; this native-only portable layer is absent from main. Native/JIT interop and safe pointer-to-Slice borrowing remain unimplemented.
+- **2026-10-21:** Add the default-enabled ParseOptions.EnableCharKeyword capability. Disabling it lexes char as an ordinary identifier; snapshots, option equivalence and preprocessor-option copies retain the setting. Four focused parsing/completion tests pass. Completion honors the capability without escaping a disabled keyword. Ordinary .NET parsing is unchanged; target drivers must select the alternate policy explicitly.
+
+- **2026-10-21:** Classify explicit unmanaged pointer reinterpretation and implicit pointer-to-void erasure through ordinary pointer conversions. Address bits are preserved; no ownership, bounds or lifetime is acquired. All 35 focused pointer semantic/codegen tests pass, including execution through void and byte pointer casts.
+
+- **2026-10-21:** Preserve derived record state in base-typed and interface equality/operator calls through ordinary virtual Object.Equals dispatch. Generated class Object.Equals requires matching runtime types, and inherited positional properties participate in display, equality and hashing. Generated copy constructors also mark required members initialized, including inherited state. The .NET runtime regression previously failed; it and 37 record semantic tests now pass, including an explicit derived-record copy.
+
+- **2026-10-21:** Add explicit `--execution jit|interpreter` to `rvnc neoclr --project ... --run ...` for neoCLR editor tasks. Forward the selected execution mode to the runtime; reject invalid, duplicate and run-less selectors. Omitting the selector preserves existing diagnostic command behavior, while generated neoCLR editor tasks select JIT. Exact collections output under JIT and three rejection controls pass; ordinary .NET commands, Runtime Contract and ABI are unchanged.
+
+- **2026-10-21:** Document the matching neoCLR metadata SDK correction for generic static composition imports and value/interface wrappers used by HTTP JSON extensions. Native emission selects its existing explicit import path; ordinary .NET compilation, Runtime Contract and ABI are unchanged. SDK tests and HTTP interpreter requests pass; fresh package qualification remains pending.
+
+- **2026-10-21:** Carry main 9645e24f5 record-inheritance semantics: base-typed equality dispatches virtually, Object equality checks runtime type, and inherited positional properties participate in generated contracts. Also carry main ab1bc96d3, marking generated copies as initializing required members. Main passes 38 focused tests, including an explicit derived copy. Native lowering now preserves inherited fields and calls base copy constructors; generated display supports finite recursive source-record graphs. Use the selected core runtime-type handle service to avoid reflection descriptors, with an older-core fallback. All 45 built-in neoCLR record executions pass across interpreter/native/JIT, plus one interpreter allocation contract (64 comparisons allocate no managed objects). Cycles retain stack limits; generic boxes and display allocations remain. No metadata ABI change.
+
+- **2026-10-21:** Carry shared record copy-constructor collision diagnostic from main 8eca1f07d: RAV0111 rejects single self-typed primary constructors, including nullable/generic spellings, before metadata emission. Nullable annotations no longer produce duplicate copy signatures. Runtime Contract and ABI are unchanged.
+
+- **2026-10-21:** Emit native positional record display for type-parameter components and record classes directly based on Object. Preserve Raven text quoting, null and Unicode through ordinary Object dispatch for generic components; use reference getter receivers and null-safe virtual display for nested class components. Known value components retain direct formatting. Generic values box once and nested generic/class output can allocate intermediate strings. Runtime Contract, metadata ABI and ordinary .NET synthesis are unchanged. All 12 built-in neoCLR record-formatting tests pass in interpreter/native/JIT execution (36 executions), superseding the earlier ten-test generic cohort. The subsequent inherited/recursive and constructor fixes above supersede this slice's original exclusions.
+
+- **2026-10-21:** Native neoCLR emission distinguishes unbound generic declaration tokens from constructed generic signatures, using the matching metadata SDK definition-token API. Ordinary .NET emission and Runtime Contract selection are unchanged; the five .NET typeof controls pass, along with six built-in neoCLR reflection tests in interpreter/native execution and 21 DI interpreter tests. JIT and localization qualification continue.
+
+- **2026-10-21:** Spill evaluated array receiver/index operands before lowering an assignment value at a statement boundary, allowing Result propagation to return with an empty native operand stack. Preserve evaluation order and existing nested-expression restrictions; nine focused prepared-expression/index tests pass. Ordinary .NET emission, metadata and ABI are unchanged.
+
+- **2026-10-21:** Substitute explicit generic extension arguments throughout native structural function signatures, including lambda return types. Block-bodied typed factories now receive the same contextual result type as expression-bodied factories and ordinary .NET delegates. All 11 focused structural-function tests pass; no Runtime Contract, metadata or ABI change.
+
+- **2026-10-21:** Traverse object construction, initializer entries and union-case payload arguments in the shared bound-tree walker so lambda capture analysis retains outer locals used inside construction, including conversions and nested expressions/calls. Add semantic and emitted .NET regressions. No Runtime Contract, metadata or closure ABI change.
+
+- **2026-10-21:** Admit imported generic instance methods in native callable selection when AllowsGenericInstanceMethods is enabled. Preserve ordinary signature/owner checks; use the matching neoCLR metadata SDK's consumer-scoped generic receiver support. No general .NET semantics, Runtime Contract configuration or metadata encoding change. Localization Load<T> provides consuming coverage.
+
+- **2026-10-21:** Carry general positional semantics from main d39ef018a as f5daaaea1 and extend native lowering to reference/base/object narrowing, inherited deconstruction receivers and runtime Object equality patterns. Reuse existing nominal calls, conversions and unboxing; value equality patterns currently box. No Runtime Contract, ABI or CLI encoding change. Qualify all four built-in neoCLR deconstruction tests under native, JIT and interpreter (12 executions), including production Money/Currency; outer whole-pattern captures remain bounded.
+
+- **2026-10-21:** Bind expanded array `params` arguments for indexers, including extension indexers, while retaining explicit array arguments and preferring applicable normal-form overloads. Reuse ordinary collection lowering for the packed argument array. Add emitted .NET regression coverage; no Runtime Contract or metadata encoding change.
+
+- **2026-10-21:** Unify named positional declarations with deconstruction: irrefutable named bindings may omit else, while refutable named declarations report RAV1620. Resolve inherited accessible Deconstruct members for named and unnamed forms. Qualified read-only static members are evaluated equality patterns, not compile-time constants. Correct synthesized typed/Object equality bodies for record structs exposed by value-pattern execution. Add semantic and execution coverage for value/reference records, base/object narrowing, null, mismatches and equality; ordinary .NET behavior is the baseline for native integration. All 88 focused semantic/execution tests pass.
+
+- **2026-10-21:** Native positional records admit ordinary authored methods through existing callable lowering. Reuse declared self-equality/hash/display contracts for source nominal value components as well as imported ones, including Decimal; preserve generated record semantics without monetary-specific machinery. Same-value-type named deconstruction patterns share the existing declared Deconstruct call path with assignments. Ordinary .NET emission and Runtime Contract selection are unchanged. Built-in neoCLR MonetaryAmount coverage validates the consuming contract; additional storage declarations and explicit interface mappings remain bounded gaps.
+
+- **2026-10-21:** Add native Decimal value-contract lowering: literals call the coefficient constructor, decimal operators call declared library methods, and integral conversions call implicit operators. Gate this target-only portable behavior with an explicit capability; ordinary .NET emission and Runtime Contract options are unchanged. Qualify through neoCLR built-in Decimal tests; floating conversions and decimal constant-field metadata remain gaps.
+
+- **2026-10-21:** Native type constants now emit/import Int32, Single and Double, including exact NaN/infinity/negative-zero values through the matching metadata SDK. Add Single constant loading and temporary value receivers for literal-field instance calls to the native branch portable pipeline (absent on main). Carry main 13f34e357 for qualified imported constant evaluation. Qualify with neoCLR constant/classification and record tests; the shared evaluator fix also applies to ordinary .NET. No Runtime Contract switch; matching native readers required.
+
+- **2026-10-21:** Admit native Single/Double record components using existing typed primitive Equals/ToString and Object hashing. Preserve NaN and signed-zero value semantics, documenting hash boxing. Qualify via neoCLR built-in record tests; no Runtime Contract, metadata or ordinary .NET behavior changes.
+
+- **2026-10-21:** Native record display now formats Int32-backed enum components through ordinary boxed Object.ToString, reusing runtime names/flags/numeric fallback. Document the temporary box cost and qualify local/imported enum and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET behavior changes.
+
+- **2026-10-21:** Native record formatting now reuses declared public imported-value ToString contracts through direct value receiver calls. Share admission/emission selection and qualify Index/Range, nested records and union payloads with neoCLR built-in tests. No Runtime Contract, metadata or ordinary .NET synthesis change; broader record formatting remains bounded.
+
+- **2026-10-21:** Enable ordinary method reference/value/constructor constraints and nongeneric nominal class bounds in the native adapter through explicit capabilities. Share type/method flag mapping; preserve constraints on native semantic import and emission, including separate-provider forwarding and static class methods. Use the matching neoCLR SDK nominal-bound contract. Ordinary .NET emission and Runtime Contract configuration are unchanged; the matching enum API now uses struct constraints and passes 18 built-in interpreter/JIT/native executions plus reference/unconstrained rejection and website checks. Matched-package qualification remains open.
+
+- **2026-10-21:** Document native enum Unicode metadata-name support through the matching neoCLR metadata library, preserving ordinary Raven identifier binding and UTF-8 names without new Runtime Contract mappings. Record completed native source-library/12-execution qualification for returned-out-call forwarding and 18 built-in executions for shared Unicode metadata naming in neoCLR 081b399f4, including slots, properties and generic parameters. Document the neoCLR shared method-category metadata prerequisite and its standard CLI flags; native Raven method emission/import and nominal class bounds remain separate work.
+
+- **2026-10-20:** Analyze return expressions before checking out-parameter assignment at normal exit. Generic direct calls can forward out storage while producing a return value; short-circuit calls still require assignment on every path. Share the return statement/expression analysis and add runtime/diagnostic regressions. No Runtime Contract configuration or metadata change.
+
+- **2026-10-20:** Record the neoCLR Enum Parse/TryParse consumer boundary and existing native generic-method struct/Enum constraint gap. Runtime metadata queries and lowering belong to neoCLR; no compiler semantics, Runtime Contract configuration or .NET behavior change.
+
+- **2026-10-20:** Document neoCLR numeric InternalCall contracts and its metadata producer/reader ownerless-function admission repair (256 to the existing 4096 module inventory bound). Nominal method bounds, Runtime Contract configuration, compiler semantics and ordinary .NET behavior are unchanged; focused metadata boundary qualification is recorded in neoCLR. Record shared native-width static primitive method projection in neoCLR codegen, without changing Raven emission.
+
+- **2026-10-20:** Document neoCLR's backend repair preserving projected String callvirt null checks at caller sites while retaining interpreter direct-call behavior. No Raven emission, Runtime Contract or ordinary .NET behavior changes; raw null direct calls are not a portable CLR usage contract.
+
+- **2026-10-20:** Add native generated equality/hash bodies for supported nongeneric positional records, preserving canonical String/Char value semantics and direct integer/Boolean/enum component operations. Keep ordinary .NET synthesis unchanged. Add focused source-core metadata coverage and a clear unsupported-component diagnostic; extend admission to closed declared tagged-union components using public case patterns and payload getters, including ConsoleKeyInfo.TextScalar: Option<int>. Qualify case/default identity, canonical and nullable payloads, nested unions and boxed calls with neoCLR; typed key equality/hash adds no managed allocations in the focused diagnostic. Reuse explicit imported nongeneric EquatableTo<Self> components through public typed equality/hash methods, including Index/Range, without component boxes. Reject missing hashes, method-only lookalikes, mismatched self types and unresolved explicit mappings; add source-core import regression coverage. Unsupported/floating-point components, automatic imported record discovery and broader generated formatting remain gaps. Matching neoCLR boxed-value override support and interpreter/JIT/AOT qualification are documented separately. Emit native ToString overrides for supported scalar and nested positional record structs, retaining Raven quoted/escaped text, explicit null and original UTF-8 content. Use typed scalar formatting and one builder for nested values; output and builder allocations and the existing 65,536-byte limit remain. Diagnose unsupported record formatting and missing native text helpers explicitly. Ordinary .NET synthesis and Runtime Contract configuration are unchanged; broader record formatting remains a gap. Qualify typed/boxed interpreter/JIT/AOT behavior and compare managed allocations with an equivalent hand-written builder. Extend record display to closed declared union components through public case patterns/getters, preserving case/default identity, named payloads and nested display without component boxes or intermediate union strings. Keep enum and unsupported payload formatting as explicit gaps; runtime contracts and ABI remain unchanged. Qualify explicit record equality-interface dispatch and reject promised native EquatableTo<Self> contracts with unsupported component bodies at record admission, replacing a later generic metadata error. Automatically synthesize the selected core's EquatableTo<Self> interface for native nongeneric records through the existing target runtime contract, preserving .NET IEquatable<Self> defaults. ConsoleKeyInfo now supports implicit interface conversion and imported record components without explicit interface clauses. Centralize native equality-interface identity and update obsolete rejection fixtures. Nongeneric records with unsupported component bodies now reject at declaration instead of silently exposing storage only. .NET generic record behavior and runtime ABI are unchanged. Refresh public API references and qualify source/imported class/struct interface dispatch across all three engines. Support bounded native generic record equality/hash and automatic self-equality interfaces, including constructed/imported records and KeyValuePair. Select component policy from the declared type, preserve canonical text/null behavior, and remove the temporary generic-interface exclusion. Qualify ordinary integer/Boolean boxed Object value dispatch and correct Index/Range Object overrides. Generic comparison initially allocated boxes/type descriptors; generic formatting, enum/floating-point adapters and ordinary struct default value methods remain gaps. Preserve .NET compiler defaults and ordinary class/struct ABI; update API references and record focused execution/allocation evidence. Prefer the selected core RuntimeHelpers.IsAssignable<TSource,TTarget> compiler service for generic policy, with validated ownership/signature and the prior typeof fallback. Emit an exact source-core TypeHandle<T> intrinsic as a managed token method. No .NET behavior or ABI change; neoCLR matched tests halve incremental allocations from eight to four per integer comparison and two hashes after correcting argument-materialization bias. Add malformed intrinsic signature coverage.
+
+- **2026-10-20:** Document neoCLR's synchronous ConsoleKeyReader scalar InternalCall bridge, runtime-owned terminal lifecycle, Unicode scalar results and qualification limits. Compiler configuration and ordinary .NET behavior are unchanged.
+
+- **2026-10-20:** Enable existing async scope-exit cleanup for source-core native projects that explicitly configure RavenNeoClrAsyncLibrary, matching native-reference projects. Keep it disabled without that provider. The source-core metadata probe verifies both configurations; neoCLR text wrappers exercise `use` across suspension. This does not add exception unwinding or iterator support.
+
+- **2026-10-20:** Admit explicit instance interface methods on nongeneric classes in native neoCLR emission, retaining private visibility and explicit mappings without class virtual slots. Preserve ordinary .NET behavior and Runtime Contract settings. The focused metadata/lookup probe passes; the mixed sync/async borrowed-stream consumer passes neoCLR interpreter/JIT/AOT. Generic explicit methods/owners and value-type bodies remain restricted.
+
+- **2026-10-20:** Document neoCLR boxed nominal value-interface dispatch repair exposed by Formattable; no Raven compiler or ordinary .NET behavior change. Track private boxing inventory, native ownership and qualification separately.
+
+- **2026-10-19:** Document neoCLR Char.TryFromString and explicit-policy equality, preserving grapheme validation and direct Char storage comparisons through private native services. Runtime Contract configuration and .NET compilation are unchanged; borrowed Char bytes remain a storage-ownership gap.
+
+- **2026-10-19:** Document neoCLR canonical and simple-fold String search overloads, exact private native bindings, borrowed UTF-8 semantics and shared Unicode kernels. Runtime Contract configuration and ordinary .NET behavior remain unchanged; matching library/runtime/backend artifacts are required.
+
+- **2026-10-19:** Document the private neoCLR String line-ending runtime service, exact backend binding, retained UTF-8 bytes and GC ownership. Runtime Contract configuration and ordinary .NET behavior are unchanged; matching library/runtime artifacts are required.
+
+- **2026-10-19:** Document the neoCLR backend private String helper projection, preserving legal calls after receiver lowering while retaining original private-access checks. No compiler code, Runtime Contract or ordinary .NET behavior changes.
+
+- **2026-10-19:** Document native canonical String/Char Object dispatch through verified source overrides, exact receiver projection and GC-safe null faults. No compiler Runtime Contract or ordinary .NET behavior changes; neoCLR owns runtime/backend qualification and the UTF-8 policy.
+
+- **2026-10-19:** Document neoCLR adapter admission of exact String/Char Object override references, resolving native consumer emission. Runtime Contract, metadata format and ordinary .NET behavior are unchanged; native execution qualification remains pending.
+
+- **2026-10-19:** Bind exact extracted union/property payload declarations directly in the portable planner, preserving nullable payloads instead of rejecting them with a type test. Narrowing patterns retain their checks. Carry main ffa3d0812 regression coverage deliberately; 82 focused CLR tests and the nullable Result consumer in neoCLR interpreter/JIT/AOT pass. No Runtime Contract or metadata-format change.
+
+- **2026-10-19:** Preserve pattern-assignment edges when lowering logical values, and lower overloaded binary operators through ordered call-argument handling so async Result propagation can return safely. All 79 shared linear-body tests and a neoCLR async expression regression in interpreter/JIT/AOT pass. Numeric nested-operand early exits remain restricted; Runtime Contract settings are unchanged.
+
+- **2026-10-19:** Traverse match-arm bodies and guards in native runtime-async suspension and cleanup passes. Await, return and cancellation inside match arms now preserve scoped disposal; the neoCLR regression passes interpreter/JIT/AOT. Runtime Contract settings and ordinary .NET lowering are unchanged.
+
+- **2026-10-19:** Preserve structural Function parameter, ref-kind and result shapes in overload lookup identities, so context/request callbacks remain selectable. Fix native async base calls to load the captured receiver rather than the closure. Nine focused Function/range tests pass; runtime consumer qualification is recorded with neoCLR. This corrects the native Function branch without changing ordinary .NET delegate identity.
+
+- **2026-10-19:** Extend native emission to capture canonical imported CancellationToken values across runtime-async entry and to allocate unfiltered array comprehensions from runtime Int32 ranges. Evaluate endpoints once, calculate cardinality without signed overflow, and retain checked size admission and borrowed-capture rejection. Runtime Contract settings and ordinary .NET semantics are unchanged; native execution qualification accompanies the neoCLR HTTP consumers.
+
+- **2026-10-19:** Document neoCLR native-backend support for receiver-independent calls, nested construction and string constants in base-constructor arguments, with GC/root-isolation validation. Raven emission, ordinary .NET behavior and Runtime Contract configuration are unchanged; control-flow initializer coverage remains pending.
+
+- **2026-10-19:** Admit canonical Slice/ReadOnlySlice ref structs and ordinary Memory/ReadOnlyMemory structs only in the neoCLR source-core contract; preserve imported opaque/ref-like identities, reject invalid shapes/constructors, and lower native array ranges through GetSlice while .NET retains GetSubArray. Correct portable value-indexer receivers. Qualify shared views, persistent fields across await and GC, copying, borrowed conversions and lifetime/readonly diagnostics. Runtime Contract settings remain unchanged; backend coverage is tracked in neoCLR. Admit immutable persistent memory captures behind an explicit native capability, including defensive local receivers for captured descriptors, so native async entry can retain Memory parameters. Ref-like capture remains rejected and ordinary .NET emission is unchanged. Add focused capture-admission and nested-receiver regressions.
+
+- **2026-10-18:** Document neoCLR backend boxing coverage for all numeric primitive kinds, Boolean and Char, with exact ancestry/identity and three-mode regressions. No Raven emission or Runtime Contract change; additional-kind default Object display remains explicitly unsupported.
+
+- **2026-10-18:** Define native core ValueType/Enum foundations before intrinsic primitives and core enums and retain their local ancestry. Validate a freshly rebuilt four-library cohort and three-mode consumer; ordinary .NET output and Runtime Contract settings remain unchanged.
+
+- **2026-10-18:** Preserve imported System.Enum ancestry in native metadata and admit direct enum boxing to Enum under the native ancestry capability. Keep ordinary .NET behavior and Runtime Contract settings unchanged; validate boxed identity across neoCLR interpreter/JIT/AOT.
+
+- **2026-10-18:** Bind native application value records to imported System.ValueType and permit direct boxing to that foundation behind the native ValueTypeAncestry capability. Preserve inline storage and ordinary .NET behavior; validate metadata and interpreter/JIT/AOT consumers with neoCLR. Runtime Contract settings are unchanged.
+
+- **2026-10-18:** Admit native positional reference-record storage behind an explicit target capability. Preserve reference semantics and bind top-level root classes to the selected native Object with base-constructor initialization. Validate metadata, aliasing, copying, boxing and BaseType across neoCLR interpreter/JIT/AOT; retain separate synthesized-record-member limits and unchanged ordinary .NET behavior.
+
+- **2026-10-18:** Admit mutable positional record-struct components in native emission, preserving ordinary setter versus init-only metadata. Verify copying, boxing and init behavior across neoCLR interpreter/JIT/AOT; ordinary .NET behavior and Runtime Contract settings are unchanged.
+
+- **2026-10-18:** Document neoCLR JSON value-record serialization and matched interpreter/JIT/AOT validation, with existing mapping limits retained; no compiler, Runtime Contract or ordinary .NET changes.
+
+- **2026-10-18:** Document neoCLR boxed value-record property getter support, rooted payload borrowing and record-valued results; no Raven emitter, Runtime Contract or CLI encoding change.
+
+- **2026-10-18:** Document interpreted boxed-record default display parity and seven Preview 16 consumers verified across interpreter/JIT/AOT; no Raven compiler or Runtime Contract change.
+
+- **2026-10-18:** Document native nominal/interpreter interface checked-cast fault parity (InvalidCast rather than RuntimeError); no Raven emission or Runtime Contract change.
+
+- **2026-10-18:** Document neoCLR native boxed Int64/Boolean display support and closed nonempty Result/record boxing, checked unboxing, rooted byref display and generic override discovery; distinguish reproduced Preview 16 backend gaps from separate JSON mapping/retention limits; no Raven compiler semantics or Runtime Contract change.
+
+- **2026-10-17:** Normalize empty/whitespace native runtime-async helper settings to disabled, matching the legacy project contract. Explicitly clearing the default again selects heap state machines instead of resolving an empty helper type. Existing default runtime await/generator lowering and ordinary .NET behavior are unchanged. All nine empty/whitespace/generator checks pass on interpreter, JIT and AOT with an isolated compiler cohort.
+
+- **2026-10-17:** Preserve unresolved generic overload candidates in available invocation return-type queries. Cold local/type queries now defer to authoritative binding instead of choosing a unit-returning overload merely because its return type is already concrete. This keeps callback results such as `Task.Run(() => 41)` consistent across query order and editor inlays. Native carry of main `752d240b4`; regression fixtures construct non-null boxes for this branch’s nullable rules, and the native metadata probe checks `Task<int>` plus its awaited `int`. Validation: 66 focused compiler checks and the native metadata probe pass. No Runtime Contract or metadata change.
+
+- **2026-10-17:** Avoid redundant overflow guards in native portable signed int/long exclusive loops whose bound step is the literal one. The existing upper-bound comparison proves the increment representable; inclusive and other-step loops retain guards. Boundary, evaluation-order and loop-control consumers pass interpreter, JIT and AOT, with 23 focused compiler checks. No Runtime Contract, metadata or ordinary .NET behavior changes.
+
+- **2026-10-17:** Observe native metadata dependencies from the project-load snapshot instead of reevaluating projects while filtering every file notification. Preserve old and newly discovered inputs through failed reloads so reference/configuration repair can retry. Unrelated generated-file events no longer populate evaluation caches; target contracts and emitted metadata are unchanged.
+
+- **2026-10-17:** Apply watched-file output-directory exclusions relative to the opened workspace. Projects opened beneath target/artifacts now reload their own configuration changes while generated descendants remain excluded. No Runtime Contract or metadata change.
+
+- **2026-10-17:** Preserve open-document membership when a failed project reload restores the last successful workspace. Subsequent successful reloads retain unsaved source text and refresh diagnostics for those documents. Validate failure/recovery and repeated imported-property edits; no Runtime Contract or emitted metadata change.
+
+- **2026-10-17:** Qualify native HTTP client/server execution in JIT and AOT after the NeoCLR backend union generic-argument retention repair. Native signatures, compiler lowering and Runtime Contract selection are unchanged. Record the corrected backend requirement; archived/installed SDK and Windows/editor qualification remain separate.
+
+- **2026-10-17:** Document the NeoCLR metadata-library repair for authored imported union signatures. The unchanged HTTP client compiles and interpreter client/server execution passes with the updated library; JIT exposes a separate generic-union metadata-retention gap. Raven lowering and ordinary .NET behavior are unchanged; packaged SDK/editor qualification remains pending.
+
+- **2026-10-17:** Include native structural-union alternatives in match exhaustiveness analysis. Complete type-pattern matches, including generic nominal-union payloads, no longer require an artificial catch-all; missing alternatives and non-total guards remain diagnosed. Public semantic-model queries agree with diagnostics. Twenty-one focused native/.NET checks pass; the packaged native HTTP server compiles. The HTTP client reaches a separate native authored-signature encoding failure. Runtime Contract settings and emitted signatures are unchanged.
+
+- **2026-10-17:** Native project execution passes the selected core exactly once and emits Console calls through native metadata rather than the legacy CLI shortcut. Validate duplicate-core execution paths, nine rejected configurations, and an installed SDK sample that parses/awaits/prints 42 through `neoclr --project --run`; ordinary .NET behavior is unchanged.
+
+- **2026-10-17:** Coalesce project references to the explicitly selected native core before catalog loading. Preserve strict duplicate identity/path checks for other inputs. Native project regression, nine invalid configurations and fresh five-library production compilation/editor completion pass.
+
+- **2026-10-17:** Native async entry points use RuntimeHelpers.DrainEntryTasks from the explicitly selected async runtime assembly. Legacy CLI targets retain RuntimeServices. A source-owned System.Runtime consumer compiles, awaits and returns 42 without a bootstrap reference.
+
+- **2026-10-17:** Add explicit RavenNeoClrRuntimeContracts for source-core and native-core-reference projects, including primitive, Self, iteration, reflection and async provider settings. Track the manifest as an editor input and reject mixed legacy manifests. Validate native-only production core consumption, parsing execution, editor completion and existing invalid native-project configurations.
+
+- **2026-10-17:** Preserve configured source-owned Self markers as native Self signatures during source-core construction. Validate numeric static-interface conformance, inspect native Self/primitive return descriptors, and compile a native consumer of Int32.Zero with editor completion.
+
+- **2026-10-17:** Lower native array iteration through the actual array type’s Length member contract, including source-owned Array<T> views. Validate a reference-free source-core loop in interpreter, JIT and AOT alongside allocation fault checks and consumer completion.
+
+- **2026-10-17:** Declare source-core type shells before namespace function signatures and defer provisional attribute data. Prevent false duplicate overloads and incomplete native-call markers during reference-free core construction; validate alternate file orders and native consumer completion. Ordinary .NET behavior is unchanged.
+
+- **2026-10-17:** Emit source-core `ReserveArray<T>` as a managed checked-reservation body without a bootstrap reference. Require the exact internal unconstrained variable-array signature. Native consumers preserve successful initialized reads and faults for uninitialized reads/negative lengths in interpreter, JIT and AOT. Ordinary .NET behavior is unchanged.
+
+- **2026-10-17:** Add explicit native source-core construction with source-owned primitive/root identities and no reference core or CLI projection. Preserve source array views and late-bound attributes; distinguish source extension arity from emitted ownership names. Validate native construction, consumer compilation/completion, interpreter array-interface execution and invalid configuration/native-call flags. Production class-library bootstrap removal remains a separate migration.
+
+- **2026-10-17:** Carry main 2766516e1: match source metadata type names by exact generic arity, including nested declarations; nongeneric lookups do not fall back to generic types. Carry main 81daa7e11 separately: qualified expression receivers still infer a unique open generic union definition without weakening exact metadata lookup. Carry main 8ee547f67: qualified case-pattern type expressions use the same lookup and no longer retain a silent error type. Qualify source-core completion with the .NET-shaped Enum base and metadata SDK b68592c43.
+
+- **2026-10-17:** Record native local-time service ownership and fresh compilation/interpreter/completion validation. Production neoCLR source has no RuntimeServices calls; compiler source-core contracts remain open.
+
+- **2026-10-17:** Record native file/time/worker/task service migration and no-result ScheduleTask runtime qualification. Compiler 66c31932a builds the fresh bundle; async task/worker/file consumption and completion pass. Local-time conversion and native source-core contracts remain open; no ordinary .NET behavior changes.
+
+- **2026-10-17:** Record native text-array and source equality migration with compiler 304e8675a: fresh library compilation, Unicode/empty-array/null-equality execution and string completion pass. No compiler or .NET behavior change.
+
+- **2026-10-17:** Record native ownership of 33 direct neoCLR text/parsing services with CLI/seed removal and obsolete Console facade cleanup. Compiler 70bf9be9c qualifies five-library compilation, scalar parsing/text/UTF-8 execution and Parse completion. Remaining managed text helpers and compiler bootstrap contracts stay open; ordinary .NET behavior is unchanged.
+
+- **2026-10-17:** Record native ownership of seven neoCLR type-handle primitives with CLI/seed definition removal. Compiler 3d233b07c qualifies five-library compilation, generic type introspection execution, native ownership and editor completion. No compiler/.NET behavior change; remaining core bootstrap migration stays open.
+
+- **2026-10-17:** Record removal of 49 neoCLR introspection forwards with compiler 589c353e7: five-library compilation, interpreter field/construction/function reflection consumers and native TypeInfo completion pass. Public contracts and compiler/.NET behavior are unchanged; core bootstrap migration remains open.
+
+- **2026-10-17:** Record neoCLR native networking forwarding removal qualified with compiler eeb6ef0d1: fresh five-library compilation, interpreter loopback/deadline and cancellation execution, and Socket editor completion pass. Compiler and .NET behavior are unchanged; remaining native-core bootstrap migration stays open.
+
+- **2026-10-17:** Emit exact source-owned native payload helper declarations as managed ValueIs/ValueUnpack bodies only for the explicit System.Value implementation owner. Reject unowned, malformed and constrained declarations; ordinary extern admission and .NET emission are unchanged. Qualify native source admission, five-library production compilation, interpreter/JIT/sanitized AOT payload consumption and editor completion with neoCLR 2f34d9763.
+
+- **2026-10-17:** Record neoCLR 7185d1340 scalar/unit payload helper qualification in interpreter/JIT/sanitized AOT, native-only project compilation and editor completion. Production native helper construction/ownership remains open; no compiler or .NET behavior changes.
+
+- **2026-10-17:** Record neoCLR object/join forwarding removal (9f46a0bb8) and native-owned payload helper qualification (4f142b9e5). Production library compilation, interpreter consumers and editor completion pass; native IsValue/UnpackValue bodies need no bootstrap interception. Production core migration and JIT/AOT payload qualification remain open; no .NET behavior change.
+
+- **2026-10-17:** Record neoCLR a8e588b65 removal of 12 console/storage forwards with native service calls. Fresh five-library compilation, interpreter console/filesystem consumer and Console/FileText editor completion pass with Raven d83ea51e7. No compiler switch or .NET behavior changes; payload helpers and production native-core construction remain open.
+
+- **2026-10-17:** Record neoCLR 88a718f94 removal of 13 time-zone/heap service forwards using native declarations. Qualify the fresh five-library bundle with Raven d83ea51e7, interpreter execution and TimeZone/GC editor completion. No compiler switch, public signature or .NET behavior changes; production core migration remains open.
+
+- **2026-10-17:** Treat native-integer/integral conversions as built-in numeric conversions, including platform-independent implicit widening. Preserve source signedness in CLI native-width conversion and widening; validate classification without user-defined operators and checked negative-to-nuint overflow. Target-typed native literals and floating-point/decimal native-integer conversion completeness remain outside this slice. Carry main babd5fad0 to neoCLR with native signed/unsigned conversion lowering and source-aware widening; imported comparisons and high-bit conversions return 42 in interpreter, JIT and sanitized AOT against the fresh native library bundle. Editor completion resolves CompareTo on a native cast, and checked negative-to-nuint conversion faults in all three native execution modes.
+
+- **2026-10-17:** Record matching neoCLR native math/environment wrapper removal and qualify native metadata-owned checked reservation/type-handle methods through ordinary native symbols. Native-only intrinsic calls compile and execute in interpreter/JIT/AOT without BootstrapReference, with negative reservation rejection and editor completion. No compiler default or .NET behavior change; production native-core ownership and native-integer binding remain open.
+
+- **2026-10-17:** Preserve InternalCall identity when importing native assembly functions through compiler symbols, including generic signatures. Admit generic native runtime-service declarations under the existing exact MethodImpl owner, flag, namespace and visibility checks; runtime service signature validation remains authoritative. Validate native-only declarations, separate-provider calls, rejected flags/visibility, completion and runtime linking. Requires matching metadata SDK support; ordinary .NET behavior is unchanged. Qualify the production native queue-service migration with matching runtime no-result registration support: interpreter/JIT/sanitized AOT return 42 and editor completion resolves TaskQueue.Default. Remaining bootstrap services and core ownership stay open.
+
+- **2026-10-17:** Emit parameter-array markers using the selected native constructor and exact assembly owner, without a CLI bootstrap or SDK definition import. Validate native-only provider/consumer compilation, expanded argument binding, metadata import and System completion. Ordinary .NET emission and legacy bootstrap selection are unchanged; production core migration remains in progress.
+
+- **2026-10-17:** Preserve explicit typeof runtime contracts for native-only neoCLR projects instead of silently clearing them. Validate explicit disabling, missing-contract diagnostics, native-only compilation/emission and namespace completion without CLI delegates. Infer native metadata/emission core identity from the explicitly selected artifact when no metadata-name override is supplied; continue rejecting explicit mismatches. Production core bootstrap removal remains incomplete; ordinary .NET behavior is unchanged.
+
+- **2026-10-17:** Carry the validated main documentation-highlighting fix for `checked` and `unchecked`; restore the VS Code package synchronization check.
+
+- **2026-10-16:** Preserve qualified static field and property mutation without capturing a type name as a runtime receiver. Checked compound assignments retain normal storage and overflow semantics; no Runtime Contract change. Carry main 289019055 deliberately onto codex/neoclr. Document matching native SDK static/literal field identity and neoCLR d5d95ac3a field/initializer reflection qualification on interpreter/JIT/sanitized AOT, including schema-7 retention and provider-layout requirements.
+
+- **2026-10-16:** Emit Raven native static field initializers and explicit static constructors through canonical `.cctor` metadata, reusing bound initializer order and lowering. Preserve strict explicit-constructor timing and relaxed synthesized timing; import the static-constructor symbol. Qualify readonly fields, explicit initialization, distinct closed generic state and a separate-provider consumer on interpreter, JIT and sanitized AOT. Ordinary .NET behavior is unchanged; structural work remains parked.
+
+- **2026-10-16:** Carry main e44a7ca96: materialize numeric binary constants during lowering, preserving valid unchecked constant division/remainder without runtime faults and retaining semantic operation shape. Carry main 49ca35b30: bind arithmetic parameter defaults with the typed evaluator and preserve overflow diagnostics. Native optional-parameter declarations remain explicitly unsupported. Carry main 84bdf63bf: evaluate constant division/remainder, bitwise operations, complement and masked shifts, with RAV0375 for integer/decimal zero divisors. Carry main 489cc12a4: diagnose built-in numeric constant overflow with RAV0374, evaluate typed const locals/fields and preserve explicit unchecked wrapping. Emit Int32 class constants as storage-free literal metadata and inline source/imported accesses. Validate source and separate-provider consumers on interpreter/JIT/AOT with matching native metadata SDK/runtime. Other literal types and guest field reflection remain gaps. Carry main 3fa828516: add checked/unchecked blocks with lexical context and ordinary block scope/control flow. Support checked compound assignments and increment/decrement, including checked overload selection, small-integer write-back and unchanged storage on built-in overflow. Preserve single evaluation of mutation locations and discarded checked-expression emission. Nullable/pointer checked mutations remain diagnosed; deliberately carry main 9dd7ea722. Normalize wrapped mutation statements in native lowering. Native checked arithmetic/conversion instructions retain terminal ArithmeticOverflow; no Runtime Contract switch.
+
+
+- **2026-10-16:** Support checked numeric casts and checked explicit conversion selection, including imported pairs, signed/unsigned range checks and floating-to-integer overflow. Preserve checked context through lowering and expose IConversionOperation.IsChecked; numeric expression trees use ConvertChecked. Nullable/pointer checked casts and checked user-defined conversion trees remain diagnosed. Correct floating/decimal-to-integral classification and distinguish conversion declarations by their return type while retaining duplicate rejection. Carry main 0c272f423 deliberately and map numeric casts to existing native checked conversion instructions. Correct native op_CheckedExplicit symbol classification and validate separate-provider selection. No Runtime Contract switch; checked failures remain terminal ArithmeticOverflow on NeoCLR.
+
+
+- **2026-10-16:** Consolidate native numerics integration documentation into the current source/import contract, removing superseded blocker and chronological follow-up notices while retaining matched validation revisions.
+
+- **2026-10-16:** Admit class-contained native generic methods with constraint clauses through the existing callable/signature capability checks. Validate a Complex static Self arithmetic consumer in interpreter/JIT/AOT and retain ordinary .NET generic math behavior. Carry imported static class method nominal interface bounds through the SDK symbol-only reference contract. Validate separate-provider Complex calls in interpreter/JIT/AOT and RAV0320 for an invalid imported type argument. Also preserve nominal bounds on imported top-level functions through CreateFunctionReference, with separate-provider arithmetic and invalid type argument coverage. No .NET behavior or Runtime Contract switch changes.
+
+- **2026-10-16:** Add Raven.Core `IDictionary<K,V>.Entry(key)` with reusable live MapEntry lookup, insertion and synchronous transformation helpers. Specify callback reentry, failure and non-atomic behavior. Add HashSet/SortedSet GetOrInsert preserving the stored equivalent value; arbitrary ISet lacks the canonical lookup contract. Validate focused .NET 10 binding/runtime tests. No compiler or Runtime Contract change; neoCLR's MutableMap/MutableSet extensions are maintained separately. Carry main 513b24eb6 deliberately onto codex/neoclr, preserving the newer checked-expression work.
+
+- **2026-10-16:** Add checked operator declarations (`func checked`) with standard .NET metadata names, matching ordinary-counterpart validation and distinct source/imported symbols, including checked explicit conversions. Support arithmetic, explicit conversion and supported instance compound/increment forms; diagnose unsupported forms. Add checked/unchecked parenthesized expressions, runtime overflow checks for integer binary +, - and *, and checked binary overload selection with ordinary fallback only when no checked candidate applies. Preserve nested context precedence and diagnose unimplemented checked conversions, mutation operations and lifted/pointer arithmetic. Support checked signed integer unary negation and checked unary overload lookup with ordinary fallback, preserve floating-point negation and small-integer promotion, expose IUnaryOperation.IsChecked, and lower checked unary expression trees to .NET NegateChecked. Checked binary expression trees remain follow-up work; ordinary expressions retain their behavior. Route operator arrow bodies through normal method-body lowering to prevent invalid IL for unit block expressions. Deliberately carry main 307f3b55c and map native negation to checked subtraction. Validate 73 focused tests and interpreter/JIT/AOT success and int/long overflow consumers. Recoverable arithmetic APIs remain a separate design question. No Runtime Contract switch.
+
+- **2026-10-16:** Add paired static `true`/`false` overloads with standard metadata names and use them in if/while conditions and short-circuit `&&`/`||` (including `and`/`or`). Evaluate the left operand once and invoke `&`/`|` only when required. Reject direct logical operator declarations; migrate to bitwise operators plus a truth pair. Restore `func !` declarations and disambiguate parenthesized bitwise/member and relational/logical expressions (main 75607f005); 87 parser/operator regressions and the full .NET/interpreter/JIT/AOT matrix pass. Carry main 7039b3e23 deliberately; 109 focused tests and interpreter/JIT/AOT consumers pass. No Runtime Contract switch.
+
+- **2026-10-16:** Add explicit instance compound operators for `+=`, `-=`, `*=`, `/=`, `&=`, `|=` and `^=` on classes and structs. Applicable operators mutate writable variables before binary fallback; property/indexer and event behavior remains separate. Emit/import standard special-name instance methods, correct the missing special-name flag on existing operator methods and preserve addresses for struct-array instance calls, preserve unit-valued assignment semantics, and diagnose invalid declarations. Carry Raven main 7819e2fea deliberately: admit native instance compound calls and managed element addresses using metadata SDK 1b4561f3b. Interpreter/JIT/AOT consumers pass for reference/class and struct-local cases; nominal struct arrays remain interpreter-only with explicit AOT rejection. No Runtime Contract switch. Carry remainder/shift compound operators and binary `>>>` from main b5e6bb0d3, using existing native unsigned-shift operations; 104 focused tests and the expanded interpreter/JIT/AOT consumer pass. Carry instance `++`/`--` from main 94f133cab with prefix results and discarded-postfix dispatch; consumed postfix retains static fallback. Preserve single evaluation and newline prefix boundaries; 233 focused tests and interpreter/JIT/AOT consumers pass. Checked/extension/interface/virtual variants remain follow-up work.
+
+- **2026-10-16:** Integrate the validated native function feature commits into codex/neoclr, preserving slice history and keeping Raven main separate. Remove the completed local function-kind and already-integrated consistent-ranges branches; update integration status while leaving FunctionReflection provisional and broader structural work parked.
+
+- **2026-10-16:** Project reserved bootstrap RuntimeServices Func/Action parameters to native structural functions under the neoCLR contract, preserving Action's no-result ABI. Ordinary imported delegates and .NET behavior remain unchanged. Qualify a fresh class-library build and document the provisional Result-returning FunctionReflection API; generic overloads are deferred.
+
+- **2026-10-16:** Parse function types in type and capture patterns, including `if obj is () -> T { }` and function-signature match arms. Preserve positional patterns; ordinary .NET tests use standard delegates and scoped generic parameters. Native feature-branch consumer validation also passes interpreter/JIT/AOT, including generic captures and negative signature/null/object checks; the follow-up consumer compares these patterns with TypeInfo.IsInstanceOfType for concrete and generic signatures. No new Runtime Contract setting or conversion rule.
+
+- **2026-10-16:** Document the native provisional dynamic-function primitive and source-local facade, qualified in interpreter/JIT/AOT. Also qualify native structural typeof tokens, Object.GetType identity and dynamically forwarded function arguments/results; no permanent class-library API, CLI encoding or normal .NET behavior change is introduced.
+
+- **2026-10-16:** Separate native structural function symbols from nominal delegates behind the neoCLR runtime contract. Preserve signature equality, metadata identity, accessibility, generic substitution/inference and no-result ABI. Ordinary .NET function mapping remains unchanged. Qualify a separately compiled generic callback holder in interpreter/AOT/JIT; native generic-class function constraints are qualified separately.
+
+- **2026-10-16:** Preserve native function-kind constraints in Raven imports and reject invalid generic arguments instead of silently erasing the constraint. On `codex/function-kind-constraint`, enable standalone `where T: func` for native generic classes, with syntax/semantic diagnostics, owned/imported native metadata, structural-only arguments, constrained forwarding and documentation/code-fix rendering. .NET rejects the constraint; its normal mappings are unchanged. Enable native method-level function-kind emission and preserve imported requirements behind an explicit capability; qualify separate-provider forwarding and invalid-argument rejection in the import probe and interpreter/AOT/JIT consumer. Signature bounds remain gated. Record the author’s target distinction, deferred property-exposed observer-type direction, and proposed function-signature bounds.
+
+- **2026-10-16:** Document native AOT/JIT reference/value/default-constructor type-constraint qualification and source metadata retention. Native imports now retain reference/value/default-constructor flags and nongeneric nominal class bounds in semantic symbols and emit explicit SDK dependency contracts. Check abstractness and public parameterless constructors, preserve nominal subtype identity, and qualify a separate-provider consumer plus invalid-argument diagnostics. Other constraint profiles remain gated. Runtime Contract settings are unchanged; structural types stay parked.
+
+- **2026-10-16:** Enable native abstract generic classes behind an explicit planning capability. Preserve abstract declaration/slot flags and imported constructed virtual calls; qualify local/separate-provider value/reference consumers in interpreter/AOT/JIT and focused capability/CLR tests. Generic virtual methods and constrained dependency imports remain separate. Runtime Contract settings are unchanged.
+
+- **2026-10-16:** Record SDK/native qualification for concrete generic class virtual slots, substituted override validation and closed base-slot retention. CLR/interpreter/AOT/JIT checks pass; Raven now opts native concrete generic class slots into shared planning, emits constructed virtual calls and direct base calls distinctly, and imports exact native slot contracts. Focused compiler admission tests and local/separate-provider native consumers qualify value/reference payloads. Generic virtual methods remain unsupported. Runtime Contract settings are unchanged.
+
+- **2026-10-16:** Enable native owned constructed-class-base emission with exact base signatures, declaration ordering and constructed constructor calls. Import complete constructed base chains and include inherited private instance fields in native field ordinals, fixing wrong-slot access from separate consumers. Capability/CLR tests and retained local/imported native consumers cover reordered parameters and inherited storage/interfaces. Declare class identity before binding constructed base arguments, enabling recursive `Node : Base<Node>` and `Node<T> : Base<Node<T>>` signatures and inherited calls. Add an explicit native capability for external generic base authoring; preserve definition-scoped contracts, exact constructed calls and protected base initialization. Separate-provider native tests cover recursive external arguments, value/reference payloads, field mutation and interface dispatch; Runtime Contract settings are unchanged.
+
+- **2026-10-16:** Enable native emission of top-level generic classes over local nongeneric bases through an explicit adapter capability. Preserve generic payload storage, base initialization and inherited-field access, including separately compiled native generic derived owners. Reverse/invariant conversions remain rejected; constructed/external generic base authoring remains unsupported.
+
+- **2026-10-16:** Document native support for constant/scalar arithmetic base-constructor arguments with receiver protection. No compiler or Runtime Contract change; helper calls/control flow and Raven generic hierarchy emission remain open.
+
+- **2026-10-16:** Document SDK generic class authoring over ordinary nongeneric bases and the CLI generic field-reference correction. SDK/CLR checks pass; Raven hierarchy emission and constructed generic bases remain open. Native computed base arguments remain a backend gap.
+
+- **2026-10-16:** Document SDK external constructed-base reader/introspection support and validation. Exact dependency identity and generic arguments survive; native encoding is unchanged. Generic layout authoring and Raven executable qualification remain open.
+
+- **2026-10-16:** Document native SDK preservation and introspection of local constructed class bases and inherited interfaces. SDK checks pass; Raven owner/layout/emission support and executable qualification remain open. No compiler or Runtime Contract change.
+
+- **2026-10-16:** Document SDK generic dependency-base substitution, following .NET semantics. SDK/CLR checks pass; native generic base materialization, layout authoring and Raven/native qualification remain open. No compiler or Runtime Contract change.
+
+- **2026-10-16:** Document native SDK variance validation through imported class ancestors and its separately compiled interpreter/AOT/JIT qualification. Inherited interface calls preserve identity and mutation; three invalid conversions reject. Runtime Contracts and compiler emission are unchanged; Sliceable/Result variance stays deferred.
+
+- **2026-10-16:** Qualify String interface variance against neoCLR 1d52a70fd in interpreter/AOT/JIT. Object and nominal Iterable<char> views preserve identity; nullable calls and six source rejections pass with native cleanup/sanitizer checks. Document interpreter view-handle costs and native pointer adaptation; Runtime Contract and metadata encoding are unchanged.
+
+- **2026-10-16:** Carry main f8679d6f3 nullable reference variance correction to the neoCLR compiler line. Accept safe covariant/contravariant nullable views and reject loss of nullability; value boxing stays excluded. Runtime Contract and emitted metadata are unchanged.
+
+- **2026-10-16:** Document neoCLR 08330946a retaining closed array conformance for native interface variance. Producer/consumer int[] and Iterable<int> views pass interpreter/AOT/JIT with identity, iterator calls and cleanup checks; no Raven lowering or encoding change.
+
+- **2026-10-16:** Record array-valued interface variance qualification (neoCLR bdb86ec82). Producer<int[]>/Producer<Object> and Consumer<Object>/Consumer<int[]> calls preserve array identity across interpreter/AOT/JIT with cleanup/sanitizer checks. No lowering or encoding changes; array element storage remains invariant.
+
+- **2026-10-16:** Record neoCLR 81701e5aa fixing native Object-root identity loss in variance lowering. Extended Raven producer/consumer Object views pass interpreter/AOT/JIT with identity and cleanup checks; no source lowering, Runtime Contract or metadata encoding change.
+
+- **2026-10-16:** Qualify the imported-base variance SDK fix through separately compiled Raven library/consumer calls in interpreter, AOT and managed JIT (neoCLR da49f4819). Identity/mutation and native cleanup checks pass; reverse/unrelated source conversions reject. No compiler source, Runtime Contract or encoding changes.
+
+- **2026-10-16:** Document neoCLR SDK 2c98cbd1b imported-base ancestry support in interface variance validation. No Raven lowering or Runtime Contract change; SDK metadata/CLR checks pass, with source/native consumer qualification tracked separately.
+
+- **2026-10-16:** Record native source display-name/namespace binding and static-owner token validation fixes. Focused interpreter/JIT/AOT-emission checks pass, followed by end-to-end Raven assembly/module generic discovery in all three execution modes (neoCLR e911b7a39). Explicit catalog retention remains required; no Raven lowering or Runtime Contract change.
+
+- **2026-10-16:** Document explicit neoCLR native type-catalog retention and source TypeInfo snapshot binding. No compiler emission or Runtime Contract changes; the original open-definition consumer reaches a later unsupported native member contract and remains unqualified for AOT/JIT.
+
+- **2026-10-16:** Document neoCLR native open-definition descriptor handles and query validation. Source emission and Runtime Contract configuration are unchanged; guest assembly/module discovery, open relationships and intrinsic String variance remain unqualified.
+
+- **2026-10-16:** Record matching neoCLR class-library generic argument sequence qualification across interpreter/AOT/JIT and native API variance rendering. No compiler lowering or Runtime Contract change; native open-definition discovery and intrinsic String variance remain runtime gaps.
+
+- **2026-10-16:** Carry main fcefb7836: render declared interface variance in RavenDoc signatures and honor IncludeVariance in named-type symbol display. Constructed type arguments remain unannotated; no Runtime Contract or emitted metadata change.
+
+- **2026-10-16:** Carry main aefd5d4ed: require identity or reference conversions for interface variance compatibility. Reject boxing and unconstrained type arguments while retaining exact value-type arguments; align semantic interface checks with .NET variance rules.
+
+- **2026-10-16:** Document the matching neoCLR generic-parameter variance introspection contract and the existing native open-definition reflection gap; no language lowering or Runtime Contract option changes. Document the annotated producer/comparison class-library interfaces and their reference-only conversion contract.
+
+- **2026-10-16:** Enable explicit interface `in`/`out` annotations in the neoCLR emission capability and preserve them in native imported symbols and metadata. Validate reference-only producer/consumer calls across a separately compiled library; unsafe, reverse, invariant and value-argument conversions reject. Interpreter consumer returns 42. Ordinary .NET behavior is unchanged; the matching runtime subsequently qualifies AOT/JIT and annotated class-library consumers.
+
+- **2026-10-15:** Make range endpoints consistent: `..` excludes the end and `..=` includes it in loops, collections, patterns and .NET slices/stored Range values. Remove `..<`, migrate owned consumers and expose optional EqualsToken in range syntax nodes. Inclusive .NET endpoints use checked Index conversion; no Runtime Contract switch is required. Rename the sequence prefix slot to OperatorToken because it accepts both `..` and `...`; spread nodes use DotDotDotToken and default to `...`. Distinguish ranges, slices, sequence segments/rest patterns, spreads and progressions in the language/compiler documentation. Carry main c16fca24c deliberately to codex/neoclr, migrate portable fixtures, and reject inclusive stored/sliced Range values until native checked Index conversion exists; portable integer loops honor the shared endpoint flag. Native signed int/long range patterns now lower to short-circuit comparisons in conditions, Boolean values and match arms, preserving subject evaluation and endpoint width without successor arithmetic. Native inclusive Range conversion now validates and saves the original end Index, checks the boundary before arithmetic and propagates failure through the configured terminal runtime function; nested calls retain safe operand handling. Carry main cf7d7c52b deliberately: signed int/long loops and comprehensions now stop before integer-domain overflow, including async loops. Native portable loops use the same pre-addition guard; other numeric domains remain unchanged.
+
+- **2026-10-15:** Propose consistent range endpoints across .NET and neoCLR, nominal generic bounds, explicit ordering/stepping capabilities and overflow-safe integer progressions. Record the author-directed coordinated migration without a compatibility mode; compiler behavior and Runtime Contract configuration are unchanged. Structural-type work remains parked.
+
+### 2026-10-15
+
+- Integrate the validated structural-type work into the Raven neoCLR line separately from Raven main. Pair with carrier-free neoCLR main and record fresh direct/closed-generic Task union interpreter/AOT/JIT/GC qualification and explicit unsupported forms.
+
+- Unify native metadata references/catalogs without structural opt-in readers or flags. Preserve explicit external-bound dependency validation and CLI restrictions. Validate tuple/source composition, generic wrapper calls and external constraint consumers against the carrier-free bundle.
+
+- Preserve structural tuple method results in native symbol-only imports instead of looking for a nominal declaration. Validate imported `Range` direct/nested Result tuples with interpreter/AOT/JIT; requires the paired metadata-host tuple-reference admission.
+
+- Make structural union, intersection and tuple binding/emission standard for the neoCLR target. Remove semantic/emitter and project/driver opt-ins; native metadata output uses NEOX. Preserve ordinary .NET target mappings and declared nominal unions. Validate 50 focused compiler checks and a fresh interpreter/AOT/JIT mixed-union consumer. Reader profile and nominal carrier cleanup remains in progress.
+
+- Record fresh float/double union source qualification against the paired native runtime and v4 libraries: interpreter/AOT/JIT preserve exact typed alternatives and widening with zero arena allocation. Runtime Contract and compiler encoding are unchanged.
+
+- Lower native structural-union property patterns over value records by testing the alternative, extracting one snapshot and borrowing that local for getters. Validate binding/constant patterns with 12 focused compiler tests and a fresh interpreter/AOT/JIT consumer; ordinary .NET lowering is unchanged. Document paired Single/Double union admission.
+
+- Record paired native String union support and matching metadata-host rebuild requirements. Fresh `string | int` source uses existing injection and type-pattern lowering; ordinary .NET carriers and Runtime Contract configuration are unchanged.
+
+- Emit explicit native union widening conversions so differing inline payload layouts are repacked by neoCLR. Keep no-op composition conversion limited to intersection reference views. A fresh overload/scalar/record consumer passes interpreter, AOT and managed JIT with zero arena use against the paired runtime change; Runtime Contract and metadata encoding are unchanged.
+
+- Preserve structural union/intersection constituent identity and ordered tuple element identity in overload lookup keys, including nested generic arguments. Distinct structural overloads now reach ranking instead of being discarded; ambiguity is declaration-order independent. Align inherited mixed-union assertions with value semantics. Runtime Contract and metadata encoding are unchanged.
+
+- Carry main-based `41abd72ea` exact-alternative widening/reordering for ordinary .NET ad-hoc union carriers, preserving single evaluation, reference identity and inactive defaults. Native encoding and Runtime Contract options are unchanged. Payload-transforming CLI widening remains unsupported.
+
+- Carry general union-parameter overload regressions from main-based `7e2e8f07c`: exact selection and overlapping ambiguity are declaration-order independent. Document the ordinary .NET carrier widening gap; no Runtime Contract or emission change. Make the existing metadata-priority fixture library explicitly public so cross-assembly visibility does not mask priority selection.
+
+- Record fresh direct and closed-generic Task union consumers passing interpreter, macOS ARM64 AOT and managed JIT with v4 libraries, eager/paced collection and cleanup. Native encoding and Runtime Contract configuration are unchanged; broader async and throughput qualification remains open.
+
+- Record paired runtime admission of structural signatures on managed value-record methods. Track union overload applicability/ambiguity as general Raven work for main and deliberate carry, not a neoCLR lowering rule.
+
+- Document paired runtime/metadata support for structural union/intersection instance fields in nominal value records, preserving copy semantics and embedded references. Rebuild with the matching metadata host; native encoding and Runtime Contract configuration are unchanged.
+
+- Document paired native checked reserved-array storage for structural elements and its remaining default-allocation, borrow and nominal-view gates. Emission and Runtime Contract configuration are unchanged.
+
+- Document paired native structural generic-argument admission and tuple-field storage; record the fresh Task union consumer’s remaining structural-array blocker. Runtime Contract and emission are unchanged.
+
+- Record fresh neoCLR library bundle qualification of imported callable unions in interpreter, AOT and managed JIT, including eager/paced collection and cleanup before code release. Async retention remains unqualified.
+
+- Lower typed callable patterns through type tests and checked narrowing when the target explicitly supports function values. Qualify a separately compiled native callable/scalar union consumer with interpreter/AOT agreement and eager/paced collector checks; preserve ordinary .NET defaults. The paired metadata importer/type-test emitter is required. All 78 focused compiler checks pass; fresh-bundle and JIT qualification remain separate.
+
+- Document the paired host-metadata callable-union admission/cast fix required by Raven native emission. Rebuild with the matching metadata project; Runtime Contract and CLI mappings are unchanged. Source-consumer qualification remains separate.
+
+- Record paired runtime AOT callable-union storage and collector qualification, with exact allocation checks and explicit native conversion limits. Raven source qualification remains open; Runtime Contract and compiler emission are unchanged.
+
+- Document paired runtime admission of callable union alternatives and exact narrowing, with interpreter receiver-collection checks. Raven source emission and native JIT/AOT callable-union layout remain unqualified; Runtime Contract and compiler mappings are unchanged.
+
+- Document bounded neoCLR AOT collector stress for structural union roots across allocating calls and normal/fault unwind, including eager/paced nonmoving collection and full post-entry reclamation. Raven emission, Runtime Contract and metadata are unchanged; the fresh imported Response<Cell> consumer additionally passes 32 invocations in each eager/paced collector mode with all 64 explicit allocations reclaimed per mode. JIT and async retention remain open.
+
+- Carry the independently validated main-based match reachability fix f7a4bc5a4: compare complete pattern type identity instead of generic definitions. Distinct closed class, struct, nested and imported types remain reachable; repeated identical types still report an unreachable arm. Runtime Contract and emission are unchanged. A fresh nine-input native consumer now preserves Response<int>/Response<long> value-record identity and substituted fields through imported mixed union calls, with interpreter/AOT agreement and only the explicit 16-byte HttpError allocation. Both compiler lines pass 195 match/identity tests. A further Response<Cell> consumer passes ten imported inputs and preserves shared mutation through a record copy, allocating only the explicit Cell/HttpError instances (32 bytes); this arena result does not qualify managed GC.
+
+- Document neoCLR native record/reference union layouts and actual nominal conformance checks; compiler emission and Runtime Contract configuration are unchanged. A fresh artifact-only Raven record/reference consumer now passes eight imported inputs with reordered signatures and typed patterns, allocating only its explicit HttpError (16 bytes); retained bundle libraries were not rebuilt and managed JIT/GC remains unqualified.
+
+- Add bounded native nominal value-record union alternatives using disjoint inline payload regions, exact identity tests and allocation-free injection/extraction. Validate snapshots, out copies, floating/wide fields, null/wrong extraction, embedded references and the 256-lane boundary; preserve Object verification for unbox-only paths. A fresh artifact-only Raven struct consumer also passes seven union-call/pattern cases with preserved Int32/Int64 fields, no native imports and zero arena use. Broader layouts, throughput and managed JIT/GC remain open.
+
+- Add companion native mixed scalar/reference union storage with separate numeric and traced reference slots. Validate casts, extraction, copies, returns, replacement, null and exact arena allocation against the interpreter; gate Object views requiring boxing. Also qualify a fresh Raven mixed-pattern consumer: seven inputs return 42 in interpreter/AOT with only the explicit Response allocation (16 bytes). Artifact-only imported mixed returns and reordered parameters also pass all seven inputs with the same allocation, including an imported Response<int> with a stored generic field; managed JIT/collector and broader payload qualification remain open.
+
+- Qualify a fresh Raven scalar-union match consumer with typed bindings, guards, fallbacks and result joins against interpreter and macOS ARM64 AOT. Retain reproduction and artifact hashes; native execution returns 42 with no allocator imports or arena use. Also qualify artifact-only library union returns/parameters with reordered alternatives and six imported scalar inputs; interpreter and AOT agree with zero arena use. Broader mixed/JIT coverage remains open.
+
+- Document companion native scalar-union pattern test lowering and its AOT/interpreter qualification. Existing Raven TypeTest emission is unchanged; broader test-result uses and full application qualification remain open.
+
+- Document native structural type lowering, especially union pattern tests, guarded extraction, match-arm control flow and the separate nominal case-helper path. Link compiler implementation and state the remaining scalar-pattern backend gap explicitly.
+
+- Document companion native scalar-union allocation elision and focused AOT qualification. Raven metadata and Runtime Contract configuration are unchanged; mixed payloads and full integration remain gated.
+
+- Document native reference-alternative union storage in the companion runtime: structural values copy one payload reference without a carrier. Compiler configuration/emission remain unchanged; mixed-value native storage, whole-union boxing and full Task/GC qualification remain open.
+
+- Record companion native intersection reference-view qualification, preserving explicit nominal bounds and unchanged Runtime Contract/emission behavior. AOT checks cover casts, identity, dispatch, nulls and managed outputs; native unions and full application/GC qualification remain open.
+
+- Document companion structural tuple native storage and direct JIT/AOT cost qualification. Runtime Contract configuration and compiler emission/import are unchanged; managed application/GC qualification and native union/intersection backends remain incomplete.
+
+- Support scoped parameters inside nominal structural constituents in the companion metadata host and runtime, including recursive method/owner substitution and actual-use scope checks. The generic `Response<T> | HttpError | JsonError` consumer returns 42; host checks and 58 runtime tests pass. Bare parameter alternatives and backend support remain incomplete.
+
+- Allow explicit extraction of exact reference alternatives from native structural unions while retaining implicit all-alternative membership and unrelated-type rejection. Track structural generic arguments on nominal runtime calls with no value parameters. Validate direct and closed-generic task consumers (42 each, ten checks per consumer), 21 compiler tests and 55 runtime tests. Save an open-generic metadata rejection probe; open `Response<T>` operands and union-local closure capture remain incomplete.
+
+- Document companion runtime admission of native structural-union extraction from nominal Result payloads. The fresh-bundle awaited `Task<Result<Response, HttpError | JsonError>>` consumer validates completed/queued success and both imported error alternatives (42); whole-union boxing and native ABI remain incomplete.
+
+- Validate nominal value wrappers and generic call/callback substitutions containing structural arguments, preserving caller scope and copied wrapper storage. Admit nested function and inhabited-unit arguments with existing composition operand restrictions. The fresh Runtime/Data/Networking/Web bundle consumer executes successfully, and failed-build output preservation passes.
+
+- Preserve structural arguments in native generic value-wrapper and managed generic-method declaration reads. Report per-image catalog resolution failures. A focused metadata roundtrip passes and the fresh bundle consumer emits; runtime generic-composition admission remains the next boundary.
+
+- Preserve admitted structural callback signatures in native mapping instead of falling through to nominal delegate lookup. Support host callback signature reads and bounded interpreter union callbacks (sample 42; 46 runtime tests). Fresh Runtime/Data/Networking/Web source generation now passes; consumer qualification currently fails native metadata resolution before emission.
+
+- Support direct native structural union/intersection managed parameters across compiler mapping, metadata authoring/reads and interpreter slot operations. Validate replacement/copy behavior, incompatible-write rejection and nominal intersection dispatch (44 runtime checks). The source out/ref consumer returns 42; System.Web now reaches a later delegate-resolution emitter failure. Nested wrapper/field addresses and the native ABI remain limited.
+
+- Classify structural unions as value types without a nominal base; admit closed scalar/nominal value alternatives in native metadata authoring and reads. Wire exact boxing/extraction and reference-storage-aware patterns in the companion compiler. Focused checks pass; System.Web now reaches the structural union out-parameter emission boundary. The broader metadata harness remains at 169/175.
+
+- Enable unions, intersections and structural tuples together by default for native projects; wire combined catalogs, project references and emission, and select interpreter execution for the tuple profile. Keep ordinary .NET unchanged and explicit false properties for reduced profiles. Add direct CLI tuple admission; validate the companion separate-library sample (42). Fix companion intersection-cast lookahead so parenthesized bitwise expressions remain expressions (17 parser tests). A fresh source-library rebuild now reaches native emission but hits the application-sized JSON limit; library-budget wiring was subsequently corrected using the existing bounded library writer. Fresh System.Runtime, System.Data and System.Networking builds pass; System.Web exposes remaining structural-union conversion gaps in Result error propagation and case construction. Add companion interpreter support for explicitly boxed scalar/nominal value alternatives alongside reference alternatives in native unions; preserve copied extraction, exact membership and reference-only intersection bounds. Compiler/host authoring is completed by the follow-up above; generic value-wrapper integration remains pending.
+
+- **2026-10-14:** Record the author-directed migration from nominal neoCLR Tuple declarations to structural tuple signatures. Companion runtime metadata groundwork and opt-in native interpreter tuple values/positional operations are available. Guest `TupleTypeInfo.ElementTypes` now exposes ordered recursive snapshots, validated using a native token fixture. Companion metadata tuple signature authoring now emits native ordered shapes with exact body typing and CLI rejection, validated by an authored image returning 42. Companion opt-in native tuple reading/import now preserves ordered signatures and resolved closed nominal generic elements across consumer emission; default paths still reject tuples. Companion C# tuple construction, reads and updated-copy stores now execute across an imported echo, returning 42 while preserving the original. Managed-address authoring and full nominal-family removal remain pending. Record a separate bitwise/intersection parser regression affecting runtime-library builds. Ordinary .NET tuple behavior is unchanged. Add opt-in source-local scalar/nested tuple construction, signatures, locals/copies and named/positional reads with native emission; interpreter result 42. Default, mutation and open-element gates remain closed. Companion Rust signatures and host descriptors now preserve native element names without attributes, excluded from equality/hash and resolved identity; renamed parameter execution returns 42. Emit native tuple element names directly, retaining distinct names across structurally equal parameters/results; the companion C# metadata layer preserves names through authoring/snapshots/imports. Both consumers return 42. Add explicit named native tuple reference import with scalar/nested semantic projection, exact-snapshot free-function emission and default-reader/disabled-emitter gates; a separate producer/consumer with string and nested elements returns 42. Document companion guest TupleTypeInfo.ElementNames snapshots with signature names and ItemN defaults, preserving positional equality and requiring matching rebuilt source libraries. Add native local tuple element mutation with nested updated-copy writeback and preserved earlier copies (interpreter 42). Add explicit WithStructuralTuples native binding with carrier-free ordered field symbols, name-independent identity/hash and name-preserving substitution. Require matching native emission opt-in; reject CLI output and immutable local writeback. Nine-element, mutation and imported consumers return 42 without nominal backing. Nonlocal mutation, project/catalog opt-in and removal of legacy runtime tuple declarations remain pending. Record the deferred cold assembly-symbol query initialization issue.
+
+- **2026-10-14:** Emit external intersection method bounds with definition-backed eligibility checks, including closed generic interfaces. Resolve selected native catalog snapshots independent of input order while rejecting missing/cyclic intersection dependencies. Keep nominal conformance explicit and default .NET behavior unchanged; add a separate library/consumer probe and shape-only negative. Add explicit dependency resolution to Raven’s intersection-only reader, preserving union-profile and missing-dependency rejection.
+
+- **2026-10-14:** Exercise native union constraints over imported interfaces, including a closed generic alternative, through a separate constraint library and consumer. Reject nonimplementing lookalikes and mismatched arguments; the companion metadata authoring API retains external-intersection/open-bound restrictions.
+
+- **2026-10-14:** Document the companion closed-reference POC acceptance runner: matching compiler rebuild, native source Task delivery, structural descriptors, separate consumers and constraint validation. Clarify that composition preserves explicit nominal interface implementation, without Rust-style traits or member-shape matching; reject a matching-member class that omits a required interface declaration. Preserve the explicit remaining open-generic and backend limitations.
+
+- **2026-10-14:** Validate a native intersection-constrained generic body calling both constituent interface methods, with result 42. Companion metadata/runtime proofs now admit owned nongeneric trait calls. Extend the probe to imported nongeneric interface methods via local inherited intersection bounds; the separately compiled consumer returns 42. Add a consumer using an imported closed generic interface through a local intersection bound. Direct external bounds and broader open bounds remain pending.
+
+- **2026-10-14:** Validate native generic-method forwarding under closed union/intersection bounds, including exported wrappers and rejection of weaker caller guarantees. The companion metadata checker supplies entailment; open bound operands and owner-parameter forwarding remain pending.
+
+- **2026-10-14:** Emit local closed structural method constraints directly in opt-in native metadata, including grouped conjunctive intersection bounds. Validate source metadata, invalid arguments, default rejection and interpreter result 42. Import complete structural constraints into native symbols and exact-snapshot generic calls; separately compiled consumers return 42, including closed generic bounds. Reject unsupported constraint-erasing fallback imports. Open/external bound authoring and broader constrained member imports remain pending.
+
+- **2026-10-14:** Document companion native metadata structural-method-constraint inspection and its explicit nominal-interface compatibility guard. Compiler import/emission wiring remains pending; no CLI encoding or compiler behavior changes in this documentation slice. Record the subsequent native method-authoring API, checked local closed bounds and interpreter result 42; Raven wiring remains pending.
+
+- **2026-10-14:** Enforce structural union/intersection generic constraint membership, including all-alternative coverage, bounded parameter forwarding and owner/method substitution. Preserve native Self leaf checks. Previously non-nominal constraint kinds could fall through as satisfied. Native structural constraint emission and reflected grouping remain gated follow-up work.
+
+- **2026-10-14:** Enable source intersection parameters, results, locals, generic arguments and type tokens under the explicit native structural contract. Retain extendability checks (Raven sealed hierarchies allowed), default .NET gates and bounded generic support. Correct source composition local lowering so it does not require an imported producer. Add source/cross-library regression probes.
+
+- **2026-10-14:** Add explicit native source structural union binding and NEOX emission, preserving structural parameters, results, closed generic arguments and type tokens. Keep declared unions nominal and ordinary .NET behavior unchanged. Add opt-in composition reference catalogs and document native-only output and bounded generic support.
+
+- **2026-10-14:** Document companion neoCLR UnionTypeInfo/IntersectionTypeInfo runtime descriptors
+  and the explicit native-token probe. Raven structural typeof emission remains
+  pending; ordinary .NET carrier behavior and Runtime Contract settings are unchanged.
+
+- **2026-10-14:** Document the companion neoCLR development API split: IsUnion is structural-only; nominal callers use NominalTypeInfo.IsUnionDeclaration with matching library/runtime artifacts. Compiler mappings and Runtime Contract options are unchanged.
+
+- **2026-10-14:** Carry normalized intersection symbol APIs, substitution/display and conservative reference conversions selectively from the parked experiment onto the dedicated neoCLR compiler branch. Preserve distinct declared members and reject portable signature storage; add source intersection parsing and generic-constraint binding with cold semantic queries, ordinary CLI constraint emission, and explicit RAV0363/RAV0364 diagnostics for unsupported storage/bounds. General compound source storage emission remains pending; Runtime Contract configuration is unchanged. Document runtime transport limits, the opt-in read-only host metadata composition profile, and the differing compiler/runtime normalization rules. Record the companion canonical metadata inspection views and focused validation at neoCLR `97bbcf76b`. Add explicit experimental native intersection semantic import with cold/warm queries and canonical type identity; reject structural unions and retain raw descriptors independently of nominal-supertype reduction. Keep default readers closed and reject emission by default for references containing compound callables with NEOMETA001 before output, including reduced signatures. Record neoCLR `930ddf60` native callable-import execution evidence. Add host-opted native intersection call forwarding through shared lowering and raw-descriptor import, including discarded results and redundant bounds. Four Raven-generated interpreter consumers return 42; defaults, PE emission and authored storage stay gated, and incompatible raw contracts fail before output. Validate companion host intersection entailment with a fifth executable consumer for equivalent raw contracts; preserve default/PE/storage rejection and compiler semantic rules. Record companion host union/cross-kind call proofs and three passing consumers, with Raven structural-union import still closed and intersection controls passing. Add an explicit structural-union symbol and opt-in composition reader/emitter for native call POC consumers, preserving raw contracts and unsafe-conversion/default/PE/storage rejection. Restrict written intersection bounds to interfaces/non-sealed reference classes before normalization per author direction. Closed generic bounds have semantic coverage; full open/closed generic native integration is the requested next step, outside the POC. Support bound parameters and open constructed/value alternatives in structural-union semantic factories, with owner/method substitution through nested generic arguments and duplicate normalization. Cover all four author examples, including Task<Response<T> | HttpError | JsonError>; 88 focused tests pass. Source carrier binding, native call admission and Runtime Contract settings are unchanged; generic execution/storage integration remains pending. Admit closed generic reference composition bounds through the imported-call emitter with the matching metadata adapter. Eight interpreter consumers pass, including generic interface unions/intersections; host/compiler argument mismatch and default/PE/storage gates remain closed. Task of a union still has semantic-only coverage. Document companion runtime reference-wrapper argument storage and GC validation; compiler/host transport remains gated and Task examples still have semantic-only compiler coverage. Document runtime wrapper constructors/nonvirtual calls and substituted-body validation. Record the author’s broader union use cases and requirement for union constraints, with any-of/all-of semantics proposed explicitly; native constraint and wrapper compiler transport remain pending. Preserve closed composition-wrapper types through experimental metadata detection and imported-call lowering. Correct metadata identity fallback so different composition kinds/bounds in generic arguments cannot become identity conversions; reordered bounds retain equality. Twelve host/Raven interpreter consumers pass, including union and intersection wrapper returns; recursive default/legacy-option/PE and authored-storage gates remain enforced. Record intersection use-site guidance as nonrestrictive. Admit opt-in source locals and local copies from imported composition results, preserving original descriptors; fourteen executable consumers pass and default/PE/unsafe-narrowing gates remain. Resolve external composition wrapper imports against registered snapshots; real Task union source locals execute. Extend the opt-in contract through synthesized state-machine fields and Task calls; completed/pending awaits preserve all three alternatives across a second await. Field-only composition references also retain default/CLI emission gates. Exercise the host imported-result-local API in wrapper consumers; record structural types as runtime-known/introspectable types and distinguish arrays backed by Array<T>. Clarify that the intersection finality check excludes classes closed to subclassing, not Raven sealed hierarchy roots; add regression coverage and precise diagnostic wording. Archive the two superseded local experiment tips as dated tags before deleting those branches.
+
+- **2026-10-14:** Validate the separately carried union display/hover fixes on the native compiler line: 41 display and 127 hover/resolution tests pass, plus real-editor JSON union hovers before and after an edit. Document the required native metadata host adapter for editor probes; bridge encoding and emission are unchanged.
+
+- **2026-10-14:** Resolve hover on each ad-hoc union alternative independently inside nested generic type arguments, preserving its own type and range. Render separator hovers through compiler symbol display and keep generic arguments compact. Source/imported alternatives pass cold and post-diagnostics checks; no Runtime Contract or emission change.
+
+- **2026-10-14:** Keep ad-hoc unions structural in `ToDisplayString`, including declaration formats: `A | B` receives no nominal union keyword or case expansion. Named union alternatives and generic arguments remain compact; nominal declarations retain opt-in case display. No Runtime Contract, semantic identity or emission change.
+
+- **2026-10-14:** Watch imported MSBuild `.props` and `.targets` files explicitly in the VS Code client so configuration-only edits and restoration can trigger workspace reload without an unrelated source edit. No compiler or Runtime Contract change.
+
+- **2026-10-14:** Carry the general VS Code inlay-range supersession fix from Raven main 6a2c55db4. Concurrent visible ranges complete independently; stale/cancelled results are discarded and completed request tracking is released. No native compiler, metadata or Runtime Contract change.
+
+- **2026-10-14:** Add explicit native static-field emission and shared lowering behind an opt-in capability. Preserve separate closed generic storage and static field ordinals across assembly references; exercise lazy static properties and generic counters through a separate-library consumer. Static initializers remain diagnosed until runtime type initialization is available. Runtime Contract configuration and ordinary .NET defaults are unchanged.
+
+- **2026-10-14:** Admit explicit readonly instance fields in the native neoCLR emitter. Preserve InitOnly metadata and imported symbols, constructor/initializer writes and ordinary-write diagnostics. Add separate-library execution and metadata checks. Static storage remains a separate backend gap; ordinary .NET semantics and Runtime Contract configuration are unchanged.
+
+- **2026-10-13:** Carry main `3abc0c954`: normalize synthesized propagation error conversions in shared lowering, including injection into ad-hoc union alternatives. Preserve ordinary .NET execution and reject unrelated errors; add success/both-error/early-return coverage. Document ad-hoc error unions on the website as an alternative to converter-only aggregation, while preferring domain error types or nominal unions for many public APIs. neoCLR uses a matching temporary nominal carrier library pending native structural union values; omit empty case companions for parenthesized unions so different carrier arities import without conflicting metadata. Native constructor-import checks and interpreter/JIT/AOT consumers pass. Bind inline ad-hoc unions in generic constructor and method type arguments, including nested generic types, using ordinary type binding. Add execution regressions for both alternatives; no alias or Runtime Contract setting is required. Validate HTTP JSON promise construction on the separate native branch. Expand native runtime-await propagation before completion wrapping so synthesized early returns produce TaskOutcome and follow cleanup handling.
+
+- **2026-10-13:** Document rebuilt neoCLR SDK runtime-await defaults, the assembly-private await/generator source providers, upgrade guidance, explicit state-machine override, and Windows/macOS carrier integration. Existing Runtime Contract, emission behavior and ordinary .NET defaults are unchanged; all 21 SDK application cases pass on macOS and Windows. The shared native backend is now named neoclr-codegen; ordinary .NET compilation remains separate.
+
+- **2026-10-13:** Document neoCLR incoming HTTP stream reference declarations,
+  native-library ownership and tested compiler/renderer identities. Runtime Contract,
+  compiler lowering and ordinary .NET behavior are unchanged.
+
+- **2026-10-12:** Carry Raven main's async signature fix (0ccb9a265): defer
+  validation of unresolved function skeletons to full binding. Native generic
+  async results with forward-declared unions no longer retain a false RAV2704;
+  invalid return types still receive diagnostics. No Runtime Contract change.
+
+- **2026-10-12:** Carry the general method-group overload correction from Raven
+  main: classify natural function types for unrelated named targets rather than
+  admitting placeholder error conversions. Preserve delegate signature checks and
+  natural function-to-Object conversion; no native Runtime Contract change.
+
+- **2026-10-12:** Keep cross-width native pattern widening scoped to numeric
+  literals, matching the .NET correction. Runtime value patterns retain their
+  prior admission rules instead of acquiring implicit numeric comparison.
+
+- **2026-10-12:** Widen Int32 constant patterns against Int64 subjects in native
+  portable lowering; preserve full-width comparison instead of rejecting ordinary
+  integer literals. Add .NET/portable regression coverage for matching, negative
+  and equal-low-bits nonmatching subjects. Deliberately carry the corresponding
+  .NET fix from main ae05c124e; Runtime Contract settings are unchanged.
+
+- **2026-10-12:** Document neoCLR metadata dependency admission of 1,024 locals,
+  aligned with existing native backend bounds; retain explicit quotas and record
+  boundary execution/readback validation. No language or Runtime Contract change.
+
+- **2026-10-12:** Fix native portable lowering of late value blocks at ordinary call
+  boundaries and discarded converted terminal blocks. Spill operands in source
+  order before calls so runtime-await cancellation exits with an empty stack.
+  Add focused prepared-body and source execution regressions; .NET emission and
+  Runtime Contract configuration are unchanged.
+
+- **2026-10-12:** Document matching neoCLR native function/layout and host-root
+  admission for the managed TLS consumer. Runtime Contract configuration, Raven
+  lowering and .NET emission are unchanged; record local AOT evidence and pending
+  execution-mode qualification.
+
+- **2026-10-12:** Retain IsExtern for native metadata InternalCall declarations as
+  well as foreign imports. Read implementation flags through the public metadata
+  inspection API; keep runtime-service resolution separate from symbol loading.
+  Add a regression check for unbound internal-call metadata.
+
+- **2026-10-12:** Preserve IsExtern for imported neoCLR native functions and static
+  methods using the metadata ABI descriptor; managed methods stay non-extern.
+  Add binary artifact symbol readback to all ten native-import probe cases.
+  Runtime Contract configuration and reference-only CLI projection are unchanged.
+
+- **2026-10-12:** Fix portable native lowering for pattern subjects containing suspension
+  or early returns, exact-type declaration-pattern assignments and implicit reads of
+  original reference-instance fields inside async state machines. Preserve empty-stack
+  restrictions in nested operand contexts. Native CLI diagnostics now include source
+  paths and positions. Nineteen focused portable/.NET regressions pass; unchanged main
+  separately passes eleven .NET async checks. Native networking/HTTP libraries emit;
+  runtime HTTPS integration qualification continues in neoCLR. No metadata format or
+  Runtime Contract configuration changes. The portable backend is absent on main.
+
+
+- **2026-10-12:** Move the explicit neoCLR Task identity to System.Concurrency.Tasks
+  across source, native and temporary CLI provider selection. Keep ordinary .NET
+  Task mapping unchanged; consumers require matching renamed native libraries.
+  Eighteen focused provider/entrypoint tests pass before and after the migration;
+  the native compiler builds with the matching metadata project.
+
+- **2026-10-12:** Add neoCLR-target extern NativeImport/MarshalAs lowering for namespace
+  functions and static methods: explicit Cdecl/System, UTF-8/UTF-16 per-parameter
+  overrides and Bool8/Bool32 parameters/results. Validate resolved attribute identity
+  and reject unsupported bodies/signatures/conversions before output; preserve .NET
+  extern/DllImport behavior. Native descriptors replace import annotations and remain
+  authoritative over reference-only CLI stubs. Add actual Raven attribute-source,
+  metadata and native-consumer checks; JIT/AOT and installed bundle gates remain open.
+
+- **2026-10-12:** Carry main `a459d4467` expression-position async return lowering.
+  Early returns in match arms complete the selected builder instead of returning
+  a value from native void MoveNext. The async-first source runtime library now
+  emits successfully; five .NET execution checks passed on main. Runtime Contract
+  configuration and native wire format are unchanged.
+
+- **2026-10-12:** Allow an explicitly selected native async provider to define its
+  Task, builder and state-machine contracts in the current source assembly.
+  Preserve source-owned Object bases for nested generated state machines using
+  the matching neoCLR metadata builder. Imported providers and .NET defaults are
+  unchanged. The focused provider/profile suite passes 38 checks.
+
+- **2026-10-12:** Carry main `86bfabafd` top-level async fixes: resolve framework
+  Task types through compilation references and declare compilation-unit functions
+  before emitting method bodies. Restore normal .NET Task/Task<int> entry bridges;
+  target-owned native Main adaptation and Runtime Contracts remain unchanged.
+
+- **2026-10-12:** Carry main `99ae011b4` unary-operand traversal into the neoCLR
+  compiler line. Awaited unary conditions now capture live `use` resources rather
+  than emitting invalid resume-path local reads. The native project reproducer and
+  original HTTPS server compile without source workarounds; Runtime Contracts and
+  native metadata are unchanged.
+
+- **2026-10-12:** Carry RavenDoc protected/protected-internal subclass-contract
+  documentation from main `08b5ef0b0`, preserving private/internal exclusions.
+  Carry `10b3565d7` to omit duplicate extension-indexer accessors and their broken
+  receiver-page links. Main generation tests pass 38 cases; native-line publisher qualification uses
+  the neoCLR HTTP handler website reference. No compiler/runtime contract changes.
+
+- **2026-10-12:** Allow explicit `self` initialization of readonly stored members
+  and getter-only auto-properties in generic constructors. Check the source property
+  definition through substitution while retaining own-constructor/self restrictions.
+  Verify binding and .NET execution with scalar/reference values; no Runtime Contract
+  or metadata-format change is required.
+  On the native line, preserve ordinary zero-arity nominal case projection while
+  flattening synthesized async-frame generic scopes.
+
+- **2026-10-12:** Admit generic native runtime-async methods and generic compiler
+  state machines, preserving enclosing/method type scopes in nested frames,
+  constructors, storage and callbacks. Enable synchronous `use` cleanup across
+  awaits when the native async library is selected, including ordinary completion
+  and cancellation before outcome publication. Apply the same opt-in to native
+  project loading through RavenNeoClrAsyncLibrary, matching direct CLI compilation. Fault remains terminal; this does
+  not add awaited disposal or Windows runtime suspension. Ordinary .NET behavior
+  is unchanged. Add cross-mode executable regression coverage in neoCLR and keep
+  the compiler main/native lines separate.
+
+- **2026-10-12:** Document the neoCLR current-stack capture integration, unchanged
+  Runtime Contract/lowering, temporary diagnostic name projection and native service
+  ownership. This native-line documentation does not change ordinary .NET behavior
+  or add compiler-main support; structured/causal stack diagnostics remain incomplete.
+
+- **2026-10-11:** Document the native runtime-async provider's managed ownership
+  services, completion-to-dispatch lifetime transfer and automatic body/signal
+  reclamation. The returned Task now directly owns its producer registration,
+  removing a per-body ownership notification. Existing explicit Runtime Contract
+  configuration and compiler lowering are unchanged; ordinary .NET behavior remains the default. These are private
+  neoCLR experiment bindings, not public APIs or a main-line compiler change.
+
+- **2026-10-11:** Synthesize typed generic native closure frames, remapping source
+  method parameters into callback owner scope and isolating constructed-reference
+  caches. Enable generic retained-body async generators on generic reference owners
+  as well as nongeneric owners. Preserve private access through nested generic frames
+  and constructed receiver fields; retain generic Task-method restrictions. Preserve
+  use cleanup when cancellation occurs inside a call argument by traversing native
+  runtime-async argument lists within their active cleanup scope. Ordinary .NET emission
+  is unchanged; this portable/native emitter work remains on the native compiler line.
+
+- **2026-10-11:** Avoid the awaitless/synchronous warning for generator bodies
+  using the explicit runtime generator capability: yield is a suspension boundary.
+  Preserve the warning for ordinary awaitless Task methods and default .NET behavior.
+
+- **2026-10-11:** Lower native async generators through the opt-in retained-body
+  provider: lazy iterable/iterator factories, demand-driven yield, delegated yields,
+  lexical disposal and cancellation. Carry shared generator binding capability from
+  main deliberately. Interpreter/JIT/AOT consumer validation passes on macOS ARM64;
+  generic source methods, abandoned producer collection and performance remain open.
+
+- **2026-10-11:** Lower selected `await for` in the explicit native retained-body
+  async POC. Await advancement and cleanup; preserve lexical cleanup order across
+  return, loop transfers and cancellation, including mixed synchronous `use` scopes.
+  Carry the general labelled await-for fix from main 4972d9def. Native
+  compiler-generated state-machine cleanup and generator synthesis remain open.
+
+- **2026-10-11:** Add explicit asynchronous iteration selection to RuntimeIterationContract.
+  Alternative nominal async iterable/iterator interfaces now bind in `await for`,
+  with Boolean awaited advancement and required void/unit asynchronous disposal.
+  Preserve default .NET binding and diagnose invalid selected contracts without
+  fallback. This consumption contract does not enable alternative generator synthesis.
+
+- **2026-10-11:** Fix synchronous `for` loops containing `await`: preserve iteration
+  state, mutate saved value-type enumerators by address, and dispose iterators on
+  completion, cancellation, faults and outward loop exits, without disposing on
+  suspension. Include jump-exit cleanup for hoisted scoped resources, clearing
+  disposed fields before later completion/cancellation cleanup, including transfers
+  to enclosing `while`/`loop` statements. Remove the blanket
+  RAV2712 cancellation-policy rejection. Existing
+  awaiter-protocol and ref-safety checks remain. Carry shared main fixes a23705567
+  and 262109b7f deliberately, followed by mixed-loop fix 0845f8db9; select the existing no-EH disposal contract for native
+  state machines and qualify both lowerings in interpreter, macOS ARM64 JIT and AOT.
+  Terminal Fault semantics and execution defaults are unchanged.
+- **2026-10-11:** Document macOS ARM64 JIT/AOT qualification of the existing explicit
+  native runtime-async helper contract, including both HTTP projects and lifecycle
+  outcomes. Compiler lowering is unchanged; the neoCLR stack carrier remains POC
+  scaffolding, with Windows, production integration and default readiness open.
+
+- **2026-10-11:** Add explicit native-project RavenNeoClrRuntimeAsyncHelper selection,
+  matching the source CLI runtime-async provider and retained-scope cleanup behavior.
+  Require RavenNeoClrAsyncLibrary; leave ordinary project lowering unchanged. Qualify
+  HTTP client/server project builds and execution with the source-included provider.
+
+- **2026-10-11:** Admit synchronous `use` cleanup in explicitly selected native
+  runtime-async bodies through the opt-in RuntimeDisposalContract capability
+  AllowAsyncScopeExitCleanup. Retained bodies reuse ordinary scope-exit lowering,
+  including cancellation and implicit unit returns. Default state-machine/iterator
+  restrictions stay in place; terminal Fault does not gain managed unwinding.
+  Qualify runtime-await HTTP showcase sources and cleanup/GC consumers in neoCLR.
+
+- **2026-10-11:** Document qualification of the native runtime-async provider against
+  a separately compiled generic operation interface and two implementations. Existing
+  metadata/interface dispatch suffices without compiler changes; final runtime
+  recognition and foreign ABI remain unimplemented. Record conformance/load rejection
+  and GC evidence from the neoCLR consumer.
+
+- **2026-10-11:** Extend explicit native runtime-async POC await lowering to reference
+  awaiters with exact source-provider Wait mappings. Evaluate GetAwaiter once and
+  retrieve results only after successful completion; reject missing/ambiguous mappings.
+  Qualify an independent runtime-backed manual operation, retaining Task<T> as the
+  async method result projection. No .NET/default or public metadata contract change.
+
+- **2026-10-11:** Add explicit native `--runtime-async-poc <helper-type>` lowering
+  for nongeneric Task<T> methods, including async Main. Supported awaits execute in
+  retained runtime bodies instead of generated state machines; managed Tasks keep
+  results/cancellation and terminal faults remain terminal. The source-included
+  helper contract and interpreter support are experimental and opt-in. Qualify
+  nested, receiver/parameter, unit, cancellation, fault and GC samples; ordinary
+  .NET and default neoCLR lowering remain unchanged.
+
+- **2026-10-11:** Preserve empty evaluation-stack boundaries through portable
+  short-circuit conditions and first numeric operands. Native async consumers can
+  now use inline await in those conditions without a false control-flow rejection.
+  Keep rejection when earlier operands remain on the stack. Qualified by 65 focused
+  shared-body tests and neoCLR's managed Task retained-body consumer; compiler-native
+  async lowering and default changes remain unimplemented.
+
+- **2026-10-11:** Document neoCLR's private unit-result async bridge and Task<()>
+  adapter consumer. The runtime distinguishes unit outcomes and CLI no-result stack
+  effects; compiler lowering and Runtime Contract settings are unchanged. Record
+  the runtime's frame-owned entry-drain correction and canonical runtime-async
+  direction, with generated state machines retained for migration/testing.
+
+- **2026-10-11:** Document neoCLR's terminal pending-self-await diagnostic and the
+  author's reaffirmed non-recoverable Fault contract. No compiler lowering, Runtime
+  Contract option, metadata representation or native/JIT support changes.
+
+- **2026-10-11:** Document neoCLR's private cancellation-notification bridge and
+  ordinary await adapter validation. Runtime terminal notification now allows
+  existing compiler cancellation lowering to cancel a managed Task without reading
+  its result. Compiler lowering/defaults and Runtime Contract settings are unchanged.
+
+- **2026-10-11:** Carry main's `d4c5e5128` property/attribute binder fix to the
+  separate neoCLR compiler line. Cache the compilation-unit scope before member
+  registration, preserving obsolete diagnostics without recursive binding.
+  The native ordinary-await consumer now compiles and runs with attributed
+  intrinsics in the same file. Runtime Contract settings, signatures and lowering
+  are unchanged. Keep main/native lines separate per author direction.
+
+- **2026-10-11:** Preserve `let ... else` pattern bindings across later `await`
+  suspension. Shared async analysis conservatively hoists these enclosing-scope
+  locals despite synthetic guard blocks introduced during lowering. This fixes
+  default-value reads on .NET and uninitialized-local rejection by native metadata
+  emission. Portable pattern emission also stores captured values into the hoisted
+  field, matching the ordinary .NET generator. Runtime Contract configuration and
+  public signatures are unchanged.
+
+- **2026-10-11:** Preserve distinct imported native indexer overloads when merging
+  readable/writable candidates. Deduplicate the repeated symbol instances rather
+  than using property equality that can collapse int and Index overloads. Runtime
+  Contract settings and CLI encoding are unchanged; the neoCLR ArrayList Index
+  setter consumer covers the regression.
+
+- **2026-10-11:** Qualify instance extension indexers for native emission and
+  import: static accessor calls retain generic receivers and distinct overloads,
+  with logical property symbols and documentation. Lower accessor block bodies with
+  their callable owner. Native constrained extension containers, property-level
+  annotations and init-only extension setters remain unsupported. Runtime Contract
+  settings are unchanged. neoCLR interpreter/macOS AOT sequence/list consumers pass;
+  Windows execution remains pending.
+
+- **2026-10-11:** Lower Index/Range values and array from-end reads/writes through
+  portable library contracts, preserving evaluation order. Native libraries may
+  declare ordinary conversion operators. Defensively copy readonly value fields for
+  method receivers and avoid dereferencing missing tuple assembly ownership during
+  native unit selection. Runtime Contract configuration and ordinary CLI emission
+  are unchanged; imported value-field reads require matching neoCLR metadata APIs.
+
+- **2026-10-10:** Admit explicit native external class inheritance contracts with
+  dependency-owned storage, inherited interfaces and virtual/abstract slots. Preserve
+  direct base calls through async hoisted receivers. Generic/nested bases and protected
+  ordinary members remain unsupported. Requires matching experimental metadata APIs;
+  ordinary .NET capability defaults and Runtime Contract settings are unchanged.
+
+- **2026-10-10:** Native type import includes base-class interfaces in AllInterfaces,
+  and native properties retain nullable annotations from their accessor signatures.
+  This restores inherited interface conversions and nullable property assignment for
+  emitted consumers, including HTTP handler pipelines. Runtime Contract selection and
+  physical metadata signatures are unchanged.
+
+- **2026-10-10:** Match native attribute constructors and named members independently
+  of nullable reference annotations. Preserve nullable source signatures while
+  importing physical String attribute payloads, including null; reimport emitted
+  annotations without invoking constructors. No Runtime Contract switch changes.
+- **2026-10-11:** Support instance extension indexers with generic receivers,
+  getter/setter blocks and getter-only arrow bodies. Resolve instance indexers
+  first, enforce setter accessibility, and preserve Index/Range overloads when
+  importing .NET metadata. Compound extension-indexer assignments evaluate the
+  receiver and indices once. Semantic and operation APIs expose the logical
+  indexer without the receiver parameter. Static extension indexers remain
+  unsupported; Runtime Contract configuration is unchanged. Native backend
+  qualification is a separate integration step.
+
+- **2026-10-10:** Preserve the original instance receiver for base calls in async
+  methods, including after suspension. Keep direct base dispatch rather than
+  invoking an override on the state machine receiver. Fix applies to ordinary .NET
+  and shared lowering; no Runtime Contract configuration changes.
+
+- **2026-10-10:** Unqualified member lookup now suppresses overridden base method
+  declarations while preserving distinct inherited overloads. Generic-base calls
+  select the same override as explicit self calls. No Runtime Contract setting or
+  target-specific mapping changes; ordinary .NET and native targets share the fix.
+
+- **2026-10-10:** Preserve Int32 storage in bitwise attribute constants, including
+  combined enum flags. The shared semantic API now returns an Int32 value instead
+  of an Int64 accumulator, allowing strict native metadata writers to encode
+  combined AttributeUsage targets. Ordinary .NET target selection is unchanged.
+
+- **2026-10-10:** Honor source and CLI InternalsVisibleTo assembly grants in the
+  shared accessibility checker. Named friends may use internal types and members;
+  private, protected-combination and public-signature restrictions remain. Grants
+  are one-way and non-transitive, with full-public-key matching and no token/name
+  fallback for malformed or qualified identities. Existing .NET attribute emission
+  and Runtime Contract settings are unchanged. Native assembly grant retention and
+  neoCLR runtime enforcement remain explicit integration gaps. Cache both granted
+  and denied access per immutable assembly-symbol pair using weak keys; repeated
+  internal-member checks avoid attribute scans, identity parsing and allocation.
+  Document neoCLR native assembly-annotation retention and its remaining native
+  adapter/identity/access-check gaps. Native emission now forwards assembly attributes
+  and native symbols expose cached annotations after early validation. The focused
+  probe covers named-friend/non-friend binding, source grant round trips and malformed
+  assembly data diagnostics. Native symbol imports now admit cached friend-approved
+  internal types, constructors, fields and methods. A default-off portable capability
+  admits their shapes; semantic/import authorization remains separate. The executable
+  native consumer returns 42 and unrelated consumers emit no image. neoCLR runtime
+  enforcement currently supports unsigned simple-ASCII identities; full native identity
+  support and Windows qualification remain pending. Record macOS ARM64 AOT
+  execution of the native friend consumer against neoCLR `35fa5232`, including
+  original-scope access rejection before executable metadata pruning. Record the
+  neoCLR source-runtime attribute and real source-grant consumer qualification in
+  `bce27905`; Runtime Contract configuration and compiler behavior are unchanged.
+  Document the public encoding/internal Utf8 migration with no production friend
+  grants, its reference projection, native visibility check and remaining nested
+  constructor-propagation gap. Record neoCLR 579105ba's empty-target host callback
+  dispatcher fix; no Raven semantic/emission change is made.
+
+- **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
+  in the portable/native array profile, preserving selector order and inclusive
+  endpoint behavior without overflow. Dynamic ranges, filters and spreads remain
+  explicit gaps; Runtime Contract settings are unchanged. Fix ordinary .NET
+  collection/dictionary comprehensions incrementing past inclusive maximum endpoints,
+  which could wrap and grow the result until allocation failed.
+
+- **2026-10-10:** Document neoCLR civil Parse overloads and their ordinary Result/error
+  union projection, plus native host-culture prerequisites. These are library/backend
+  changes; Raven Runtime Contract configuration and compiler emission are unchanged.
+  Extend the reference contract to Duration/TimeOffset Parse and document native
+  unary negation lowering, with interpreter/native primitive boundary qualification.
+  Include Instant.Parse's explicit-offset reference contract; no ambient zone or
+  culture binding and no compiler or Runtime Contract behavior change is introduced.
+  Extend documentation to ZonedDateTime.Parse and OffsetMismatch, plus exact native
+  pinned-rule service bindings; matching library/reference artifacts are required.
+
+- **2026-10-10:** Document neoCLR JsonObject map/indexer integration, the aggregate
+  reference's temporary positional Item rename, and native fallback/conformance
+  fixes exposed by JSON-node serialization. Runtime Contract and compiler behavior
+  are unchanged; explicit reflection retention remains required for nominal members.
+
+- **2026-10-10:** Document neoCLR Map indexers using existing Item/get_Item/set_Item
+  emission. Matching library/reference updates are required; compiler behavior and
+  Runtime Contract configuration remain unchanged.
+
+- **2026-10-10:** Document neoCLR native Object equality/hash and default-display
+  lowering, inherited override admission and integer shifts exposed by runtime test
+  migration. Runtime Contract configuration and compiler emission are unchanged;
+  general virtual dispatch and native intrinsic receiver adapters remain gaps.
+
+- **2026-10-10:** Fix portable/native emission of long and String constant patterns.
+  Long matching preserves all 64 bits; String matching checks contents and rejects
+  null without invoking the target text service. Binding and Runtime Contract
+  configuration are unchanged. Six focused pattern cases pass; broader literal
+  types and Windows runtime qualification remain separate.
+
+- **2026-10-10:** Document neoCLR’s missing native Int64 parser binding fix and
+  passing local parser tests. Also document native Char wrapper/String factory fixes,
+  passing local construction tests and Windows object emission. Compiler emission,
+  Runtime Contract configuration and reference encoding are unchanged; Windows
+  execution validation remains pending. Document the subsequent native primitive
+  parser/shared-kernel and floating transport fixes, with twelve passing local
+  parser cases and unchanged Raven contracts.
+
+- **2026-10-10:** Document the matching neoCLR guest logical ModuleInfo reference
+  contract and removal of its physical MetadataToken property. Consumers require
+  matching rebuilt libraries/reference/runtime; Runtime Contract configuration and
+  compiler emission are unchanged. Record the qualified guest/AOT ownership scope
+  and separate legacy bootstrap Map-contract blocker. Document the native backend
+  executing-assembly lowering and passing separate-library/lambda consumer, with no
+  compiler contract change; record the deferred imported function-reference emitter
+  gap and author clarification that module namespaces may span assemblies. Document
+  the matching guest GetFunctions/ownerless attribute inspection reference surface,
+  passing interpreter consumer and native/generic limits; no compiler behavior or
+  Runtime Contract configuration changes. Document the matching native Main(string[])
+  process-host path and its UTF-8/ownership limits; the existing emitted signature
+  needs no compiler or Runtime Contract change. Record the native shared attribute
+  provider binding fix and its explicit ownerless-retention gap; nominal inspection
+  passes without a compiler change.
+
+- **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
+  all modules for free functions and use the assembly-wide type view. Assemblies can
+  package several flat named modules; dotted names add no hierarchy metadata. Rebuild
+  with the matching neoCLR host metadata library. Compiler/native importer builds and
+  the multi-module consumer pass; Runtime Contract configuration, emitted format and
+  ordinary .NET behavior are unchanged.
+
+- **2026-10-10:** Make qualified/early namespace type lookup use the same canonical
+  metadata selection as ordinary imports, while preserving source declarations.
+  This prevents duplicate bootstrap/facade names from selecting a different base
+  during native attribute compilation. Cover both spelling and reference orders;
+  83 focused lookup, namespace, capability and attribute-usage checks pass.
+
+- **2026-10-10:** Admit fieldless public external class bases through an explicit
+  neoCLR emission capability and emit imported protected base-constructor calls.
+  User attributes can derive from source-owned System.Attribute in System.Runtime;
+  interpreter and macOS ARM64 native execution pass. Other external layouts remain
+  unsupported. Ordinary .NET behavior and Runtime Contract configuration are unchanged.
+
+- **2026-10-10:** Document source-owned neoCLR AttributeUsage/AttributeTargets and
+  explicit removal of duplicate temporary CLI bootstrap declarations. No Runtime
+  Contract or ordinary .NET lookup change; macOS interpreter/AOT consumer checks
+  defaults and imported target rejection. Windows qualification remains pending.
+
+- **2026-10-10:** Import native custom attributes into Raven's ordinary AttributeData
+  model for types, constructors, methods/module functions, fields, properties and
+  parameters. Preserve nominal enum constants and named values; the existing binder
+  now applies imported AttributeUsage targets, repetition defaults and inherited or
+  replaced usage policies. Reject malformed constructor/named-member contracts with
+  RAVT003 before symbol binding. Preserve the configured-core Flags marker. Requires
+  matching neoCLR metadata with CLI instance/nominal signature inspection; native
+  source annotations now emit on supported types, interfaces, functions, members and
+  parameters, with String/Int32/Boolean, Int32 enum fixed values and primitive named
+  values. Unsupported targets/payloads diagnose before writing output. Preserve
+  co-owned source attribute constructor identity. Fix ordinary property attributes
+  leaking onto backing fields; explicit field targets and field-only storage retain
+  their semantics. Separate-library Attribute inheritance, guest named-data queries
+  and test discovery remain open. neoCLR subsequently adds guest named-data
+  snapshots through ordinary reference signatures, without a compiler setting
+  change; document the snapshot compatibility and legacy bootstrap limits. Separate
+  source attribute binding from usage validation so self-describing AttributeUsage
+  and mutually attributed classes no longer recurse to stack overflow. Public
+  GetAttributes still returns validated declarations; target/multiplicity checks
+  remain active regardless of query order.
+
+- **2026-10-10:** Dispose configured native reference iterators on normal and structured
+  exits from `for`, in lifetime order with nested `use` scopes. Lower these loops
+  before scope-exit cleanup; ordinary .NET enumeration remains unchanged. The
+  no-exception-handling target contract does not unwind terminal Faults. Eight
+  execution regressions and 50 existing focused cleanup/loop tests pass. A native
+  library follow-up preserves return-expression shape outside active resources;
+  ten execution cases also pass portable-body admission, including nullable
+  early return before a loop and match-arm return inside it.
+
+- **2026-10-10:** Add an explicit neoCLR positional-record storage capability for
+  read-only native key/value transport: primary/copy construction, getters and
+  simple deconstruction assignments. Ordinary .NET records retain their existing
+  behavior. Native metadata omits record equality/hash/display helpers and init
+  accessors in the first slice; the follow-up now preserves init accessors through
+  native metadata/import and admits initialization via an explicit InitAccessor
+  capability. Ordinary assignment remains restricted by Raven binding. Add automatic
+  and implemented accessor lowering tests (62 focused tests pass). Hide native
+  imported accessors from named-member lookup, matching PE import and preventing
+  direct accessor-name bypasses. Matching neoCLR
+  metadata/runtime 84df378d or later is required; no runtime freeze or full native
+  record semantics are implied. Native executable/interpreter and separate-library
+  rejection tests also pass on macOS and Windows x64 with neoCLR a2d7eda4; earlier
+  AOT projections discard the init association and are not compatible.
+  Add focused portable admission/lowering regression tests. This native adapter
+  slice is on codex/source-object-metadata-resolution, not main.
+
+- **2026-10-09:** Present instance extension declarations without CLR carrier
+  static modifiers or receiver parameters. Distinguish static extensions with an
+  SE badge in both receiver and extension member lists, while keeping ordinary
+  static S and instance extension E markers. Configure the Raven website’s core
+  and compiler extension namespaces so applicable members appear on receiver pages.
+  Generic pages also expose constrained and specialized extensions, including
+  Option and Result operations, with their receiver and constraints visible. These entries participate in the
+  same member list, grouping controls, compact signature style and extension toggle
+  as ordinary members; receiver constraints appear in the applicability note.
+  Exclude extension members whose containing types are not public from receiver
+  listings, including specialized generic entries.
+
+- **2026-10-09:** Show the first five derived/implementing type or derived-interface
+  relationships, with a keyboard-accessible Show more/Show less disclosure for
+  longer lists. Short lists remain fully visible and every link remains in the page.
+
+- **2026-10-09:** Keep explicitly configured guide/reference section sidebars visible
+  outside `apiNavigationRoot`, with their own article menu and current-page state.
+  The API browser remains scoped to its reference pages.
+
+- **2026-10-09:** Fix SDK packaging under Git Bash on Windows by passing the
+  macro build's compiler-host property as a Windows path. Ordinary .NET and
+  neoCLR SDK packaging share this correction; Unix paths are unchanged. Preserve
+  native adapter arguments when integrating the packaging fix.
+
+- **2026-10-09:** Place type-extension receiver information before type parameters
+  and remarks, following the introduction.
+
+- **2026-10-09:** Give extension receivers a dedicated section, linking named type
+  components independently and documented parameters to the type-parameter section.
+  Module/namespace pages group Type extensions separately and show their receivers.
+  Page labels and icon tooltips use Type extension.
+
+- **2026-10-09:** Distinguish RavenDoc extension containers from static classes with a
+  dedicated icon, receiver-aware declarations and linked receiver types. Preserve
+  ordinary static classes and list all receivers for containers extending several types.
+
+- **2026-10-09:** Use the existing member icons for API sidebar functions and constants,
+  including metadata-loaded members, and group namespace/module constants under
+  Constants instead of Members. Ordinary fields retain a separate Fields group;
+  reference URLs and compiler/runtime semantics are unchanged.
+
+### 2026-10-09
+
+- Integrate the reviewed RavenDoc module/member navigation and extension-reference
+  fixes into the shared neoCLR integration line. General rendering fixes also
+  remain on main; native module terminology stays target-specific.
+
+- Resolve native core Array/Enum contracts and project configured vector members
+  and collection interfaces. Native synthesized function callbacks validate their
+  component accessibility and preserve inhabited unit results. Source primitive
+  providers now supply compiler-generated String concatenation and union escaping;
+  .NET defaults and explicitly named delegate identity remain unchanged.
+
+- Admit freshly constructed value receivers in portable emission. Constructor
+  results are evaluated once into temporary storage before method arguments;
+  mutations affect that temporary. Ordinary/generic/nested imported value checks
+  and a native-only union display consumer cover the correction.
+
+- Recognize System.ValueType in the explicitly selected native semantic core.
+  This allows ordinary structs and union carriers through native type planning;
+  same-named declarations in other assemblies remain ordinary types. Primitive
+  storage markers and CLI target behavior are unchanged.
+
+- Report missing synthesized String.Concat support as RAV1501 during emission,
+  including union formatting on ordinary .NET and native targets, instead of
+  crashing or selecting an arbitrary two-argument overload. Other compiler
+  implementation failures remain visible.
+
+- Add explicit RavenNeoClrNativeCoreReference project selection: native-only
+  semantic references, emission and runtime core paths, watched core inputs and
+  rejection of mixed CLI/bootstrap settings. Retain the legacy core selection and
+  last successful configuration on failed reload. Full native library bootstrap
+  and installed editor qualification remain separate gates.
+- Recognize the native module `Function` navigation label with the existing function glyph.
+
+- Add file/block `module` declarations using existing namespace syntax nodes,
+  qualified-name/import binding and target-aware IsModule symbol information. Native
+  metadata preserves logical module ownership and empty declarations; CLI emission
+  remains a namespace projection. Module-private access is not introduced.
+  RavenDoc can present modules while retaining Assembly ownership labels; ordinary
+  .NET namespace terminology remains the default. VS Code hover, completion
+  descriptions and document/workspace symbols use module terminology for neoCLR,
+  including projected namespace scopes; module keywords receive syntax highlighting.
+
+- Document the matching neoCLR System.Time/TimeOfDay library identity migration and
+  the bounded legacy Instant factory bootstrap contract. Ordinary .NET names and
+  compiler defaults remain unchanged; rebuild neoCLR consumers with matching inputs.
+
+- Normalize bootstrap Void values to the explicit RuntimeUnitContract owner during
+  native emission, including nested imported generic constructor signatures. This
+  fixes HttpContext's Promise<Result<Void, HttpError>> initializer metadata mismatch.
+  No-result calls and ordinary .NET emission are unchanged.
+
+- Emit canonical assembly-member XML and Markdown documentation IDs for the neoCLR
+  target, omitting the synthesized NamespaceMembers carrier while preserving ordinary
+  .NET IDs. Include native assembly functions/constants in RavenDoc navigation, and
+  enumerate documented libraries directly so bootstrap primitives cannot hide Object
+  pages through merged-namespace deduplication. Group assembly-function overloads
+  onto one page instead of overwriting earlier signatures.
+
+- Render assembly-level functions and constants with namespace-qualified documentation
+  IDs instead of assuming a declaring type. Preserve their native XML/Markdown help,
+  including constants; retain type-owned .NET IDs. A production native-library audit
+  now renders real System.Runtime/Data/Networking/Web owners instead of CoreProbe.
+  Its explicit CLI primitive bootstrap remains temporary; production website input
+  replacement still requires coverage and route qualification.
+
+### 2026-10-08
+
+- Add an explicit native RavenDoc loader for compiled neoCLR libraries, including
+  grouped site inputs and dependency-only references. Preserve XML documentation,
+  cross-library links and declaring identities without framework/adjacent DLL loading.
+  Reject invalid, missing or conflicting native inputs before rendering. The adapter
+  requires a NeoClrMetadataProject-enabled build; ordinary .NET loading stays default.
+  Restore native namespace comment forwarding and validate the existing renderer’s
+  member, inheritance/extension, generic, navigation/search and sidecar experience.
+
+- Add explicit MetadataImportOptions.WithNativeMetadata for NeoCLR compiler API use:
+  close the reduced RAVT004 initialization failure by importing native semantic core
+  references without a .NET metadata session, reject
+  portable references/wrong targets, and validate exact native primitive/core ownership
+  for emission. An authored-core integer consumer now runs interpreted and ARM64 native.
+  Add NeoClrReferenceCatalog.ReadNative for matching immutable native core/library
+  references and emission bindings, with XML documentation and explicit input guards.
+  A separate-library consumer returns 42 in both execution modes. Existing Read and
+  default CLI behavior remain. Add explicit rvnc --native-core-reference consumer
+  selection, rejecting mixed bridge options without publishing output; full source-runtime,
+  project/editor and full documentation bundle migration are still pending. CoreAssembly has no reflection value in native mode.
+
+- Call types, functions and constants assembly-level members with namespace-qualified
+  names. Update the native constant adapter to AssemblyConstantDefinition / AddConstant /
+  Constants and the matching renamed metadata contract; rebuild prototype artifacts.
+
+- Emit/import finite Double assembly-level constants in native neoCLR metadata, with
+  public/internal visibility and exact compile-time values; inline Double constants
+  in the portable emitter. Other native constant types remain unsupported. Requires
+  matching metadata/runtime tools; ordinary .NET literal-field semantics are unchanged.
+
+- Document neoCLR’s source-owned Math bootstrap correction; ordinary .NET lookup is unchanged.
+
+- **2026-10-08:** Preserve statement-boundary control flow while lowering explicit
+  discards in the portable emitter. A discarded await can suspend/resume; nested
+  value expressions retain their earlier-operand safety restriction. Semantic APIs,
+  runtime contracts and metadata encodings are unchanged. The portable planner fix
+  accompanies the shared backend on the integration line; main does not contain it.
+  Validate 67 focused compiler/.NET controls and queued-await native/interpreter parity.
+
+- **2026-10-08:** Select `System.Runtime.CompilerServices.UnionValue` for the
+  neoCLR union bridge, including explicitly configured legacy probe-core callers.
+  Runtime lookup, generated protocol definitions and imported protocol reuse agree;
+  ordinary .NET keeps `IUnion`. Keep renamed async interface signatures in the
+  selected target metadata instead of loading them from the compiler host, including
+  explicit legacy probe-core callers. Rebuild neoCLR references and consumers together.
+  Sixteen focused target-profile, .NET union-protocol and output-initialization tests pass.
+
+- **2026-10-08:** Keep metadata types resolved during incomplete source declarations
+  out of the canonical and namespace-scoped lookup caches. A later namespace import
+  now selects the source declaration instead of an earlier metadata duplicate,
+  preserving same-assembly access to internal members. Validate 16 focused symbol
+  lookup tests and neoCLR's TaskQueue.Current library-bootstrap reproduction.
+
+- **2026-10-08:** Map neoCLR async state-machine lookup and CLI emission to
+  `System.Runtime.CompilerServices.AsyncStateMachine`, including native metadata
+  and configured CLI provider recognition. Ordinary .NET retains
+  `IAsyncStateMachine`; internal special-type identifiers are unchanged. Coordinate
+  with neoCLR's `TaskAwaiter` rename and rebuild matched runtime/reference/consumer
+  artifacts. Validate 37 focused profile/async-lowering tests (35 before the change)
+  and native Runtime/Data/Networking/Web emission with real async consumers.
+
+- **2026-10-08:** Document the companion neoCLR metadata fix for inhabited Void
+  imports from the explicitly bound core. HTTP Result<Void,HttpError> now compiles
+  and executes interpreted; native layout admission remains incomplete. No ordinary
+  .NET behavior or Runtime Contract default changes.
+
+- **2026-10-08:** Document the companion neoCLR StringBuilder/String.Join integration:
+  source-owned fluent APIs, UTF-8 quotas, separator joining, exact private service
+  mapping and temporary CLI reference projections. Record interpreter/native validation
+  and the refreshed String constructor/operator bridge checks. No Raven language,
+  Runtime Contract defaults or ordinary .NET framework behavior changes.
+
+- **2026-10-08:** Preserve ordinary invocation conversions and parameter-array
+  mapping in synthesized String.Concat calls for interpolation and string addition.
+  Portable emission now receives explicit boxing when an Object parameter is selected;
+  overload selection and Runtime Contract defaults are unchanged. Validate 11 focused
+  interpolation and string error-recovery tests, including emitted .NET execution,
+  null text and left-to-right evaluation, on main and the native integration branch.
+  Qualify native CIL integer/null output and standalone text interpolation with
+  Unicode/NUL parity; retain explicit AOT rejection of boxed numeric Object display.
+
+- **2026-10-08:** Keep source-assembly metadata lookup within that assembly and
+  route namespace-qualified expression types through compilation-level type selection.
+  This prevents reference enumeration order from choosing a competing declaration;
+  qualified calls share source precedence and configured target providers with type lookup.
+  Keep closure Object resolution at compilation scope. Add ordinary .NET regression
+  coverage independent of the neoCLR integration. Validate 46 focused lookup,
+  type-resolution and closure tests on this branch. Also normalize namespace-imported
+  type candidates through the same lookup; cover qualified, wildcard-imported and
+  explicitly imported calls with both reference orders. Validate 68 focused import,
+  namespace, alias and lookup tests on both compiler branches. Qualify a fresh
+  imported-Console reader through neoCLR CIL and standalone AOT: nine reader cases
+  and exact output-fault parity, without source staging or compilation reuse.
+
+- RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.
+
+- **2026-10-07:** Extend the native bundle relocation probe to preserve nested
+  documentation sidecars and assert imported IPAddress help after relocation.
+  No compiler, metadata, Runtime Contract or ordinary .NET behavior changes.
+
+
+- **2026-10-07:** Include evaluated native-project .props/.targets imports in metadata
+  input discovery. Qualify a relocated class-library bundle through the workspace
+  loader: native symbol ownership, no dependency-source/fallback imports, configuration
+  inputs and transactional rejection. Ordinary .NET project behavior is unchanged.
+
+- **2026-10-07:** Add `neoclr --project --no-build-references` for hosts that already
+  built their dependency artifacts. Preserve native graph/identity validation and
+  ordinary dependency-first builds. Exercise prebuilt execution, missing-artifact
+  rejection and unchanged dependency bytes to support explicit Runtime seed staging.
+
+- **2026-10-07:** Add RavenNeoClrSourceObjectRoot for native library projects. Apply
+  the existing source-root import contract with explicit ownership/introspection and
+  preserve async-owner selection. Reject executable or conflicting imported-root
+  configurations. The checked-in NeoCLR Runtime project compiles and its separate
+  orders consumer executes; ordinary .NET defaults are unchanged.
+
+- Avoid shared-sidebar flicker by reserving its space, suppressing the temporary fallback during loading, and caching versioned navigation per browser tab. Keep fallback access when scripts or requests fail.
+
+- Optionally share RavenDoc API navigation trees across pages (`sharedApiNavigation: true`, disabled by default) instead of duplicating them in every HTML file. Preserve namespace navigation without JavaScript and full filtering when the shared tree loads.
+
+- Preserve complete namespace names when matching metadata types to source declarations, including nested generic C# types.
+
+- RavenDoc maps C# declarations to GitHub source files for assembly inputs, including partial types. Nested types remain on containing-type pages instead of expanding the API sidebar.
+
+- RavenDoc resolves type and authored cross-references between API sources, includes macro parameter/return contracts, and supports grouped assembly inputs with a shared namespace tree and preserved assembly identities. Raven adds Compiler APIs alongside Core extensions and Macros.
+
+- RavenDoc identifies static classes and extension containers in signatures and omits their inheritance relationships and inherited-member controls. Ordinary instance-type inheritance remains visible.
+
+- Preserve `unit` payloads in .NET 11 runtime-async Task/ValueTask returns,
+  including bare, implicit, arrow and try/finally returns. Discard awaited
+  payloads correctly in statement position. Extend runtime regressions and the
+  framework-matrix sample; ordinary unit-returning methods keep their void ABI.
+
+- **2026-10-07:** Build native ProjectReference graphs in dependency order through the
+  ordinary NeoCLR project command. Workspace loading consumes prebuilt native outputs
+  and watches transitive artifacts/configuration; cycles, non-library or incompatible
+  targets, missing outputs and wrong assembly names reject. Publication is per assembly.
+  Keep ordinary .NET project loading and importer/emitter boundaries unchanged.
+
+- **2026-10-07:** Add explicit RavenNeoClrObjectLibrary project selection. Native project
+  import and --run use the same registered Object-root artifact; missing or ambiguous
+  selections reject without replacing output. Cover workspace identity/watching and
+  separate-library execution. Ordinary .NET and unset-property behavior are unchanged.
+
+- Validate async returns against the task payload, including `unit`. Bare returns
+  and expression bodies in `Task<unit>` and `ValueTask<unit>` methods now produce
+  a unit result consistently before and after suspension; bare returns still
+  reject non-unit payloads. Non-generic task behavior is unchanged.
+
+- Resolve generic case member owners using the emitted type's arity. Hoisted
+  sealed-hierarchy cases no longer include phantom enclosing arguments in calls
+  or synthesized record formatting. Preserve enclosing arguments for ordinary
+  nested types; add runtime regressions and a representative IL-verified sample.
+
+- **2026-10-07:** Normalize bootstrap Void type syntax to the explicitly selected native
+  unit owner, including namespace lookup inside generic signatures. Fix intermittent
+  separate Web encoding without changing .NET defaults or weakening metadata validation.
+  Deterministic lookup regressions and six fresh Web compilations pass.
+
+- **2026-10-07:** Record separate native Web deadline integration and passing source-free
+  consumers, plus unresolved intermittent System.Void encoding and Task<()> return gaps.
+  No compiler behavior or default .NET target changes in this documentation slice.
+
+- Infer synchronous lambda results from `match` arms and block returns before
+  fixing an unresolved generic method result parameter. Preserve lexical generic
+  targets and query-order consistency. Update the list-deconstruction sample to
+  handle empty rows, and make the NanoFramework metadata gate prepare its own
+  references independently of test order.
+
+- **2026-10-07:** Normalize primitive-bootstrap Object type syntax to an explicitly
+  selected native Object owner during binding. Parent-namespace lookup now agrees
+  with object keyword and qualified type spelling. This fixes separate System.Data
+  JSON mapping without changing default .NET binding or redirecting user lookalikes.
+
+- **2026-10-07:** Supply the full selected native Object virtual-slot contract from
+  symbols before emission, including slots not called by a body. This enables boxing
+  against separately compiled System.Runtime without a competing seed Object. The
+  unchanged Networking cancellation sample compiles and runs against separate Runtime
+  and Networking artifacts; ordinary .NET emission remains unchanged.
+
+- Make compiler-driver sample gates prepare MSBuild references, including build-only source generators, before compilation so validation works in fresh checkouts.
+
+- **2026-10-07:** Emit supported imported native Object slots from symbols through
+  explicit metadata slot references. ToString/GetHashCode/Equals dispatch through an
+  object receiver now executes derived overrides against separate Runtime (exit 42).
+  Keep unrelated virtual methods unsupported; ordinary .NET behavior is unchanged.
+
+- RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.
+
+- **2026-10-07:** Register the imported erased System.Value carrier with the native
+  emitter before bootstrap helper signatures are mapped. A source-free consumer of
+  retained parse/IsValue/UnpackValue services verifies and returns 42, including error
+  payload checks. Requires matching metadata canonical Value aliases; .NET is unchanged.
+
+- **2026-10-07:** Select the imported native Object authoring identity before mapping
+  callable signatures. Keep primitive bootstrap references distinct while supporting
+  source Equals overrides against a separately built Runtime; the ordinary native
+  driver consumer verifies and returns 42. Requires the matching metadata library's
+  external-root authoring API; ordinary .NET emission is unchanged.
+
+- **2026-10-07:** Keep RavenDoc copy controls pinned to the visible code sample
+  while code scrolls horizontally. Collapse the main navbar into a three-dot
+  disclosure on mobile/tablet screens, with theme and search controls alongside.
+  Preserve desktop links and keyboard, Escape and outside-click navigation.
+
+- **2026-10-07:** Resolve native flags-enum marker attributes from the explicit
+  primitive bootstrap even when a different native assembly owns System.Object.
+  Validate both root selections with the C# metadata-symbol probe. This removes
+  an import blocker when separately compiling System.Data against System.Runtime.
+
+- **2026-10-07:** Add explicit imported NeoCLR Object-root selection through
+  MetadataImportOptions.WithObjectAssemblyName and rvnc neoclr --object-library.
+  Preserve one root across source/generic bases, object signatures and primitive
+  bootstrap facts; invalid/missing/non-native selections do not fall back. The unchanged
+  orders application compiles against the full source-owned library and executes with
+  exact expected output. Ordinary .NET defaults remain unchanged.
+
+- **2026-10-07:** Preserve heap async state across pending awaits when assigning
+  hoisted locals. Reload stable self/base field receivers after control transfers
+  instead of caching them in emitter locals that resume dispatch skips. Keep
+  side-effecting receiver evaluation order; validate Debug/Release heap and value
+  state machines and reference-field early returns. Runtime Contract settings and
+  CLI bridge encodings are unchanged.
+
+- **2026-10-07:** Import native erased System.Value as its declared value-type identity,
+  without parsing a nonexistent CLR SpecialType. Native method signatures retain that
+  owner; numeric classification is unchanged. The source-free orders consumer now
+  reaches ArrayList emission validation, whose diagnostic identifies the rejected type.
+
+- **2026-10-07:** Record full native System artifact admission with an explicit retained
+  seed dependency catalog: 2,433 IL functions verify and a control executes. Ordinary
+  orders compilation now reaches the native System.Value importer classification gap;
+  compiler code and .NET behavior are unchanged in this tooling slice.
+
+- **2026-10-07:** Emit the explicitly selected NeoCLR System.Void owner as canonical
+  native unit storage, including imported references, function results and generic
+  arguments. Keep .NET unit carriers unchanged. Source-free NativeMemory/unit-interface
+  consumers execute; full-System admission next reaches retained-seed dependencies.
+
+- **2026-10-07:** Keep wide comparison and API tables inside mobile articles with
+  horizontal scrolling, including platforms whose fonts have wider metrics.
+
+- **2026-10-07:** Record NeoCLR execution of separately scoped runtime-service Void
+  value/no-result contracts. WriteLine now clears full-System admission; the next
+  blocker is the selected source unit inside DNS callback signatures. Compiler and
+  ordinary .NET behavior are unchanged.
+
+- **2026-10-07:** Document source Object ownership in the retained NeoCLR audit seed
+  and the next WriteLine value/no-result ABI conflict. Record the candidate
+  Runtime/Data/Networking/Web dependency order without claiming a completed split.
+
+- **2026-10-07:** Support explicit navigation section boundaries using conventional
+  directory TOCs and configurable sidebar titles. Give Getting started and Language
+  reference separate stable hierarchies matching the Raven navbar destinations.
+
+- **2026-10-07:** Record successful emission of the 197-input NeoCLR System audit
+  using the metadata library's explicit schema-4 envelope profile. Smaller libraries
+  retain schema 3; runtime loading still rejects the source Array backing contract.
+  Optional Data/Networking/Web assembly boundaries remain under investigation.
+
+- **2026-10-07:** Add configurable site-wide article navigation and use it for Raven.
+  Organize guides, applications, tools, libraries, reference topics and project
+  information in one persistent hierarchy instead of switching sidebars by folder.
+
+- **2026-10-07:** Keep article navigation sections collapsible with native keyboard
+  controls, automatically opening the section containing the current page.
+  Preserve automatic library links when a site has no authored menu.
+
+- **2026-10-07:** Record NeoCLR intrinsic String/source Object constructor support
+  and its linked PE execution gate. The 197-source System audit now reaches the
+  binary library payload limit; no ordinary .NET compiler behavior changes.
+
+- **2026-10-07:** Use configured API source titles for overview headings as well as
+  navigation, with `apiTitle` available for single-source sites. Label Raven APIs
+  Core extensions and Macros while retaining assembly filenames in symbol details.
+
+- **2026-10-07:** Scale Raven landing-page gutters, hero spacing and section gaps
+  with viewport size, avoid doubled code padding, and compact the hero on shorter
+  desktop windows while preserving the stacked mobile layout. Keep theme/search
+  controls beside the brand on narrow screens to reduce header height.
+
+- **2026-10-07:** Give authored articles a compact documentation sidebar with
+  section headings, direct links and current-page highlighting. Keep the API
+  symbol tree on reference pages and avoid duplicating top-navbar links.
+
+- **2026-10-07:** Include explicitly documented compile-time macros and their
+  namespaces in RavenDoc navigation and cross-reference indexing, restoring the
+  Raven.Macros sidebar when macros belong to a separate compilation partition.
+
+- **2026-10-07:** Record aligned NeoCLR array backing validation for an explicitly
+  selected source Object root. Runtime PE alias-mutation checks pass; compiler
+  code and ordinary .NET array emission are unchanged.
+
+- **2026-10-07:** Integrate Raven.Core and Raven.Macros into the main RavenDoc
+  site configuration and shared Raven header, branding and navigation. Support
+  multiple API inputs with disjoint output paths, shared article cross-references
+  and one search index; preserve existing library URLs. Show Raven namespaces
+  flat and float copy controls without adding space above code or signatures.
+
+- **2026-10-07:** Allow explicit source ownership of NeoCLR System.Value through
+  the bootstrap manifest. Emit its empty declaration as runtime erased storage,
+  not an ordinary struct; keep it separate from CLI special types. Native payload
+  type-testing/unpacking executes and fielded carriers reject before publication.
+
+- **2026-10-07:** Add search controls only to the site header, preserving API hero
+  headers without duplicate IDs. Derive untitled article/browser/search labels from
+  their first heading rather than the Markdown filename.
+
+- **2026-10-07:** Add library namespace overviews and point website links to
+  unpublished compiler design records at their repository sources. Preserve
+  System namespace comments when the compiler creates its unit-type namespace.
+
+- **2026-10-07:** Preserve namespace documentation on canonical source and merged
+  namespace symbols, export/import `N:` comments through Markdown/XML sidecars,
+  and render authored namespace additions in RavenDoc. No target contract or IL change.
+
+- **2026-10-07:** List public nested types and their members when RavenDoc selects
+  an outer type, under an explicit Nested types heading. Keep union cases separate.
+
+- **2026-10-07:** Add optional RavenDoc code-copy buttons, preserving sample
+  whitespace and reporting clipboard success/failure accessibly.
+
+- **2026-10-07:** Add configurable RavenDoc site-wide search for authored pages
+  and API references, with a navbar icon, retained queries, local ranked results
+  and combined-site indexing.
+
+- **2026-10-07:** Publish the entire Raven website with RavenDoc, preserving article
+  and library API URLs, landing-page design, section navigation and playground
+  examples. Remove the DocFX tool and configuration; expose API references in the header.
+
+- **2026-10-07:** Record source-owned NeoCLR reflection construction integration,
+  including native constructor/access checks and temporary CLI facade compatibility.
+  Compiler behavior is unchanged; full bootstrap next reaches System.Value ownership.
+
+- **2026-10-07:** Document the source Object native handle adapter integration:
+  explicit source owners execute through an existing internal call, with no compiler
+  change or weakened dependency matching. Full System next reaches ReflectionConstruct.
+
+- **2026-10-07:** Preserve the declared local base when emitting a NeoCLR closed
+  class, including source-owned Object. Protected constructor chains and virtual
+  dispatch execute through a closed family; ordinary .NET emission is unchanged.
+
+- **2026-10-07:** Reject wrong-assembly unit lookup fallbacks during early source
+  declaration setup. Generic interface signatures keep the selected source Void
+  instead of caching the bootstrap copy. Declaration-order regressions and native
+  interface dispatch with a unit type argument pass; ordinary .NET tests remain green.
+
+- **2026-10-07:** Correct stale unit-contract diagnostic test wording, matching the
+  independently validated Raven main fix 8c53fa55b. Compiler behavior is unchanged.
+
+- **2026-10-07:** Allow NeoCLR's unit contract to select an explicit source or native
+  artifact owner. Preserve inhabited unit storage, no-result calls and CLI PTR VOID
+  for pointers to the selected unit; reject invalid owners and storage. Ownership
+  catalogs can omit unused iteration contracts. NativeMemory and a separate consumer
+  execute with source-owned Void; full-System bootstrap reference migration remains.
+
+- **2026-10-07:** Reuse output-owned UnionAttribute constructors during native union
+  emission, preserving source inheritance and preventing duplicate marker definitions.
+  Invalid source markers reject before publication; embedded-marker fallback remains.
+
+- **2026-10-07:** Validate NeoCLR FlagsAttribute and MethodImpl(InternalCall) against the
+  exact configured bootstrap identity instead of System.Object's owner. Source-owned
+  Object no longer invalidates legitimate core attributes; same-named source attributes
+  still reject before publication. The ordinary .NET backend is unchanged.
+
+- **2026-10-07:** Add an explicit native emission capability for generic reference classes
+  inheriting the source Object root. Preserve that local base in metadata authoring;
+  generic storage and inherited root dispatch execute in a source regression. The
+  full-System audit advances beyond Array<T> to enum attribute ownership. Ordinary
+  .NET behavior and the imported-root driver restriction are unchanged.
+
+- **2026-10-07:** Admit bounded unmanaged pointer signatures and locals through an explicit
+  NeoCLR capability, including native introspection and symbol-only external function
+  authoring. Source NativeMemory can be compiled and imported separately; allocation,
+  freeing and fault paths execute natively. Ordinary .NET pointer behavior is retained.
+  The full-System audit clears binding and next stops at generic classes with the
+  source Object base; complete System emission is still pending.
+
+- **2026-10-07:** Record the runtime NativeAllocation prerequisites and remaining
+  pointer metadata/emission boundary. The metadata library at neoCLR `8e93e39b` now
+  supports bounded pointer callable signatures and introspection, validated by 162 C#
+  groups and an executed API-authored native consumer. Raven pointer mapping remains
+  pending. No compiler behavior or source acceptance change.
+
+- **2026-10-07:** Add an explicit NeoCLR RuntimeFailureContract and bootstrap manifest
+  owner for terminal namespace functions. Source and native-imported symbols expose
+  the same flow fact to binding/lowering; wrong owner/signature rejects before output.
+  This clears source-System let-else and HTTP Task return errors without changing
+  ordinary .NET or legacy CLI behavior. No importer handles enter emission.
+
+- **2026-10-06:** Record native source System.Fail execution with an explicit core
+  profile excluding its bridge declaration. RuntimeFailure source ownership now works;
+  legacy-core-only terminal flow recognition remains a separate compiler gap.
+
+- **2026-10-06:** Record the native source-Console acceptance profile: primitive core
+  and seed omit competing Console declarations, while separately emitted Console and
+  native integer libraries are imported without source files. No compiler behavior
+  changes; neoCLR's host-call completion now honors no-result methods.
+
+- **2026-10-06:** Map native-width integer signatures through native import/emission
+  and explicit source primitive ownership. Unchanged IntPtr/UIntPtr implementations
+  compile separately and their comparison methods execute against signed/unsigned
+  input artifacts. Numeric cast rules are unchanged; neoCLR supplies the widening
+  services already used by those sources. Eight focused .NET/portable tests pass.
+
+- **2026-10-06:** Admit default-value method receivers in portable lowering by giving
+  them initialized temporary storage. A general regression checks mutation of that
+  temporary and ordinary .NET execution. Isolated from native integer target mappings;
+  the owning portable layer is not present on main for an independent cherry-pick.
+
+- **2026-10-06:** Import native constructor unions through the existing UnionAttribute,
+  public single-value constructors and Value getter contract. Preserve alternatives
+  and open/constructed generic scopes without inventing named cases. The source-built
+  calendar consumer now executes local/zoned DateTime conversions and type patterns.
+  The .NET importer/backend is unchanged; 11 focused .NET union tests pass.
+
+- **2026-10-06:** Document the native source Environment execution gate with managed
+  argument arrays in neoCLR `881c4d01`. No Raven compiler behavior or target settings
+  changed; inline value arrays remain outside the supported platform model.
+
+- **2026-10-06:** Correct the native class probe to expect Raven's documented
+  sealed-by-default class semantics. All seven native import/emission consumers
+  execute after the callable-nullability changes; this is a test correction.
+
+- **2026-10-06:** Preserve callable nullable-reference annotations in native emission
+  and reconstruct them on native import, including arrays and generic positions.
+  Physical call references erase annotation-only wrappers. A separately compiled
+  GC consumer now accepts and executes KeepAlive(null); context/field annotations
+  and new runtime nullability semantics remain outside this slice. Record the final
+  fixed-compiler GC gate and matching native artifact/source/dependency hashes.
+
+- **2026-10-06:** Preserve unconstrained nullable generic parameters in portable
+  callable storage signatures using the existing nullable ABI classification.
+  The generic parameter identity remains unchanged; .NET nullable emission and
+  execution controls pass. Isolated from native annotation import/export.
+
+- **2026-10-06:** Integrate `codex/metadata-consumer` synchronous use cleanup into
+  the source-Object/native metadata line, retaining source-root resolution fixes.
+  Continue on `codex/source-object-metadata-resolution`; 92 focused .NET tests and
+  six native cleanup consumers pass. Async native cleanup remains deferred.
+
+- **2026-10-06:** Document native source GC execution with existing compiler emission
+  and runtime support for no-result control services. Track lost nullable parameter
+  annotations as an open native import/emission gap; KeepAlive(null) is not yet a
+  passing compiler consumer. No Raven compiler behavior changes in this slice.
+
+- **2026-10-06:** Resolve reflected type metadata through assembly-symbol contracts
+  when an explicit target selects a source-owned Object root. Restrict PE interning
+  to PE assemblies, avoiding InvalidCastException during native core bootstrap.
+  Canonicalize imported Object signatures to that selected root. Ordinary PE-root
+  resolution and emitter contracts are unchanged.
+  Union ToString synthesis now completes the selected source Object method signature
+  on demand, preserving override identity across file and declaration order.
+
+- **2026-10-06:** Add a shared synchronous scope-exit disposal contract and cleanup
+  lowering; neoCLR selects `System.Disposable` without exception regions. Dispose
+  successfully initialized resources in reverse order on block completion, returns,
+  error/None propagation, loop exits and outward/backward gotos, preserving result
+  evaluation before cleanup. Diagnose jumps that skip resource acquisition.
+  Ordinary .NET disposal remains exception-safe. Async/iterator use under the new
+  policy is diagnosed until suspension-aware cleanup is supported.
+
+- **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
+  lists and parameter tables, preserving links within generic callback results.
+  Keep nominal delegate declarations named and parameter names unbroken in tables.
+  This is presentation-only; target contracts, metadata and execution are unchanged.
+
+- **2026-10-05:** Restore imported union-case documentation from XML/Markdown
+  sidecars authored against CLI carrier identities, while preferring logical case
+  documentation when supplied. This fixes missing case summaries in RavenDoc and
+  editor help without changing union semantics.
+
+- **2026-10-05:** Allow SDK/VSIX packaging to explicitly include the matching native
+  metadata adapter via `RAVEN_NEOCLR_METADATA_PROJECT`; default packages remain
+  unchanged. Native runtime/library bundling and installation qualification are
+  separate release gates.
+
+- **2026-10-05:** Show native referenced API XML/Markdown documentation in editor
+  hovers and completion details, with Markdown-first member lookup and XML fallback.
+  Native project library builds emit documentation sidecars; watched sidecar edits
+  and deletion refresh editor help. Website guides remain independently authored.
+
+- **2026-10-05:** Complete a native VS Code POC using evaluated project configuration
+  for semantic loading and `rvnc neoclr --project` build/run. Share ownership and async
+  contracts, refresh explicitly selected artifacts without CLI substitution, show
+  read-only metadata declarations, and report failed reloads while preserving the last
+  valid snapshot. Real VS Code tasks execute unchanged collections and Tasks/await
+  samples against source-built libraries; ordinary .NET editor behavior remains covered.
+  This qualifies development builds on macOS arm64, not a published extension bundle.
+
+- **2026-10-05:** Load explicitly selected native NeoCLR artifacts into evaluated
+  projects through an optional metadata provider. Enable native completion, hover
+  and semantic diagnostics in adapter-enabled language-server builds. Preserve
+  default CLI/bridge loading; reject missing adapters, incompatible core selection
+  and unsupported package/project/framework dependencies before project publication.
+  Reference refresh, navigation and native project build/run remain pending.
+
+- **2026-10-05:** Extract native reference setup into `NeoClrReferenceCatalog` for
+  CLI and future project/editor hosts. Read the explicit primitive bootstrap once,
+  share semantic/emission reference identities and retain immutable native snapshots
+  across file replacement. Validate input limits, duplicate identities and retained-
+  seed ownership without fallback to CLI projections. Project/LSP wiring is pending.
+
+- **2026-10-05:** Emit local nongeneric abstract/virtual class hierarchies for NeoCLR
+  through an explicit shared capability. Preserve overrides and direct base calls,
+  using compiler symbols only. The unchanged inheritance sample executes with `7`,
+  `42` on both targets; .NET retains its existing generator. External class overrides,
+  generic virtual owners and new-slot hiding remain unsupported natively.
+
+- **2026-10-05:** Resolve a union's own cases lexically inside its members, including
+  while replacing a legacy bootstrap declaration. Cold semantic queries and ordinary
+  emission agree; unrelated case imports and return-type diagnostics keep their rules.
+  Replace a stale constructor statement-count test with observable case/payload execution.
+
+- **2026-10-05:** Record a release-tooling regression: NeoCLR's CLI reference producer
+  fails Option's None binding on the native integration line but succeeds on current
+  Raven main. Keep this distinct from passing native consumers and the field-return fix.
+
+- **2026-10-05:** Keep reference field assignment receivers off the evaluation stack
+  while a right-hand-side block can return. Preserve receiver-first, once-only
+  evaluation and the selected object across RHS side effects; ordinary .NET execution
+  no longer fails with InvalidProgramException. No target or Runtime Contract change.
+
+- **2026-10-05:** Initialize owned value-type auto-property backing fields directly
+  during native construction, retaining construction-receiver validation and ordinary
+  setter behavior. The unchanged types sample executes reference identity and value-copy
+  checks; the source-value driver tests auto-property initialization on both targets.
+  Correct its stale boxing rejection expectation to require an explicit System binding.
+
+- **2026-10-05:** Select native Task/builder declaration identity through immutable
+  `MetadataImportOptions.WithAsyncAssemblyName` and `rvnc neoclr --async-library`.
+  Reject missing, malformed and CLI providers without bootstrap fallback. Five POC
+  async/HTTP samples now pass binding. Emit nongeneric top-level async methods through
+  existing heap lowering and portable plans; completed/pending awaits, hoisted locals
+  and cancellation execute with native metadata. Nongeneric class async methods retain
+  nested state-machine ownership and private receiver access. Generic async methods and
+  async entry completion remain unsupported. Preserve default .NET behavior and output
+  streams on rejected emission. Capture immutable hoisted locals from their async
+  state-machine fields so pending callbacks preserve reference identity. Preserve empty-
+  stack propagation boundaries and distinct lowered local storage, and reload generated
+  self receivers after awaits. Unchanged native HTTP client/server samples compile
+  and execute a localhost JSON round trip. Native Task<unit>/Task<int> entry adapters
+  forward arguments, drain existing runtime work and observe task completion before
+  returning exit status; cancellation and unresolved tasks fail explicitly.
+
+- **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
+  library bootstrap builds. Preserve configured primitive providers; require an explicit
+  ownership typeof contract instead of implicit seed introspection services. An ordinary
+  driver-produced root PE executes through NeoCLR's explicit runtime CLI selection.
+  Invalid options, missing roots and unsupported declarations publish no output.
+  Imported-root Raven consumers remain pending; default .NET behavior is unchanged.
+
+- **2026-10-05:** Emit explicitly selected source Object roots and their virtual slots
+  through the native backend, retaining local base construction and override identity.
+  Validate bootstrap assembly identity independently of source Object. A Raven-emitted
+  PE executes in NeoCLR; 47 focused compiler checks pass. Generic reference owners and
+  unsupported virtual slots reject before publication. Driver/consumer root selection
+  remains pending; ordinary .NET behavior and its source-root guard are preserved.
+
+- **2026-10-05:** Correct a stale shared-plan test that treated already-supported
+  reference Object overrides as unrecognized. Test rejection by the restricted
+  emission capability profile instead; no compiler behavior changes in this correction.
+
+- **2026-10-05:** Record executable metadata-owned Object overrides and the remaining
+  source-root compiler blockers: type declaration capability, concrete virtual-slot
+  planning and special Object mapping. Keep emission guarded pending implementation;
+  no compiler or default .NET behavior changes in this documentation slice.
+
+- **2026-10-05:** Document metadata owned-root boxing as an emitter prerequisite:
+  API-authored boxing/virtual dispatch executes, but Raven's source-root guard remains
+  until local overrides, declaration capabilities and driver ownership are connected.
+  No compiler or default .NET behavior changes.
+
+- **2026-10-05:** Record API-produced native Object-slot execution as a compiler
+  integration prerequisite, with source-root emission still guarded. Add working
+  Tasks/await samples to the release gate alongside VS Code/LSP support; defer runtime
+  suspension and green threads. No async or editor implementation is claimed here.
+
+- **2026-10-05:** Record NeoCLR Object declaration authoring as a metadata prerequisite;
+  source-root emission remains guarded pending slots and reference wiring. Clarify that
+  the end-to-end gate includes language-server and VS Code editing/build/run through
+  the shared compiler configuration; no editor implementation is claimed.
+
+- **2026-10-05:** Add opt-in source Object semantic ownership for NeoCLR producers.
+  Select one baseless root before member signatures so named/keyword types, implicit
+  bases and overrides agree across source order and snapshot reuse. Invalid roots
+  diagnose; .NET defaults are unchanged. Both emitters reject this analysis-only
+  configuration before publication until metadata root authoring is implemented.
+
+- **2026-10-05:** Document native Object service adapter/linking requirements and the
+  author-directed native metadata editor/LSP release gate. Editor emission reuses the
+  compiler path; a disassembler remains a candidate. No editor implementation is claimed.
+
+- **2026-10-05:** Support explicitly source-owned RuntimeTypeHandle for native
+  compilation: preserve canonical signature identity, require fieldless runtime storage,
+  and import the emitted handle provider in separate consumers. Seed ownership remains
+  exclusive; ordinary .NET behavior and strict typeof validation are unchanged.
+
+- **2026-10-05:** Record native String[] entry support in the metadata/runtime
+  dependency: Raven emits the ordinary parameter signature, and startup supplies
+  user arguments. The unchanged stream-upload consumer executes all eleven cases.
+
+- **2026-10-05:** Emit native reference property patterns with null/type checks,
+  single getter evaluation, ordered short-circuit matching and scalar/enum constants.
+  Box value receivers for inherited Object calls. Native property/status consumers
+  and focused .NET controls pass.
+
+- **2026-10-05:** Capture reference-type self in native closures and retain lexical
+  nesting for private member access. Deferred callbacks mutate the original object;
+  the existing HTTP server runs through artifact-only references.
+
+- **2026-10-05:** Spill Result propagation in value-call arguments, preserving receiver
+  and argument evaluation order and skipping later operands after a residual return.
+  Native routing executes unchanged; focused .NET propagation tests pass.
+
+- **2026-10-05:** Preserve generic method arguments in native function bindings,
+  unblocking HTTP JSON callbacks. Rejected method-group diagnostics identify the
+  target and enclosing callable. Ordinary .NET emission remains unchanged.
+
+- **2026-10-05:** Lower nested propagation through its normal visitor dispatch and
+  spill propagation in if conditions into statement-level checks. Logical AND/OR
+  preserve short-circuit evaluation, one-time effects and early residual returns;
+  ordinary .NET execution remains unchanged. No metadata or runtime contract change.
+
+- **2026-10-05:** Admit converted value receivers through existing temporary storage
+  and immutable by-value parameter captures through native closure frames. The
+  unchanged native network cancellation sample compiles and executes against a
+  separately emitted DNS/socket library. All 59 focused shared-body .NET tests pass.
+
+- **2026-10-05:** Correct the stale shared-emitter numeric-conversion test: these
+  conversions already emit and execute on .NET. All 56 focused shared-body tests
+  pass; this is a test correction, not new conversion support.
+
+- **2026-10-05:** Preserve empty-stack context through portable value blocks,
+  conditional branches, conversions and expression wrappers. Early method returns
+  in storage Result matches now emit; expressions with pending operands remain
+  rejected by this adapter. Focused .NET controls preserve existing execution.
+
+- **2026-10-05:** Record the matching metadata-library row-budget requirement for
+  cumulative native runtime builds: the 115-file subset including Tasks/Concurrency
+  now emits beyond the old 256-type host limit. No additional compiler behavior change.
+
+- **2026-10-05:** Preserve explicit source primitive member providers in native
+  bootstrap configuration. String methods/properties now bind to their source
+  declaration while scalar signatures retain bootstrap identity. The cumulative
+  109-file runtime subset compiles and both artifact-only JSON consumers execute;
+  25 focused metadata/provider tests pass, including ordinary .NET controls.
+
+- **2026-10-05:** Compile and execute unchanged production JSON mapping/serializer
+  and introspection sources through artifact-only native consumers. Preserve final
+  class flags, explicit auto-accessors, Boolean primitive providers and already-bound
+  exact user conversions in the portable adapter. Eight focused ordinary .NET
+  property/conversion/Result checks pass; the Reflection/Emit backend is unchanged.
+
+- **2026-10-05:** Emit conditional branches directly for short-circuit pattern tests,
+  preserving definite assignment of extracted locals. Project String receivers to the
+  configured Object view for inherited Object calls. The unchanged native JSON mapper,
+  serializer and descriptor sources now emit a library; runtime mapping remains open.
+
+- **2026-10-05:** Lower native reference coalescing guards and boxed-value declaration
+  patterns using existing semantic operations. Normalize unreachable conversions around
+  terminal returns at statement boundaries. A separate-library consumer executes null,
+  boxed int/bool, mismatched-type and Result match-return paths; eight focused .NET
+  pattern tests pass.
+
+- **2026-10-05:** Import and emit final by-value native parameter arrays through
+  introspection and symbol contracts. Separate-library consumers execute empty, expanded
+  and existing-array calls. Native metadata retains the standard ParamArrayAttribute;
+  the .NET backend is unchanged.
+
+- **2026-10-05:** Preserve native flags enums and project their Flags attribute into
+  compiler symbols. Emit Int32 enum bitwise operations through existing storage
+  conversions. The unchanged runtime BindingFlags source and separate consumer execute;
+  12 focused .NET enum tests pass.
+
+- **2026-10-05:** Emit bounded Object Equals/GetHashCode/ToString overrides for native
+  nongeneric reference classes. Preserve virtual dispatch through local and imported
+  symbols and actual class inheritance; ordinary .NET generation remains unchanged.
+  A separately compiled native library/consumer verifies and returns 42.
+
+- **2026-10-05:** Admit nongeneric sealed interfaces through an explicit NeoCLR
+  capability, preserving native closure and direct-family relationships. Admit static
+  extension methods and lower the configured core TypeHandle<T>() intrinsic through
+  semantic type-token operands. Focused native cases execute; production descriptor
+  and JSON mapping support remain in progress.
+
+- **2026-10-05:** Admit explicit internal, nongeneric NeoCLR runtime-service functions
+  marked by the configured core's MethodImpl(InternalCall) attribute. Emit bodyless
+  metadata declarations beside their source-owned callers, preserving ordinary .NET
+  extern/PInvoke behavior. Reject unmarked externs, unsupported flags and declaration
+  shapes before publishing output. A separately compiled native consumer executes the
+  runtime library's handle-service declarations and returns 42.
+
+- **2026-10-04:** Admit the selected core Object in symbol-authored native dependency
+  signatures. A separate native consumer now executes object-type lookup and real
+  reflection construction across an imported provider, preserving initialized state.
+  This changes only the NeoCLR adapter; .NET defaults remain unchanged.
+
+- **2026-10-04:** Add an explicit portable type-token operation for configured native
+  typeof contracts. NeoCLR maps semantic operands and RuntimeTypeHandle signatures
+  through its metadata adapter; ordinary .NET typeof remains on its existing generator.
+  Open generic operands and virtual context resolvers remain outside this native slice.
+  A separate native test provider/consumer executes generic and external nominal typeof
+  through the real type-name service. Production descriptor/bootstrap integration is
+  still required before native JSON mapping.
+
+- **2026-10-04:** Normalize propagation in conditional value initializers through
+  shared lowering, preserving branch selection, side effects and early error returns.
+  Disposal scopes and arbitrary argument spilling remain outside this bounded change.
+
+- **2026-10-04:** Normalize propagation in local assignment right-hand sides through
+  shared lowering, preserving once-only evaluation and early failure returns. Cover
+  direct and eager-binary expressions without changing target contracts or metadata.
+
+- **2026-10-04:** Admit bounded native closed class families and protected constructors
+  through explicit emission capabilities. Import actual base/family facts through
+  introspection and author dependency-local reference conversions from symbols.
+  Paired direct and separate-library cases execute on .NET/NeoCLR; external closed
+  children reject before output. Preserve .NET defaults; JSON next reaches propagation lowering.
+
+- **2026-10-04:** Record independent compiler-fix integration into main (`4f95db536`,
+  148 focused .NET tests) and the runtime-only protected-constructor/closed-family
+  prerequisite. Native metadata authoring and Raven admission remain pending.
+
+- **2026-10-04:** Emit local nongeneric class inheritance for NeoCLR through explicit
+  semantic base identities and base-constructor operations. Preserve declaration
+  ordering, constructor arguments, field initialization and inherited mutation;
+  ordinary .NET retains its existing backend. A paired driver consumer executes on
+  both runtimes. Closed/protected, external and virtual class contracts remain open.
+
+- **2026-10-04:** Resolve explicit base constructor calls after source members are registered and
+  retain canonical constructor symbols across binder re-entry. Forward declaration
+  order no longer silently drops base initialization on .NET; invalid calls reject
+  before output. Add executable declaration-order and failed-publication regressions.
+
+- **2026-10-04:** Preserve early returns in portable match initializers by exposing
+  statement-level blocks and return expressions, without admitting exits across live
+  expression operands. Source-built NeoCLR text streams now compile and execute through
+  separate text/encoding references; .NET match-return behavior stays intact.
+
+- **2026-10-04:** Preserve receiver-before-value evaluation for portable reference-field
+  assignments while keeping the receiver off the stack across RHS control flow and
+  terminal failure. Unlock unchanged native encoding-library emission; observable .NET
+  and native regressions cover evaluation order and failure behavior.
+
+- **2026-10-04:** Complete source-owned NeoCLR Char/String compilation and native reimport:
+  preserve grapheme storage independently of numeric primitives; lower character literals,
+  patterns and equality through Char methods, and boxed interface conversions through the
+  portable contract. Support String's source sequence constructor over native immutable
+  storage. Existing grapheme, comparison, UTF-8 slicing and construction consumers execute
+  separately from library sources; focused ordinary .NET Char/import tests pass.
+
+- **2026-10-04:** Admit explicitly configured native String providers and emit source
+  String with intrinsic immutable reference storage. Bootstrap member signatures resolve
+  to the selected native provider, with no fallback. Separate instance/collection consumers
+  execute against a source-built library; ordinary .NET behavior is unchanged.
+
+- **2026-10-04:** Lower pattern conditions in portable if-expressions directly to their
+  failure branch, preserving pattern-variable assignment on the success path. Native
+  String.Concat source now emits; paired pattern consumers execute null/non-null cases.
+
+- **2026-10-04:** Emit NeoCLR explicit interface property accessor mappings from symbol
+  contracts. Separate contracts, implementation and consumer execute getter/setter and
+  shared mutation on both targets; no bridge fallback or Runtime Contract change.
+
+- **2026-10-04:** Resolve imported constructed interface method overrides using substituted
+  parameter types. Explicit generic property setters now receive their required MethodImpl
+  mapping and load/execute on .NET. Add a focused observable execution regression.
+
+- **2026-10-04:** Record the NeoCLR text-service bootstrap gate: separate native
+  libraries execute grapheme/scalar vectors, UTF-8 outcomes and unchanged UnicodeScalar.
+  No compiler implementation changed. Source String now reaches the explicit-interface
+  property emission limitation; source-owned String/Char primitive storage remains open.
+
+- **2026-10-04:** Do not cache provisional type conversions during source declaration
+  binding. A query made before generic interface relationships are complete no longer
+  poisons later initializer/assignment checks or makes them depend on input ordering.
+  This shared semantic fix requires no Runtime Contract or target-specific policy.
+
+- **2026-10-04:** Emit native method interface bounds and constrained static/constructed
+  instance calls through explicit shared capabilities. A separately compiled generic
+  library and native consumer execute every Number member across all ten source-built
+  numeric types, including generic forwarding. Invalid arguments fail without output;
+  ordinary .NET Reflection/Emit behavior remains unchanged. Verified with neoCLR
+  metadata `ea7fdf77` and compiler implementation `41b2573fa`.
+
+- **2026-10-04:** Validate external native method interface bounds against a separately
+  emitted contracts assembly. Canonical symbol identity and generic argument rejection
+  use the introspection catalog without CLI projection.
+
+- **2026-10-04:** Import native method interface constraints through metadata
+  introspection into canonical type-parameter symbols, including inherited interfaces.
+  Existing binding checks reject incompatible arguments; invalid calls publish no output.
+  The .NET backend is unchanged.
+
+- **2026-10-04:** Document the verified metadata-generator static constrained-call
+  prerequisite and remaining method-bound/open-call work for native Number generics.
+  The later Number integration gate now exercises native constrained generic emission.
+
+- **2026-10-04:** Bind explicit primitive-provider source members to their output-owned
+  definitions when rebuilding the runtime-library subset. Validate the primitive
+  bootstrap through Object rather than assuming Int32 remains bootstrap-owned.
+  The native numeric consumer now executes all ten source implementations against
+  the rebuilt subset; generic Number-constrained calls now pass the artifact-only integration gate.
+
+- **2026-10-04:** Select native numeric declaration providers explicitly through bootstrap ownership. Compile unchanged Single/Double Number implementations with intrinsic scalar storage, then import their properties, instance methods and Result-returning parsers into a separate native consumer. Missing providers fail without output; ordinary .NET selection remains unchanged. Generic Number-constrained calls remain open.
+
+- **2026-10-04:** Extend native primitive contracts to all eight fixed-width integer
+  types, with exact import and unsigned operator/conversion selection. Separate
+  integer libraries and consumers execute on .NET and NeoCLR. Reflection.Emit
+  admission stays unchanged; source primitive Number ownership and constrained
+  static dispatch remain open.
+
+- **2026-10-04:** Validate static abstract interface properties during conformance
+  checking, including imported contracts. Require matching static/instance identity
+  and property/accessor signatures; reject missing, instance or wrong-return-type
+  implementations with RAV0330 before emission.
+
+- **2026-10-04:** Admit target-selected static interface declarations and ordinary
+  source operators for NeoCLR, preserving imported operator classification and accessor
+  associations. Actual Number source and a separate struct/consumer execute direct
+  arithmetic and ordering; intrinsic primitive ownership and generic Self dispatch
+  remain open. Existing .NET emission stays the default.
+
+- **2026-10-04:** Import and emit Single/Double through the native metadata target,
+  including numeric literals/conversions, fields, arrays and generic calls. Ordered
+  <=/>= use unordered comparisons before negation so NaN remains false. A separate
+  library and artifact-only consumer execute on both targets; native parser payloads
+  also execute. Keep the existing .NET emitter and explicit primitive bootstrap.
+
+- **2026-10-04:** Bind primitive Single/Double unary plus and minus without requiring
+  operator declarations on the reference core. Complement remains invalid for floating
+  types. Focused operator and conversion regressions preserve ordinary .NET behavior.
+
+- **2026-10-04:** Honor the configured metadata core for primitive symbols even when
+  a native library also declares System.Boolean. The actual Boolean source library now
+  imports and executes through the native target. This shared fix was independently
+  reproduced and validated on main (`f749c1a75`); ordinary .NET defaults are unchanged.
+
+- **2026-10-04:** Connect explicit bootstrap Self configuration to native metadata
+  import and emission. Preserve symbolic Self in interface contracts and concrete
+  implementation signatures. A three-assembly Clonable case executes with independent
+  clone mutation; wrong/missing marker contracts and incompatible implementations fail
+  before publication. Generic constrained Self dispatch remains outside this slice.
+
+- **2026-10-04:** Compile source Tasks/Concurrency through native generic/interface
+  callback bindings, unit-result adapters and nullable/union pattern lowering. Preserve
+  native structural function identity and explicit target capabilities. A separately
+  emitted library executes cancellation, continuations, workers and entry draining;
+  focused .NET regressions preserve ordinary results. Full async lowering remains open.
+
+- **2026-10-04:** Admit ordinary top-level Int32 enums in the explicit NeoCLR target
+  capability. Import enum/literal facts through introspection and emit declarations,
+  comparisons and integer conversions through output-owned metadata/IL adapters.
+  A separate TaskState library/consumer executes on both targets with mutation and
+  array storage. Ordinary .NET Reflection/Emit behavior is retained.
+
+- **2026-10-04:** Document native ScheduleTask no-result callback transport and
+  separately compiled receiver-mutation execution. Compiler behavior is unchanged;
+  source Tasks/Workers still require enum and queue-ownership support.
+
+- **2026-10-04:** Avoid caching absent source array shapes during declaration lookup,
+  and defer array interface caches until target declarations are complete. Imported
+  vectors retain source-owned nominal interface conversions after early member access.
+
+- **2026-10-04:** Select the explicit schema-3 native library PE profile for `neoclr
+  --library`, with validated native references up to 16 MiB. Applications retain schema 2.
+  Combined 53-source stream/broad execution and a >4 MiB native library consumer pass;
+  matching metadata library/runtime is required. Ordinary .NET output is unchanged.
+
+- **2026-10-04:** Document the checked native bootstrap service catalog and separate
+  UTF-8/file-stream/worker-callback execution. Core/seed generation now shares its
+  signature inventory; queue ownership and completion callback conventions remain
+  explicit unsupported categories. Compiler behavior is unchanged in this slice.
+
+- **2026-10-04:** Preserve the selected core System.Value identity when emitting imported
+  native callable contracts. Native erased outcome consumers now compile and execute
+  through generic helpers. Correct portable unit callback and discarded no-result call
+  classification; cumulative native execution and 39 focused .NET tests pass.
+
+- **2026-10-04:** Admit explicitly configured inhabited unit values in portable signatures,
+  generic arguments and locals, while keeping no-result calls separate from generic
+  value returns. Separate native MemoryStream and generic-unit consumers execute;
+  38 focused C#/.NET controls pass. Ordinary .NET emission remains unchanged.
+
+- **2026-10-04:** Admit static properties on imported value types through the explicit
+  external-value capability, preserving separate reference-owner admission. This enables
+  native TimeOffset.Zero without rewriting source consumers. Add C# capability and
+  ordinary .NET execution controls; the existing .NET backend is unchanged.
+
+- **2026-10-04:** Document source-owned native Instant/Clock/SystemClock integration,
+  explicit UnixTimeTicks bootstrap binding and direct local-time factory ownership.
+  Compiler behavior is unchanged; legacy bridge snapshot regeneration remains blocked
+  by its union-reference build, while native source compilation and clock execution pass.
+
+- **2026-10-04:** Record successful native globalization execution with neoCLR's
+  explicit instruction budget and the unchanged source-built calendar library.
+  Compiler behavior is unchanged; Clock/SystemClock and wider time-zone source
+  ownership remain the next library-expansion gaps.
+
+- **2026-10-04:** Preserve terminal System.Fail control flow in portable emission:
+  retain the call and dynamic message, then guard an impossible return. Native let-else
+  pattern locals now verify without default initialization; unchanged Date/calendar
+  sources compile and a separate formatting/arithmetic consumer executes. Sixty focused
+  .NET checks pass. No metadata format, runtime or terminal identity policy change.
+
+- **2026-10-04:** Lower propagation nested in eager binary local initializers into
+  statement-level checks. Preserve left-to-right evaluation, snapshots of earlier
+  operands and early failure returns. Other expression categories and short-circuit
+  operators retain their existing paths; no metadata or Runtime Contract change.
+
+- **2026-10-04:** Lower discarded propagation through the existing once-only residual
+  return path and emit ordinary discard assignments in the portable planner. Native
+  success/error side effects and 18 focused .NET tests pass. The general lowering fix
+  is independently validated on the main-based fix branch (`8e0f88eda`, six tests).
+  Propagation nested inside larger expressions remains a native emission gap.
+
+- **2026-10-04:** Admit configured core Char in native imported callable signatures.
+  Separately compiled grapheme indexing/text round trips execute without changing .NET
+  emission. Date passes binding and reaches a discard-assignment emission gap; native
+  array-element receiver addresses remain explicitly unsupported.
+
+- **2026-10-04:** Document native calendar service and grapheme-length bootstrap
+  acceptance. Date's remaining binding errors concern string indexing; correct the
+  preceding scalar-indexing wording to the existing grapheme-based platform contract.
+  Compiler implementation and ordinary .NET emission are unchanged.
+
+- **2026-10-04:** Record successful separate-library Duration foundation execution
+  on .NET and NeoCLR using unchanged runtime sources. No compiler implementation change;
+  Date/globalization still needs explicit string-indexing and runtime-service contracts.
+
+- **2026-10-04:** Address value-returning getters/indexers/calls through temporary
+  storage in the portable emission plan, preserving evaluation order and copy semantics.
+  Native ArrayList<long> consumption executes with explicit Int64 bootstrap support;
+  ordinary .NET emission remains unchanged. Date still blocks the full collection sample.
+
+- **2026-10-04:** Record native integer-sample acceptance with explicit primitive
+  Equals/ToString bootstrap contracts. Compiler code is unchanged; this does not
+  claim source-built Int32 or virtual boxed dispatch support.
+
+- **2026-10-04:** Lower bound signed Int32/Int64 ranges behind an explicit native
+  capability, preserving endpoint rules, evaluation order and loop transfers. Emit
+  addresses for ordinary value parameters through the native metadata IL generator.
+  Unchanged library-comparers now compiles and executes against the separate native
+  class library. Ordinary .NET loop/body emission remains unchanged.
+
+- **2026-10-04:** Admit the exact Object.GetHashCode virtual contract under an
+  explicit native capability and emit bound static binary operator calls. Source-built
+  StringComparer executes against its selected primitive bootstrap, including ordinal
+  and folded hashes. Ordinary .NET emission remains unchanged; range loops still block
+  the full comparer sample.
+
+- **2026-10-04:** Admit immutable Int32/Int64/Boolean/Byte locals in native closure
+  frames, preserving escaped and per-iteration captured values. Emit integer widening
+  from built-in operator operand types when conversion nodes are absent. Mutable
+  captures remain rejected; ordinary .NET emission and runtime contracts are unchanged.
+
+- **2026-10-03:** Lower native lambdas capturing immutable reference locals into
+  private frames and instance callback methods. Escaped callbacks retain reference
+  identity and shared object mutation; mutable/value/parameter captures reject before
+  output. Unchanged list-filters now executes against the separate native library.
+  Ordinary .NET emission, metadata encoding and runtime configuration are unchanged.
+
+- **2026-10-03:** Emit owned nonvirtual reference-instance method-group callbacks
+  with their receiver in the native backend. A separate-library ArrayList.Find consumer
+  preserves receiver mutation after binding. Captured lambda lowering remains open;
+  .NET body emission and runtime configuration are unchanged.
+
+- **2026-10-03:** Import explicit native no-result callbacks without applying the
+  inhabited source-unit policy. Admit nested vector signatures and project method
+  receivers through configured Array<T> backing. The unchanged array-callback sample
+  and nested-vector mutation now compile and execute against the source-built library.
+
+- **2026-10-03:** Emit the existing reference conversion for array receivers of
+  inherited interface members in the portable backend, fixing native Array<int>.Count.
+  Separate-library collection-capabilities and union consumers now join the native
+  broad application gate. No .NET body-emitter or metadata-format changes.
+
+- **2026-10-03:** Report native/primitive-bootstrap metadata identity collisions as
+  RAVT003 instead of throwing during catalog creation. C# coverage verifies both
+  reference orders and unchanged output bytes/position; seven native consumers pass.
+
+- **2026-10-03:** Construct native types and union transport symbols directly from
+  canonical introspection views; remove unused raw-signature importer helpers.
+  Source-union/broad-application execution and seven native consumers pass.
+  Ordinary .NET loader and emitter paths are unchanged.
+
+- **2026-10-03:** Read native type names, arity, generic parameter names and interface
+  relationships through the retained introspection view. Requires the matching metadata
+  library's GenericParameterTypeInfo.Name; all seven native consumers pass. Ordinary
+  .NET loading/emission and native metadata encoding remain unchanged.
+
+- **2026-10-03:** Import native methods, constructors and module functions directly
+  from introspection views. Remove the definition-based NativeMethodSymbol entry point;
+  preserve metadata order and canonical constructor/accessor identity. All seven native
+  consumers and semantic checks pass; ordinary .NET behavior is unchanged.
+
+- **2026-10-03:** Simplify native field/property import to consume introspection views
+  directly, reusing the module's canonical accessor symbols. Remove repeated definition
+  lookups and the extra per-type accessor dictionary; .NET loading/emission is unchanged.
+  Native semantic checks and all seven executable consumers pass before and after.
+
+- **2026-10-03:** Scope vector-loop expansion to explicit portable body planning.
+  Ordinary .NET lowering retains its established for-loop path; native array loops
+  retain their bound-operation expansion. All 86 selected checks and native broad/
+  labeled-loop execution pass. Per-iteration closure capture remains a known main bug.
+
+- **2026-10-03:** Restore one established .NET method-body emission path by removing
+  automatic release-only portable emission and its unused adapter. Keep native planning
+  and NeoCLR metadata emission. All 94 selected checks pass before/after; the native
+  broad application still executes with its separately built library. Loop capture remains open.
+
+- **2026-10-03:** Correct the struct-constraint round-trip test to distinguish written
+  source flags from imported CLI flags, which include the implied constructor constraint.
+  No compiler or metadata behavior changes; focused constraint checks pass.
+
+- **2026-10-03:** Record the target-boundary audit against main: 71 additional execution
+  checks pass on both lines; metadata/import checks expose the same struct-constraint
+  discrepancy on both. Recommend reviewing the second .NET body-emission path while
+  retaining native metadata import/emission; no compiler behavior changes in this audit.
+
+- **2026-10-03:** Add explicit .NET source-void-to-unit mapping to RuntimeUnitContract.
+  An ordinary service assembly can own the unit value; declaration/type-expression
+  binding and emitted interface/MethodImpl scopes agree. CLR no-result returns and
+  unconfigured/native unit behavior remain unchanged. Binary API consumers must rebuild.
+
+- **2026-10-03:** Allow method overrides to strengthen a nullable reference return to
+  the same nonnullable reference type, including Object.ToString. Retain rejection of
+  weaker reference promises, unrelated types and nullable value-storage mismatches.
+  Independently validated on the main-based fix branch as 54fc1e0aa (13 focused tests).
+
+- **2026-10-03:** Preserve native inherited-slot metadata in imported method symbols and
+  author bounded value ToString override references from those symbols. Unchanged
+  application-order-collections now compiles against a separately built native library
+  and executes with exact expected output and exit 0. Ordinary .NET emission is unchanged;
+  the paired .NET source-library execution gate remains open.
+
+- **2026-10-03:** Select native nominal vector backing from the explicit iteration
+  contract and output-owned Array<T> declaration. Separately compiled source array
+  indexers/iterators now support interface mutation and query execution (42). Shared
+  symbols and ordinary .NET emission remain unchanged; full dual-target gate is open.
+
+- **2026-10-03:** Record the author-directed nominal Array<T> backing contract and native
+  source-array assessment. Library and separate consumer compilation succeed; runtime vector
+  interface backing remains a demonstrated blocker. No compiler or .NET behavior changed.
+
+- **2026-10-03:** Lower built-in generic/value unboxing through an explicit target operation.
+  NeoCLR now compiles and separately consumes unchanged query sources, executing OfType,
+  Filter, Map, ToList and Single (42), including shared reference identity. The broad sample
+  next requires array extension receiver support; ordinary .NET emission is unchanged.
+
+- **2026-10-03:** Emit and discover bounded native instance extension declarations using
+  the existing CLR-shaped generic-method lowering and standard container marker. A separate
+  generic extension library and consumer execute (42). Full query source compilation still
+  rejects OfType object-to-generic conversion before publication; .NET emission is unchanged.
+
+- **2026-10-03:** Record native separate-library execution for unchanged HashMap and
+  comparer policies: collisions, growth, replacement, callback dispatch and shared object
+  mutation pass (42) using existing compiler support. The broad dual-target gate remains open.
+
+- **2026-10-03:** Load native value-returning callbacks through metadata facade views
+  and author their emission operands from symbols. Unchanged ArrayList now compiles as a
+  library and executes in a separate consumer, including Find and iteration (42). Explicit
+  no-result callbacks reject instead of being changed to inhabited-unit signatures; the
+  existing .NET backend and separate structural Function experiments remain unchanged.
+
+- **2026-10-03:** Record the next NeoCLR integration assessment: the bounded collection
+  bootstrap enables unchanged ArrayList source execution, but separate native import still
+  rejects callback signatures. This is a diagnosed importer gap, not completion of the
+  ArrayList library-consumer gate; no compiler behavior changes in this documentation slice.
+
+- **2026-10-03:** Emit native imported value-type interface implementation calls and
+  configured unit-valued parameters from symbol contracts. Unchanged source Option/Result
+  and iteration contracts now compile as a native library and execute in a separate
+  consumer (42, checked output and residual/copy assertions). Ordinary .NET emission is
+  unchanged; the complete dual-target class-library gate remains open.
+
+- **2026-10-03:** Extend the native unit driver with generic union construction and
+  payload matching after out assignment; ordinary compiler commands verify and execute
+  successfully (42). Keep source Option/bootstrap ownership completion tracked separately.
+
+- **2026-10-03:** Honor the explicitly selected RuntimeUnitContract in overload argument
+  validation, including generic union constructors. Unconfigured CLI void arguments remain
+  rejected. The configured regression fails before the fix; all 16 focused unit-contract
+  tests pass afterward. No metadata format or default .NET contract changes are made.
+
+- **2026-10-03:** Import separately compiled native plain/generic unions through the
+  metadata facade, preserving case names, ordinals, payload parameter names and physical
+  scopes. Emit external value/nested references from symbol contracts. The normal driver
+  supplies an explicit matching primitive bootstrap; malformed union relationships reject
+  before output publication. Paired CLR/NeoCLR consumers and seven existing native consumers execute (42); source Option's
+  residual unit-value/bootstrap dependency remains open.
+
+- **2026-10-03:** Emit owned NeoCLR union/case/companion declarations with the existing
+  Raven attribute contract. Plain/generic driver cases execute matching, carrier copies
+  and generated display on both targets (42). Remove unreachable portable-plan operations
+  and resolve arity-zero cases through their physical original definition. Native imported
+  union reconstruction remains pending; the explicit core/runtime seed is still required.
+
+- **2026-10-03:** Make synthesized union bodies explicitly initialize inactive payload
+  fields and assign default output before TryGetValue can return false. This completes
+  the shared bound-body contract used by target emitters. Plain/generic .NET output
+  clearing tests and focused union/emission regressions pass; native integration is
+  validated separately.
+
+- **2026-10-03:** Reuse case-pattern lowering for conditional branches and Boolean
+  values, and emit configured inhabited unit literals as nominal defaults. Unchanged
+  Option now passes body preflight and reaches the union/case metadata gate. Native
+  unit out-parameter execution and configured .NET unit execution pass.
+
+- **2026-10-03:** Lower contextual reference null literals using the existing typed
+  default operation. Dual-target return/local/argument consumers execute; plain and
+  generic unions now reach the native union/case metadata gate. Unchanged Option
+  next reaches its propagation method case pattern. Native union execution is pending.
+
+- **2026-10-03:** Admit core Object.ToString through an explicit NeoCLR display-dispatch
+  capability. Ordinary commands execute generic boxed integer/string display on both
+  targets; unrelated virtual calls stay rejected. Union preflight next reaches a null literal.
+
+- **2026-10-03:** Add explicit native null-identity and discard type-test operations, and
+  admit supported checked reference casts. Keep overload resolution/equality binding and
+  .NET's default backend unchanged. Ordinary-command null/type-test cases return 42 on
+  both targets; union display preflight now reaches Object.ToString dispatch.
+
+- **2026-10-03:** Lower owned mutable field addresses through an explicit target capability
+  and NeoCLR IL-generator adapter. Nested generic value fields now support mutation via
+  aliased object storage; the same ordinary-command consumer returns 42 on both targets.
+  Imported/readonly addresses remain unsupported. Unchanged Option now reaches its
+  generated formatting comparison, with native output still withheld.
+
+- **2026-10-03:** Add an explicit generic/value-to-object boxing capability to shared
+  lowering and route NeoCLR emission through the metadata IL generator. Generic boxing
+  smoke commands execute on both targets; missing native core registration rejects before
+  publication. Union preflight now reaches generated value-payload addressing; native
+  union publication remains blocked. Conversion diagnostics include source/target types.
+
+- **2026-10-03:** Emit ordinary expression-bodied methods through their bound return
+  blocks, preserving implicit generic boxing instead of returning a raw value as object.
+  Static and instance methods retain reference identity and null; ten focused conversion
+  and expression-body execution tests pass. No language or Runtime Contract change.
+
+- **2026-10-03:** Emit bounded value Object.ToString overrides through a symbol-derived
+  callable capability and the NeoCLR metadata adapter, including direct generic value
+  calls. Add explicit --runtime-seed bootstrap binding with core/ownership checks.
+  Native driver cases execute; the CLR control's existing return-nullability mismatch
+  is recorded separately. Union declarations now reach generated display conversion
+  lowering; full union publication remains blocked. .NET defaults and binding rules
+  are unchanged.
+
+- **2026-10-03:** Record the separate metadata library's bounded CLI value-ToString
+  override authoring foundation and subsequent native slot binding (`b94bdf79`). Native
+  reader/import and boxed runtime dispatch now pass against the explicit retained System
+  bundle; Raven override admission remains pending. No compiler behavior or Runtime
+  Contract configuration changes.
+
+- **2026-10-03:** Admit generated union case constructors and payload getters to
+  shared body planning despite their retained case/parameter source locations. Validate
+  the owning union anchor and preserve authored method bodies. Core union body lowering
+  and .NET execution regressions pass; native override/display and union metadata
+  contracts remain blockers to complete union emission.
+
+- **2026-10-03:** Opt native emission into value-type interface declarations, preserving
+  concrete addressed calls. Paired source fixtures execute on both targets; boxed
+  conversion remains unsupported and rejects before publication. Option now reaches
+  synthesized ToString admission. The separate metadata IL generator provides bounded
+  constrained dispatch; general compiler constrained-call lowering remains pending.
+
+- **2026-10-03:** Discover complete source-union declaration graphs for portable
+  emission, preserve physical case ownership, and admit anchored synthesized body
+  lookup. Native preflight names remaining unsupported contracts and keeps publication
+  blocked until union semantics can round-trip. .NET generic/nongeneric union controls
+  execute; native ToString overrides and Option value-interface contracts remain gaps.
+
+- **2026-10-03:** Add explicit native Byte signature/import and numeric narrowing
+  emission support through the metadata IL generator. Paired driver tests execute
+  source byte fields and a separately compiled byte-returning library with its source
+  removed. Preserve the ordinary .NET backend; generated union declarations remain
+  pending. Eight focused .NET emission/operator regressions pass.
+
+- **2026-10-03:** Emit supported nested source classes and structs with an explicit
+  ownership capability and existing metadata nested builders. Resolve substituted
+  nongeneric accessors back to their source declarations. Paired driver tests check
+  scoped payload identity, construction and copies; generic enclosing owners reject
+  before publication. Generated union collection and byte discriminators remain pending.
+
+- **2026-10-03:** Import native nested class/value declarations under their actual
+  enclosing symbols, preserving same-named case and field identities. Namespace and
+  simple-name lookup no longer receive flattened nested declarations. Native nested
+  emission remains outside the symbol-authored backend profile; .NET behavior is unchanged.
+
+- **2026-10-03:** Emit ordinary top-level source structs through an explicit native
+  value declaration capability, including generic inline payloads, constructors and
+  accessors. Shared planning preserves addressed receivers, self copies and synthesized
+  default initialization. Paired driver tests check independent mutation and copies;
+  source union cases and separately imported value emission remain pending.
+
+- **2026-10-03:** Preserve native metadata value declarations as Struct symbols with
+  the semantic System.ValueType base and substituted generic payload fields. This uses
+  the introspection facade; source-union and external value emission remain pending.
+  Native semantic probe checks pass against the explicit CLI bootstrap.
+
+- **2026-10-03:** Preserve native ref/out parameter facts in imported symbols and
+  symbol-authored member references. Admit writable interface parameters through target
+  capabilities; separately compiled inherited generic interface dispatch executes on
+  .NET and neoCLR, while incompatible implementations reject before output publication.
+
+- **2026-10-03:** Add `rvnc neoclr --bootstrap-intrinsics` to explicitly select the
+  registered `--core-reference` for existing checked-storage reservation. Separate
+  native helper/consumer execution preserves alias mutation and uninitialized-read
+  faults; omitted or invalid bootstrap selection rejects before publication.
+
+- **2026-10-03:** Document the separate metadata library's native Self contract/view
+  foundation and temporary reference-only CLI marker. Raven native Self symbol/emitter
+  integration remains pending; compiler behavior and Runtime Contracts are unchanged.
+
+- **2026-10-03:** Add opt-in `--bootstrap-ownership` to both compiler commands.
+  Validate declared source-library ownership before emission and select explicit
+  iteration/typeof/propagation contracts. Source-built collection interfaces and
+  separate consumer compilation now execute on both targets with a minimal core;
+  conflicting bootstrap declarations reject without publishing an output.
+
+- **2026-10-03:** Emit native external interface inheritance and implementations from
+  complete symbol contracts. Preserve target capabilities through callable/local checks
+  and encode PE directly from the authored metadata graph. The three-assembly generic
+  diamond, property dispatch and alias-mutation driver case now executes on both targets.
+
+- **2026-10-03:** Consume metadata accessibility, declaration flags and constructor
+  classification in native symbols instead of decoding raw attributes.
+
+- **2026-10-03:** Route rvnc neoclr library references through direct native metadata import.
+  Native references now require explicit --core-reference NeoCLR.CoreProbe.dll; no CLI
+  projection fallback. Paired .NET/native driver execution and native rejection checks pass.
+
+- **2026-10-03:** Add paired ordinary-driver execution acceptance tests. Baseline passes
+  both .NET cases and native Hello; native separate-library field import remains failing.
+
+- **2026-10-03:** Consume bounded inherited-interface metadata queries instead of native
+  importer recursion. Constructed arguments and diamond identity are preserved.
+
+- **2026-10-03:** Consume metadata facade property and direct interface projections,
+  removing native importer signature decoding/substitution for those relationships.
+  Preserve compiler accessibility, accessor association and inherited-interface traversal.
+  Seven native consumers execute (42); host C# metadata contracts pass 109/109.
+
+- **2026-10-02:** Add metadata method/parameter views with distinct owner and method scopes.
+  Raven consumes them instead of recursive signature projection and per-signature generic
+  caches. All 109 C# groups and seven native consumers pass (42); no encoding change.
+
+- **2026-10-02:** Add constructed/array/primitive/owner-parameter metadata views and declared
+  field projection. Raven consumes facade field types and closed signatures, preserving
+  canonical array symbols. Method/parameter views and open method scopes remain pending.
+
+- **2026-10-02:** Replace the native importer's private assembly resolver with the
+  metadata library's Introspection load context, shared per immutable compilation.
+  Preserve symbol ownership, target diagnostics and symbol-only emission. Seven native
+  consumers execute (42); constructed/member projection remains a later slice.
+
+- **2026-10-02:** Record proposed shared metadata resolution/views for Raven import,
+  future metadata-only NeoCLR Introspection and Emit. Preserve symbol-only emission and
+  explicit output ownership. Clarify .NET-hosted prototype scope: future reuse need not
+  keep this implementation/API. This documentation checkpoint adds no implemented API.
+
+- **2026-10-02:** Import unconstrained generic native interfaces with constructed inheritance,
+  parameter scopes and invariant argument checks; emit dispatch from semantic contracts.
+  Reader imports also bind generic-owner fields. All seven Raven consumers execute (42),
+  alongside 108 C# groups and .NET/both-container field/interface execution. External
+  interface implementation declarations and constrained/variant profiles remain pending.
+
+- **2026-10-02:** Support imported fields on constructed generic root-class owners through
+  scoped, output-owned field references. Preserve CLI open signatures and native slots.
+  Seven Raven consumers and .NET/both-container field tests execute (42); 108 C# groups pass.
+
+- **2026-10-02:** Allow closed generic class values and vectors in imported native
+  instance fields on nongeneric root-class owners. Reconstruct references from symbols
+  and explicit layout; open parameters and generic field owners remain unsupported.
+  The cross-assembly generic consumer verifies replacement and aliasing; seven native
+  consumers execute (42), with unchanged .NET defaults and Runtime Contract bootstrap.
+
+- **2026-10-02:** Add native host dependency bindings from the registered compiler
+  reference and core identity, without a separately supplied reader definition or
+  assembly image roundtrip. Retain the legacy snapshot constructor; Definition throws
+  for the new binding. Seven native consumers execute (42); invalid configuration
+  rejects without output. Lazy semantic readers and CLI bootstrap remain supported.
+
+- **2026-10-02:** Remove native type/field reader fallbacks, the emitter's native resolver,
+  and the unused native field definition property. Unsupported contracts diagnose;
+  supported native references use symbols and explicit identity/layout facts. All seven
+  consumers execute (42). Host input setup and lazy semantic loading still retain readers.
+
+- **2026-10-02:** Remove the native callable reader-definition fallback and the unused
+  native method definition property. Unsupported native contracts diagnose rather than
+  reopening reader methods. All seven consumers execute (42), including added direct
+  concrete interface-implementation calls. Translated CLI binding remains separate.
+
+- **2026-10-02:** Author native static-container method references from symbols,
+  including generic static calls. Keep declaration-owner admission separate from value
+  signatures. All seven native consumers execute (42); translated CLI and remaining
+  virtual/profile paths still use their existing bindings.
+
+- **2026-10-02:** Route NeoCLR body, call and field instruction generation through the
+  separate metadata-library IILGenerator. Keep Raven's shared emission contracts
+  unchanged. All seven native consumers execute (42); the library now uses a
+  generator-owned body-authoring engine internally, with legacy builder forwarding.
+  Writer-side graph/flow validation remains on the existing path.
+
+- **2026-10-02:** Reconstruct nongeneric native interface identities, direct inheritance/
+  implementation edges and abstract dispatch contracts from symbols. Preserve transitive
+  assignability without reader queries on the authored path. All seven native consumers
+  execute (42); generic interfaces and broader inheritance remain pending.
+
+- **2026-10-02:** Capture native field layout ordinals and readonly status in compiler
+  symbol contracts. Author public nongeneric root-class field references without reader
+  definitions, preserving exact artifact checks and private-slot ordering. All seven
+  native consumers execute (42); ordinary .NET field emission is unchanged.
+
+- **2026-10-02:** Reconstruct public nonvirtual native root-class methods and constructors
+  from symbols, including owner-scoped generic signatures. Keep unsupported dispatch/type
+  profiles and fields on the previous path; all seven native consumers execute (42).
+
+- **2026-10-02:** Reconstruct nominal namespace-function signatures from symbols,
+  including external root-class constructions and vectors. Share type-admission checks
+  with symbol-only nominal reference authoring. Type-owned members remain reader-backed;
+  no changes to ordinary .NET emission or Runtime Contract configuration. All seven
+  native consumers compile and execute successfully (42).
+
+- **2026-10-02:** Author native public top-level root-class references from symbols and
+  exact artifact values, including unconstrained generic identities and constructed
+  arguments. Avoid input type-row searches on this path. Other type profiles and members
+  retain reader-backed imports; all seven native consumers execute (42).
+
+- **2026-10-02:** Reconstruct native namespace-function references from compiler symbol
+  signatures and value-only assembly/artifact identities for primitive, method-generic
+  and vector signatures. This path no longer reads importer definitions or resolves
+  metadata during reference construction. Keep host snapshot validation; nominal
+  members remain on the old path. All seven native runtime consumers execute (42).
+
+- **2026-10-02:** Record the planned importer/emitter separation: compiler-owned
+  symbols carry resolved meaning, and backends reconstruct output references without
+  loader objects. Document current native coupling and distinguish Raven's compiler
+  interfaces from the metadata library's proposed instruction-generator API. No API
+  migration or runtime behavior change is claimed.
+
+- **2026-10-02:** Include direct namespace-owned static methods in shared qualified
+  namespace lookup, alongside methods promoted from CLI containers. Bind ownerless
+  functions without a synthetic type receiver. Native qualified generic calls now bind;
+  .NET qualified-call controls and focused namespace/generic tests retain their behavior.
+  The native probe now executes qualified inferred/explicit calls across three assemblies
+  and rejects incompatible explicit arguments; all seven consumers return 42.
+
+- **2026-10-02:** Import unconstrained native static generic methods and namespace
+  functions into compilation-owned symbols, completing the earlier guarded metadata
+  reader expansion. Shared inference and constructed-method substitution now drive
+  generic native calls, forwarding and vector signatures; all seven runtime consumers
+  execute (42). Unconstrained native generic root classes now also import owner-scoped
+  parameters and reuse shared constructed-type/member substitution. Box<int>/Box<Item>
+  construction, methods, properties and aliases execute. Local closed constructed
+  signatures now import through the module cache; native Box<int> factory/identity calls
+  execute. Open local constructions now map recursively using method/owner-scoped
+  caches, preserving parameter identity in Box<T> and vector signatures. Inferred
+  calls execute. External native generic constructions now also flow through a third
+  assembly using exact dependency resolution, preserving canonical definitions and
+  method scopes in both reference orders. Constraints remain pending; qualified generic
+  namespace-call lookup is a recorded follow-up.
+
+- **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
+  before emission by binding the complete method body during diagnostic traversal.
+  Independently reproduced with .NET references; prior semantic queries and repeated
+  diagnostic requests preserve the error. No target policy or metadata encoding changes.
+  The native interface probe now requires the same early RAV1503 diagnostic as well as
+  rejection with empty emitted output.
+
+- **2026-10-02:** Normalize source type names before separating namespace and local
+  metadata name in shared codegen. Qualified metadata names no longer cause negative
+  substring lengths during .NET emission; the existing self-override/indexer regression
+  now emits successfully.
+
+- **2026-10-02:** Check property setter accessibility for assignments, compound
+  assignments, pipeline writes and increments even when metadata marks the property mutable.
+  Imported private setters now diagnose before emission; public setters and existing
+  constructor/field-storage paths retain their behavior. Independently reproduced
+  with a C#/.NET fixture, without NeoCLR dependencies. Indexer resolution now also
+  checks accessor accessibility, including assignment fallback to readable indexers;
+  private indexed setters no longer bypass access checks. Setter-only indexers now
+  bind assignments using IPropertySymbol.Parameters, excluding the setter value. Reads
+  and compound assignments still require an accessible getter. A C#/.NET consumer
+  executes the imported setter successfully; PE parameter lists are cached.
+
+- **2026-10-02:** Reject static member access through an inaccessible imported type
+  when that type is resolved by an unqualified expression name. The binder now checks
+  named-type accessibility on this path, matching qualified/type-annotation behavior.
+  A standalone .NET metadata regression reproduces the previous missing diagnostic.
+
+- **2026-10-02:** Bind primitive native namespace functions and nongeneric
+  static/instance classes directly into
+  Raven symbols through an opt-in semantic provider, with an explicit CLI primitive
+  core retained for bootstrap. Preserve exact assembly identity, overloads and
+  compilation-local ownership; diagnose missing/mismatched dependencies, duplicate
+  identities and wrong targets. Native emission uses the exact semantic snapshot;
+  default CLI emission rejects native references without output. C# probes compile
+  native libraries and consumers, read declarations without a CLI projection and
+  execute cross-assembly function and Boolean/Int32 static overload calls in neoCLR
+  (42), including constructor calls, local reference storage and primitive instance calls.
+  Preserve nominal type/member identity and accessibility, including primitive fields
+  and readonly flags. Stateful constructor/method consumers and direct primitive
+  external field loads/stores now execute successfully through exact native references.
+  Local class signature types now resolve to canonical native symbols: factory results,
+  namespace/static/instance arguments/results and nominal constructor arguments execute
+  in neoCLR (42). Class-valued fields now also resolve lazily to canonical native symbols;
+  a native consumer replaces/mutates a stored object while preserving the original (42).
+  Native signatures can now reference classes in other explicitly supplied native
+  assemblies; lazy resolution preserves canonical symbols and emission uses exact
+  metadata bindings. Missing/version/type dependencies diagnose. A Raven-produced
+  three-assembly consumer executes in neoCLR (42). Native array signatures now preserve
+  primitive and external class elements across method/constructor/field imports, with
+  shared cached array symbols; cross-library aliases and element replacement execute (42).
+  Non-indexed native properties now expose canonical accessor symbols and primitive,
+  nominal or array types. Cross-library instance/static property calls execute (42);
+  property type admission and static external-owner lowering use explicit target
+  capabilities. Read-only and inaccessible setter writes diagnose. Native indexed
+  properties now retain cached parameter/accessor symbols, with overload resolution
+  and cross-library indexed element replacement/read executing in neoCLR (42).
+  The native consumer also exercises a setter-only Boolean indexer with an external
+  nominal value, checking symbol identity and invalid reads before runtime execution.
+  Nongeneric native interfaces now expose lazy canonical inheritance/implementation
+  symbols and abstract virtual methods. A native factory library and consumer execute
+  inherited method/property dispatch (42); all six runtime cases pass. Follow-on
+  coverage stores external interface values/arrays in a second native library and
+  verifies constructor signatures, aliases and dispatch after replacement (42) without
+  additional compiler changes.
+  Wider native importing remains pending.
+
+- **2026-10-02:** Document the independent metadata library's first direct native
+  definition reader and the next Raven loader integration boundary. Current .NET and
+  neoCLR CLI import behavior is unchanged. Keep both-target loading/emission as scope;
+  evaluating Cecil for .NET reflection replacement is deferred.
+
+- **2026-10-02:** Record the author-directed shift to direct neoCLR semantic import,
+  following the independent metadata library's existing definition-first architecture.
+  Audit reflection-owned target setup and plan native declaration materialization,
+  compiler symbol import and cross-assembly execution. Native importing is not yet
+  implemented; existing CLI bridge behavior is unchanged. Dependency resolution should
+  use the metadata library's existing exact-identity contract, not reflection emulation.
+
+- **2026-10-02:** Extend source-built HashMap/ArrayList execution to internal reference
+  payloads, proving shared object identity through filtering, map lookup, mutation and
+  replacement. Both numeric and reference consumers verify and return 42. Add a broad
+  application assessment recording the remaining mixed source/seed iteration identity
+  boundary, including the unchanged query operator source; no full application source
+  bootstrap is claimed.
+
+- **2026-10-02:** Add an executable unchanged HashMap source checkpoint, compiling its
+  source interfaces, ArrayList and callback equality policy together. Native verification
+  and collision/growth, duplicate, update, key-snapshot and Option lookup execution pass
+  (42). Translated System remains required; full source bootstrap is not yet complete.
+
+- **2026-10-02:** Propagate the selected target capabilities into shared interface
+  signature admission for method results, parameters and properties. Explicitly admitted
+  imported reference/value types now plan correctly; the ordinary .NET shared profile
+  retains its prior restrictions and CLR interface metadata retains the declared types.
+
+- **2026-10-02:** Apply neoCLR type capabilities when admitting and mapping explicit
+  instance fields, enabling structural Function storage in generic comparer classes.
+  Unchanged FunctionComparer/FunctionEqualityComparer sources compile and execute
+  callback calls through concrete and interface receivers (42). Capturing closures
+  remain unsupported; ordinary .NET admission is unchanged.
+
+- **2026-10-02:** Lower array Length through the explicitly configured runtime array
+  shape, retaining ordinary System.Array support. Source ArrayList now emits native PE
+  and executes growth, copies, iteration, callback searches and Option results, with
+  expected System.Fail faults via scoped namespace binding. Translated System and an
+  explicit authoring seed remain required; full library compilation is not yet complete.
+
+- **2026-10-02:** Preserve required match-arm results in the shared body planner.
+  The value-preserving wrapper now forwards its operand; ordinary .NET pattern emission
+  keeps its existing backend. Independent Debug/Release .NET execution returns 42,
+  with shared planning validated under explicit pattern/managed-local capabilities.
+
+- **2026-10-02:** Map the library-authoring CheckedStorage.Reserve<T> contract to native
+  checked-uninitialized reservation with an explicit registered BootstrapReference.
+  Generic helper execution returns stored values and faults on unread slots; absent
+  opt-in or an unregistered seed is rejected without output. ArrayList source emission
+  advances to its System.Fail namespace-function dependency; ordinary .NET is unchanged.
+  Rebuild host consumers for the extended experimental NeoClrEmitOptions constructor.
+
+- **2026-10-02:** Admit owned constructed interface implementations on generic classes
+  behind a shared target capability, preserving owner arguments in native emission.
+  Accept open root-class declarations using the existing nonsealed metadata shape.
+  Generic providers/iterators execute against unchanged neoCLR Sequence contracts on
+  CLR/native in both source orders. An explicit implementation-seed inventory binds
+  unchanged ArrayList sources and records the remaining CheckedStorage.Reserve mapping gap.
+
+- **2026-10-02:** Fix cross-file generic interface binding by deferring source member
+  and interface-closure caches until declarations are complete. Infer abstract accessors
+  for bodyless interface indexers, matching ordinary interface properties. Independent
+  .NET tests compile and execute inherited property/indexer calls in both source orders.
+  Restore the test file's syntax namespace import required for clean test builds.
+
+- **2026-10-02:** Add explicit shared capability for constructed interface inheritance
+  and native owned generic-interface dispatch. Unchanged neoCLR library contracts
+  through Sequence<T> compile with an inherited-property/indexer consumer returning 42,
+  on CLR/native and the actual target profile in both source orders. Bodyless interface
+  indexers have explicit shared admission; full library implementation bootstrap remains pending.
+
+- **2026-10-02:** Bind explicit translated native implementations through
+  `NeoClrMetadataDependency.NativeImplementation`, retaining CLI declaration scopes
+  and reporting selected contract mismatches. The unchanged neoCLR collections sample
+  now emits native PE, verifies and runs against matched System with exact expected
+  output. The linked-sample probe enforces its checked-in output assertion; native
+  symbol importing and full class-library source emission remain open.
+
+- **2026-10-02:** Add opt-in portable reference-enumerator lowering using existing
+  bound calls, locals and branches, including break/continue. Default .NET enumeration
+  stays on its current generator. The unchanged collections sample completes body
+  planning and reaches explicit native System dependency linkage.
+
+- **2026-10-02:** Add a target-owned reference conversion operation using metadata
+  castclass for neoCLR; ordinary .NET keeps its existing conversion path. Recognize
+  equal physical union-case storage across semantic carrier views. The unchanged
+  collections sample now reaches iterator-loop lowering.
+
+- **2026-10-02:** Lower opt-in union-case branches through checked TryGet calls and
+  payload accessors in the shared body plan. Keep pattern bindings on successful
+  paths, mark compiler-generated match failure for native terminal failure, and
+  admit concrete imported value overrides. 34 focused compiler tests pass;
+  collections advances to reference conversion emission.
+
+- **2026-10-02:** Let the native adapter admit static extension calls after the shared
+  lowerer has made their receiver an explicit argument. The opt-in capability leaves
+  ordinary .NET admission unchanged; collections progresses to union-pattern emission.
+
+- **2026-10-02:** Emit noncapturing synchronous lambdas as internal assembly functions
+  for the native metadata adapter, using the shared body planner and structural
+  binding. Two lambda callbacks compile directly and execute to 42. Capturing,
+  async, iterator and generic lambda targets remain outside this producer slice.
+
+- **2026-10-02:** Add opt-in shared Function value signatures, locals, static method
+  binding and invocation for the native neoCLR adapter. A Raven program emits a PE
+  directly and executes its callback to 42. Ordinary .NET keeps delegate emission;
+  capturing lambdas and imported/generic binding targets remain outside this slice.
+
+- **2026-10-02:** Record coordinated structural Function integration on the neoCLR
+  metadata feature branch. Existing target-owned inhabited callback results already
+  match the Function transport; ordinary .NET delegate selection is unchanged.
+  Direct native metadata callback emission remains pending after runtime integration.
+
+- **2026-10-02:** Preserve nested imported type scopes in native codegen under an
+  explicit capability. Match union-case physical owners separately from semantic
+  carriers. A separate-library Raven consumer constructs and mutates nested/generic
+  values and executes to 42; collections advances to the Single callable signature.
+  Ordinary .NET defaults and Runtime Contracts remain unchanged.
+
+- **2026-10-02:** Admit public imported class/value constructors through an explicit
+  neoCLR capability and the shared callable resolver, including constructed generic
+  owners. Ordinary .NET defaults and Runtime Contracts remain unchanged. A separate
+  library consumer executes on neoCLR (42); 29 focused compiler tests and five native
+  controls pass. Collections still rejects the nested Option.None parameter, now
+  reported explicitly; nested metadata identities remain unsupported.
+
+- **2026-10-02:** Mark compiler-generated invalid propagation-carrier guards explicitly
+  and carry them through the shared emission plan. .NET retains its existing null-throw
+  behavior; neoCLR emits a terminal diagnostic using its metadata Fail operation. Ordinary
+  source throws remain outside native admission. Preserve the marker through generated
+  bound-tree updates and report rejected constructor identities in native diagnostics.
+
+- **2026-10-02:** Recognize `System.Fail(string)` as the neoCLR terminal namespace action,
+  replacing the old `System.Fault` name. Keep exact core-assembly/signature/namespace-marker
+  checks and ordinary .NET behavior. Update the compiler together with neoCLR reference
+  and runtime libraries; old-name methods no longer receive terminal-flow treatment.
+
+- **2026-10-02:** Add explicit imported value-receiver calls to the shared emission plan
+  and neoCLR adapter, preserving caller mutation through managed local/ref receivers
+  and matching dependency receiver contracts. A separate-library Raven consumer verifies
+  and runs generic value/out calls (42). Default .NET emission and Runtime Contracts are
+  unchanged. Collections advances to a lowered throw guard; native propagation remains
+  incomplete.
+
+- **2026-10-02:** Share ref/out parameter signatures, local addresses and indirect
+  loads/stores between the portable .NET and neoCLR emission adapters under an explicit
+  managed-reference capability. Preserve out assignment contracts in native metadata
+  and imported signature matching; support inline out locals without synthetic defaults.
+  C# Debug/Release parity and native execution cover forwarding and mutation. Runtime
+  Contract configuration is unchanged; collections advances to imported value-receiver
+  TryGetOutput admission, with full propagation still incomplete.
+
+- **2026-10-02:** Preserve concrete union-case targets in shared lowering: explicit carrier arguments construct the case directly, matching existing .NET emission instead of attempting a second carrier wrapper. Keep binding and Runtime Contracts unchanged. Strengthen the imported constructor regressions to call shared lowering directly before executing empty/payload results; this exposes failures previously hidden by semantic-model fallback. All 25 focused tests pass on .NET 11, also independently on the main-based fix branch (dcc77ef5f). The unchanged native collections probe advances to synthesized out-local admission; no new native byref support is claimed.
+
+- **2026-10-02:** Admit imported constructed interface calls and final virtual class calls through an explicit native backend capability. Resolve open dependency signatures and dispatch kind before applying consumer type arguments. A Raven consumer of a separately authored native library verifies and executes both calls (42); four focused capability/.NET tests pass. Missing dependencies reject without output. Runtime Contract and normal .NET defaults are unchanged. The unchanged collections sample advances past TryAdd/Add to propagation-expression lowering; full application execution remains pending.
+
+- **2026-10-02:** Opt native emission into imported value signatures through a separate target capability. The independent metadata library preserves value categories in CLI/native projections; a Raven consumer of a native value library verifies and runs with result 42, including parameter/local/return forwarding and missing-dependency rejection. Three focused capability tests pass, including ordinary .NET execution. Runtime Contract and normal .NET defaults are unchanged. The unchanged collections sample now reaches an unsupported body invocation.
+
+- **2026-10-01:** Record compatibility validation against the separate metadata library’s definition-first migration and direct assembly-level function construction. Rebuilt native external-signature library/application execution returns 42; Runtime Contract, binding and .NET emission are unchanged. Subsequent direct static/instance type-method, root-constructor and interface-contract authoring also passes the rebuilt runtime probe. Definition-owned interface relationships, instruction/local/label storage and property/accessor associations and generic type/constraint authoring also pass the rebuilt runtime probe. Record the intended definition → metadata → PE boundaries; their extraction and editable readers remain pending. Document the distinction between Cecil-like definitions and Reflection.Emit-style convenience builders. Arbitrary instruction editing, loaded bodies and collections Option<Order> gaps remain open.
+
+- **2026-10-01:** Match imported static nominal/generic method signatures through the metadata API's consumer-owned references. Native library/consumer tests return 42 with a generic factory, payload alias mutation, nominal overload matching and missing-method rejection. Default .NET and Runtime Contract are unchanged; collections still stops at the value-type Option<Order> signature.
+
+- **2026-10-01:** Map consumer-scoped type arguments for imported static generic calls through the neoCLR type mapper. Native binary tests return 42 with owned nominal alias mutation, external constructions and method/owner generic forwarding. The metadata API validates ownership and caller scope; default .NET paths and Runtime Contract are unchanged. Imported generic owners and value/union contracts remain open.
+
+- **2026-10-01:** Opt the neoCLR target into external reference signatures and map registered dependency types through the separate metadata API. Raven-produced library/consumer binaries verify and return 42 with external generic signatures, nullable locals, interface arrays and generic forwarding. Missing dependencies/types reject without output. Default .NET admission remains unchanged. Collections now reaches the unsupported PendingOrder Option<Order> signature; imported members and translated-System mappings remain open.
+
+- **2026-10-01:** Emit imported unconstrained static generic calls with concrete primitive/vector arguments through the independent metadata API. A separate native-profile library/application pair verifies and returns 42, including alias mutation and missing-contract rejection. Standard MethodSpec/MemberRef shape is retained; nominal/generic owners and constrained imports remain unsupported. No shared .NET codegen changes.
+
+- **2026-10-01:** Match imported static primitive-vector signatures through the shared callable contract for direct neoCLR emission. A separately emitted native-profile library/application pair verifies and returns 42, exercising four array overloads, alias mutation and void calls. Missing bindings or mismatched vector signatures reject without writing output; nominal/generic dependencies remain unsupported. Default .NET codegen is unchanged.
+
+- **2026-10-01:** Add a single-sample readiness probe so compiler fixes can be checked against unchanged applications without rerunning the whole library inventory. The collections sample now passes CLI emission and legacy import after the union-case binding correction; direct native emission identifies imported Register signatures as the next gap.
+
+- **2026-10-01:** Consume independent main fix 46491585e: contextual argument typing now distinguishes concrete union cases, so None carrier construction retains the correct constructor. Sixteen Debug/Release/order/syntax cases and 323 surrounding tests pass on the shared line; no backend workaround or Runtime Contract change.
+
+- **2026-10-01:** Admit the explicit neoCLR CLI declaration profile in direct native emission after matching primitive/Unit core identity. Verify and run native Hello World, function/Unit entry, vector iteration and owned interface dispatch without a host core reference; reject mismatched core names/versions before output. Host bootstrap remains available; native symbol loading and implementation bootstrap remain future work.
+
+- **2026-10-01:** Audit ordinary .NET behavior across shared-codegen refactoring and add Debug/Release execution checks for evaluation order, short-circuiting, array iteration and null calls. Record passing comparison evidence and unresolved imported-carrier/loop-capture issues without claiming they are fixed.
+
+- **2026-10-01:** Add an exploratory source/sample readiness inventory for direct neoCLR
+  emission and ordinary CLI controls. Record the target-profile gate, library bootstrap
+  gaps and the broad sample's invalid Option constructor output. The report records
+  failures without making them required behavior; no production target configuration
+  is changed.
+
+- **2026-10-01:** Add explicit shared interface-implementation and dispatch capabilities.
+  The neoCLR target now emits implicit public implementations on nongeneric root classes,
+  inherited contract calls, and interface property dispatch through the separate metadata
+  API. Both .NET and native binary consumers return 42 in both file orders, including
+  interface-array reference conversion and mutation. Generic and external interface
+  dispatch remain unsupported by the bounded native adapter.
+
+- **2026-10-01:** Add an explicit bounded interface declaration plan for invariant owned interfaces with public abstract instance methods. The neoCLR adapter emits unchanged Comparer/EqualityComparer source contracts through the separate metadata API. CLI/native loading and reference projection preserve bodyless interface methods; an independent entry returns 42. Extend the plan with abstract properties and owned nongeneric interface inheritance; unchanged Disposable/Iterator contracts now load too. Add owned interface signatures, nullable reference storage and generic interface constructions through shared nominal mapping and an explicit capability. Unchanged Iterable<T> and reference/default array flow pass on .NET and neoCLR in both file orders. Generic bases and dispatch remain outside this slice.
+
+- **2026-10-01:** Share static computed property get/set calls between .NET and neoCLR emission. The native adapter admits implemented static properties on owned classes/static types, retaining ordinary accessor metadata; static storage remains unsupported. Compile the complete unchanged neoCLR Language class and execute both source orders on both runtimes. Add a whole-file acceptance probe and refresh the collection interface/dependency inventory. Reaffirm .NET behavior and CLI instruction semantics as the default for the supported subset.
+
+- **2026-10-01:** Admit owned nominal class bounds on generic types through shared target capabilities. The neoCLR adapter materializes bounds after declaring all types; CLI/native reference metadata preserves them. Invalid concrete arguments are rejected by Raven binding and native verification. Extend shared capabilities and native emission with class/struct/new requirements on type parameters. Correct ordinary .NET struct emission to include its implied default-constructor flag. Matching native runtime required; nullability, method/interface/dependent bounds and open constrained dispatch remain separate work.
+
+- **2026-10-01:** Enable constructed-field references for the neoCLR target, using original field identity and constructed owner arguments. Shared field lowering now supports accesses outside generic declaring classes; binary consumers execute typed stores/loads on both runtimes. Cross-assembly field imports remain deferred.
+
+- **2026-10-01:** Admit instance properties and indexers on unconstrained generic classes in the neoCLR adapter. Existing shared accessor/body paths preserve typed values, constructed receivers and alias mutation; property metadata retains declaring-type scope through the separate producer library. Both runtimes execute the expanded binary consumer in both source orders. External constructed fields, constraints and generic imports remain deferred.
+
+- **2026-10-01:** Share unconstrained generic root-class signatures and instance storage emission with neoCLR. Constructed owner constructors, nested class values, mutable private fields and independent generic methods execute on .NET/native. Explicit capabilities gate generic class values and constructor arguments; direct external constructed field access and generic properties/indexers still reject in the native adapter. Ordinary .NET constructor emission remains on its general path.
+
+- **2026-10-01:** Share unconstrained static generic owner emission with independent type and method parameter scopes. The neoCLR adapter emits constructed owner references through the separate metadata API; .NET resolves source generic calls against their constructed declaring type. Release/Debug C# tests and the binary consumer cover owner arrays, defaults, forwarding, mixed VAR/MVAR and object aliases. Extend acceptance to reordered multi-parameter owners and cross-scope forwarding; gate unused owner arguments by their actual target capabilities. Generic instance types, fields, constraints and external owners remain outside native admission.
+
+- **2026-10-01:** Lower supported typed and generic default values through a shared capability-gated operation. .NET and neoCLR adapters initialize scratch locals using ordinary ldloca/initobj semantics. Generic array clearing and primitive/reference defaults execute across targets; cleared object elements raise null-reference faults on both runtimes. C# tests retain Debug/general .NET behavior. No general byref signatures or nullable source types are added.
+
+- **2026-10-01:** Share unconstrained generic instance-method emission on ordinary owned root classes. Separate instance-generic target capability from static generic admission; preserve receiver slots, mutation and forwarded type parameters. Release/Debug C# tests and the binary Order probe pass both runtimes/source orders. Extend the executable consumer to generic no-result copy/reverse, recursive instance calls, independent receivers and receiver/argument evaluation order. Native generic types, constraints and virtual generic dispatch remain deferred.
+
+- **2026-10-01:** Admit unconstrained owned generic functions and static methods through shared signature/body planning and explicit target capabilities. Preserve method parameters, generic locals, arrays and forwarded calls through native metadata instantiations. The .NET adapter retains its existing generic declaration registration and resolves shared bodies against those handles. Binary Order consumer probes execute both targets in both source orders; generic types, constraints, instance generic methods and imported generic calls remain outside native admission. Extend shared value-block/conditional joins to admitted exact value types, including method parameters. Expanded binary probes cover inferred/recursive calls, multiple generic parameters, vector creation/iteration and five source-located unsupported-contract rejections. Check explicit type-argument capabilities even when parameters are absent from the call signature.
+
+- **2026-10-01:** Share implemented root-class indexer emission across .NET and neoCLR, with explicit accessor capability admission. Preserve overloads, multiple indices, read-only accessors and receiver/index/value order through ordinary calls and indexed property associations. C# tests and binary native probes validate both targets; general .NET fallback remains. Extend acceptance to concrete Order collections, nominal/array indices, alias mutation, ordered evaluation and indexed bounds faults. Correct probe evidence labels to the actual indexer checks.
+
+- **2026-10-01:** Share vector signatures, storage, locals, literals, indexing, assignment and Length between .NET and neoCLR adapters. Preserve array/object aliases and receiver/index/value evaluation order. Explicit capabilities gate support; fixed-length type contracts, nested arrays, spreads and imported nominal elements remain outside this slice. C# execution tests and the Order-array binary probe cover both targets and source orders. Lower exact-element array for loops into shared bound control flow, preserving single collection evaluation and nested/labeled transfers. Retained general .NET enumerator loops keep their own break/continue targets.
+
+- **2026-10-01:** Share owned root-class parameter/result signatures between .NET and neoCLR through explicit target admission and backend type maps. Factory returns, nominal overloads, constructor parameters, self-return and alias mutation execute on both runtimes. Extend shared field load/store planning to explicit mutable nominal fields and private storage, including initializers and replacement. C# Release/Debug tests and the Order binary probe validate stored-object alias mutation on both runtimes in both source orders. Extend nominal property metadata to auto/computed/explicit accessors with private setters and exact class identity. Refresh provisional auto-property initializers on rebinding without replacing canonical fields, fixing forward-constructor initialization on both targets. External nominal imports, nullability, generic properties and static storage remain separate contracts; rebuild against the matching metadata library API. Emit private val storage and stored val properties with InitOnly/native readonly flags; declaring-constructor writes and readonly managed field addresses require the updated neoCLR runtime. Older runtimes do not enforce these flags during execution.
+
+- **2026-10-01:** Honor an accessible explicit setter when assigning or incrementing a `val` property inside its owner. Public mutability remains read-only and outside writes still reject; init-only and constructor storage rules are unchanged.
+
+- **2026-10-01:** Generalize shared source type plans to distinguish static types from bounded root classes, and callable admission to distinguish static from nonvirtual instance methods. .NET Release emission now shares primitive instance signature/body planning with receiver-aware argument slots; Debug/general fallback is preserved. Native adapters map these definitions to AddClass/AddInstanceMethod. Extend the shared body plan with receiver, primitive field access, property accessor calls and root allocation; reuse compiler-synthesized auto-accessor bodies. The unchanged Order source now compiles and executes on .NET and binary neoCLR, with explicit primitive constructors and mutable auto-properties. Native root constructors also admit explicit parameterless `base()` after semantic validation against System.Object, preserving the existing backend root-initialization policy. Private stored properties now retain canonical backing-field identity on rebinding, so forward initializer completion reaches emitted storage. Native root constructors now also admit expression bodies, preserving overload selection and ordered argument side effects through the existing shared planner. Emit computed properties and implemented get/set accessors through shared block/arrow lowering, preserving private setter access and optional `field` storage. Admit explicit mutable primitive instance fields with public/internal/private visibility and shared initialization. Emit private mutable primitive storage as fields without property/accessor rows, sharing qualified and unqualified field reads with .NET. Admit ordinary nonvirtual instance calls through shared receiver-first evaluation, including private nested calls and no-result mutation. Add explicitly admitted root-class locals with backend-owned type handles; mutation through an alias is now observed through the original on both runtimes. Native default constructors and primitive field/property initializers now reuse a shared canonical field-initialization plan, running before explicit bodies. Nullable/external object locals and constructor chaining still reject.
+
+- **2026-10-01:** Keep implicit auto-property accessors, setter parameters and backing fields stable across repeated binding, preventing duplicate setter members. Validate independently through .NET execution. Add an unchanged order-collections consumer inventory that isolates the next native object/type emission gate without replacing native library dependencies.
+
+- **2026-10-01:** Emit namespace-scoped assembly functions through explicit shared target capabilities, preserving namespace/simple-name identity and ownerless native metadata. Compile original integer Math functions and execute 11 boundary cases on .NET and native binaries in both source orders. Requires the matching metadata/runtime namespace extension; projected global source import remains deferred.
+
+- **2026-10-01:** Add a real class-library source emission inventory, preserving selected Math declarations and namespace, reporting binding versus backend failures and source hashes. Record namespace-function metadata as the first isolated gap; this does not yet compile the class library.
+
+- **2026-10-01:** Preserve public/internal assembly-function access through independent shared capability admission and native metadata emission, including library helpers. Default internal functions are no longer accidentally public; callers relying on widened access now fail native verification. Direct source import of projected globals remains deferred.
+
+- **2026-10-01:** Share primitive value-producing if/else emission across .NET and neoCLR using existing branch joins, preserving branch selection and nested conditional results. Extend primitive value blocks with initialized locals, assignments and calls before their final expression; admit internal if/loop control flow while rejecting returns, outgoing jumps and disposal in this bounded path.
+
+- **2026-10-01:** Emit eager Boolean &, | and ^ through the shared .NET/neoCLR body path. Preserve left-to-right evaluation and Boolean result types; require the matching native runtime support. Short-circuit operators are unchanged.
+
+- **2026-10-01:** Admit expression-bodied callables in shared source plans, reusing existing bound arrow blocks and compiler lowering for .NET Release emission. Preserve Debug/general fallback and return conversions. Enable native arrow-body emission, including Unit entry/helper calls, separate-library references and source-located rejection without output writes.
+
+- **2026-10-01:** Carry public/internal/private static method access through shared declaration plans and explicit backend capabilities. Emit nonpublic neoCLR helpers with preserved CLI reference access; test legal calls and compiler/runtime rejection across assembly boundaries. Assembly-function access policy is unchanged.
+
+- **2026-10-01:** Share Int32/Int64 bitwise AND, OR and XOR across .NET and neoCLR emission, with typed metadata writer support and paired runtime checks. Add left and signed right shifts with Int32 counts for both integer widths.
+
+- **2026-10-01:** Enable shared signed Int32/Int64 division in the neoCLR metadata backend, with binary execution tests for truncation, zero divisors and signed overflow alongside .NET. Extend the shared planner and both adapters with signed remainder, preserving dividend signs and validating exceptional operands.
+
+- **2026-10-01:** Emit public/internal static helper types on both .NET and neoCLR through explicit shared visibility admission; preserve native reference visibility and reject external access. Fix the shared binder accessibility check for qualified type expressions, also covered with an ordinary .NET reference.
+- **2026-10-01:** Admit logical assembly functions, static methods and static types
+  through backend declaration-category profiles. Share those profiles between
+  declaration builders and body planning while preserving CLI carrier/native ownership.
+
+- **2026-10-01:** Add backend-owned instruction/type capability profiles to shared
+  body planning. The .NET profile admits signed division while the native profile
+  rejects it with a source diagnostic; native bodies now pass capability checks before
+  metadata builder allocation. Keep ordinary .NET fallback and native output contracts.
+
+- **2026-10-01:** Correct stale parameter documentation: ordinary by-value parameters
+  remain immutable and do not accept var/val. Record the shared target-neutral emission
+  direction, CLI compatibility gap and deferred phase/allocation performance measurements;
+  these architecture notes do not add a source feature or change target configuration.
+
+- **2026-10-01:** Carry String literals, parameters, results and initialized locals
+  through shared .NET/native emission. Console text may now come from helper calls,
+  including separately compiled native libraries. Preserve selected-core .NET types
+  and native UTF-8 text; nulls, equality and concatenation remain outside the native subset.
+
+- **2026-10-01:** Coalesce native public nongeneric partial static classes by semantic
+  type identity and collect members from every part before body emission. Unsupported
+  members in any part still reject output with a source diagnostic. C# end-to-end
+  coverage executes both file orders on .NET and from binary assemblies in neoCLR.
+
+- **2026-10-01:** Introduce a shared primitive emission type contract with explicit
+  no-result semantics and backend-owned type mappers. Reuse it for callable signatures,
+  locals and result-use classification; remove native local emission's dependency on
+  the callable builder's mapping helper. Preserve selected-core .NET metadata and
+  native output behavior; broader type support remains pending.
+
+- **2026-10-01:** Emit built-in signed unary +, - and ~ through the shared .NET/native
+  body path for Int32/Int64. Preserve integer width and wrapping negation at signed
+  minima; keep Boolean logical negation separate. Validate both runtimes and metadata
+  rejection of Boolean/empty-stack unary operands.
+
+- **2026-10-01:** Share Int64 signatures, constants, locals and signed Int32/Int64
+  conversions across .NET/native codegen. Preserve width through arithmetic and
+  imported callable contracts; widening sign-extends and narrowing retains low bits.
+  Keep Int32/Unit entrypoints and the selected Int32 System inventory bounded.
+
+- **2026-10-01:** Share statement-call result handling across .NET and neoCLR:
+  discard Int32/Boolean results, preserve call side effects and keep no-result Unit
+  calls stack-neutral. Add local/imported runtime coverage and checked metadata Pop.
+
+- **2026-10-01:** Parse assignment right-hand sides through the full expression
+  grammar, accepting Boolean negation, logical operators and coalescing without
+  extra parentheses. Preserve right-associative chained assignments. The native
+  Boolean-local consumer exposed this general parser defect.
+
+- **2026-10-01:** Share ordered Int32/Boolean callable signatures across .NET and
+  neoCLR declaration builders, body emission and imported-call matching. Preserve
+  same-arity overload identity and execute Boolean helpers from separately compiled
+  native libraries. Carry primitive types into local declarations, enabling Boolean
+  initialization, assignment and equality through both body builders. Add shared
+  short-circuit Boolean &&/|| with left-to-right evaluation and skipped-side-effect
+  coverage. Int32-only System imports and Int32/Unit entrypoints remain bounded.
+
+- **2026-10-01:** Emit initialized Int32 locals and standalone assignments through the
+  shared lowered-body path for .NET and native neoCLR. Native output uses typed locals
+  from the independent metadata API; .NET resolves the selected target's Int32 type.
+  Extend the shared path to signed equality/less/greater comparisons, Boolean conditions,
+  if/else and lowered loop branches; keep label identity independent of backend offsets.
+  Add Boolean negation and !=/<=/>= comparisons, with executable break/continue coverage.
+
+- **2026-10-01:** Share compiler-lowered bodies between the bounded .NET and neoCLR
+  emitters instead of walking source operations. Reuse implicit Int32 return lowering
+  and admit simple named calls that fit the lowered subset; preserve .NET fallback/PDB,
+  source diagnostics and native Console/reference checks. Record the staged target
+  abstraction plan; metadata loading and broader builder refactoring remain deferred.
+  Share per-emission callable identity resolution with backend-owned handles; register
+  native definitions before bodies and preserve overload/owner distinctions. Validate
+  repeated emission and repeated/forward calls on both runtimes.
+  Share source callable plans across declaration and bounded body emission. Separate
+  native source validation from definition creation, preserving assembly-function
+  ownership and empty static types; general .NET declaration traversal remains intact.
+  Share static source-type identity/naming plans through typed .NET/native builders,
+  preserving .NET flags/base resolution and generic/nested/instance fallback.
+
+- **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
+  PE/#Neo native execution container through the separate metadata API. Use the same
+  library PE files for Raven reference binding and neoCLR runtime metadata loading;
+  the two-library chain and single/multi-file cases return 42 in both module orders.
+  Preserve diagnostics, failed output and caller stream/I/O contracts. The native
+  section now has a binary format-5 encoding; a native symbol provider and production
+  target registration remain pending.
+  Add explicit ICompilationEmissionBackend selection through EmitOptions.WithBackend.
+  Native wrappers and rvnc now reuse Compilation.Emit setup, diagnostics and resolved
+  contract checks. Default .NET emission remains unchanged; native debug output and CLI
+  core rewriting reject before writing. Backend builders remain private per emission.
+  Share immutable linear-body lowering between eligible release .NET static Int32
+  methods and native Int32/Unit emission. Backend method builders own native/CLI handles,
+  opcodes and Console mapping. Unsupported .NET bodies and debug/PDB emission retain the
+  general generator. One compilation prints and returns 42 through both backends.
+  Extend the shared .NET path to assembly functions and Unit-returning static methods
+  whose CLI signatures are void. The same Unit Main/helper, explicit-return and empty-entry
+  compilations run on both runtimes; value-bearing Unit and debug/PDB paths remain unchanged.
+  Share Int32/Unit callable signature descriptions and typed declaration-builder contracts.
+  Reflection.Emit and native adapters retain their owner/handle models; .NET parameter names,
+  visibility, generic fallback and selected-core identities are preserved. Native functions
+  remain assembly-owned, with unchanged format and capability bounds.
+  Record an optional translated-System driver failure: a host type collision causes
+  explicit rejection. Direct API binding succeeds; shared metadata loading is deferred.
+  Route the native operation emitter through the metadata library's typed opcode Emit
+  overloads, including local/imported/native call operands. Existing helpers share that
+  path; artifact semantics, target contracts and runtime behavior remain unchanged.
+  Arbitrary opcode coverage and editable instruction bodies remain future work.
+  Accept parameterless Unit entry points in native output, including assembly functions,
+  public static methods, explicit/implicit returns and empty bodies. API and rvnc cases
+  print Hello World and exit zero without an artificial Int32 return. Metadata encoding
+  uses the existing no-result contract; previous Int32-only entry limits are removed.
+  Add explicit partial callable import from translated System (`--system-symbols`,
+  repeated `--system-method Name/arity`). Reuse the existing semantic importer through
+  metadata-derived reference declarations; emit original System call identities and
+  execute Math.Min to 42 against that binary System. Reject unsupported signatures and
+  nonpublic declarations; full core import and richer metadata remain pending.
+  Add opt-in `rvnc neoclr` source-file compilation with native library references and
+  direct PE/#Neo output, enabled by the independent metadata project build property.
+  Existing outputs and failed compilation output are preserved. C# process tests cover
+  compile/reference/verify/run and failures. Host primitive binding remains temporary;
+  translated standalone System symbol loading and project integration remain pending.
+  Preserve namespaces for public static native library types, including nested and
+  file-scoped namespace declarations. C# consumers verify distinct same-name types,
+  reimport and execute imported/qualified calls in both source-file orders. Namespace
+  functions and nested types remain explicit unsupported-source diagnostics.
+  Support Unit-returning native helpers and imported public static library methods,
+  explicit/implicit returns and no-result statement calls. C# consumers reimport a
+  Raven library projection and execute both no-result and Int32 overloads in neoCLR;
+  unsupported calls and Unit entry points preserve failed output. Entry points remain Int32.
+  Add the author's initial Hello World targets: direct output and Main calling a
+  separate function both load/verify/run as PE/#Neo, print exactly one line and exit
+  zero. Console literal output requires an explicit registered reference contract;
+  missing/wrong bindings and unsupported overloads preserve failed output.
+  Switch experimental PE emission to binary execution schema 2 (bounded CBOR).
+  The runtime reads it directly into metadata without JSON parsing; Hello World,
+  function calls and the transitive dependency cases pass. Use a matching runtime:
+  older schema-1-only loaders reject schema 2. Explicit contracts and ordinary .NET
+  defaults are unchanged; JSON Emit remains available. Record the author-proposed
+  class-library JSON translation/bootstrap path for Raven symbol loading; that
+  broader translator and native symbol provider remain planned.
+  Earlier slices add an opt-in compiler operations consumer for the independent
+  neoCLR metadata library. Raven binds an API-produced PE dependency; the adapter
+  emits a native application and neoCLR verifies/runs it with result 42. Unsupported
+  operators and binding failures are checked. The .NET loader is still the bootstrap;
+  this does not install a native compiler symbol provider or production target emitter.
+  Import external calls directly from read-only definitions through the metadata
+  API with an explicit dependency core contract; the emitter no longer takes the
+  producer builder graph. The end-to-end result remains 42. Extract the emitter into
+  the optional Raven.CodeAnalysis.NeoClr project with explicit immutable contracts,
+  registered assembly-symbol bindings, source-located backend diagnostics and
+  validation before stream writes. Preserve compiler diagnostics and propagate host
+  I/O failures. C# consumer checks and the native runtime case pass; default target
+  composition is unchanged. Support multiple source files by collecting declarations
+  before emitting bodies with their own semantic models. Both orders of a cross-file
+  call execute to 42; later-file diagnostics preserve location and failed output.
+  Start dependency binding from native metadata through the independent library's
+  reference-only PE projection. The producer no longer supplies a dependency PE;
+  execution uses the original native artifact. All three native cases still return
+  42. The .NET semantic provider remains the temporary input bridge. Compile both
+  the library and application from Raven: support library output and public static
+  classes/methods, preserving the public-only metadata boundary with explicit
+  rejection of unsupported visibility. Overload resolution, a library-local helper
+  call, missing dependencies and wrong revisions are covered end to end. Extend the
+  case to two separately compiled native libraries and an application that references
+  only the outer library. Runtime checks cover transitive loading, reversed module
+  order, and missing/wrong-revision transitive dependencies; all successful cases return 42.
+
+- **2026-09-30:** Keep imported signature-only parameters required when their optional
+  CLI Param row is absent. Check row presence and default availability before
+  interpreting null as a constant, preserving ordinary explicit and attribute-based defaults.
+
+- **2026-09-30:** Expose resolved binary operator kind, lifting, checked arithmetic
+  and operator-method facts through the public Operations API. Correct invocation
+  Instance to return the bound receiver (null for static calls), rather than a
+  callee method group. External IBinaryOperation implementers need the new members;
+  binding and ordinary .NET/CLI emission are unchanged.
+
+- **2026-09-30:** Preserve provider type-default facts through constructed method
+  and type parameter wrappers. Wrapped struct defaults now bind and display as
+  defaults instead of being treated as invalid literals.
+
+- **2026-09-30:** Make shared arrays independent of PE symbol inheritance. Move
+  CLI interface and member-shape policy into the provider; non-PE arrays consume
+  their own target shape without implicit .NET collection assumptions.
+
+- **2026-09-30:** Make parameter type-default facts provider-owned. Optional argument
+  binding and symbol display no longer depend on PE parameters; preserve existing
+  CLI decoding, source defaults and required-parameter behavior.
+
+- **2026-09-30:** Move overload-priority reflection fallback into the PE provider.
+  Shared overload selection consumes provider facts and preserves source/attribute
+  precedence, priority grouping and constructed-method behavior. Fix metadata-only
+  fallback decoding for nonvirtual/new-slot methods by avoiding unsupported base
+  definition reflection when the declaration is already its own base.
+
+- **2026-09-30:** Separate available-state parameter conversion classification
+  from shared candidate ranking. Keep CLI type-name shortcuts in the PE provider
+  and remove PE method checks from semantic-model invocation scoring.
+
+- **2026-09-30:** Make lazy parameter count, type and usage queries provider-owned.
+  Preserve PE decoding and semantic-model lookup behavior; keep unavailable
+  provider facts from forcing full signature loading.
+
+- **2026-09-30:** Make shallow method declaration keys provider-owned. Keep PE
+  token/reflection details out of shared lookup while preserving lazy candidate
+  deduplication and generic method argument distinction.
+
+- **2026-09-30:** Move member extension receiver decoding behind a provider
+  boundary. Shared lookup no longer depends on PE symbols or applies CLI marker
+  parameter remapping; preserve source/CLI receiver and accessor behavior.
+
+- **2026-09-30:** Make type-level extension discovery provider-owned, preserving
+  CLI marker interpretation and constructed receiver substitution. Cover non-PE
+  providers without binding attributes or loading ordinary members.
+
+- **2026-09-30:** Make recursive nested-type discovery provider-owned, preserving
+  lazy PE discovery and constructed-type declaration identity. Keep source member
+  substitution as the fallback, with non-PE provider and generic-owner coverage.
+
+- **2026-09-30:** Make namespace-member container discovery provider-owned instead
+  of requiring PE symbols in shared lookup. Preserve CLI/source marker behavior,
+  import filtering and strict neoCLR Fault recognition; cover non-PE containers
+  in direct and merged namespaces without attribute binding.
+
+- **2026-09-30:** Separate resolved runtime-contract validation from backend artifact
+  validation. Normal and macro-plugin emission share the compiler's contract gate;
+  the .NET emitter owns output-core option resolution without depending on target
+  composition. Preserve supplied warnings and caller streams on validation failure.
+
+- **2026-09-30:** Separate the selected .NET and neoCLR CLI runtime contracts while
+  sharing CLI symbol mappings and validation. Route Self availability through the
+  selected contract; preserve explicit marker opt-in, .NET defaults and legacy
+  probe-core callback/tuple transport. Native metadata and codegen remain deferred.
+
+- **2026-09-30:** Move metadata-session reuse validation into the .NET semantic-data
+  loader, shared by .NET and the neoCLR CLI bridge. Preserve reference order when
+  checking reuse so reordered duplicate assembly identities expose the new first
+  reference's surface without changing earlier compilation symbols. Keep import
+  mode/core checks and file revision tracking inside the loader boundary.
+
+- **2026-09-30:** Track deferred structural Function work on Raven
+  `codex/neoclr-structural-types` and neoCLR `codex/structural-types`, both based
+  on their Self-integrated main branches; retire the previous integration names.
+
+- **2026-09-30:** Gate native Self on the explicit neoCLR target and marker contract;
+  reject .NET configuration before loading references or writing output. Preserve
+  ordinary .NET semantic lookup. Retain inhabited unit-result transport for neoCLR's
+  existing nominal delegate ABI, independently of deferred structural Function semantics.
+  Allow projects to disable preset typeof mapping by explicitly clearing all three properties.
+  Validate the shared integration with 107 focused tests and the compiler/core/LSP CI gate.
+
+- **2026-09-30:** Synchronize the isolated Self feature with shared target-selection
+  APIs, preserving both platform and Self contracts through immutable copies and
+  incremental state checks. Target gating and Function-branch separation remain pending.
+
+- **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. Extend focused coverage to generic instance cloning and record the neoCLR borrowed-receiver integration. Document the subsequent actual System.Clonable<T> migration to Clonable with a native Self result; existing Runtime Contract settings suffice. Anchor inherited Self at its conformance declaration, reject derived generic bounds without redeclaration, and validate derived Self results including explicit implementations. Keep this feature isolated from the separate compiler-boundary/multi-target refactor. Record the importer rejection boundary for obsolete generic bounds and the deferred general compiler diagnostic candidate. See `docs/lang/native-self.md` and the Runtime Contract documentation.
+- **2026-09-30:** Isolate native Function/structural-type compiler work on
+  `codex/neoclr-structural-types`, paired with neoCLR's `feature/function-types`.
+  Main retains nominal Action transport for unit functions and ordinary Raven
+  function syntax/.NET delegates. Target plumbing and unrelated contracts remain shared.
+
+- **2026-09-30:** Document neoCLR CLI bridge behavior, semantic distinctions and
+  native metadata replacement requirements. Keep native Function types deferred
+  until the metadata layer and complete compiler support exist; feature-bundle
+  experiments do not qualify neoCLR main or enable the feature.
+
+- **2026-09-30:** Add experimental `CompilationOptions.NeoCLR` and
+  `RavenTargetPlatform=NeoCLR` CLI profile defaults, with explicit core/unit
+  consistency validation and supplied-reference-only loading. Project properties
+  can override profile fields. Self, record mappings, native codegen and a complete
+  capability matrix remain outside this preset; legacy CLI settings still work.
+
+- **2026-09-30:** Load and save `RavenTargetPlatform` in Raven projects, initially
+  accepting `DotNet`. Invalid platform names produce a clear project-loading error;
+  the compiler driver exits cleanly. Existing reference/core selection is preserved.
+
+- **2026-09-30:** Add immutable `CompilationOptions.TargetPlatform` selection,
+  initially supporting `TargetPlatform.DotNet`. Unknown values report RAVT005
+  before reference loading or output writes; platform changes block incremental
+  state reuse. Reference and experimental neoCLR CLI policies remain unchanged.
+
+- **2026-09-30:** Centralize the existing neoCLR CLI compatibility rules for
+  function results, tuples and terminal Fault calls in one target component.
+  Existing assembly-name triggers and ordinary .NET behavior are preserved;
+  explicit target selection and capability enforcement remain future work.
+
+- **2026-09-30:** Honor `SymbolDisplayMiscellaneousOptions.ExpandedValueTuple`
+  for nominal tuple names, including nested generic arguments. Tuple declaration
+  hovers request that format explicitly; ordinary source-oriented tuple display
+  remains unchanged.
+
+- **2026-09-30:** Recognize complete coverage of qualified nested union cases
+  in imported generic union payloads. An empty set of missing payloads no longer
+  produces a spurious RAV2100 for the enclosing case; guards still constrain coverage.
+
+- **2026-09-30:** Infer open-generic declaration patterns from their input before
+  ordinary type-name validation. Valid `value is Box box` patterns no longer
+  retain a spurious RAV0305 diagnostic; unmatched inputs still require explicit
+  type arguments.
+
+- **2026-09-30:** Resolve source constraint type-parameter references against
+  their declaring owner and enclosing owners. A same-named type parameter in the
+  first caller no longer contaminates cached constraints or causes false RAV0320
+  errors in constrained generic hierarchies.
+
+- **2026-09-30:** Route .NET reflection loading and codegen host-type lookup
+  directly through the target-owned host service. Remove the three internal
+  Compilation.ResolveRuntimeType forwarding overloads while preserving setup
+  ordering and per-compilation service ownership.
+
+- **2026-09-30:** Introduce a target-owned emission contract returning backend
+  results and diagnostics. Normal and macro-plugin compilation preserve those
+  results alongside semantic diagnostics; .NET option validation precedes output
+  writes and owns its RAVT003 diagnostic.
+
+- **2026-09-30:** Move common nominal type inference into semantic normalization,
+  removing its dependency on the .NET codegen type helper. Existing base/interface
+  preference and object fallback are preserved and covered with focused tests.
+
+- **2026-09-30:** Remove the unused public `TypeSymbolExtensions.GetClrType`
+  adapter. Semantic symbols no longer offer this duplicate host/metadata conversion
+  path; .NET emission uses the backend resolver with explicit usage and Unit policy.
+  This is an intentional compiler API break.
+
+- **2026-09-30:** Expose imported named-type attributes through GetAttributes and
+  validate inherited attribute usage from semantic symbols instead of host CLR reflection. Source and reference-only derived attributes now inherit
+  target restrictions and AllowMultiple correctly; a direct usage declaration
+  replaces the base contract and retains defaults for omitted settings. Compare
+  union marker metadata names directly to avoid recursive attribute-type display.
+
+- **2026-09-30:** Unify backend type resolution around explicit usage and Unit
+  policy. Honor CustomAttribute requests and preserve method-body Unit when void
+  conversion is disabled; keep nested Unit as a value type. Route specialized
+  attribute/method-body callers through the resolver and add regression coverage.
+
+- **2026-09-30:** Route field emission through the per-emission runtime symbol
+  resolver alongside methods and constructors. Remove the field codegen extension
+  from semantic symbols, preserve tuple/metadata-proxy dispatch, and extend runtime
+  coverage with named generic tuple field access across repeated emissions.
+
+- **2026-09-30:** Move constructed generic method reflection resolution into
+  .NET codegen. Semantic method symbols retain type substitutions; signature
+  matching and async/closure runtime mapping use per-emission services. Extend
+  repeated-emission coverage with source and imported generic method calls.
+
+- **2026-09-30:** Move substituted constructor, method and field reflection
+  resolution into .NET codegen. Remove reflection/codegen dependencies from the
+  constructed-type symbol file while retaining lookup order and per-emission
+  caches. Extend repeated-emission coverage with generic field reads and writes.
+
+- **2026-09-30:** Move constructed generic reflection-type resolution and async
+  parameter mapping from semantic type symbols into the .NET codegen layer.
+  Preserve per-emission builder/cache ownership and add repeated-emission runtime
+  coverage for imported containers of source generic types.
+
+- **2026-09-30:** Inject .NET host services directly into metadata import and
+  supply session setup with explicit references and import options. Remove unused
+  host-registration forwarding APIs from shared Compilation; preserve reference
+  isolation and add coverage for host paths under both import modes.
+
+- **2026-09-30:** Move metadata-session and core-assembly state into the .NET
+  target. Compilation retains snapshot compatibility checks and forwards existing
+  core APIs. Bind target validation and emission to their owning compilation;
+  preserve shared-session reuse with separate symbol caches and host services.
+
+- **2026-09-30:** Give each .NET target one lazy reflection-to-symbol projector
+  and inject it into metadata import. Preserve pre-setup reflection queries and
+  snapshot-owned symbol caches; concurrent projector requests share one instance.
+  Add cold-query, imported-member identity and shared-session snapshot coverage.
+
+- **2026-09-30:** Move .NET host assembly loading, runtime type lookup, emit-core
+  discovery and assembly/path caches into a per-compilation host service owned
+  by the .NET target. Preserve process-wide cache sharing and lookup policies;
+  verify local path precedence, loaded-assembly reuse and metadata-to-host type
+  mapping alongside explicit-reference isolation and snapshot reuse coverage.
+
+- **2026-09-30:** Extract .NET host reference-to-runtime path lookup from shared
+  compilation into the .NET target's path resolver. Preserve NuGet, SDK-pack and
+  shared-framework fallback policies, and add deterministic filesystem coverage.
+  Explicit semantic reference sets and public APIs are unchanged.
+
+- **2026-09-30:** Move resolved unit/typeof contract validation into the .NET
+  runtime contract and emitted core selection into the .NET target. Shared
+  compilation retains semantic lookup and diagnostic reporting. Preserve provider
+  rules and core-selection behavior; extend inaccessible typeof-provider coverage
+  to verify emission is rejected before output is written.
+
+- **2026-09-30:** Validate target-core selection, unit-contract configuration and
+  required typeof contract names before loading metadata during diagnostic
+  collection or emission. Configuration contradictions report RAVT003 before
+  missing-core errors, without writing output; symbol-shape validation remains
+  after loading.
+
+- **2026-09-30:** Report missing or unloadable metadata cores as RAVT004 from
+  compilation diagnostic collection and emission. Stop before output writes,
+  preserve failed-snapshot isolation, and keep syntax-only diagnostics available
+  without target setup. Direct semantic queries still require a valid target;
+  unrelated compiler failures are not converted into configuration diagnostics.
+
+- **2026-09-30:** Add `CompilationOptions.DotNet` for explicitly supplied .NET
+  references. Discover the reference core for binding and emission without adding
+  host framework definitions. Diagnose conflicting explicit emission identities;
+  preserve named-core import and legacy host-assisted constructors. Document the
+  planned TargetPlatform, LangVersion, Contract and Features API.
+
+- **2026-09-30:** Compose the existing .NET semantic-data loader, runtime contract,
+  and code generator through one internal target. Move special-type names and
+  tuple-family mapping into the contract while retaining shared symbol lookup,
+  existing target policies, and pre-emit diagnostics. Target replacement remains
+  incomplete; no new platform or public selection API is introduced.
+
+- **2026-09-30:** Move .NET reference-path selection and metadata core discovery
+  into the semantic-data loader. Compilation retains session-reuse decisions;
+  explicit-only imports and host-assisted lookup retain their policies. Add .NET
+  10/11 reference-core precedence tests after host fallback paths are populated.
+
+- **2026-09-30:** Route reference import through a semantic-data loader interface.
+  The .NET implementation owns PE assembly/module symbol construction, dependency
+  loading, and per-compilation import caches. Preserve shared metadata-session
+  lifetime while testing that imported symbols remain snapshot-owned. Target
+  selection remains .NET-only; neoCLR loading/codegen is future work.
+
+- **2026-09-30:** Compose namespace extension discovery through a lookup
+  capability instead of concrete PE namespace checks, including merged source
+  and imported namespaces. Test non-PE providers, deduplication, and provider
+  order. Record target ownership of metadata and emission and Raven-specific
+  semantic/API design in ADR-0003.
+
+- **2026-09-30:** Route shared imported-assembly discovery through an internal
+  symbol contract implemented by the existing .NET PE symbols. Preserve simple
+  name/arity lookup, source precedence, and extension conversion discovery while
+  keeping reflection indexes private. Public compiler APIs are unchanged.
+
+- **2026-09-30:** Separate immutable .NET metadata reference-set construction
+  from host assembly-path registration. Metadata sessions and resolvers no longer
+  accept registration callbacks; compilation setup preserves the existing host
+  registration order and metadata lookup precedence. Add coverage for reference
+  set reuse and ordered candidates. Public target options are unchanged.
+
+- **2026-09-30:** Move .NET metadata-context ownership and path/identity loading
+  into an internal metadata session shared by compatible compilation snapshots.
+  Preserve reference policy, per-snapshot symbol/cache ownership, and existing
+  context lifetime. Strengthen coverage of metadata queries after prior-snapshot
+  collection and reference replacement without mutating earlier symbol results.
+
+- **2026-09-30:** Extract .NET metadata-context construction, reference resolution,
+  and assembly identity reading into an internal .NET component as the first
+  target-boundary prototype. Preserve public APIs, reference fallback policy,
+  incremental context lifetime, and runtime contracts. Add coverage for import
+  mode and reference-set transitions between compilation snapshots.
+
+- **2026-09-30:** Document the independent neoCLR main backport of callback function
+  syntax and OfType, preserving its existing nominal delegate metadata, runtime
+  representation and introspection contracts. This target-library backport does
+  not change general Raven CLI emission or Runtime Contract configuration.
+
+- **2026-09-29:** Record isolated neoCLR instance Function target preservation and
+  absent adapter declaration metadata, plus structural-family reference browsing
+  through RavenDoc's existing authored-page navigation. No general CLI emission
+  or publisher change is introduced.
+
+- **2026-09-28:** Document the isolated neoCLR Function migration and nominal type
+  descriptor split. Document transitional Function: MethodInfo target inspection,
+  qualified target ToString, Function-specific Object inheritance and value/reference
+  equality, with target reference/import changes and the shared interface deferred.
+  Runtime typeof configuration stays unchanged; updated references
+  expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. The follow-up adds
+  FunctionTypeInfo.Parameters/ReturnType/InvokeMethod, IsFunctionType, GetMethods
+  discovery of synthesized Invoke, optional declaration metadata and lazy OfType
+  filtering. Record target consumer
+  evidence, structural member/documentation direction and a deferred source-order
+  getter-emission candidate. Callable import now uses structural Function shapes. On the isolated neoCLR target, unit-returning
+  function syntax now selects inhabited Func transport so it agrees with generic
+  unit-result functions. Other targets retain Action selection; 65 focused tests
+  pass. No new syntax or Runtime Contract setting is introduced. Record completed
+  native delegate removal, structural comparer adapters and bounded Object/member
+  introspection limitations in the integration guide.
+
+- **2026-09-30:** Validate generic argument constraints in storage annotations,
+  including nested generic arguments, array elements, nullable/byref element
+  types, and containing types. Invalid annotations report the existing constraint
+  diagnostic instead of reaching emission. This is an independent compiler fix;
+  experimental union/intersection syntax and runtime policies are not included.
+
+- **2026-09-28:** Bind function type arguments in generic construction and
+  invocation expressions. Constructors such as `List<() -> ()>()` now initialize
+  their values instead of silently emitting no operation. Invalid signature
+  types report diagnostics; ordinary .NET constructor and runtime tests cover
+  this independently of target-specific transport policies. Record the standalone
+  main-based fix, its independent main integration and isolated neoCLR integration
+  in the compiler integration guide.
+
+- **2026-09-28:** Keep newline-separated match arms distinct when an identifier
+  result is followed by a union-case pattern. Nominal lambda lookahead respects
+  newlines in trailing token trivia.
+
+- **2026-09-28:** Support explicit property parameter deconstruction such as
+  `{ x: let horizontal, y: let vertical }: Point` in named functions and
+  parenthesized lambdas. Read listed members once, preserve nested coverage
+  diagnostics, and render source/imported property patterns on one signature
+  line. This slice does not introduce `{ x, y }` shorthand.
+
+- **2026-09-28:** Support nominal parameter deconstruction on named functions and
+  lambdas, including `rows.Select(Row(let value) => value)`. Reuse `Deconstruct`
+  binding and extraction, preserve imported pattern display, and reject nullable,
+  narrowing, and refutable nested inputs. Unsupported extraction forms receive
+  a context diagnostic instead of reaching emission.
+
+- **2026-09-28:** Preserve parameter patterns in `PatternParameterAttribute` and
+  expose source/imported binding structure through `IParameterSymbol.BindingPattern`.
+  Show patterns in shared symbol display and editor signature help, retain them
+  through generic substitution, and suppress generated argument-name inlays.
+  Unknown or malformed metadata falls back to ordinary parameter presentation.
+
+- **2026-09-28:** Support irrefutable tuple/sequence parameters on named functions
+  and methods with bodies. Bind extracted names as locals while retaining one
+  generated incoming parameter. Cover block/expression bodies, captured bindings,
+  and cold declaration queries; reject duplicate bindings and unsupported
+  by-reference/bodyless contexts. Validated on modern .NET only.
+
+- **2026-09-28:** Reject refutable function-expression parameter patterns with
+  `RAV1618`, including nested patterns. Preserve fixed-length array destructuring,
+  rest-only sequence binding, and total tuple/record deconstruction. Existing
+  length-constrained parameter patterns on arrays of unknown length must move
+  conditional extraction into the body. The incoming ABI parameter list is unchanged.
+
+- **2026-09-28 (neoCLR experiment):** Target core NeoCLR.CoreProbe selects
+  System.Tuple for tuple syntax and special-type resolution; ordinary .NET targets
+  retain System.ValueTuple. The initial reference/runtime family supports one through
+  seven components; unit remains System.Void. Restore the existing main-branch
+  void-pointer projection from adaaa3db2 while retaining target nominal Void generics.
+  Requires matching neoCLR reference/importer/library artifacts; not a main-branch
+  naming policy or a full ValueTuple API implementation.
+
+- **2026-09-28:** Preserve underlying generic tuple identities during target metadata
+  emission, including nested tuple fields and constructor references. Emit tuple
+  construction through its ordinary value-type constructor; avoid constructing a
+  generic factory from a metadata proxy. Ordinary .NET ValueTuple tests cover this
+  independently of target-specific naming policies.
+
+- **2026-09-27:** Report an error when string interpolation cannot find a usable String.Concat
+  overload in the selected reference library, instead of silently dropping the
+  expression. Existing successful .NET interpolation behavior is unchanged.
+
+- **2026-09-27:** Exclude conventional target/artifacts build outputs from automatic
+  language-server solution/project discovery and watched-file reloads, including
+  nested restore assets. Preserve source project restore notifications and explicit
+  references. Generated solutions no longer displace the source workspace group.
+
+- **2026-09-27:** Sort language-server completions alphabetically by display name
+  across item kinds, including namespaces, instead of ranking each kind separately.
+
+- **2026-09-27:** Keep generic extension-container parameters out of nested
+  closure runtime identities. Extension parameters belong to emitted methods;
+  closures already carry the corresponding aliases. Fix the SDK bootstrap's
+  Raven.Core WithContext failure while retaining generic async owner support.
+
+- **2026-09-27:** Preserve enclosing generic arguments in async state-machine
+  locals and generic await-registration signatures, including nongeneric methods
+  on generic classes and nested generic owners. Redirect implicit field writes
+  after await through the original receiver. Focused ordinary .NET execution
+  covers captures, explicit/implicit field receivers and nested generic types.
+  No Runtime Contract options or source syntax change.
+
+- **2026-09-27:** Omit receiver-bound generic parameters from compact extension
+  member labels on receiver pages, retaining parameters chosen by the caller.
+  Substitute receiver arguments throughout partially inferred method labels.
+  Extension-container declarations retain their generic parameter lists.
+
+- **2026-09-27:** Select only the current API navigation entry, rather than every
+  namespace function sharing its directory. Keep the containing type highlighted
+  on member pages without a dedicated navigation entry.
+
+- **2026-09-27:** Resolve applicable extensions for open generic API types using
+  their type parameters. Keep extension-container declarations visible regardless
+  of the reader filter, exclude ordinary operators from extension listings, and
+  omit inherited instance members from static classes.
+
+- **2026-09-27:** Lay out inherited/extension member toggles side by side when
+  space permits, wrapping naturally on narrow screens beneath the grouping control.
+  Encode grouping and both filters in shareable URLs; valid URL choices override
+  saved preferences, preserving other parameters and fragments.
+
+- **2026-09-27:** Admit constructed source generic types inside imported target
+  metadata signatures, including `TaskCompletionSource<Holder<string>>` locals.
+  Recognize emitted generic definitions as well as their arguments before using a
+  persisted signature; normal CLR emission remains unchanged. Focused ordinary
+  .NET execution validates both default and target-metadata modes.
+
+- **2026-09-27:** Correct generic parameter ownership for shared captures in async
+  methods: display-class fields and state-machine closure references now use their
+  owning type's parameters. Scalar and array captures execute with value and reference
+  substitutions on ordinary .NET. Generic containing-type async state-machine arity
+  remains a separately reproduced limitation; no Runtime Contract option changes.
+
+- **2026-09-27:** Escape XML documentation prose when converting it into
+  RavenDoc Markdown, keeping generic names and literal ampersands visible instead
+  of treating them as HTML. Markdown-authored content keeps its existing behavior.
+
+- **2026-09-27:** Add a persisted Show extension members reader toggle when a
+  type has applicable extensions. Filter extensions independently of inherited
+  members in both grouping modes, updating counts and the page outline.
+
+- **2026-09-27:** Add linked derived-type, derived-interface and implementing-type
+  sections to RavenDoc pages, including marked indirect relationships. Index only
+  documented types, respecting selections and exclusions; match generic contracts
+  by their original definitions for source and imported metadata. Label interface
+  base contracts as inherited rather than implemented.
+
+- **2026-09-27:** On the neoCLR target, discard imported generic results whose
+  type is the configured unit representation exactly once. Direct completion-only
+  awaits no longer leave an inhabited System.Void on the evaluation stack.
+  Preserve CLI no-result returns and existing Runtime Contract configuration;
+  this target integration remains on the experimental branch.
+
+- **2026-09-27:** Infer unannotated synchronous block-lambda results independently
+  of an initial completion-only delegate hint when other overloads can return a
+  value. Preserve parameter inference. Task.Run value callbacks work with explicit
+  or inferred type arguments; a unique Action target still rejects explicit value
+  returns. Runtime Contract options are unchanged.
+
+- **2026-09-27:** Resolve simple imported type receivers independently of metadata
+  order: select the nongeneric member of a same-scope type family for calls such
+  as Task.Run, preserving explicit generic annotations, aliases and local/parameter
+  shadowing. No Runtime Contract setting or emitted metadata contract changes.
+
+- **2026-09-27:** Share captured locals between state-machine async methods and
+  their callbacks across suspension and completion. The state machine retains one
+  closure per invocation instead of copying values into separate callback storage.
+  Runtime Contract configuration is unchanged. Generic-method closure metadata
+  remains a separately tracked pre-existing limitation.
+
+- **2026-09-27:** Use a compact documentation type scale: 15px equivalent prose
+  and member labels, 13px code blocks/signatures, and restrained headings. Sizes
+  use relative units and overridable CSS variables; syntax highlighting and browser
+  text scaling remain intact. Wrap long inline code within prose on narrow screens
+  while preserving horizontal scrolling inside code blocks.
+
+- **2026-09-27:** Preserve containing assembly and module identity on synthesized
+  extension-property symbols. Semantic API consumers can identify projected
+  properties by their declaring assembly for source and imported CLI metadata.
+  Correct imported method override flags using CLI slot reuse, excluding
+  constructors and new-slot interface implementations. Runtime Contract
+  configuration and emitted behavior are unchanged.
+
+- **2026-09-27:** Expand RavenDoc semantic API pages with separate union case pages,
+  companion-member merging, nominal generic/delegate names, namespace-function
+  navigation, independently scrolling sidebars and direct union/enum navigation
+  links. Measure available sidebar height below notices and wrapped headers so
+  the final navigation entries are reachable before scrolling the article. Wrap
+  long declaring-type headings, counts and page-outline links to prevent
+  horizontal page overflow.
+  Show inherited members, interface contracts, closed hierarchies and
+  opt-in semantic extension lookup. Link inline interface origins and distinguish
+  required/default interface bodies from declared, inherited and overridden
+  implementations. Add reader controls for member-kind/declaring-type grouping
+  and inherited-member visibility, keeping static members on their declaring
+  type. Show extensions in the corresponding member
+  groups with an E icon badge and linked origins. Merge separately authored Markdown by exact
+  documentation ID, rejecting duplicate or unmatched content. Demonstrate authored
+  type/member additions in the sample site. No Runtime Contract changes.
+
+- **2026-09-27:** RavenDoc omits namespaces without documented members of their
+  own from API navigation by default, promoting populated descendants without
+  changing page URLs. Enable `showEmptyNamespaces` or `--show-empty-namespaces`
+  to retain namespace grouping rows in hierarchical or flat navigation.
+
+- **2026-09-27:** Preserve authored attributes on union case type symbols and emit
+  them on the corresponding generated nested case types, including generic union
+  companions. Validate case attributes against the case type's AttributeUsage;
+  invalid targets are diagnosed instead of silently omitted. Case attributes are
+  not copied to constructors. Runtime Contract configuration is unchanged.
+
+- **2026-09-27:** Preserve array element types in the target metadata context when
+  emitting constructed generic signatures. Reference-only contracts such as
+  Box<int[]>, Box<string[]> and jagged arrays no longer mix compiler-host and target
+  reflection types. Nullable element annotations remain metadata annotations.
+  Runtime Contract settings and source semantics are unchanged.
+
+- **2026-09-27:** Document the target-only System.Runtime.GC facade, exact scalar/control
+  service bridge, object-count limits and focused neoCLR validation. No compiler or
+  Runtime Contract configuration change.
+
+- **2026-09-27:** On the heap-async target with an explicit target core, recognize
+  target Task entry results and retain the selected Main's metadata signature for
+  target-owned startup adaptation. This includes unit/int/Result task payloads;
+  ordinary CLR targets keep their existing entry bridges. The resulting target
+  images require neoCLR import and are not CLR executables.
+
+- **2026-09-27:** Document neoCLR import of explicit application interface methods,
+  nominal receivers, private metadata and remaining admission limits. Compiler
+  behavior and Runtime Contract configuration are unchanged.
+
+- **2026-09-27:** Document target-only neoCLR constructor/member reflection contracts,
+  params activation, source field admission and static ownership preservation. No
+  Raven compiler behavior or Runtime Contract setting changes.
+
+- **2026-09-27:** Document neoCLR development admission for nominal interface defaults
+  and public/private static helpers, focused consumer evidence and the deferred
+  private-instance-helper metadata candidate. Target documentation only; no compiler
+  behavior or Runtime Contract configuration changes.
+
+- **2026-09-27:** Document development Number static contracts and concrete parsing
+  in the neoCLR reference surface, the independently integrated general compiler
+  prerequisites and bounded target numeric specialization. No Runtime Contract
+  configuration change; broad static/default/interface accessibility remains
+  separate from this first consumer's admission limits.
+
+- **2026-09-27:** Document neoCLR's Unicode casing and Int64 parsing/formatting
+  reference additions, standard error union, bounds properties and archived-profile
+  boundary. Target integration only; no compiler behavior or Runtime Contract
+  configuration changes. Record focused consumer and exact signature validation.
+
+- **2026-09-27:** Document neoCLR's development Encoding/Decoder/Encoder reference
+  surface, selected stream constructors, standard state/error unions and explicit
+  StreamWriter.Finish. Custom encodings need CreateEncoder. Target integration only:
+  no compiler behavior or Runtime Contract configuration changes. Focused neoCLR
+  consumers verify built-in/custom codecs, progress, ownership, finalization and
+  the maximum writer bound.
+
+- **2026-09-27:** Make bodyless authored interface static functions and getters
+  abstract in source semantics, admit interface operator requirements, and resolve
+  constrained operators through static abstract constraints. Emit general constrained
+  static calls and property reads instead of special-casing `IParsable.Parse`.
+  Include inherited instance and static abstract interface members in constrained
+  type-parameter lookup, so a derived numeric contract retains base capabilities.
+  Classify generic constraint kinds from symbols during emission, avoiding unsupported
+  reflection queries on constructed target-metadata signature types.
+  Executable tests cover custom methods, getters and unary/binary operators plus
+  rejected mismatched implementations. Runtime Contract configuration is unchanged;
+  target runtimes still need static abstract dispatch support.
+
+- **2026-09-27:** Emit nongeneric companion cases from generic union consumers
+  without attempting to construct a generic metadata type. Matching an imported
+  empty case works in ordinary and target-metadata emission; no Runtime Contract
+  option or union metadata convention changes.
+
+- **2026-09-27:** Fix neoCLR terminal-fault flow analysis losing diagnostics from
+  ordinary calls. Read contextually bound trailing expressions from their statement
+  instead of recursively binding during flow analysis. Missing names and invalid
+  invocations reject compilation again; cold Fault control-flow queries remain
+  terminal. No Runtime Contract configuration or emitted metadata changes.
+
+### Breaking changes
+
+- Compiler API consumers must rebuild for the target-boundary changes documented above.
+
+## 0.1.13 - 2026-09-27
+
+### Breaking changes
+
+- Standalone postfix propagation now surrounds the complete `await` or `try`
+  expression: `await operation?` means `(await operation)?`, and `try operation?`
+  means `(try operation)?`. Use `await (operation?)` or `try (operation?)` when
+  propagation must occur inside the operand.
+
+### Changes
+
+- **2026-09-27:** Include namespaces in expression completion and retain separate
+  generic arities for type and function suggestions, with type parameters in
+  their labels. Resolve imported member-union pattern heads to their constructed
+  variant types for semantic queries and hover.
+
+- **2026-09-26:** Preserve generic method-group arguments supplied by an enclosing
+  method when converting to delegates or passing higher-order arguments. Such
+  arguments are fixed context, not unresolved inference slots. Fix rejected typed
+  delegates and direct higher-order calls that previously emitted default returns
+  without diagnostics. Uninferred methods remain invalid. No Runtime Contract
+  setting or metadata convention changes.
+
+- **2026-09-26:** Distinguish member overloads by generic arity when checking
+  duplicate declarations, reusing/filtering signature skeletons and looking up
+  members. Ordinary and generic methods with identical value parameters can coexist in either declaration order;
+  same-arity duplicates still report RAV0111. Explicit type arguments no longer
+  select a nongeneric overload when another candidate accepts partial type arguments.
+  No Runtime Contract setting changed.
+
+- **2026-09-25:** Document neoCLR's EquatableTo/ComparableTo interface renames and
+  explicit ConvertibleInto contract, target record configuration, artifact migration
+  and focused validation. Record the pre-existing generated-record assignment
+  limitation; no compiler code or default .NET interface behavior changes.
+
+- **2026-09-25:** Document neoCLR JsonValue slice configuration for the existing
+  RuntimeTypeOfContract and its instance-library closure limitation. No compiler
+  code, metadata convention or neoCLR-specific main-branch policy is changed.
+
+- **2026-09-25:** Document neoCLR's public reflection extensions, original source
+  access admission, application property projection and terminal Fault import.
+  Record focused consumer/GC validation and remaining bridge limitations; no new
+  compiler Runtime Contract setting or neoCLR policy integration into main.
+
+- **2026-09-25:** Document checked deferred neoCLR storage for hoisted Result fields
+  in reference async states; bridge/runtime change only, no compiler or Runtime
+  Contract setting change. Record pending-await/GC validation and remaining limits.
+
+- **2026-09-25:** Document neoCLR Console object fallback and unboxed scalar
+  overload integration; no Raven compiler or Runtime Contract configuration change.
+
+- **2026-09-25:** Document neoCLR bridge Main(string[]) argument injection, excluding
+  the executable through a managed startup adapter; no Raven compiler or Runtime
+  Contract change. Focused argument/GC and signature checks pass.
+
+- **2026-09-25:** Treat neoCLR `System.Fault(string)` as a terminal call for
+  unreachable-code, return-path and out-parameter analysis; recognize terminal
+  statements during lowering/emission while retaining the runtime invocation.
+
+- **2026-09-25:** Document the neoCLR public JSON DOM closed hierarchy, kind-specific
+  APIs and standard JsonError union projection; no compiler or Runtime Contract change.
+  Document neoCLR MemoryStream/JSON DOM I/O integration and frozen-parser
+  range-expression limitation; no compiler or Runtime Contract change. Document neoCLR HTTP context/configured-response lifecycle integration,
+  Disposable mapping and deferred frozen-toolchain capture/discarded-unit propagation issues.
+  No compiler semantics change. Document neoCLR HEAD and bounded HTTP response-framing integration,
+  private bridge conversion/import limits and focused peer validation; no compiler
+  or Runtime Contract changes. Document neoCLR Put/Patch/Delete overload and factory integration
+  through existing Task/Result contracts; no compiler policy change. Document neoCLR WithHeader construction and wire validation through
+  existing Result/reference mappings; no compiler policy change. Document neoCLR header lookup generic signatures and internal helper
+  admission, with no compiler policy change. Document buffered neoCLR POST signature/internal-helper admission and
+  async propagation sample validation; no compiler or Runtime Contract changes. Document neoCLR HttpStatusCode enum and enum-payload integration,
+  typed response signatures and optional property-pattern syntax; no compiler policy
+  changes. Record neoCLR final-status API projection and executed propagated
+  extension/Object error conversions, with deferred fixture emission observations;
+  no compiler semantics or Runtime Contract changes. Document neoCLR's remaining empty-case error union migrations,
+  EntryKind enum conversion, resolved isinst case-type flags, inactive defaults and
+  concrete generic/payload projection limits. No compiler emission policy or Runtime
+  Contract setting changes. Record System.Enum TypeInfo/generic helper target integration, typed snapshots,
+  enum formatting and the bounded metadata/collection admission changes. Record
+  nongeneric sequential payload-union library projection, preserved private-call
+  access during argument conversion, GC/rejection checks and remaining generic
+  and overlapping-layout limits. Follow with public HttpError target integration,
+  source-projected case consumer binding and constructor instruction preservation.
+  Record async-local/interpolation observations as unresolved compiler candidates;
+  no Raven compiler policy or Runtime Contract setting changes. Record the closed
+  address hierarchy probe and its target bridge allowance for protected direct-base
+  constructor calls; private and unrelated calls remain outside that allowance.
+  Follow with public address-family projection, typed DNS/Socket integration and
+  the Result<byte[], string> target observation; no compiler fix or configuration
+  change is claimed. Record cancellation source/token/registration
+  integration, exact source-reference token layout, captured receiver admission,
+  private-helper guards and GC evidence. Record the nested callback/outer-array
+  emission observation for independent reduction; compiler policy remains unchanged.
+  Record HttpClient optional-string BaseUri and string/Uri Get signature integration,
+  handler/GC/interoperability evidence and unchanged compiler/Runtime Contract policy.
+  Record bootstrap-only DNS/socket cancellation hooks, native ownership checks and
+  subsequent managed DNS/socket token overloads and exact access/signature checks.
+  Record deferred generic-helper, async and nested-capture fixture observations for
+  independent reduction; compiler policy remains unchanged.
+  Record subsequent token-aware HTTP handler signatures and GetString integration,
+  migrated async handlers, cancellation/GC/interoperability evidence and unchanged
+  Runtime Contract configuration. Custom handlers must rebuild with the token parameter.
+
+
+- **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
+  correction and remaining async result/assignment/hoisted-local compiler observations. Runtime Contract and
+  compiler emission are unchanged; no general compiler fix claimed. Extend the
+  companion notes for HttpServer and received request headers, matching artifacts
+  and independent client/GC validation. Document the shared HTTP deadline bridge,
+  bootstrap-only cross-slice access, private service ABI and application visibility
+  checks; compiler emission and public API signatures remain unchanged. Document the
+  managed Uri/UriError reference catalogs, Object/interface/collection conversions
+  and URI comparison probe; this addition requires matching neoCLR artifacts but no
+  Raven compiler or Runtime Contract changes. Record the standard-syntax HTTP-error
+  union investigation and follow-up bridge support for constructor initialization and
+  conditional case outputs. The reduced nested-union application executes with GC
+  checks, including empty-case-only explicit layouts and a separately compiled
+  dependency. Nonempty explicit layouts remain rejected; legacy erased-carrier
+  nesting and public runtime-library migration remain open. Document the bounded
+  empty-case bootstrap path, matched reference contracts, checked constructor lowering
+  and helper-name encoding, with execution and five reference rejection checks. No Raven
+  compiler fix or Runtime Contract change is claimed. Record bootstrap case-metadata
+  preservation, separate reference-consumer compilation and generic companion metadata
+  checks. Raven conventions stay at the development bridge boundary; no neoCLR runtime
+  dependency or platform case-map standard is introduced. Document shared core-owned
+  IUnion import and ordinary interface dispatch, retaining the source-owned bootstrap
+  path; production packaging remains pending. Record the reusable in-place empty-case
+  union reference projector and SocketError consumer/reprojection/native-import checks;
+  subsequently migrate public SocketError through embedded-source reference generation,
+  conditional case binding and ordinary IUnion support. Remove its Is*/Get* helpers;
+  matching artifacts must be rebuilt. Nested source-union/GC, TCP/listener and selected
+  HTTP checks pass. Extend embedded-source projection to DnsError and UriError,
+  reusing the supplied core protocol sequentially; document the remaining
+  payload-bearing explicit-layout boundary. No compiler policy or Runtime Contract
+  option changes.
+- **2026-09-25:** Preserve the target metadata identity of annotated reference-type
+  generic arguments during emission, including extension signatures such as
+  `List<object?>`. This avoids mixing compiler-host and target reflection types.
+  Nullable value-type projection and public Runtime Contract settings are unchanged.
+
+- **2026-09-24:** Generate member parameter and property/return/field/event value
+  sections from symbols, including undocumented members, with links to local types
+  and generic arguments. Merge authored descriptions into that structure and label
+  the owning type as Declaring type. Keep each overload contract within its section.
+- **2026-09-24:** Document neoCLR Socket.Connect address-sequence overload and private
+  fallback service, matching target artifacts and unchanged Runtime Contract,
+  compiler semantics and generated state machines. No general compiler fix claimed.
+- **2026-09-24:** Document neoCLR Socket Listen/Accept/GetLocalPort integration,
+  expanded socket error cases and a verified two-process echo. Compiler semantics
+  and Runtime Contract settings remain unchanged; matching target artifacts required.
+- **2026-09-24:** Document neoCLR Dns Task/Result/Sequence integration and verified
+  localhost TCP echo, with matching target artifacts and unchanged Runtime Contract.
+  Record generic-array MetadataLoadContext and nested callback capture failures as
+  deferred independent-reproduction candidates; no general compiler fix is claimed.
+- **2026-09-24:** Document the neoCLR target TCP client Task/Result integration,
+  private completion types and matching artifact requirements. Compiler semantics,
+  state-machine emission and Runtime Contract configuration are unchanged. Record
+  direct error-case testing and hoisted non-defaultable Result limitations exposed
+  by the locally verified socket demo, including collection during pending connect
+  and receive; no general compiler fix is claimed. Extend target integration
+  evidence to Socket.Send snapshots and a bidirectional echo (30 collections,
+  zero retained objects), private transfer-service renaming, and use of the
+  existing unparenthesized await propagation fix with a matching compiler.
+- **2026-09-24:** Document neoCLR String.Intern target metadata and exact importer
+  binding to execution-owned runtime pools. Literal emission and Runtime Contract
+  configuration remain unchanged; rebuild matching target metadata and runtime.
+  Align String parameter names with their roles; named callers must replace
+  value0/value1, while positional signatures remain compatible.
+- **2026-09-24:** Document neoCLR target String sequence construction and explicit
+  Collection.Count integration, with unchanged compiler/Runtime Contract settings.
+  Record the direct empty-collection emission limitation and typed-array workaround;
+  Iterable construction remains a future option, not an implemented overload.
+- **2026-09-23:** Match an explicitly configured unit value with its selected
+  imported type during symbol equality and hashing, including generic interface
+  return types. Preserve source unit semantics and no-result return emission;
+  unconfigured unit and unrelated/source-shadowing types remain distinct. Validate
+  ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
+
+
+- **2026-09-24:** Add optional `googleAnalyticsId` site configuration to include
+  the Google tag on authored and generated API pages. Analytics remains disabled
+  by default; reject invalid GA4 measurement IDs.
+
+- **2026-09-24:** Render namespaces consistently as expandable API Browser groups,
+  including those with only an overview in flat mode. Use declared built-in type
+  names such as Object, String and Char in navigation and page headings; retain
+  Raven aliases in declaration and member signatures.
+
+- **2026-09-24:** Add RavenDoc `namespaceNavigation: flat` and CLI
+  `--namespace-navigation flat` for alphabetically ordered peer namespaces in the
+  API Browser. Keep hierarchical navigation as the default, preserve type/case
+  grouping and page URLs, and demonstrate the option in the sample site.
+
+- **2026-09-24:** Add persistent System/Light/Dark controls to RavenDoc, apply the
+  selected theme before rendering, follow live system changes and share the Raven
+  website's dark syntax palette. Fix active sidebar and filter colors in dark mode.
+  Expand the sample doc site to demonstrate shared navigation, page metadata,
+  highlighted snippets, favicon and themes alongside generated APIs.
+
+- **2026-09-24:** Allow a site-configured favicon on authored and generated API
+  pages, resolving the icon relative to the site root. Correct the class mapping
+  in section navigation so sidebar classes also use the C icon.
+
+- **2026-09-24:** Share the Raven website's Highlight.js grammar and syntax colors
+  with RavenDoc, replacing its separate reduced lexer. Publish the pinned engine
+  and license as local assets for highlighted examples and API declarations
+  without a CDN dependency. Preserve union constructor xrefs on grouped case pages.
+
+- **2026-09-24:** Recognize explicitly attributed CLI custom unions with nested
+  cases, case constructors and paired `IsCase`/`GetCase` accessors, even without
+  a boxed `Value` property. Import them as `IUnionSymbol` so RavenDoc renders union
+  signatures, U icons and grouped cases. Unmarked and malformed carriers remain
+  ordinary types. This adds metadata recognition, not a new extraction ABI.
+  Keep same-named namespace types visible beside union cases, retain case
+  constructor links, and identify classes with C icons in RavenDoc. Union carrier
+  constructor xrefs also resolve to the union page where their cases are rendered.
+
+- **2026-09-24:** Extend RavenDoc with separate nested main menus, section side
+  navigation compiled from local `toc.yml` files, and independent page outlines.
+  Share authored and generated API navigation through one model and responsive
+  API Browser, with expandable groups, filtering, current-location highlighting,
+  and a mobile off-canvas drawer. Add Markdown/HTML front matter for title, landing
+  layout and outline visibility, configurable availability notices, API selection
+  and route-map export. API lists now default to name-first compact signatures;
+  full declarations remain opt-in in lists and always appear on detail pages.
+  Distinguish interfaces, enums, unions, delegates, structs and static members through icons. Existing root TOCs,
+  branding and source-link relocation remain supported.
+
+- **2026-09-24:** RavenDoc can build complete documentation sites from a JSON
+  configuration with custom Markdown pages, DocFX-style `toc.yml` menus, a generated
+  API-reference section, project branding and copied assets. Authored links follow
+  relocated pages and API xrefs; navigation preserves Raven union case grouping.
+  Namespace navigation and local symbol links exclude dependency-owned and empty
+  compiler-only namespaces rather than pointing to pages that are not published.
+
+- **2026-09-24:** Parse standalone postfix propagation around complete `await`
+  and `try` expressions: `await Foo()?` means `(await Foo())?`, and `try Foo()?`
+  means `(try Foo())?`. Explicit operand parentheses retain inner propagation;
+  conditional access and one-carrier-per-`?` behavior are unchanged.
+
+- **2026-09-24:** Add AllowNullableValueTypes (default true), the
+  RavenAllowNullableValueTypes project property and --no-nullable-value-types /
+  --nullable-value-types compiler switches. Opting out rejects nullable value type
+  declarations with RAV0407 while retaining nullable reference annotations.
+  Preserve the option through project loading/saving and editor invalidation.
+
+- **2026-09-24:** Preserve the inherited Object.Equals parameter's nullable reference
+  annotation when synthesizing record equality. Body selection recognizes the
+  annotated Object type; emitted metadata and imported symbols retain its contract.
+  Generated typed record-class Equals now accepts a nullable record reference;
+  record-struct parameters remain values and explicit Equals declarations are kept.
+  Match top-level nullable reference annotations when emitting interface methods,
+  preserving dispatch without erasing nullable value wrappers. No new Runtime
+  Contract option or nullable-value behavior changes. Generated class comparison
+  operators also accept nullable record references, preserving explicit operators;
+  internal equality null guards use reference identity to avoid operator recursion.
+
+- **2026-09-23:** Match an explicitly configured unit value with its selected
+  imported type during symbol equality and hashing, including generic interface
+  return types. Preserve source unit semantics and no-result return emission;
+  unconfigured unit and unrelated/source-shadowing types remain distinct. Validate
+  ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
+
+- **2026-09-23:** Compare and hash array symbols by element type, rank and fixed
+  length rather than their construction namespace/container. Imported CLI array
+  parameters now match source-declared interface implementations and emit working
+  interface dispatch. Runtime Contract configuration is unchanged; regression
+  coverage uses ordinary .NET metadata, without neoCLR-specific declarations.
+
+- **2026-09-23:** Initialize propagation temporaries at their declaration when no
+  exception-conversion boundary is needed. Avoid hoisting an uninitialized carrier
+  for `(await operation)?`; preserve protected exception conversion and precedence.
+
+- **2026-09-23:** Add explicit provisional async cancellation propagation on neoclr:
+  RavenPropagateAsyncCancellation / WithAsyncCancellationPropagation selects
+  IsCancelled and SetCancelled, cancelling on immediate/resumed await without
+  consuming a payload. Preserve .NET defaults and ordinary Result propagation.
+  Diagnose missing members and await in for loops pending suspension-aware iterator
+  cleanup. Project evaluation and incremental options retain the selection.
+
+- **2026-09-21:** Expose the provisional heap-state and exception-capture policies
+  through RavenHeapAsyncStateMachines and RavenCaptureAsyncExceptions project
+  properties on neoclr. CLI and editor project evaluation now share the selected
+  policy; omitted properties preserve the .NET defaults.
+
+- **2026-09-21:** Complete the provisional neoCLR builder integration: resolve
+  System.Tasks.Task<T> and target builder metadata, admit by-value reference
+  protocols and initialize captured parameters in heap-state constructors.
+  Awaitless heap async methods also use the builder. Default .NET behavior stays
+  covered by 38 focused checks; neoCLR executes ten async source scenarios.
+
+- **2026-09-19:** Add an opt-in, provisional heap async state-machine policy on the
+  neoCLR integration branch. Reference states are constructed and retained across
+  pending awaits; default .NET state machines remain value types. Validate both
+  policies with two awaits and forced GC on .NET. This does not yet establish
+  generated async execution on neoCLR.
+
+- **2026-09-19:** Preserve struct-field storage when invoking through a class local,
+  parameter or nested reference owner. Field-address emission now loads reference
+  owners instead of addressing their reference slots. This is a general CLI
+  emission correction; Runtime Contracts and source semantics are unchanged.
+
+- **2026-09-19:** Preserve generic unit payloads in async `Task<unit>` and
+  `ValueTask<unit>` returns. Explicit `return ()`, pending completion and awaitless
+  completion now use the generic result path; expression-bodied async methods
+  receive async lowering. Nongeneric Task return diagnostics remain unchanged.
+  This is a general .NET compiler fix with no target-specific policy changes.
+
+- **2026-09-19:** Add provisional compiler API WithAsyncExceptionCapture(false) on
+  the neoCLR branch. It omits the generated async catch wrapper and SetException
+  lookup without inspecting task payloads; ordinary .NET capture remains the default.
+  Preserve the policy across option copies and invalidate incompatible incremental
+  state. Exercise immediate/pending propagation, early-return side effects and
+  unrelated payloads. Source handlers/disposal, target builders and end-to-end
+  neoCLR async remain separate work; no CLI/project setting or stable ABI is added.
+  Validate 61 focused checks and the 119-test functions/async selection on .NET 11.
+
+- **2026-09-19:** Add the neoCLR-only `RavenGraphemeChar` contract: single-cluster
+  literals bind as Char and emit the target's validated FromString factory;
+  patterns and typed array/byref operations preserve text-valued characters.
+  Numeric Char conversions/arithmetic are rejected. .NET's default Char contract
+  and the previous experimental scalar option remain available and unchanged.
+  Host StringInfo supplies literal diagnostics; the runtime revalidates against
+  its pinned Unicode rules. End-to-end neoCLR execution covers grapheme matching,
+  arrays and iteration, alongside focused compiler diagnostics tests.
+
+- **2026-09-19:** Emit declaration-level expression-bodied indexer getters on classes
+  and structs, instead of throwing during emission. Target Runtime Contracts are
+  unchanged. Ordinary .NET execution and indexer diagnostics/completion tests pass.
+
+- **2026-09-19:** Add the experimental `RavenUnicodeScalarChar` project contract on
+  the neoCLR branch: supplementary literals and patterns, scalar diagnostics,
+  32-bit Char array/indirect operations and runtime-validated numeric storage.
+  Default .NET Char behavior remains unchanged. Rebuild the matching target
+  compiler/reference/runtime together. Focused compiler and neoCLR execution
+  checks cover this policy; wide numeric casts retain ordinary narrowing.
+
+- **2026-09-19:** Document the target-only neoCLR Utf8 Sequence/Result API and
+  String.IsEmpty property migration. Compiler semantics and unit/System.Void
+  Runtime Contract settings are unchanged; rebuild target metadata and runtime.
+
+- **2026-09-19:** Document the neoCLR ExecutingAssembly, Sequence-based assembly/module
+  discovery and module-scoped Info tokens. Runtime Contract configuration and compiler
+  semantics/emission are unchanged; target consumers rebuild. Runnable sample and
+  interface-completion checks pass. Dynamic loading remains future RuntimeContext work.
+  Record a loop/local-name diagnostic as an unvalidated general follow-up. Extend
+  Sequence<T> to every remaining Introspection collection result: use Count and
+  rebuild callers; indexing, iteration and query extensions remain supported.
+  Native arrays remain private, with no additional compiler change. Document
+  TypeInfo as the fourth sealed MemberInfo case, optional DeclaringType, same-file
+  family authoring and preserved nested source ownership. Consumers rebuild and
+  update exhaustive matches and owner access; Runtime Contract settings are unchanged.
+  Record the target importer fix that reserves a zero parameter-token slot for
+  receivers in free-function lowering, restoring value-type constructor admission.
+
+- **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
+  System.Runtime reference mapping. No compiler or Runtime Contract change; public
+  discovery/token APIs remain target work. Eighteen metadata/scope checks pass.
+
+- **2026-09-19:** Document neoCLR's direct TypeInfo acquisition through the existing
+  configured typeof resolver and Object.GetType. No compiler semantic/emission
+  change; target callers rebuild and the internal CLI-only Type shell is hidden.
+  Admission, saved-program execution and language-server acquisition checks pass.
+
+- **2026-09-19:** Document neoCLR's sealed Info interfaces, preserved permitted-type
+  reference metadata and executable public-interface matches. No Raven compiler or
+  Runtime Contract change. Record inaccessible-leaf diagnostic wording as a deferred
+  general improvement; 73 slices regenerate and 12 descriptor admission checks pass.
+
+- **2026-09-19:** Document the neoCLR importer correction preserving nested
+  Option/Result case ownership from emitted CLI metadata. No Raven compiler or
+  Runtime Contract change; 73 source slices regenerate and 12 admission cases pass.
+
+- **2026-09-19:** Finish the neoCLR branch audit: keep the shared explicit-reference
+  policy in the project service, remove its redundant evaluator guard, and retain
+  unit-contract project coverage alongside array-policy tests. All 47 main and 52
+  neoclr project-system checks pass. Rename the integration branch to neoclr and
+  remove the eight integrated temporary fix branches; target policies stay separate.
+
+- **2026-09-19:** Document neoCLR typed error source authoring: checked erased case
+  storage and constructor projection remain target importer policies, with no new
+  Runtime Contract option or compiler semantic change. Record 14 admission checks,
+  25 focused runtime tests and 64 saved-program cases. Document the subsequent
+  checked Propagatable declaration and its unchanged conditional-output ABI
+  (five admission checks). Document Option/Result authoring, checked constructor
+  and conditional-output projection, readonly adapters and invalid defaults;
+  12 admission cases, 41 focused runtime tests and 64 saved-program cases pass.
+  Document descriptor source admission, inherited snapshot layout and the checked
+  vector read view, and NativeMemory intrinsic authoring (five admission checks,
+  28 runtime tests and a saved allocation program). These importer policies
+  introduce no Runtime Contract option. Document the subsequent System.Fault
+  source wrapper and unchanged terminal guest-failure boundary (three admission
+  cases, seven runtime tests and a verified Unicode failure program). Record the
+  Func declaration-family boundary (six admission cases, 28 delegate tests and the
+  Raven delegate sample); runtime invocation remains unchanged. BindingFlags now
+  uses a normal Raven enum declaration with checked target enum lowering (seven
+  admission cases and the flags/filtering sample pass). Record the checked empty
+  Object/UnionAttribute declarations and their unchanged marker ABI (nine admission
+  cases and the saved generic-union program pass). Record managed-array source
+  storage and iteration-signature projection (eight admission checks, 25 runtime
+  tests and four saved array programs pass). Document removal of the obsolete
+  TypeOf<T>.Of target helper in favor of typeof, its rebuild requirement, complete
+  source-body ownership and the deferred Object.GetType preview candidate.
+
+- **2026-09-19:** Deconstruct exact value receivers on a local copy without boxing.
+  This fixes InvalidProgramException for ordinary .NET ref structs and preserves
+  value-copy mutation semantics. All 31 focused deconstruction/ref-field checks
+  pass, including narrowed reference and null inputs. No target policy is added.
+
+- **2026-09-19:** Keep editor metadata references explicit when MetadataImportOptions
+  selects a CLI reference universe. Do not inject host Raven support assemblies.
+  An ordinary .NET reference regression fails before the fix; all 65 workspace
+  integration tests pass on .NET 10. No neoCLR-specific configuration is introduced.
+
+- **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
+  final PE metadata when the host emitter masks reserved bits. An independent .NET
+  PE-metadata regression failed before the correction; all 13 focused enum/target-core
+  checks pass. No Runtime Contract configuration or target-specific policy changes.
+
+- **2026-09-19:** Resolve unqualified generic constructors when the current namespace
+  also contains a nongeneric type of the same name. Preserve all accessible arities
+  during candidate selection; invalid constructor and constructed-alias arities now
+  report RAV0305 instead of silently emitting an error expression. The independent
+  .NET regression returned 0 before and 42 after; 78 focused checks pass. No Runtime
+  Contract option or target-specific policy changes.
+
+- **2026-09-19:** Recognize assignment when a direct call forwards an out parameter
+  to a callee's out parameter. Source generic and ordinary .NET metadata calls now
+  compile and execute; conditional/deferred calls still require assignment on all
+  paths. No Runtime Contract or target-specific rule changes. All 41 focused
+  parameter semantic/runtime checks pass; the forwarding regression failed before.
+
+- **2026-09-19:** Resolve configured unit types from their named reference assembly,
+  so a same-named source type cannot shadow RuntimeUnitContract validation. Preserve
+  ordinary source lookup; cover independent .NET metadata identity and execution.
+  All 19 focused unit/target-core checks pass; the new regression failed before the fix.
+- **2026-09-19:** Document the neoCLR importer's checked String/Error source-authoring
+  boundary, existing Runtime Contract configuration, opaque storage and receiver
+  projection, rejected allocation/mutation, and validation scope. No compiler code
+  changes; this target-specific documentation remains on the experimental branch.
+
+- **2026-09-19:** Resolve generic interface base lists in the interface's own scope,
+  including interfaces nested in classes or interfaces. Preserve type-parameter
+  identity in semantic symbols and emitted CLI metadata without target-specific
+  Runtime Contract settings. All 87 focused resolution, interface, accessibility
+  and constrained-hierarchy checks pass, including independent .NET metadata regressions.
+
+- **2026-09-17:** Add an opt-in RuntimeTypeOfContract for context-owned typeof
+  acquisition. Bind to the configured descriptive interface and emit
+  Current.GetTypeInfoFromHandle; reject invalid/partial contracts with RAVT003.
+  Preserve ordinary .NET System.Type behavior, compiler-internal type tokens and
+  immutable option copies. Project properties select assembly, interface and context.
+  This experimental contract remains on the neoCLR feature branch.
+  All 23 focused tests pass, including source/referenced providers, operations,
+  hidden implementations, invalid shapes and the unchanged .NET typeof baseline.
+
+
+- **2026-09-15:** Preserve generic array elements using typed CLI access for both
+  source type and method parameters. Correct generic stores, reads, array literals
+  and indexed iteration; an unconstrained parameter is not necessarily a reference.
+  Six .NET execution cases cover integers, references and wide values under default
+  and explicit-core metadata options; all 14 focused array/metadata tests pass.
+
+- **2026-09-15:** Emit imported generic method calls with source type or method
+  parameters when an explicit CLI metadata core is configured. Preserve open
+  MethodSpec arguments through metadata references instead of mixing reflection
+  loading contexts. Four .NET execution cases pass with default and explicit
+  System.Runtime options (12 focused tests total). No runtime-specific policy.
+
+- **2026-09-15:** Accept explicit generic self-construction such as Box<T>(value)
+  inside Box<T>, including qualified names. Preserve omitted-argument inference and
+  constraint validation. Four new .NET execution cases cover default and explicit-core
+  emission; all 17 focused generic/signature tests pass. No target-specific policy.
+
+- **2026-09-14:** Construct bare empty member-union cases before passing them to
+  carrier constructors, including returns and explicitly typed local initializers.
+  Imported cases use their ordinary CLI constructors without requiring Raven case
+  metadata. Twenty focused union/generic/unit checks pass with .NET execution.
+
+- **2026-09-14:** Resolve referenced sibling types when source extends their namespace,
+  including constructor expressions and generic type arguments. Preserve source-first
+  lookup and ordinary CLI metadata behavior; 20 focused namespace/generic checks pass
+  with independent C# reference execution in ordinary and explicit-core modes.
+
+- **2026-09-14:** Rewrite imported generic member calls in the emitting method
+  context, preserving source type parameters on constructed owners and method
+  arguments. Independent C# contract execution passes under ordinary and explicit
+  metadata-core emission; all 16 focused target-core/unit checks pass.
+
+- **2026-09-14:** Treat emitted generic parameters as source signature components
+  when constructing imported target-metadata types. Open signatures such as Box<T>
+  use persisted signature types instead of mixing reflection contexts. Sixteen focused
+  target-core/unit checks pass, including ordinary .NET execution against an independent
+  C# generic contract. No target-specific interface names or policy are introduced.
+
+- **2026-09-14:** Preserve generic unit-return call results instead of synthesizing a
+  second value, and pop them exactly once when discarded. Cover generic methods,
+  methods on generic types and no-result wrappers under ordinary .NET, explicit-core
+  and selected ValueTuple emission. All 22 focused unit/void/assignment checks pass.
+  This resolves the previously recorded generic unit-result invocation defect.
+
+- **2026-09-14:** Rewrite generic method specifications through their element method
+  when projecting a RuntimeUnitContract; selecting a unit contract no longer crashes
+  emission of ordinary generic calls. Default and ValueTuple-target execution tests
+  pass (12 focused checks). Record the separate generic unit-return invocation issue
+  rather than claiming that generic storage coverage proves every call shape.
+
+- **2026-09-14 (Runtime Contracts):** Adopt the reusable unit-value contract
+  integrated independently into Raven main as `2d17199a1`. Keep nominal Void selection and its
+  metadata checks on the experimental branch. Ordinary void calls remain stackless;
+  consumed calls and unit literals use the selected empty value type, with no
+  synthesized Unit in target output. Document configuration, semantic/emission
+  boundaries and limitations in the compiler documentation. General regression
+  coverage executes default Unit and selected ValueTuple generic storage on .NET.
+  All 13 focused unit/call emission checks pass. Require compiler-affecting changes
+  to update both Raven and the affected runtime integration documentation.
+
+- **2026-09-14 (neoCLR experiment):** Synchronize reviewed Raven main fixes through
+  `f70ba5026`, including indexer access, imported union patterns, metadata identities
+  and empty-array capability discovery. Preserve opt-in target contracts, generic
+  array projection and nominal Void arguments on this branch. All 120 focused
+  synchronization checks and four generic-array integration programs pass. Updated
+  the old factory expectation and isolated overlapping test-library identities.
+
+- **2026-09-14 (neoCLR experiment):** Project public methods and properties from the
+  configured generic array shape, preserving metadata owners and interface dispatch.
+  Shape members take precedence over inherited names; constructors stay unavailable.
+  Preserve nominal System.Void type references in generic metadata arguments while
+  ordinary no-result returns remain CLI void. The generic-array callback/property
+  integration executes four neoCLR samples; 25 focused compiler checks pass. These
+  target experiments remain separate from main. Main's independent void-call stack
+  fix is cherry-picked as `5c32d1d06`.
+
+- **2026-09-14:** Report unresolved function return annotations even when the method
+  signature was bound before diagnostic traversal. Invalid namespace-function
+  signatures now prevent emission instead of silently producing Object returns.
+  Tests cover qualified/imported Result annotations and unresolved return/parameter
+  annotations using ordinary .NET references; no target-specific policy is added.
+
+- **2026-09-14:** Include referenced namespace functions and constants in qualified
+  lookup when source declarations extend that namespace. Qualified and imported
+  calls now use the same merged namespace. Regression coverage uses ordinary .NET
+  reference metadata with and without a local namespace declaration; all 284
+  namespace/import tests pass. No target-specific policy or configuration is added.
+
+- **2026-09-14:** Resolve the optional empty-array factory from target metadata.
+  Empty collection expressions targeting arrays or IEnumerable<T> retain
+  System.Array.Empty<T>() when available and otherwise allocate an empty array.
+  No host-only factory reference or target-specific policy is injected. Regression
+  coverage checks metadata and execution with .NET 10/.NET 11 references, with
+  and without the factory, under ordinary and target-metadata emission.
+
+- **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
+  calls. Returning a void invocation no longer emits a pop for a nonexistent value.
+  The regression reproduces and executes under ordinary and target-metadata .NET
+  emission; this fix does not introduce target-specific policy. All 39 focused runtime
+  checks and 21 initial regression/return-diagnostic checks passed.
+
+
+- **2026-09-14:** Synchronize general Raven main fixes into the neoCLR experiment
+  for the next preview, including the attribute-emission correction found by the
+  main stability audit. Preserve experimental target behavior and add the independent
+  CLI metadata regressions alongside the experimental fixtures. All 42 focused
+  synchronization checks passed.
+
+- **2026-09-14:** Treat qualified type names in `is` patterns as type tests rather
+  than values to compare. Preserve explicit generic arguments for imported Raven
+  union cases, check their arity/constraints, and use the semantic extraction type
+  for target-core pattern locals. Constructed unions project declared member-case
+  parameters from their carrier, preventing open variant types during pattern emission.
+  Both active and inactive cases are covered for ordinary member unions and Raven-produced
+  unions; no target-specific policy changed. All 272 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Require indexed access for indexer properties. Dot completion no
+  longer offers metadata indexer names such as `Item`, and `items.Item` no longer
+  binds as an element without arguments. `items[index].` retains element-member
+  completion; ordinary parameterless properties named `Item` remain accessible.
+  Indexer symbols remain discoverable through metadata APIs but are not referenceable
+  by name. This is a general compiler fix; no framework-specific mapping is involved.
+  All 440 completion/indexer/property/semantic-model checks passed, including cold
+  and already-bound queries and imported interface indexer execution.
+
+- **2026-09-14:** Select the metadata core library from the supplied assembly that
+  defines the root `System.Object`, using its full identity rather than the host's
+  core name. This keeps imported structs classified as value types and prevents
+  fallback paths for another framework version from selecting the wrong core.
+  Retain the host fallback when no supplied reference defines the root type.
+  Regression coverage checks .NET 10/.NET 11 classes and structs, generic
+  signatures, exact metadata core identity and execution of emitted assemblies.
+  All 33 focused checks, the full baseline (5,515 reported passes), and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Support shorthand deconstruction of imported member unions:
+  `.Case(...)` resolves a unique member from the scrutinee, while an in-scope
+  generic `Case(...)` infers its closed arguments from the carrier. Preserve the
+  requirement to import unqualified variant types. Ordinary .NET regressions
+  cover target-typed, imported and qualified forms, inactive cases, and repeated
+  matching with a mutating value-type deconstructor. All 219 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+  Target-core emission now keeps closed semantic carrier/variant locals, preserves
+  primitive CLI signatures and by-reference wrappers, and retains assembly scopes
+  after replacing temporary method references. Imported Raven union-case calls use
+  their actual metadata container rather than the logical carrier. The bare type-pattern
+  follow-through is recorded above; independent boxing optimizations remain deferred. All 291 focused
+  metadata/pattern/by-reference checks and the .NET 10/.NET 11 build/run matrix
+  passed.
+
+- **2026-09-14:** Preserve imported generic interface implementation declarations
+  during target-core emission, including implicit/explicit methods and property
+  accessors. Normalize temporary references in MethodImpl records as well as calls,
+  retain their assembly scopes, and encode primitive generic arguments with CLI
+  element codes. Regression tests compile against a reference-only library, inspect
+  metadata and execute interface dispatch on .NET. All 54 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Support reference-library generics containing application classes
+  and structs during target-core emission without mixing reflection contexts or
+  emitting self assembly references. Correct ordinary .NET field access on generic
+  constructions containing unfinished source types. Regression coverage uses a
+  reference-only library and its separate executable implementation, including
+  arrays and nested generic arguments. All 42 focused metadata/attribute/generic
+  checks and the .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Fix a regression from target metadata type resolution reaching
+  custom-attribute serialization. Keep runtime types for attribute constructor/value
+  encoding while retaining metadata types for target signatures. Primitive and enum
+  attribute regressions now pass; 39 focused checks passed. A clean-main audit passed
+  5,493 baseline tests and built/ran 173/172 standalone samples, but exposed four
+  NanoFramework attribute failures and a separate MacCatalyst/Xcode prerequisite
+  failure. After the correction, all four NanoFramework projects build and all 38
+  eligible project executables run successfully. The MacCatalyst prerequisite remains
+  unresolved; do not claim a full green release gate. The corrected compiler also
+  passed the .NET 10/.NET 11 build/run matrix.
+
+- **2026-09-14:** Preserve metadata constructor proxies when converting method groups
+  to closed generic delegates during target-core emission. Avoid mixing host and
+  metadata-context types while retaining the delegate's target identity and signature.
+  After the attribute regression correction, all 55 combined focused checks pass.
+
+- **2026-09-14:** Preserve closed generic field metadata during target-core emission,
+  including instance reads and static reads/writes. Retain the generic definition's
+  field signature and closed declaring type; remove temporary proxies from the final
+  assembly. Recorded that general fixes, including those benefiting .NET Framework
+  and NanoFramework, belong on main while neoCLR integration remains experimental.
+  All 22 focused checks and the .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Preserve closed generic method specifications in target-core
+  emission, including concrete method arguments, generic definition signatures and
+  their assembly scopes. This fixes metadata-context mismatches for metadata-only
+  generic calls without introducing experimental target policy. All 27 focused
+  checks and the repository .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Preserve reference-only generic constructor signatures during
+  target-core emission using temporary tokens removed from the final assembly.
+  This fixes a compiler-host/metadata-context type mismatch without changing default
+  constructor resolution. All 26 focused checks and the .NET 10/.NET 11 build/run
+  target matrix passed. Cleaned up completed integration and superseded experiment
+  branches after checking that their history is preserved in main or the active experiment.
+
+- **2026-09-14:** Preserve reference-only closed generic types during target-core
+  emission instead of trying to load them into the compiler host. Retain generic
+  definition parameters in member references, nested value-type flags and by-reference
+  proxy parameters. This independently reviewed fix adds no experimental import policy;
+  18 focused metadata and generic-invocation checks and the repository .NET 10/.NET 11
+  build/run target matrix pass.
+
+- **2026-09-14:** Preserve pointer types when rebuilding metadata method references
+  for a target core library. Native `void*` parameters no longer fail emission.
+  This general fix uses the existing EmitOptions contract; no neoCLR target policy
+  is added. Regression coverage checks ordinary and retargeted emission; all 53
+  focused metadata and pointer checks pass.
+
+- **2026-09-14:** Integrate the general namespace-metadata fixes independently of
+  the neoCLR experiment: resolve TopLevelAttribute from supplied reference metadata
+  and include referenced namespace functions/constants in completion. The regression
+  uses ordinary .NET references and default compilation options, with no experimental
+  metadata-import or target-core configuration. Keep experimental target behavior on
+  its feature branch. Validation: 47 focused namespace tests and the 5,490-test
+  broader baseline passed, with no failures or skips.
+
+- **2026-09-14:** Integrate general binding, dispatch and completion corrections
+  from the neoCLR experiment: inherited interface indexers respect accessor hiding
+  and ambiguity, virtual/abstract implementations retain dispatch flags, method
+  groups dispatch correctly while base calls stay direct, value property setters
+  mutate original storage, returned-expression members retain their receivers,
+  nested enum flags retain context, and constructor semantic queries resolve scopes.
+  Added independent .NET fixtures; nine pre-fix failures become 32 passing checks.
+
+- **2026-09-14:** Integrate reviewed numeric and pointer-signature fixes from the
+  neoCLR experiment without its target configuration. Preserve fixed-width
+  conversion ranges and unsigned magnitudes, NaN comparison behavior, unsigned
+  division/remainder/shifts and array loads; require implicit conversions for
+  operator applicability and substitute generic pointer elements. The ordinary
+  .NET regression set reproduces 12 failures before the fixes and passes all
+  122 checks afterwards. After both integration batches, the broader baseline
+  passes 5,489 tests with no failures or skips.
+
+- **2026-09-14:** Merge the validated general-fix main branch into the neoCLR
+  experiment, keeping main as its base. Preserve experimental Void coverage and
+  retain the default-options namespace regression from main. No compiler source
+  behavior changes in this synchronization; experimental policies remain branch-only.
+  Fifty focused synchronization regressions passed.
+
+- **2026-09-14:** Resolve namespace-container TopLevelAttribute from supplied
+  reference metadata before host runtime types, preserving namespace functions in
+  separately compiled target libraries. Completion now includes imported namespace
+  functions and constants instead of requiring source syntax declarations. Existing
+  namespace-import options and accessibility rules remain in effect. Added a
+  reference-only marker regression covering emission, consumer binding and completion.
+
+- **2026-09-14:** Let evaluated projects select the emission core with
+  RavenTargetCoreAssemblyName and CompilationOptions.WithTargetCoreAssemblyName.
+  Normal Emit/rvnc calls resolve it from the explicitly supplied metadata core;
+  RAVT003 rejects inconsistent selection or conflicting emission options. Preserve
+  option copies and the existing public constructor signature. Explicit metadata
+  targets now resist service/CLI host-reference injection and host-derived core-shim
+  or runtime-async defaults. Default .NET targeting is unchanged. Covered by target
+  metadata/configuration tests, a normal compiler-driver regression, the .NET 10/11
+  target matrix and independent neoCLR compile/import/execute checks.
+
+- **2026-09-13:** Resolve inherited interface indexers with substituted element
+  types. Respect more-derived accessor declarations without exposing a hidden
+  setter, and reject ambiguous inherited indexers. Includes metadata-interface
+  binding/emission regressions; applies to normal .NET and alternative targets.
+
+- **2026-09-13:** Allow alternative targets to project vector interfaces from a
+  configured generic array class in reference metadata. Element substitution and
+  inherited interfaces drive conversions and extension lookup; malformed shapes
+  do not invent vector interfaces. Default .NET behavior and indexed loops remain
+  unchanged. The configured generic shape now resolves to ordinary vector semantics
+  in source annotations and imported signatures, including indexing, nested arrays,
+  typeof and interface member access. Includes emitted-signature, opt-in/invariance,
+  source/imported-array and evaluated-project regressions.
+
+- **2026-09-13:** Preserve pointer signatures when rewriting metadata-only method
+  references for target frameworks. Native void-pointer parameters and returns
+  no longer fail target metadata emission. Includes a metadata-only API regression;
+  this does not change native numeric or pointer conversion rules.
+
+- **2026-09-13:** Add target-configurable array covariance through
+  CompilationOptions.AllowArrayCovariance and RavenAllowArrayCovariance. Disabling
+  it rejects nonidentity array-element conversions in normal binding and editor
+  diagnostics, including explicit casts and jagged arrays. Default .NET behavior
+  is unchanged. Includes semantic and evaluated-project regression coverage.
+
+- **2026-09-13:** Preserve unsigned operand semantics for primitive division,
+  remainder and right shift. Emit the unsigned CLI forms using the converted left
+  operand type; signed and floating operations keep their existing forms. Added
+  executable UInt32/UInt64 high-bit regressions and signed-shift coverage.
+
+- **2026-09-13:** Complete fixed-width implicit numeric conversions, following the
+  C# conversion table for integral types, Char, Single, Double and Decimal. Preserve
+  unsigned high bits when emitting UInt32/UInt64-to-floating conversions. Includes
+  conversion classification, operator applicability and executable boundary tests.
+  Native-sized conversion rules and other explicit-conversion gaps remain separate;
+  newly applicable conversions can affect overload selection.
+
+- **2026-09-13:** Require implicit operand conversions when selecting binary
+  user-defined operators. An explicit numeric conversion no longer makes otherwise
+  invalid mixed `ulong`/signed operations applicable through .NET numeric metadata.
+  Explicit casts and supported implicit conversions remain accepted. Includes
+  both operand orders, operator-family and user-defined-operator regressions.
+
+- **2026-09-13:** Correct primitive relational emission for unsigned integers and
+  floating-point NaN. Select unsigned comparison opcodes from converted operand
+  types; inclusive floating comparisons invert unordered comparisons so NaN remains
+  false. This target-neutral fix applies to ordinary CLR and experimental neoCLR
+  compilation, with executable .NET boundary regressions.
+
+- **2026-09-13:** Allow an alternative runtime to opt vector arrays into its selected
+  Iterable contract through `RuntimeIterationContract.ArraysImplementIterable` and
+  `RavenIterationArraysImplementIterable`. Array symbols, conversions and extension
+  inference use the selected interface; rectangular arrays and default .NET targeting
+  keep their existing contracts. Includes semantic and evaluated-project tests;
+  give the metadata-dispatch test fixture a distinct assembly identity so combined
+  framework suites do not load an unrelated iteration fixture.
+
+- **2026-09-13:** Preserve generic metadata interface implementation signatures in
+  target emission. MethodImpl declarations now use the existing semantic method
+  proxy/normalization path, including scope tracking, avoiding persisted writer
+  failures on generic return types. Regression tests execute interface dispatch
+  under both ordinary CLR and target-metadata emission.
+
+- Match imported member unions through their existing TryGetValue/Deconstruct
+  contracts using target-typed case patterns and inferred imported case names.
+  Known value receivers deconstruct without an intermediate box. Target metadata
+  emission retains semantic local types, canonical primitive signatures and scopes
+  of newly inserted member references.
+
+- Resolve constructor method scopes during on-demand semantic queries, restoring
+  qualified static-member completion inside instance and static constructors.
+
+- Resolve interface and abstract method-group delegates virtually, while keeping
+  explicit base method groups bound to the selected base implementation. Regression
+  coverage checks invocation and null failure at binding under the ordinary CLR.
+
+- Preserve declared abstract/virtual/override flags for implicit interface
+  implementations instead of forcing a final virtual method. Covered for both
+  ordinary and experimental target metadata emission.
+
+- Experimental target metadata emission supports library generics containing
+  application class/value types and keeps those arguments in the current module
+  instead of adding an unresolved self-assembly reference. No target-specific type
+  names are introduced; ordinary framework targeting retains its existing path.
+
+### 2026-09-13
+
+- Emit value-type property setters against the original receiver address with a
+  nonvirtual call, rather than a temporary copy and callvirt. Added local and array
+  element mutation regressions; class and extension-property dispatch stays intact.
+
+- Keep member access on call/indexer receivers as expressions when an imported type
+  shares the member name. Type-name lookup now requires a complete name chain; a
+  regression covers a returned generic case Value property alongside a Value type.
+
+- Load unsigned array elements with unsigned CLI instructions so widening Byte,
+  UInt16 and Char preserves their magnitude instead of sign-extending high bits.
+  Added execution regressions, including UInt32; applies to both target profiles.
+
+- Preserve reference-only field metadata during retargeted emission, including
+  closed generic owners and definition field signatures. Temporary field tokens
+  are rewritten before saving, avoiding mixed host/target reflection types. Added
+  a metadata regression; ordinary emission keeps its existing field resolver.
+
+- Substitute generic arguments recursively inside native pointer signatures for
+  constructed types and methods. Closed pointer returns and parameters no longer
+  retain an open T; added symbol regressions and verified pointer semantics tests.
+
+- Preserve enum target context through nested bitwise expressions, including
+  parenthesized leading-dot members. Do not misparse a leading-dot parenthesized
+  expression as a cast. Added ordinary CLR execution regressions for chained and
+  grouped flag expressions; all enum code-generation tests pass.
+
+- Emit empty array literals directly when targeting a separate core library instead
+  of injecting the host Array.Empty factory. The target need not define that helper;
+  ordinary CLR emission retains cached empty arrays. Added a target dependency regression.
+
+- Preserve closed generic target-library calls as MethodSpec metadata when emitting
+  against a reference-only target. Retain generic definition signatures and target
+  assembly identities instead of resolving host framework implementations. Added
+  a metadata regression; ordinary CLR emission keeps its existing resolver.
+
+- Fix bridges from no-result functions to explicitly Void-returning delegates: only
+  discard a Unit result when the emitted method signature produces a value. This
+  prevents InvalidProgramException on ordinary CLR execution and supports the
+  neoCLR completion-callback experiment. Added an observable execution regression.
+
+- Preserve target-metadata constructor proxies when emitting function-to-delegate
+  conversions. Reference-only generic delegate contracts no longer rebind through
+  incompatible host reflection types. Added a retargeted metadata regression and
+  verified ordinary CLR delegate declaration/execution coverage.
+
+- Admit explicit casts between all fixed-width integral types, including signed,
+  unsigned and Char types previously missing from conversion classification. Preserve
+  source signedness when widening to 64 bits. Added observable narrowing/widening
+  regressions; implicit-conversion policy and native integers are unchanged. Developed
+  on the neoCLR experiment branch; the correction also applies to ordinary CLR output.
+
+### 2026-09-12
+
+- Preserve System.Void metadata identity inside generic arguments, including nested
+  types and value/out parameters, while ordinary void returns still project to Unit.
+  This fixes emission of imported Result<Void,E> calls in the neoCLR experiment; it does not enable Void
+  generic execution on the .NET CLR. Added cache-order/type-identity regressions.
+
+- Fixed discarded Void-output propagation for the selected alternative-runtime
+  contract: statement lowering no longer leaves an unused value on the evaluation
+  stack. Default .NET lowering is unchanged. The neoCLR bridge verifies a
+  Result<Void, OverflowError> success/early-error program; 18 propagation tests pass.
+
+- Added experimental RuntimePropagationContract and evaluated RavenPropagationAssemblyName/
+  RavenPropagationInterfaceType project properties. Selected-target `?` validates the
+  carrier protocol and propagates residuals without implicit exception capture; absent
+  settings preserve default .NET behavior. Option copying and semantic reuse respect
+  the selection. Target contract/project tests and existing propagation tests pass.
+
+- Added evaluated RavenIteration* project properties for the opt-in runtime iteration
+  contract, shared by workspace builds and the language server. Absent settings retain
+  .NET behavior; partial settings remain explicit for binding diagnostics. Four project
+  tests cover absent, default-member, custom-member and partial configuration. Recorded
+  that future neoCLR cleanup must not change default CLR support.
+
+- Added opt-in RuntimeIterationContract compiler options for alternative-runtime
+  synchronous for loops. Binding validates the selected iterable/cursor interfaces
+  and acquisition/advance/current signatures, reports RAVT001 for incompatible
+  contracts and passes resolved symbols to existing codegen. Default .NET behavior
+  remains unchanged; option copies and semantic-state reuse respect the contract.
+  Documented the existing missing automatic iterator Dispose behavior as a separate
+  correction to consider. Project switches, async/yield targeting and cleanup are
+  not implemented by this change. Seven new tests and 34 existing iteration/target
+  metadata tests pass.
+
+- Added opt-in RavenMetadataCoreAssemblyName project configuration for explicit-only
+  target metadata. Project loading disables automatic host framework references and
+  the language server preserves that policy instead of adding Raven.Core/Macros.
+  Default .NET project behavior is unchanged; target emission remains separate.
+  Explicit-core projects also omit the inferred .NET TargetFrameworkAttribute source,
+  so the host TFM is not stamped onto another runtime target.
+
+- Retargeted emission now preserves reference-only metadata types, including closed
+  generic carriers and nested cases, without loading target implementations into the
+  compiler host. Metadata method proxies preserve byref parameters and definition
+  signatures on constructed owners. Added generic signature/property/union extraction
+  regression coverage. Retargeted metadata constructors now use temporary token
+  proxies too, preserving closed generic case/carrier signatures without mixing host
+  and target types. Proxies are removed from the final assembly; constructor metadata
+  regression coverage was added. This remains a bounded alternative-target emission path.
+
+- Added opt-in explicit-only metadata import through `MetadataImportOptions`, with
+  a caller-selected metadata core assembly. Missing references no longer fall back
+  to host assemblies in this mode; default .NET import behavior is unchanged.
+  Import-policy changes prevent incremental context/state reuse. This is compiler
+  API groundwork for restricted targets, not a complete alternative runtime target.
+
+### Breaking changes
+
+- Compiler API consumers must rebuild against the new `CompilationOptions`
+  constructor signature; the added metadata-import argument is optional in source.
+
+## 0.1.12 - 2026-09-12
+
+### Breaking changes
+
+- Removed `try? expression`. Use `(try expression)?` to capture exceptions and
+  propagate one carrier layer. If the operand already returns a compatible
+  carrier, propagate that layer explicitly with `((try expression)?)?`.
+- `TryExpressionSyntax` no longer exposes `QuestionToken`; syntax factories
+  and update methods accept only the `try` keyword and operand.
+
+### Fixed
+
+- Comparison patterns with variable operands now preserve the following match-arm arrow instead of parsing a lambda.
+
+- Compound match guards preserve short-circuit evaluation and no longer emit invalid programs.
+
+- Invalid member calls through `Option` or `Result` conditional access now report
+  diagnostics instead of throwing an invalid-cast exception in the compiler.
+
+- Propagation from inside an exception-protected expression now preserves its
+  early return value, including explicit propagation through nested results.
+
+## 0.1.11 - 2026-09-11
+
+### Breaking changes
+
+- None.
+
+### Fixed
+
+- C# `IUnionMembers` providers now define imported union cases, factory
+  conversions, and pattern access through their nested interface. Generic
+  providers preserve inherited parameters and nullable contents; optional
+  accessors fall back to the provider's `Value`, not carrier-only members.
+
+- Imported generic base types preserve and substitute their type arguments.
+  C# closed generic families now support matching constructed cases, including
+  reordered generic parameters, and report missing constructed cases correctly.
+
+- Sealed interfaces now publish Raven's permitted-family metadata on both .NET 10
+  and .NET 11, preserving closed-family information for Raven consumers and
+  rejecting external implementations. Closed-family metadata also names hoisted
+  generic cases by their emitted identities. C# closed-interface support remains unavailable.
+
+- Standard `System.Union<...>` carriers now use native System.Text.Json union
+  serialization when targeting .NET 11. The .NET 10 asset keeps its existing
+  converter, JSON format, and case-selection behavior.
+
+- .NET 11 closed class hierarchies now emit the framework `IsClosedTypeAttribute`,
+  enabling C# exhaustive switches and opt-in System.Text.Json polymorphism.
+  Raven recognizes C# closed hierarchies and rejects external direct derivation.
+
+- Invalid inheritance from a static class reports its inheritance diagnostic
+  without an unrelated missing-base-constructor error.
+
+- Watched changes to macro source files now include open consuming documents in
+  diagnostic refresh notifications after their macro references are updated.
+
+- Classes whose implicit base call has no parameterless constructor now report
+  a semantic error instead of crashing during emission. This includes explicit,
+  primary, and synthesized default constructors.
+
+- Referenced macro projects now prefer the selected compiler support assemblies
+  over same-named package assets, preventing duplicate standard macro exports
+  when repository and installed packages are both available.
+
+- Semantic diagnostics now include parent binder scopes hidden by the top-level
+  executable binder, restoring the error for file-scope code in libraries.
+
+- Reading a by-reference parameter now loads the referenced value rather than
+  its address. Writes and forwarded calls preserve the caller's storage, including
+  generic swaps of value and reference types.
+
+- Async error propagation with `use` now preserves suspension and disposes
+  resources before returning a propagated failure. Both carrier `?` and
+  `try? await` expose their early returns before async state-machine lowering.
+
+- Async `use` resources are disposed before successful task completion, including
+  explicit returns from exception handlers and resources acquired after an await.
+  Hoisted resources now retain declaration order so cleanup runs in reverse order
+  on completion, exceptions, and cancellation.
+- Async delegate variables passed to `Task.Run` now select the payload-returning
+  overload instead of unnecessarily nesting tasks. Delegate variance supports
+  safe reference and nullable-return conversions, and equivalent generic
+  signatures prefer the more specific declared parameter shape.
+- List sequence-pattern captures now select the `IEnumerable<T>` constructor
+  when materializing a slice, avoiding invalid captured lists when the capacity
+  constructor appears first in metadata.
+- Playground compilation works on single-threaded WebAssembly again: declaration
+  access avoids unsupported semaphore waits while preserving cancellation checks.
+- Incremental compilations no longer keep a chain of earlier compilations alive
+  when reusing metadata and declaration state during editing. Unchanged reference
+  metadata also remains reusable through parser recovery and full semantic rebuilds.
+- Metadata method-parameter caching no longer prevents discarded reference
+  assemblies and their metadata contexts from being garbage collected.
+- Website publication now requires the Playground browser smoke suite, including
+  a cold compile-and-run before any editor semantic queries.
+
+## 0.1.10 - 2026-09-06
+
+### Breaking changes
+
+- Compiler API consumers must account for `FromKeyword` in yield syntax factories
+  and the new `IYieldOperation.IsDelegating` property.
+
+### Added
+
+- `yield from source` delegates synchronous or asynchronous sequences in statement
+  and expression positions, with element conversions and async cancellation-token
+  forwarding. Delegation expressions evaluate to `unit` after completion.
+
+- Added Roslyn-shaped Fix All support with document, project, and solution
+  scopes, stable code-action equivalence keys, and a reusable batch provider
+  that merges non-overlapping text changes.
+- All built-in code-fix providers now opt into Fix All where they offer a
+  repeatable correction, and the language server exposes document-wide fixes
+  through the standard `source.fixAll` action.
+
+- `.editorconfig` supports per-file `generated_code = true` or `false` analyzer
+  classification, including live updates in the language server.
+- Generated-code analyzer policies now recognize `GeneratedCodeAttribute` on
+  source types and members, including callbacks and location-based reporting.
+- Generated-code analyzer policies recognize conventional generated file names and
+  leading auto-generated comments, with classification refreshed after header edits.
+
+- Analyzers can configure source-generated tree callbacks and diagnostic reporting
+  independently with `ConfigureGeneratedCodeAnalysis` and `GeneratedCodeAnalysisFlags`.
+  Unconfigured analyzers retain the existing analyze-and-report behavior.
+
+### Fixed
+
+- Nested macro names inside declared Raven fragments now resolve their macro symbols for hover, including `markup!` inside `component!`.
+
+- Concurrent editor requests no longer deadlock while declaration binding expands
+  macros in another document, restoring outlines, hovers, inlays, and diagnostics
+  in macro-backed projects.
+
+- Core generation defines its union metadata attributes even when the compiler
+  host already has Raven.Core loaded, preserving case binding after a rebuild.
+
+- Constant hovers show `const` declarations and identify them as constants,
+  including namespace-level `extern const` values.
+
+- Async enumeration awaits enumerator disposal on completion, exceptions, and
+  early iterator disposal, following C# iterator cleanup semantics.
+
+- Opening a source file in a nested project omitted from the workspace solution
+  now loads its containing project on demand, restoring sibling type lookup
+  while respecting evaluated compile exclusions.
+
+- Namespace function accessibility validation now tolerates parser recovery
+  tokens in parameter lists, preserving diagnostics after local-symbol queries
+  in malformed async-lambda code.
+
+- Background project analyzer diagnostics skip busy semantic models and retry
+  without caching an incomplete result, preventing waits behind editor requests.
+- Releasing asynchronous semantic access no longer corrupts the caller's lock
+  depth, preventing subsequent diagnostics from blocking after editor queries.
+
+- Read-only source-generator documents now show compiler and analyzer diagnostics
+  from the current project compilation and refresh them after source edits.
+
+- Project analyzer diagnostics now include source-generated syntax trees, honor
+  suppression directives in those files, and retry failed generated-tree analysis.
+
+- Public workspace diagnostics now retry failed analyzer runs instead of caching
+  partial results, matching the recovery behavior of editor analysis.
+
+- Incomplete document and project analyzer runs are no longer cached or published
+  as successful empty results. The editor preserves previous analyzer warnings
+  through failures and cancellation, then replaces them after a successful retry.
+- Analyzer diagnostics carry their origin into the language server, so external
+  analyzer warnings survive compiler-only diagnostic refreshes too.
+
+- Analyzer failure logs identify the analyzer, callback phase, exception, and
+  affected document, including initialization failures. Repeated failures are
+  counted without flooding logs, and incomplete runs are labeled explicitly.
+
+- Retrying failed or canceled analyzer initialization no longer duplicates
+  callbacks or retains concurrency settings from the unsuccessful attempt.
+
+- Go to Definition opens source-generator output as a read-only, live Raven
+  document, including hover and navigation back to handwritten source, without
+  requiring generated files on disk.
+
+- Source-generator builds honor `EmitCompilerGeneratedFiles` and
+  `CompilerGeneratedFilesOutputPath`, with opt-in output under `obj` by default.
+
+- Document diagnostics resolve qualified types from generated source before any
+  hover or symbol query, avoiding false missing-type errors in generator consumers.
+
+- Document diagnostics now validate attributes against declarations replaced by
+  attached macros, preventing property attributes such as `[Required]` from
+  being incorrectly rejected as class attributes after `#[Observable]`.
+
+- Macros invoked directly in a type member list now participate in signature
+  help, hover, definition, inlay hints, semantic coloring, and expansion
+  previews, including Raven fragments inside their token-tree bodies.
+
+- Hover, inlay hints, and semantic coloring no longer fail on argument-list
+  macros such as `subscribe!(...)`. Hover resolves the macro name and ordinary
+  symbols inside its arguments and callback.
+
+## 0.1.9 - 2026-09-05
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added the default `RAV9038` warning for ignored calls returning `Task` or
+  `ValueTask`, including their generic forms. Await, return, store, or explicitly
+  discard the task to make its handling clear.
+
+### Fixed
+
+- Empty partial-union diagnostics now consistently point to the first declaration
+  in compilation source order, regardless of which file is queried first.
+- Bare type names in expression statements now report a compiler error instead
+  of the unused-result discard warning (`RAV9034`).
+
+- Ordinary code completion now stays quiet inside comments and string or
+  character text, including an unfinished opening quote. Completion remains
+  available inside interpolated expressions and after member-access operators.
+- Completion on an indented blank line now offers visible locals and statement
+  keywords after a completed member expression, while preserving member
+  completion when continuing an unfinished access on the next line.
+- Completion now uses the identifier prefix before the caret when editing in
+  the middle of a word, and preserves existing method argument lists instead
+  of inserting duplicate parentheses.
+- Accepting a completion now preserves leading indentation and comments by
+  replacing only the identifier text.
+- VS Code Outline now omits ordinary `const`, `let`, and `var` declarations;
+  external constants declared with `extern const` remain visible.
+- Hovering a property or field name in an object initializer now shows the
+  assigned member instead of returning no hover or only its inferred type.
+- Project-backed workspace loading now reuses MSBuild evaluation snapshots
+  across reference discovery, recursive graph loading, and nested Raven macro
+  builds. Imported project files and source changes invalidate the snapshot,
+  while evaluation counters and elapsed time are available for performance
+  verification.
+- File-backed macro references now reuse the loaded plugin assembly and export
+  discovery across consumers when the plugin and dependency content is
+  unchanged. Macro instances remain consumer-local, changed binaries load in a
+  new collectible context, and failed loads remain retryable.
+- Language-server macro refreshes now reuse persistent shadow assemblies from
+  unchanged compiler inputs instead of recompiling and only detecting the
+  cache hit after emission.
+- `RAV9037` now identifies the exact `Option` or `Result` state in which a
+  partial extraction can throw, together with the cases that should be handled.
+- Hover presentation now treats types with primary constructors like every
+  other type: a type hover shows the compact type identity, while a constructor
+  call hover shows the parameter list without constructor accessibility.
+- Repository sample build and run matrices now propagate the target-specific
+  `Raven.Core` assembly together with the repository compiler host. Nested
+  Raven project references no longer fall back to the host framework's core
+  assembly when their `LanguageTargets` override is intentionally removed.
+- `RAV0501` now names each inaccessible constituent type in a public
+  constructed contract instead of blaming the whole constructed type. This
+  applies across return types, parameters, properties, events, indexers, base
+  types, generic constraints, and macro signatures. For example,
+  `Result<ItemId, ItemIdError>` identifies `ItemIdError` when that error union
+  is the inaccessible component.
+
+## 0.1.8 - 2026-09-04
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added a code action that generates throwing stubs for missing interface
+  methods, properties, and indexers.
+- Added the default `UnsafeUnwrapAnalyzer` (`RAV9037`) warning for partial
+  `Option` and `Result` extraction through `Unwrap`, `UnwrapOrThrow`,
+  `UnwrapError`, and `Expect`.
+
+### Fixed
+
+- Closed generic overrides now compare their emitted CLR return shape as well
+  as Raven nullability. An unconstrained `T?` instantiated with a value type
+  correctly overrides through the underlying value-type ABI, while a true
+  `Nullable<T>` return remains distinct. This restores the `Raven.Core`
+  `Option` and `Result` JSON converters on `net10.0`.
+- The greenhouse Native AOT sample now talks to SCD4x sensors through a small
+  direct `System.Device.Gpio` I2C driver instead of the reflection-heavy
+  `Iot.Device.Bindings` and UnitsNet dependency chain. Its isolated package
+  cache is explicitly restored before compiler validation, and Native AOT
+  publishing is warning-free without suppressing trim diagnostics.
+- Stable release preparation now consumes the standard `Unreleased` breaking-
+  change scaffold before opening the versioned section, avoiding duplicate
+  headings in generated changelog entries.
+- Full and incremental parser recovery now preserve closing braces around
+  incomplete argument and parameter lists, escaped text in interpolated strings,
+  and stray union-body braces. Malformed union payload lists no longer crash
+  semantic binding, and declaration-unstable edits use a logged full semantic
+  rebind so undo cannot retain stale overrides or lose top-level declarations.
+- Parser recovery now retains unexpected tokens and their boundary whitespace in
+  the syntax tree. Malformed edits no longer shift later source positions, so
+  diagnostics and language-service responses remain aligned with unchanged code
+  and recover correctly after undo.
+- Portable PDB emission now inserts the missing debug-information rows for
+  abstract and interface methods before assembly-reference rewriting. This keeps
+  later sequence points and local scopes attached to their actual methods, so
+  breakpoints reliably bind and stop in multi-file applications.
+- Match exhaustiveness once again treats inferred payload bindings as complete
+  when matching imported cases inside their generic union, without regressing
+  nested-union coverage.
+- Inconsistent accessibility is now rejected with `RAV0501` across primary
+  constructors and promoted properties, delegates, inherited types, namespace
+  functions, union payloads, constructed signature types, and protected APIs
+  that expose internal types.
+- Standalone file-based applications opened in the language server now activate
+  the standard `Raven.Macros` compiler plugin as well as referencing its metadata.
+  Their editor compilation includes `Raven.Core` and the generated Prelude,
+  matching one-shot script compilation.
+- Language-server project loading now isolates nested NuGet restores from the
+  MSBuild instance registered in the server process, preventing SDK assembly
+  mismatches when a workspace-level `global.json` selects a different .NET SDK.
+- Match exhaustiveness now recognizes qualified parameterless union cases nested
+  inside constructed generic union cases, including across source and metadata.
+- Union declarations now report an error when a body-form union has no cases or
+  a parenthesized union has fewer than two variant types.
+- Source-declared `ToString` overrides on records and unions now retain their
+  bodies instead of being replaced by synthesized structural formatting, and
+  overrides with incompatible return nullability report `RAV0307`.
+- Parser recovery during live editing no longer loops at end-of-file for incomplete
+  enum declarations, throws when an incrementally reparsed type is removed before a
+  newline, or places stray separator tokens directly in typed member lists. This
+  keeps completion, diagnostics, semantic tokens, and document symbols responsive
+  while declarations are being typed.
+
+## 0.1.7 - 2026-09-02
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Language-server workspaces now use standard `.sln` and XML `.slnx` files to
+  group Raven projects, including projects referenced by relative paths outside
+  the opened folder, while retaining recursive project discovery when no usable
+  solution grouping exists.
+
+### Fixed
+
+- Language-server workspaces now reload evaluated Raven projects when imported
+  MSBuild `.props` or `.targets` files change, keeping project options and
+  package properties in sync with `dotnet build`.
+- Hover signatures for properties, fields, and events with unresolved declared
+  types now preserve the authored type annotation instead of displaying the
+  compiler's internal error type.
+- Hovering an unresolved name in a type position no longer presents the
+  compiler's internal error-type symbol as Quick Info; the unresolved-name
+  diagnostic remains the user-facing explanation.
+- Type arguments are now resolved independently when their enclosing generic
+  type is unresolved, so semantic features still recognize known types in
+  annotations such as `MissingGeneric<KnownType>`.
+- The target-framework release gate now stops when a representative project
+  fails to build instead of continuing with stale binaries.
+
+## 0.1.6 - 2026-08-29
+
+### Breaking changes
+
+- None.
+
+### Fixed
+
+- Native PE files included in MSBuild reference sets no longer crash compilation
+  as invalid managed metadata. This restores Raven ASP.NET Core template builds
+  on Windows, where the framework reference set includes native hosting modules.
+- Release installation verification now fails immediately when a Windows native
+  command fails, preventing compiler or template failures from being reported as
+  a successful workflow run.
+
+## 0.1.5 - 2026-08-28
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added namespace-scope `[class: ...]` declarations for applying attributes to
+  synthesized `NamespaceMembers` classes. A blank line distinguishes the scope
+  declaration from an attribute attached to the following member, and the form
+  works consistently in root, file-scoped, block-scoped, and nested namespaces.
+- Extended the MyServiceBus RabbitMQ showcase with the consumer-method API from
+  `Sundstrom.MyServiceBus.RabbitMq` 0.1.0-preview.5. An attributed Raven
+  namespace-level request function demonstrates message, consume-context, and
+  cancellation-token binding, a `Task<TResponse>` result, and automatic
+  assembly scanning.
+
+### Fixed
+
+- Attributes on namespace-level functions and constants now emit only on their
+  declared method, return value, parameter, or field target instead of leaking
+  onto the synthesized `NamespaceMembers` type.
+
+## 0.1.4 - 2026-08-28
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added a MyServiceBus and RabbitMQ showcase with dependency-injected Raven
+  consumers, tuple deconstruction of message records, publish/subscribe,
+  request/response, async shutdown, and a Docker broker helper.
+
+### Fixed
+
+- Language-server project loading now consumes the current NuGet assets file
+  before using the direct-package cache and falls back to restore when a package
+  declares dependencies. Transitive compile references are therefore available
+  to diagnostics, hover, and other semantic features instead of producing false
+  missing-import errors and expensive fallback binding.
+- Async methods now support one or more `await` expressions in `catch` and
+  `finally` blocks. Classic lowering emits verifiable generated state machines,
+  while .NET 11 runtime async preserves the same return and exception behavior
+  without synthesizing a state-machine type.
+
+## 0.1.3 - 2026-08-26
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added an experimental declarative MAUI component sample. Its `component!`
+  and `maui!` macros generate ordinary `ContentView`, `BindableProperty`, CLR
+  property, event, and native child-collection APIs; support XAML-style text
+  conversion and embedded Raven expressions; project collection-comprehension
+  controls; and provide XML/Raven editor regions without a separate UI runtime.
+
+### Fixed
+
+- Explicitly typed field initializers now apply method-group-to-delegate
+  conversion instead of emitting the delegate's default value.
+- Nested type lookup now respects the authored generic arity consistently in
+  type syntax, qualified expressions, aliases, attributes, and semantic-model
+  queries, for both source and referenced metadata types, including
+  expression-shaped construction through a generic metadata container. An
+  omitted type-argument list remains open for Raven's generic constructor
+  inference, while an explicit list selects its exact arity.
+- Fixed member lookup through base classes for object initializers, `with`
+  expressions, inherited content properties, and static members accessed
+  through derived types. This restores ordinary .NET inheritance behavior for
+  framework controls and Raven-authored class hierarchies.
+
+## 0.1.2 - 2026-08-26
+
+### Breaking changes
+
+- SDK-supplied implicit imports are now enabled by default. Existing projects
+  with names that collide with the imported `System` namespaces or standard
+  `Result`/`Option` cases can receive new ambiguity diagnostics. Set
+  `ImplicitImports` to `disable` or remove individual `Import` items to retain
+  the previous scope.
+
+- Aligned generated project preludes with the .NET SDK model. `Raven.Sdk` now
+  contributes its defaults as removable MSBuild `Import` items and
+  `ImplicitImports` controls SDK-supplied imports.
+- Added `Raven.Sdk.Web`, a lockstep Raven project SDK that composes
+  `Microsoft.NET.Sdk.Web`, supplies ASP.NET Core and `Microsoft.Extensions`
+  implicit imports, and preserves MVC application-part generation without a C#
+  CodeDOM provider.
+- Added an isolated Pico W nanoFramework DHT22 and SH1106 sample that reads GP2
+  every two seconds and continuously refreshes the displayed temperature without
+  involving Wi-Fi, HTTP, or LED status behavior.
+
+## 0.1.1 - 2026-08-25
+
+- Fixed browser Playground compilation of Raven unions, including the built-in
+  macro forms sample, by emitting Raven-owned metadata without unsupported
+  WebAssembly reflection APIs.
+
+## 0.1.0 - 2026-08-24
+
+- Fixed stable release preparation so version updates preserve historical
+  architecture decision records instead of rewriting their original context.
+- Fixed Raven project output closure so compiler-discovered runtime dependencies
+  are copied even when their compile-time references are not marked copy-local.
+- Fixed built-in bitwise operators and compound assignments through pointer
+  members so they emit valid IL and read and write the pointed-to field, while
+  preserving numeric promotion for smaller integral operands.
+- Fixed standalone compiler dependency setup so `Raven.CodeAnalysis` remains
+  available when the optional standard macro library has not been built or
+  installed alongside the compiler.
+- Fixed semantic analysis of unresolved fluent local-initializer chains so
+  diagnostics terminate instead of repeatedly retrying the same failed local
+  type-inference paths.
+- Extended the Pico W nanoFramework Wi-Fi sample with manual and
+  `nanoFramework.Iot.Device.Ssd13xx` SH1106 OLED paths that display a retrieved
+  public IP address, including the complete I2C/graphics deployment closure.
+- Fixed RavenDoc source-link generation in linked worktrees and other
+  hermetic environments, including relative or missing source directories.
+- Fixed clean-checkout compiler builds so syntax, bound-tree, symbol, and
+  diagnostic sources generated during the build are included in the same
+  compilation instead of requiring a second warm build.
+- Simplified iterator control flow to `yield value` and bare `return`. The
+  C#-style `yield return value` and `yield break` forms and their syntax and
+  operation API nodes have been removed; old source receives direct migration
+  diagnostics.
+- Fixed sync and async iterators so every yielded expression is checked against
+  the declared element type. Invalid implicit narrowing is now diagnosed, and
+  an available explicit conversion is surfaced to editor tooling instead of
+  being silently applied during emission.
+- Added a manifest-driven Release IL gate for representative standalone and
+  project samples, with target, assembly, coverage, verifier, and runtime
+  evidence recorded for the bootstrap freeze.
+- Fixed async state-machine lowering so expressions nested inside comparison,
+  range, guarded, union-member, and deconstruction patterns remap instance and
+  captured receivers through their synthesized fields.
+- Fixed ILVerify reference resolution for cross-target compilation by supplying
+  the selected target runtime's implementation closure, including framework
+  internals such as `System.Private.Xml.Linq`, instead of the compiler host's
+  runtime assemblies.
+- Fixed repository dependency discovery so Release compiler invocations select
+  Release Raven.CodeAnalysis and Raven.Macros fallbacks instead of silently
+  mixing in Debug assemblies.
+- Fixed constrained generic-math operators to emit calls to their static
+  interface contracts instead of invalid primitive numeric IL over type
+  parameters.
+- Added an aggregate project-sample runtime gate that executes every ordinary
+  executable with repository artifacts, enforces timeouts, records auditable
+  reports, and requires reviewed build-only reasons for non-runnable workloads.
+- Fixed verifiable emission for reference-constrained generic values used by
+  nullable declaration patterns, null returns, and default values. These paths
+  now use CLR-verifiable typed locals, boxed null tests, and `initobj` defaults.
+- Fixed synthesized `Equals(object)` for generic record classes so casts and
+  locals use the constructed self type rather than the open generic definition.
+  Generic record equality now executes correctly and emits verifiable IL.
+- Fixed repeated generic substitution when nested union cases were re-anchored
+  under a constructed carrier. Generic cases such as `Ok<T[]>` now remain
+  `Ok<T[]>` instead of becoming nested arrays, and `try` expressions returning
+  generic `Result` carriers emit verifiable conversion metadata.
+- The qualified pre-bootstrap foundation will ship as the stable `0.1.0`
+  release. Release preparation now transitions the current preview line to
+  `0.1.0`, while bootstrap stage tags remain independent identities. Release
+  and bootstrap gates require both build and runtime evidence for standalone
+  and executable project samples, with reviewed reasons for non-runnable cases.
+- Fixed static interface implementation conformance and emission. Missing
+  static contracts are now diagnosed, and valid implementations receive the
+  method-override metadata required for generic static dispatch and verifiable
+  `IPropagatable` implementations.
+- Fixed static interface contracts without bodies so they emit as abstract
+  static virtual methods rather than invalid empty method bodies. This makes
+  generic static contracts such as `IPropagatable.FromResidual` verifiable IL.
+- Added Raven-authored `json!` and `xml!` standard-library macros. They produce
+  strongly typed `JsonObject` and `XElement` expressions, use Raven's
+  `$identifier` and `${expression}` splice forms, surface caller-scope Raven
+  fragments, validate completed literals with `JsonDocument` and `XDocument`,
+  and project their envelopes to JSON/XML editor services. A new data-literal
+  sample demonstrates platform interop and escaping.
+- Fixed emitted framework implementation references to use the target runtime's
+  identities rather than the compiler host's identities. This keeps assemblies
+  targeting .NET 10 loadable when Raven itself runs on .NET 11, including APIs
+  such as framework collections and LINQ to XML that use forwarded framework
+  types. Union contracts and marker attributes are likewise resolved from the
+  target `Raven.Core` rather than the host runtime.
+- Fixed metadata loading for assemblies whose emitted custom-attribute scopes
+  refer back to the containing assembly, preventing recursive assembly-symbol
+  construction when consuming Raven-authored union metadata.
+- Raven project builds now copy explicit macro runtime dependencies even when
+  the same assembly also appears among compiler references. The project-sample
+  harness defaults to the repository targets and .NET 11 compiler host, with an
+  explicit switch for testing the separately installed SDK.
+- Unused-value analysis now counts caller variables referenced by ordinary
+  Raven fragments inside macro bodies.
+- Fixed generic-name lookahead so a less-than comparison before a block cannot
+  consume a greater-than operator from a nested statement as a type-argument
+  terminator.
+- Fixed incremental editor binding so top-level function signatures wait for
+  deferred source imports, preserving union parameter types, union patterns,
+  and pattern payload locals during diagnostics and hover queries.
+- Fixed TextMate fallback colorization for attribute targets such as
+  `assembly`, lexical keywords such as `typeof`, and `not` in `is not`
+  patterns.
+- Raven project publishing now reuses project-reference outputs already known
+  to MSBuild instead of also publishing the compiler's intermediate runtime
+  copy of the same assembly.
+- Added session-isolated repository development launchers for a Raven terminal,
+  an installed VS Code extension using repository toolchain paths, and a built
+  repository extension running in an isolated Extension Development Host.
+
+## 0.1.0-preview.14 - 2026-08-23
+
+- Compact macro declarations can now opt into explicit carrier combinations and
+  token-body requirements with `MacroCarrier`. The standard `timer!` macro uses
+  this to add `timer! message { ... }` while retaining `timer! { ... }`; message
+  templates preserve normal Raven interpolation and reserve literal `{time}`
+  for the elapsed duration.
+- The VS Code extension now reports its toolchain provenance at activation and
+  through **Raven: Show Toolchain Information**, distinguishing repository and
+  installed extension hosts, the exact language-server source, the installed
+  SDK, and each workspace's `global.json`-selected project SDK.
+- Language-server handlers now bind explicitly to `MediatR.Unit`, keeping VS
+  Code extension packaging compatible with the .NET 11 SDK.
+- Playground metaprogramming showcases now separate typed parenthesized calls,
+  declaration-shaped forms, and the standard attached, token-body, quote, and
+  statement-shaped macro forms into focused runnable examples.
+- The standard `timer!` macro now publishes its complete body as an ordinary
+  Raven block fragment, restoring symbol hover and the other compiler-backed
+  editor features inside its braces.
+- Macros can now use `ExpressionSyntax<T>` as a semantic boundary contract in
+  addition to the existing expression syntax-category contract. Typed inputs
+  retain the authored immutable expression and its bound type, reject
+  incompatible arguments before execution, and compose with nested macro
+  invocations. Typed outputs bind the ordinary expansion and reject results
+  that are not implicitly convertible to `T`. Class-authored providers expose
+  the equivalent output promise through `ExpressionResultType`; the checked-in
+  Blazor Markup sample now promises `RenderFragment`, while Query remains
+  untyped until its source- and selector-dependent result can be inferred.
+  Macro hover presents a declared result as `T` rather than the infrastructure
+  facade `ExpressionSyntax<T>`, and infers the bound expansion type when no
+  result contract is declared.
+- The compiler no longer records or copies assemblies from the installed .NET
+  shared framework as application-local runtime dependencies. Rebuilding after
+  removing a runtime-dependent macro now clears the stale dependency manifest.
+- Language-server builds and VS Code extension packages now carry the matching
+  `Raven.Macros` assembly. Project loading can therefore activate standard and
+  referenced macro providers in isolated editor hosts, restoring macro DSL
+  completion, classifications, and embedded-language projections.
+- `quote!` now implements expression parsing, splice recognition, diagnostics,
+  and syntax rendering wholly in the Raven-authored `Raven.Macros` library.
+  Macro authors can parse equal-width body projections while retaining source
+  positions, and `RavenQuoter` now exposes node source overrides that preserve
+  surrounding trivia. The transitional compiler-hosted quote implementation
+  has been removed, and `compile!` reuses the Raven implementation.
+- `compile!` now validates its delegate type argument and constructs its
+  runtime-compilation expression in the Raven-authored `Raven.Macros` library.
+  The macro design now records contextual expected-delegate and explicitly
+  typed-lambda inference as future, non-heuristic directions.
+- `Error` now performs its union inspection, `System.IError` base-list rewrite,
+  duplicate-message diagnostics, and generated `Message` and `Cause` property
+  construction wholly in the Raven-authored `Raven.Macros` library. The final
+  compiler-hosted C# implementation for the Error macro family has been
+  removed.
+- `ErrorMessage` now validates its string expression and containing `#[Error]`
+  union wholly in the Raven-authored `Raven.Macros` library, demonstrating an
+  attached macro that reports diagnostics and intentionally returns an empty
+  expansion.
+- `sha256Digest!` now implements constant inspection, canonical formatting,
+  hashing, and syntax construction wholly in the Raven-authored
+  `Raven.Macros` library through the public `MacroArgument` constant contract.
+- Macro authors can now read source-relative text files through public
+  dependency-tracked context APIs and construct safely escaped Raven string
+  literals with `MacroSyntax.StringLiteral`. `embedFileContent!` now implements
+  its expansion wholly in the Raven-authored `Raven.Macros` library instead of
+  delegating to a compiler-hosted C# helper.
+- Freestanding macros now preserve their source envelope through explicit
+  parenthesized, expression-header, token-tree, and declaration carrier syntax
+  nodes. Class-authored macros can select accepted carrier kinds and whether a
+  trailing token body is forbidden, optional, or required. Expression-header
+  carriers accept one ordinary Raven expression in expression or statement
+  position, including keyword aliases such as `match! value { ... }`, without
+  reclassifying postfix `!` followed by an operator or member access.
+  Declaration carriers now preserve a reusable Raven-shaped header containing
+  declared type parameters, parameters, either a base list or return type,
+  standard `where` constraints, an optional `permits` clause, and an optional
+  token body. Generic arguments on the macro name remain distinct from type
+  parameters introduced after the carried declaration name.
+- Member completion in a macro block fragment now resolves assignment targets
+  through fragment-local semantic state instead of querying the outer semantic
+  model with detached syntax. Typing `.` on the right side of an assignment
+  therefore shows receiver members on the first request instead of falling back
+  to statement keywords until completion is reopened.
+- Inferred-type inlays now include variables introduced by match patterns inside
+  macro fragments, including visible-range requests that start within a
+  declaration macro body. Committed document edits also request a fresh inlay
+  pass so newly added argument-name hints do not remain hidden behind translated
+  cached hints.
+
+## 0.1.0-preview.12 - 2026-08-22
+
+- Added declaration-level capability clauses for function-shaped token-tree
+  macros. Uniform clauses such as `completion by CompleteDsl` and
+  `fragments by DslSyntax.GetFragments` make generated adapters implement the
+  existing optional macro service interfaces and forward to ordinary namespace
+  or qualified static functions. Existing class-authored macros and provider
+  APIs remain unchanged. A new `macro-capabilities` sample demonstrates
+  expansion plus keyword, token-kind, highlighting, fragment, symbol,
+  completion, and embedded-language services without introducing a service
+  class.
+- Added compiler-owned, position-preserving embedded-language projections for
+  token-tree macros. `IMacroEmbeddedLanguageProvider` identifies the target
+  language and supplies projected body text; Raven validates identical length
+  and line breaks, caches the result, and contains optional-provider failures.
+  The checked-in Markup macro now exposes an `html` projection that retains the
+  markup envelope while masking embedded Raven expressions. The VS Code
+  extension mounts it as a virtual HTML document, asks VS Code's existing HTML
+  provider for standard element, attribute, and closing-tag completions plus
+  HTML hover, maps ranges back to Raven source, and merges them after Raven's
+  semantic tooling. Nested `markup!` inside a reported macro block uses the same
+  position-based projection lookup, while reported embedded Raven fragments
+  retain ownership of completion and hover inside their spans.
+- Added compiler-owned completion contributions for token-tree macro DSLs.
+  `IMacroCompletionProvider` reports editor-neutral items with body-relative
+  replacement spans and optional Raven symbols; the compiler maps, orders, and
+  failure-isolates them before the language server presents them. The checked-in
+  Markup macro now completes incomplete Blazor component tags and properties,
+  while embedded Raven expressions retain native completion and standard HTML
+  catalog completion comes from VS Code's virtual-document integration.
+  Completion requests now propagate cancellation into macro
+  providers, and the language server triggers completion on `<` and spaces.
+- Macro block fragments now honor their reported body-relative spans instead of
+  reparsing the complete token-tree body. Structured declaration DSLs can expose
+  multiple independent Raven blocks and receive native hover, completion,
+  classifications, inferred-type inlays, and semantic binding in each region.
+- Macro-fragment semantic queries now prefer exact compiler symbol mappings,
+  including target-typed arguments and inferred pattern declarations, instead
+  of falling back to an enclosing invocation. Fragment results are authoritative
+  to language services, so detached syntax is not rebound through the outer
+  tree, and target-typed lambda declarations are stable across incremental cache
+  histories. The Proto.Actor DSL also projects its generated `IContext` into
+  fragment scope so `context.Respond(...)` participates in native binding,
+  hover, and completion.
+- Semantic tokens for macro documents now wait for the current compiler semantic
+  snapshot instead of caching a syntax-only result when completion, inlays, or
+  other work temporarily owns semantic access. Macro-provided keywords and
+  fragment classifications therefore remain stable while editing, and token
+  caches also track cross-file project snapshot changes.
+- Added a framework-free browser application type to `rvn init` and
+  `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
+  `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,
+  demonstrates a typed JavaScript method call, a JavaScript-to-Raven delegate
+  callback, and a named Raven method discovered through `getAssemblyExports`
+  via a built-in Raven `[JSImport]`/`[JSExport]` source generator, and includes
+  a runnable sample plus a documented macro-based direction for evolving typed
+  Raven imports and exports. Mutable value-type receiver calls now preserve
+  mutations required by the low-level WebAssembly marshalling API without
+  misinterpreting preloaded conditional-access values as managed addresses. The
+  WebAssembly direction now tracks browser and WASI as
+  sibling host stories, including future WIT mappings and browser-hosted WASI
+  experiments for server-shaped applications.
+- Macro-fragment editor queries no longer publish speculative nested expansion
+  diagnostics or register their synthetic expansion trees as authored document
+  state. Declaration-shaped component macros therefore remain valid while
+  inlays, completion, and classifications inspect a nested expression macro,
+  including after blank-line edits. Declaration carriers are also covered as
+  members at compilation-unit and file-scoped-namespace scope, distinct from
+  Raven's supported top-level statement macro form.
+- Fixed VS Code language-server resolution so a packaged extension does not
+  silently use an older automatically discovered SDK server, which could
+  invalidate macro expansion diagnostics after otherwise harmless edits.
+- Statement- and expression-form `if`, including pattern conditionals, now
+  accept an optional contextual `then` keyword. It clearly separates the
+  condition from an unbraced branch and permits statement bodies on the same
+  line without reserving `then` as an identifier elsewhere. The keyword is
+  primarily intended for expression-form conditionals; statement support keeps
+  the syntax symmetric. Macro token streams also preserve custom keyword kinds
+  for `then` and other non-reserved Raven keywords, so existing token-tree DSL
+  clauses remain compatible.
+- `Option<T>` parameters may now use `.None` as their default argument. Raven
+  emits a dedicated parameter-metadata marker and reconstructs the active
+  `None` case for omitted arguments, including calls across assembly references,
+  without treating the union carrier's CLR default state as `None`.
+- The Greenhouse Monitor sample can now read live CO2, temperature, and
+  humidity telemetry from an SCD40/SCD41 sensor connected to a Raspberry Pi
+  over I2C, while retaining simulated telemetry as its default mock source.
+- The public Web API showcase now demonstrates passing a Raven `func` lambda
+  directly as an ASP.NET Core route handler. The component-macro showcase now
+  mixes an ordinary Raven statement with its nested `markup!` expression, and
+  the static documentation highlighter presents the known `component!` and
+  `markup!` showcase aliases as contextual keywords.
+- Inferred local type inlays now work inside Raven macro fragments, including
+  declaration-shaped block fragments such as `component! Greeting(...)` where
+  `let x = 42` is presented as `let x: int = 42`.
+- Unary `+`, `-`, and `~` now apply .NET-style integral promotion to `sbyte`,
+  `byte`, `short`, `ushort`, and `char` operands, producing an `int` result.
+- The release procedure and installation-workflow dispatch form now state that
+  public installation verification must wait until the published packages are
+  restorable from a fresh NuGet.org-only cache, because its project and template
+  checks restore `Raven.Sdk` and `Raven.Templates`. Merely seeing the version in
+  NuGet's flat-container index is not treated as sufficient propagation. The
+  documented post-publication checklist also separates immutable release
+  publication, package propagation, installation verification, and the
+  `main`-only GitHub Pages deployment.
+- The website workflow now fetches release tags before deriving provenance, so
+  a post-release `main` deployment advances to the next unreleased preview line
+  instead of labeling the already published version as unreleased.
+
+## 0.1.0-preview.11 - 2026-08-20
+
+- Identifier-bearing declaration macro carriers now appear once under their
+  authored name in the VS Code outline, while identifier-less member macro
+  invocations remain omitted and generated implementation members stay hidden.
+- Published documentation, Playground, RavenDoc references, and experimental
+  component-macro sites now show one shared version and source commit in their
+  footers. Untagged builds are identified as unreleased, while an exact release
+  tag marks the matching immutable build as released.
+- The parser now represents declaration-shaped freestanding macro carriers such
+  as `component! Foo(x: int) { ... }` with a dedicated syntax node, preserving
+  modifiers, the declared name, declaration parameters, and the lossless body
+  at compilation-unit, namespace, and type-member scope. A macro parameter of
+  type `FreestandingMacroDeclarationSyntax` selects this carrier, while an
+  independent `IMacroTokenStream` parameter projects its body. Declaration
+  carriers now participate in descriptor resolution, expansion-category
+  validation, namespace/type declaration discovery, expanded documents, and
+  source-authored macro lowering. The HTML/Blazor showcase uses the
+  `component` alias of `FunctionComponent` to compose an ordinary Raven body
+  with a nested `markup!` macro. The showcase names the provider `MarkupMacro`,
+  retains `Html!` as a compatibility alias, and presents the sample as a
+  macro-authored DSL over ordinary Blazor infrastructure.
+- Declaration-shaped macro bodies can now be exposed as ordinary Raven block
+  fragments, with typed header parameters projected into the fragment as
+  parameter symbols that preserve navigation back to the header. Compiler and
+  language-server queries now carry those fragments through nested macros for
+  completion, hover, go-to-definition, and semantic coloring. Resolved macro
+  aliases such as `component!` and `markup!` are contextually presented as
+  contextual keywords after macro resolution, while canonical macro names
+  retain the distinct macro classification. The browser Playground now
+  requests the same compiler-owned semantic classifications and overlays them
+  in Monaco, so visible aliases receive the same keyword color there as in
+  language-server clients.
+- Lambda diagnostics now reject missing expression bodies, report incompatible
+  explicit and tail returns at the returned expression, and publish actionable
+  source ranges through the language server.
+- Language-server project reloads now preserve the last successfully loaded
+  solution when a transient project edit or restore failure prevents the
+  replacement project from opening, and retry on the next relevant file event.
+- Enum-member signatures and hover text now show the member's underlying
+  constant value, while enum-valued parameter defaults retain target-typed
+  displays such as `= .Rising`.
+- The language server now reloads projects when an external `dotnet restore` or
+  `dotnet build` updates `obj/project.assets.json`, allowing newly added package
+  references to recover after a failed or racing editor-side project reload.
+- Editing an unused import now invalidates the stale grey diagnostic on that
+  import line only, while unused-import diagnostics on untouched lines remain
+  visible until refreshed analyzer results arrive.
+- Small-document inlay hints now recompute immediately after committed edits,
+  preventing stale inferred labels from lingering while typing.
+- Bare locals, parameters, properties, and non-constant fields are no longer
+  accepted as implicit runtime value patterns; use `== value` for an explicit
+  comparison or a binding keyword to capture the matched value.
+- Inferred type inlays now include collection-comprehension targets authored in
+  Raven macro fragments reported through the current fragment-provider API.
+- Extern constants now retain `extern` in symbol signatures and hover text, and
+  namespace-scoped constants and `let`/`var` declarations now appear alongside
+  other members in the editor outline.
+- Macro terminology now follows procedural-macro conventions: application kind
+  is `Freestanding` or `Attached`. Freestanding macros use function-like syntax
+  at any grammar position permitted by their declared result; attached macros
+  occupy attribute-like positions on existing declarations. The public
+  freestanding support types are now `FreestandingMacroContext` and
+  `FreestandingMacroExpansionResult`.
+- Macros now have one stable method-shaped declaration ABI: a hidden nominal
+  definition type owns generic parameters, its designated `Expand` method owns
+  any number of caller-supplied or compiler-injected parameters, and binding,
+  execution, signature help, hover, and referenced-project metadata consume
+  that same canonical signature. Compiled providers use the erased
+  `IMacroExecutor` boundary, while the existing `macro` authoring syntax is
+  unchanged. Legacy category-specific providers are normalized to an executor
+  at registration, so compiler expansion now has one dispatch path; the
+  standard `query!` provider uses that boundary directly. Authors may also use
+  an ordinary `IMacroDefinition` class whose unconstrained designated `Expand`
+  method supplies the canonical signature; Raven lowers generic and
+  non-generic definition classes to direct erased entry points without
+  reflective expansion. Source edits to a definition's generic or `Expand`
+  signature rebuild its registered descriptor so unchanged consumer documents
+  immediately receive updated binding and editor information.
+- Raven project compilation avoids a redundant SDK evaluation when the target
+  framework and configuration are already supplied, skips local macro
+  activation assemblies for pure macro libraries, avoids duplicate framework
+  references, and reuses documentation symbol collection. In the standard
+  macro library workload, a measured net11 compiler invocation fell from about
+  140 seconds to 11 seconds.
+- Named `func` declarations now accept `_` discard parameters. Discarded
+  parameters preserve their argument slots and types without introducing a
+  usable body name or producing the unused-parameter diagnostic, which allows
+  overrides and interface implementations to explicitly ignore contract
+  parameters.
+
+## 0.1.0-preview.10 - 2026-08-16
+
+- Concurrent pattern-loop diagnostics and semantic queries no longer
+  recursively hash binder-owned local symbols.
+- Lock statements now preserve the runtime scope for
+  `System.Threading.Monitor`, preventing .NET 11 executables from looking for
+  the non-forwarded type in `System.Runtime`.
+- Postfix `?` propagation is now extensible through Raven.Core's
+  `IPropagatable<TSelf, TOutput, TResidual>` contract. Custom classes, structs,
+  records, and unions can define output extraction, residual extraction, and
+  enclosing-carrier reconstruction; `Result` and `Option` implement the same
+  protocol. Custom-carrier `expr?.Member` syntax propagates the receiver before
+  accessing the output member.
+- Union symbols now expose their complete alternative-type set as `Variants`.
+  The former `CaseTypes` API has been removed so `case` consistently names the
+  body-form declaration syntax, while variants may be declared by either
+  parenthesized types or `case` declarations.
+- Raven SDK builds now recompile when the selected compiler toolchain path
+  changes, even when a newly installed SDK's files have older timestamps than
+  existing project output. This prevents stale union assemblies from retaining
+  .NET 11 `System.Runtime` contracts after a project is retargeted to .NET 10.
+- Raven scripts and the `rvn repl` now load the standard generated prelude, so
+  common namespaces and extensions such as LINQ are available without explicit
+  imports, matching regular Raven projects.
+- Compiler diagnostics emitted during `dotnet build` and `dotnet run` now stay
+  on a single MSBuild-compatible line, so the .NET CLI forwards the actual Raven
+  errors and warnings instead of showing only the final `RAVENBUILD` failure.
+- Result-returning application entry points now resolve constructed `Ok` and
+  `Error` cases consistently for source and referenced `Raven.Core.Result`
+  carriers. `Error` writes its payload to standard error and returns exit code
+  `1`; `Result<(), E>.Ok` returns exit code `0`.
+
+## 0.1.0-preview.9 - 2026-08-14
+
+- Added a guarded release procedure that derives one monotonically increasing
+  `0.1.0-preview.N` version, validates all current documentation and package
+  references, requires the tagged commit to have passed the full Main CI gate,
+  records package provenance, and rejects duplicate immutable NuGet versions.
+  Every push to `main` now runs the complete ordered build, baseline,
+  runtime/emission, and language-server suites. Distribution reuses that result
+  and runs only release-specific packaging and smoke checks.
+
+- Removed a stale union semantic test for the reflection-era friendly-type-name
+  helper and aligned conversion diagnostics coverage with the explicit-cast
+  hint emitted alongside an incompatible assignment. Unused-variable analyzer
+  registration coverage now also includes macro declarations, and Raven.Core
+  `Result.ToString()` coverage matches the reflection-free union display
+  contract.
+
+## 0.1.0-preview.8.1 - 2026-08-14
+
+- Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper
+  securely prompts for compile-time SSID and password constants, builds the
+  direct device-only networking calls, and packages the complete compact-assembly
+  closure for wire-protocol or UF2 deployment. Its managed networking package
+  snapshot matches the current `PICO_RP2040_W` preview firmware's native
+  checksums. Wire-protocol deployment now rejects the legacy
+  `RP_PICO_W_RP2040` firmware, which loads the Wi-Fi assembly but exposes no
+  wireless adapter, before prompting for credentials or rebuilding the image.
+  Hardware guidance now records the Pico W family's single-band 2.4 GHz
+  requirement and the observed status-4 IP-address timeout on a non-compatible
+  network, followed by immediate success on a 2.4 GHz network. The LED remains
+  off during the blocking network operation so steady high now indicates only
+  a successful HTTP response. Its network workflow now returns an exhaustive
+  union whose failure cases preserve network details, HTTP status, or safe
+  exception details instead of encoding outcomes as integer constants. Its VS
+  Code launch task now prompts for masked Wi-Fi credentials and stages the full
+  compact assembly closure expected by the nanoFramework debugger. Its build
+  and deploy scripts accept `--repo-compiler` to rebuild and select the compiler
+  from the current checkout instead of reusing the compiler bundled with the
+  installed SDK.
+
+- Synthesized union `ToString()` now builds the carrier and case representation
+  directly from the statically known union shape. It no longer emits runtime
+  `System.Type` inspection or reflection-based display-name helpers. Closed
+  generic type arguments are intentionally omitted from the display (for
+  example, `Result.Ok(42)`), while strings and characters remain quoted through
+  ordinary runtime type tests. Restricted targets such as `netnano1.0` can also
+  disable structural `ToString()` synthesis entirely and inherit the runtime
+  default without affecting Raven.Core builds.
+
+- Direct numeric conversions to or from metadata enums now normalize through
+  the enum's declared underlying type before Reflection.Emit runtime-type
+  resolution. Target-only enums therefore support conversions such as
+  `(int)WifiNetworkHelper.Status` without requiring the target assembly to be
+  loadable in the compiler host.
+
+- Explicit external-constant overrides now take precedence over project
+  `RavenConstant` defaults regardless of command-line argument order. This
+  prevents SDK project defaults from replacing values supplied by deployment
+  tooling, such as the Wi-Fi SSID and password embedded in a device image.
+
+- External metadata method calls no longer require the target assembly to be
+  loadable in the compiler host. When Reflection.Emit cannot materialize a
+  target `MethodInfo`, emission now preserves the compiler method symbol and
+  replaces its temporary IL operand with a target `MemberRef` before writing
+  the PE. This first metadata-token path allows nanoFramework Wi-Fi and HTTP
+  APIs to be called directly from Raven without a C# bridge.
+
+- Runtime async now follows the target runtime capability, matching Roslyn's
+  .NET 11 model. It remains enabled by default for `net11.0`, falls back to
+  classic state-machine lowering for `net10.0`, and can be disabled in SDK
+  projects with `<UseRuntimeAsync>false</UseRuntimeAsync>`. Capability
+  detection requires the complete `AsyncHelpers` contract because .NET 10
+  exposes an earlier experimental form without the entry-point handlers.
+  General awaiters now lower through the runtime suspension helpers instead of
+  synchronously calling `GetResult`; this includes `Task.Yield()`.
+
+- Fixed .NET 11 compiler hosts leaking host-only runtime APIs into net10.0
+  output. Net10 unions now bind their `IUnion` compatibility contract from
+  Raven.Core instead of `System.Runtime`, and async entry-point bridges use the
+  target-compatible awaiter pattern when `AsyncHelpers` is absent from the
+  selected target framework.
+
+- Included both XML and Markdown symbol documentation for Raven.Core and
+  Raven.Macros in NuGet packages and standalone SDK archives. Raven tooling
+  prefers Markdown and falls back to XML, while C# and other .NET consumers
+  continue to receive standard XML documentation. Constructed and substituted
+  metadata symbols now preserve their definitions' documentation, and generic
+  method documentation IDs follow the standard .NET arity convention.
+  Documentation caches now reload when an assembly or sidecar is replaced at
+  the same output path, so editor sessions do not retain an older fallback.
+
+- Fixed clean Raven.Core bootstrap builds so `RavenEmitCoreTypesOnly` cannot be
+  overwritten by a previously emitted Raven.Core reference. Multi-targeted
+  compiler builds no longer load the net10.0 core library as a reference while
+  rebuilding that same library. Distributed compiler hosts now also prefer
+  their version-matched local CodeAnalysis and Macros assemblies over any
+  development outputs that happen to be reachable from their filesystem path,
+  and accept those host-targeted libraries when compiling for a newer .NET
+  target framework.
+
+- Standardized the distributable Raven toolchain on .NET 11. The standalone
+  SDK, NuGet Project SDK, analyzers, language server, and VS Code extension now
+  carry .NET 11-hosted tooling, while Raven library packages retain their
+  target-specific assets so the toolchain can continue to build net10.0 and
+  net11.0 applications. Emission now also retargets reflection-derived assembly
+  identities to the selected target framework's reference assemblies.
+
+- Migrated repository sample projects to the NuGet-resolved `Raven.Sdk` and
+  centralized their SDK version in `global.json`, so samples use the same
+  project-system contract as distributed Raven applications without requiring
+  a globally installed Raven SDK.
+
+- Aligned Raven templates with the .NET CLI's lowercase `--framework` option
+  and made net11.0 the default for console, class-library, and Web projects in
+  the .NET 11 distribution. Package and installation validation now builds Web
+  projects and verifies nanoFramework `.pe`, `.pdbx`, and `.bin` artifacts;
+  package validation also starts the Web app and checks its HTTP response.
+
+- Fixed macro token queries to share the semantic model's fragment-region
+  snapshot instead of invoking fragment providers again for the same syntax.
+
+- Fixed Raven project-reference loading so command-line builds consume the
+  referenced project's MSBuild-built output as metadata, matching the normal
+  .NET build model, while workspaces retain source project references for live
+  analysis and navigation. Generated Raven class libraries can therefore be
+  consumed without merging their source into the application's assembly or
+  hiding its `Main` entry point. Dependent workspace compilations and diagnostic
+  caches are now invalidated when a referenced project changes. Package
+  validation also runs and publishes a Raven consumer and exercises the same
+  generated library from C#.
+
+- Added the NuGet-resolved `Raven.Sdk` MSBuild Project SDK on top of
+  `Microsoft.NET.Sdk`. Generated projects now pin the matching Raven SDK and
+  build through ordinary `dotnet restore`, `build`, `run`, and `publish`
+  commands without machine-specific compiler paths. The SDK adds lockstep
+  implicit `Raven.Core` and `Raven.Macros` packages, and failed builds retain
+  Raven diagnostics without printing the complete compiler reference command.
+
+- Added a lockstep `Raven.Templates` NuGet template package for normal
+  `dotnet new` usage. Console, class-library, ASP.NET Core, and .NET
+  nanoFramework templates now share their canonical project content with the
+  corresponding `rvn init` scaffolds; package validation installs and renders
+  all variants in an isolated .NET CLI home, builds each result, and executes
+  the console application.
+
+- Fixed project compilation on Windows when the intermediate output path ends
+  in a directory separator, and diagnose executable file-scope code in every
+  source file when more than one file contributes top-level statements.
+  `rvn init` now creates `src/Main.rvn` with an explicit `func Main` for console
+  projects and a declaration-only source file for class libraries.
+
+- Fixed installed `rvn build`, `rvn run`, and `rvn clean` commands so canonical
+  `Raven.Sdk` projects own their MSBuild target selection instead of receiving
+  a command-line `LanguageTargets` override. This preserves the .NET SDK's
+  reference-assembly configuration across incremental `dotnet run` builds and
+  avoids missing `refint` outputs. `rvn init` also emits a standard TFM.
+
+- Fixed SDK installers to accept checksum manifest paths both with and without
+  a leading `./`, and normalized future release manifests to use bare asset
+  names. Added a separate manual post-publication workflow that exercises the
+  public SDK installers across all release targets and installs the public VSIX
+  into clean VS Code instances on Windows, Linux, and macOS.
+
+- Bundled the VS Code extension host and its runtime dependencies into one
+  production JavaScript entry point. VSIX packages now include repository and
+  MIT license metadata, exclude development dependencies and intermediate
+  outputs, preserve the source manifest version during release packaging, and
+  resolve with no production npm audit findings.
+
+- Fixed clean-checkout SDK packaging by bootstrapping the Release compiler host
+  before Raven-authored Release projects are built, and using that
+  host-compatible compiler while cross-publishing target-architecture SDKs.
+
+- Added lockstep NuGet packaging for `Raven.Core`, `Raven.Macros`,
+  `Raven.CodeAnalysis`, and `Raven.Analyzers`, including package metadata,
+  symbols, isolated local-feed validation, GitHub release assets, and manual
+  matching-tag NuGet.org publication through Trusted Publishing. Distribution
+  runs and both publication operations require explicit workflow choices.
+  Package validation executes a distributed macro and loads a distributed
+  analyzer through the standard NuGet analyzer asset convention.
+
+- Separated documentation-site validation from publication. Relevant pull
+  requests continue to build the complete website, while pushes to `main` no
+  longer deploy it; GitHub Pages publication requires a manually dispatched
+  workflow with an explicit `publish_site` choice.
+
+- Added the opt-in `PreferLoopOverWhileTrueAnalyzer` (`RAV9036`) and a code fix
+  that replaces unconditional `while true` statements with `loop`.
+
+- Added explicit Debug and Release compiler optimization policies. Release
+  project builds now run an ordered pipeline of specialized bound-tree
+  rewriters, beginning with conservative pattern algebra, Boolean-expression
+  and comparison simplification and literal branch pruning. Release omits
+  debug-only IL padding except for stable visible sequence-point anchors, so
+  portable PDBs remain valid for symbol consumers. Debug remains the unchanged
+  default path, shared semantic lowering stays configuration-neutral, and the
+  evaluated MSBuild `Optimize` property can override the configuration default.
+
+- Reduced default analyzer noise by keeping only correctness and safety checks
+  enabled automatically. Built-in analyzers are grouped by diagnostic kind,
+  with nonessential members opt-in through individual names or
+  `category:<kind>` in `RavenEnabledAnalyzers`; `all` enables the full optional
+  set.
+
+- Added lightweight compiler-backed hover signatures to the browser
+  Playground for resolved identifiers and members.
+
+- Added indeterminate progress bars for Playground startup and compiler
+  operations so disabled controls are not the only indication of work.
+
+- Added diagnostic start locations to the Playground problems list.
+
+- Made header-brand destinations consistent across DocFX, RavenDoc, the
+  Playground, and the component-template showcase. Standalone applications
+  keep their own root while combined-site builds explicitly point at the
+  parent Raven documentation root.
+
+- Diagnosed unresolved types in both tuple-style and field-style union case
+  payloads. Hover signatures now preserve the authored unresolved type name,
+  including qualified names, and reserve `<Error>` for declarations without
+  usable source type syntax.
+
+- Preserved portable PDB symbols while normalizing or retargeting emitted
+  assembly references. Final assemblies now retain a matching CodeView identity
+  and executable source sequence points, allowing debuggers such as the .NET
+  nanoFramework VS Code adapter to bind Raven breakpoints to the selected line.
+
+- Fixed SDK builds so conditionally evaluated `RavenConstant` items are
+  forwarded to the compiler process instead of being used only for incremental
+  invalidation. Updated the nanoFramework deployment guidance with the
+  published RP2040 firmware package names and the tested `nanoff` 2.5.162
+  macOS UF2 and device-discovery workarounds.
+
+- Added expression forms of the macro contribution constructs `expand`,
+  `replace`, and `introduce`. They can now be used directly in `match` arms and
+  other macro expression positions while retaining their standalone statement
+  forms; macro lowering, validation, semantic classification, and control-flow
+  analysis recognize both shapes. Unused-local and unused-parameter analysis
+  now treats macro declarations as callable owners and observes contribution
+  operands in either form.
+
+- Added expression forms of `break`, `continue`, `yield`, `yield return`, and
+  `yield break`, including labeled `break` and `continue` targets. These forms
+  can be used directly in `match`, `if`, null-coalescing, and other expression
+  positions, with abrupt branches integrated into type joins and control-flow
+  reachability analysis.
+
+- Made member-access completion receiver-aware: value and literal receivers now
+  show only referencable instance members, excluding nested types and generated
+  backing/accessor symbols, while type receivers retain static members and now
+  include accessible nested types.
+
+- Moved Playground completion, compilation, and emitted-program execution into
+  a persistent .NET 11 Web Worker so compiler work no longer stalls Monaco's UI
+  thread. Raven's semantic access gate now avoids unsupported blocking waits in
+  single-threaded WebAssembly runtimes while retaining synchronization when
+  multithreading is available.
+
+- Made Playground completion appear immediately after member-access dots and
+  automatically after a short, meaningful Raven identifier prefix, while
+  keeping compiler requests bounded and out of comments and strings and
+  preserving manual Ctrl+Space completion. Standalone `dotnet run` now stages
+  documentation-owned snippets before static web assets are prepared, avoiding
+  an empty-manifest startup crash.
+
+- Added stable Playground links for public examples, documentation-owned
+  snippets, and inline shared source. Only bundled example and snippet IDs can
+  opt into automatic execution; invalid links now fall back to Hello World
+  with an inline explanation, and documentation snippets remain separate from
+  the Playground's visible example picker.
+
+- Made `dotnet build` package `netnano1.0` executables into compact `.pe`,
+  `.pdbx`, and complete deployable `.bin` artifacts while staging the compact
+  dependency closure for the official nanoFramework VS Code debugger. Added
+  checked-in build, launch, and attach configurations, plus a getting-started
+  guide covering firmware selection and direct `nanoff` UF2 and wire-protocol
+  deployment without sample utility scripts.
+
+- Fixed pattern matching over type parameters constrained to sealed hierarchies
+  so permitted subtype patterns bind correctly and covering every permitted
+  leaf is exhaustive. Parenthesized union carriers now also extract their active
+  member before evaluating a typed property pattern and its whole-value
+  designation, while matching the carrier type itself remains valid.
+
+- Updated active .NET 11 samples to target the Preview 7 SDK and matching
+  Microsoft ASP.NET Core and OpenAPI packages. The vehicle-costs sample retains
+  its compatible EF Core/Npgsql Preview 6 pair pending a Preview 7 provider,
+  and the runtime-async sample now selects the Preview 7 SDK explicitly.
+
+- Fixed fresh builds of referenced Raven compiler-plugin projects so nested
+  macro compilation inherits the compiler's `Raven.CodeAnalysis` and
+  `Raven.Macros` support references. Removed tracked VehicleCosts bisect
+  fixtures that were being discovered as samples and leaking into the parent
+  project's default source glob.
+
+- Added a distributable Raven `netnano1.0` MSBuild target profile. Standard
+  `Microsoft.NET.Sdk` Raven projects now need only select `netnano1.0`, add
+  normal device package references, and declare application settings; Raven's
+  build assets supply the nanoFramework target identity, core library, metadata
+  processor, and reduced-runtime compiler defaults. Direct `rvnc` project
+  compilation also recognizes the target and its canonical NuGet assets. Both
+  the Blinky and temperature/union/GPIO probes now use concise `.rvnproj` files
+  and normal PackageReference restore.
+
+- Added the first SDK-style `netnano1.0` Raven project path. Alternative-runtime
+  projects can suppress host framework references and select their target core
+  library through MSBuild properties; the compiler and language server preserve
+  that evaluated reference surface. The Pico-family Blinky sample now restores
+  ordinary nanoFramework `PackageReference` items, builds through its
+  `.rvnproj`, and packages the result as an `NFMRK2` image.
+
+- Made synthesized record and union formatting Native AOT-safe by marking
+  Raven-generated structured-display types through Raven.Core instead of
+  discovering helper methods with reflection. Explicit `--raven-core`
+  references now replace project-evaluated references with the same assembly
+  identity, preventing stale or configuration-mismatched Raven.Core assemblies
+  from controlling emission. Added a Linux x64 CI smoke test that publishes and
+  runs the greenhouse sample and rejects trim-analysis or AOT-analysis warnings.
+
+- Added a reproducible Native AOT path to the greenhouse-monitor sample, with
+  host RID detection, native publish-and-run validation, RID-specific artifacts,
+  and a documented `linux-arm64` workflow for Linux-based Raspberry Pi devices.
+
+- Added typed `extern const` build inputs with required/default declaration
+  forms, invariant type validation, `CompilationOptions` support, repeatable
+  `rvnc` and `rvn build --constant NAME=VALUE` providers, `.rvnproj`
+  `RavenConstant` items, and command-line-over-project-over-source precedence.
+  Successful overrides of source initializers now produce a value-redacted
+  informational diagnostic so build-time substitution remains visible.
+  The nanoFramework Blinky sample now uses this facility for `LedPin` instead
+  of generating Raven source.
+
+- Added a minimal nanoFramework Raspberry Pi Pico-family Blinky sample pinned
+  to mutually matching 2.0 preview core and GPIO assembly versions, with a
+  generic Raven pin-selection probe, board profiles, reproducible
+  Raven-to-`NFMRK2` build and deployment images, dry-run deployment commands,
+  an explicit RP2350 firmware-support boundary, and a successful Pico WH
+  hardware deployment against the matching nanoCLR 2.0 preview runtime.
+
+- Added a reproducible nanoFramework temperature-monitor MVP sample that
+  restores a pinned target reference closure, compiles union- and GPIO-based
+  Raven source, and packages it as an `NFMRK2` image.
+
+- Made synthesized union value formatting emit against reduced managed runtime
+  surfaces that omit `Type.IsPrimitive` and `string.Replace(string, string)`,
+  while preserving full escaping when the target provides the replace API.
+
+- Added standalone `rvnc` options for explicit alternative-runtime reference
+  closures: `--no-framework-references` suppresses the host .NET targeting pack,
+  while `--target-core-library` adds and selects the target core-library
+  identity used during emission.
+
+- Added `EmitOptions.TargetCoreLibraryIdentity`, allowing compiler hosts to
+  retarget emitted host core type references to a supplied runtime core-library
+  identity without loading target assemblies for execution.
+
+- Stopped the compiler driver from copying the host `System.Private.CoreLib`
+  into Raven runtime-dependency closures. This prevents the host core library
+  from overriding the target runtime's core library during Native AOT publish.
+
+- Union carriers can now implement interfaces with a conventional base list,
+  such as `union Failure: IError`. The compiler exposes the interfaces through
+  the symbol API, validates required members, rejects class inheritance, and
+  emits CLR interface implementation metadata.
+
+- Attached type macros can now replace a union carrier's interface shape and
+  introduce members into the carrier, enabling reusable derived capabilities
+  such as error contracts.
+
+- Added the reusable `#[Error]` macro to `Raven.Macros`. It makes a union
+  implement `System.IError` and supplies a case-aware `Message` property unless
+  the union already declares one. Case-level `#[ErrorMessage(...)]` can now
+  provide a Raven string expression with payload interpolation; unannotated
+  cases retain the default case-aware message.
+
+- Macro declarations can now bind a union case through an `on` parameter typed
+  as `CaseDeclarationSyntax`. Case-level attached-macro replacements are
+  contextualized inside union declarations instead of being left detached.
+
+- Union members can match cases from their own declaring union without an
+  import or carrier qualifier, including `self is MissingValue` and match arms
+  such as `InvalidValue(let value)`.
+
+- Promoted the LINQ-style `query!` DSL from the invocable-macro sample into
+  `Raven.Macros`, preserving its expression-fragment completion, hover,
+  diagnostics, and `Where`/`Select` expansion behavior.
+
+- Added a Playground example that composes the standard `query!`, `quote!`,
+  `#[Error]`, and `#[ErrorMessage]` macros in a runnable WebAssembly program.
+
+- Query macro bodies now classify their DSL keywords and project ordinary
+  Raven semantic highlighting through source, predicate, and selector fragments.
+
+- Macro fragment locals with authored declaration spans now project local
+  symbols onto their declaring DSL tokens, enabling ordinary hover information
+  on declarations such as the `value` in `from value in items`.
+
+- Hovering an invocable or attached macro name now includes documentation from
+  the macro implementation alongside its macro kind, targets, arguments, and
+  expansion command guidance.
+
+- Hardened macro-reference activation so provider-construction failures report
+  the provider type and underlying error through `RAVM001`, remain stable across
+  repeated diagnostics, and do not disable macros from healthy references.
+
+- Completed boxing and unboxing conversion classification between value types
+  and interfaces they implement. This makes struct union carriers usable
+  through their declared interfaces from Raven source, not only in emitted CLR
+  metadata.
+
+- Preserved inferred union-case type arguments when reporting a failed
+  case-to-carrier conversion, rather than falling back to an open generic
+  carrier such as `Result<T, E>`.
+
+- Fixed union-case symbol display so type-use formats omit constructor payloads
+  while declaration formats show the inherited case signature without repeating
+  the containing union's generic parameters.
+
+- Fixed incremental parsing of edited type members so method signature changes
+  retain type-member context instead of being misclassified as file-scoped
+  function statements. Category-changing edits still fall back to a full parse.
+
+- Removed the alternate `#Name` invocable-macro syntax. Invocable macros now
+  use the single `Name!` carrier for argument lists, raw token bodies, or both;
+  `#` remains available for directives and attached macro attributes.
+
+- Generalized invocable macro expansion results around a single `SyntaxNode`,
+  with typed expression and statement projections and factories. This removes
+  expression-only casts from the execution boundary and prepares centralized
+  grammar-position validation without adding multi-node complexity to the MVP.
+  A bare raw-body invocation used as a whole statement now requires statement
+  syntax, while a parenthesized invocation remains an expression; call-style
+  invocations retain normal expression-statement behavior, and category
+  mismatches produce a compiler diagnostic instead of reaching the binder.
+
+- Extended the normalized invocable-macro result boundary with explicit,
+  immutable member-list output. Empty member lists remain distinguishable from
+  no expansion, single-node and list outputs are mutually exclusive, and a
+  list returned through an expression or statement carrier is diagnosed rather
+  than silently ignored.
+
+- Added a dedicated recoverable `Name!` invocation carrier in type-member
+  position while preserving the existing statement envelope at file and
+  namespace scope, where semantic macro resolution must decide whether an
+  invocation supplies statements or declarations. Qualified macro names and
+  raw token bodies now share one parser path, and bare postfix `value!` remains
+  nullable suppression.
+
+- Unified expression and type-member `Name!` carriers behind the same
+  invocable-macro context surface. Macro authors now use `Syntax`, `Name`,
+  `ExclamationToken`, `ArgumentList`, and `TokenTree` consistently instead of
+  depending on an expression-only syntax type.
+
+- Added semantic-model expansion for invocable macros in type-member position.
+  Expanded documents now splice generated members in order, support explicit
+  empty-list removal and single-member results, and diagnose incompatible
+  expression or statement output while preserving recoverable source.
+
+- Extended member-producing invocable macros through compiler declaration
+  binding and emission. Type-body, namespace, and file-scope invocations can
+  now contribute real members; ambiguous file/namespace carriers preserve
+  statement behavior until the semantic expansion result selects declarations.
+
+- Completed compact member-producing macro declarations. A
+  `SyntaxList<TMember>` return annotation now selects namespace- and type-member
+  positions, `expand` normalizes the list into the invocable result, and the
+  generated provider preserves those targets through the class-authored ABI.
+  Class providers can declare the same positions with `InvocationTargets`.
+
+- Documented the execution, output, input, and tooling boundary between macros
+  and source generators: macros transform an explicit authored site inside the
+  compiler, while generators add project-wide generated documents through the
+  workspace or build host.
+
+- Added normalized macro application metadata that separates attached versus
+  invocable application from grammar targets. Macro syntax parameters now expose
+  the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve
+  source-backed expression arguments, and rely on ordinary call-site binding to
+  infer and validate expanded values.
+
+- Reusable compiler-plugin projects can now place a bare
+  `[assembly: RavenCompilerPlugin]` marker and compact `macro` declarations in
+  the same source file. Partitioning retains the marker in the emitted plugin
+  while lowering only the declarations into provider adapters. Bare-marker
+  discovery exports public declarations and provider classes; non-public
+  macros remain local to their defining project.
+
+- Simplified Raven-authored macro declarations to `macro Name(...)`, removing
+  the redundant `func` keyword. The compiler API now exposes
+  `MacroDeclarationSyntax`, `IMacroDeclarationSymbol`, and `SymbolKind.Macro`,
+  while semantic tokens classify macro names distinctly for editor clients.
+
+- Simplified Raven-authored macro control flow: `expand` now supplies the final
+  expansion and returns from the current execution path, while `replace`,
+  `introduce`, editor metadata, and reported diagnostics accumulate until an
+  explicit expansion or body fall-through. All macro contexts now expose
+  ordinary diagnostic-reporting APIs, and attached macro declarations can request
+  a compiler-supplied `AttachedMacroContext` without adding an invocation
+  argument.
+
+- Preserved caller-authored syntax reused by invocable macro expansions as
+  ordinary visible syntax instead of debugger-hidden generated plumbing.
+  Semantic queries now project bound nodes, types, symbols, and contextual
+  lambda parameters through that expansion even when the macro has not already
+  been bound by another query.
+
+- Added deterministic `MacroContext.CreateUniqueName` allocation for generated
+  bindings. It avoids identifiers authored in the invocation document and
+  names previously allocated by the same macro context, without conflating
+  textual collision avoidance with future call-site/definition-site hygiene.
+
+- Added diagnostic-first `MacroContext.RequireSyntax<TSyntax>` validation for
+  macro transformations. Category mismatches now accumulate a source-located
+  error and return safely instead of requiring casts or exceptions, including
+  exact authored-origin locations for parsed DSL fragments.
+
+- Added cursor-based Raven fragment parsing to macro token streams. Macro
+  authors can parse one expression, statement, type, or pattern from the
+  current token, receive its recovered syntax and body-relative span, and
+  continue reading the outer DSL without precomputing an end span.
+
+- Added invocation-scoped type and symbol inspection helpers for Raven
+  expressions parsed by token-tree macros.
+
+- Added cursor-based single-member parsing without weakening exact-whole-region
+  member validation.
+
+- Added a parse-result source-provenance overload for mapping generated macro
+  syntax back to its authored fragment.
+
+- Added concise structural and factory-form syntax inspection helpers for
+  macro authors.
+
+- Macro syntax parse results can now be reported directly through
+  `MacroContext.ReportDiagnostics(result)`.
+
+- Added `MacroContext.CreateUniqueIdentifier` for constructing fresh generated
+  identifier syntax without repeating name allocation and factory calls.
+
+- Aligned documentation and VS Code grammar highlighting for macro
+  declarations, contribution keywords, attributes, target clauses, and
+  invocable `Name!` invocations, and made constructor access modifiers and
+  union cases with or without payloads consistent.
+
+- Added a standalone Blazor WebAssembly host and GitHub Pages publishing path
+  for the experimental component-template showcase, sharing the same Raven
+  components, source presentation, styles, and interactions as the Server host.
+- Fixed portable-PDB correction when a normalized method maps to an omitted
+  trailing `MethodDebugInformation` row, preventing Release compiler bootstrap
+  failures in assemblies whose final methods have no debug information.
+- Fixed the experimental component-template WebAssembly host startup by
+  including the .NET runtime import map and the Raven component assembly's
+  explicit runtime dependencies in its published page.
+
+- Added `samples/projects/macro-dsl`, a minimal Raven-authored token DSL that
+  demonstrates macro-local keywords, embedded Raven expression regions,
+  native fragment diagnostics, expansion, and debugger source provenance in a
+  standalone plugin-and-application project.
+
+- Fixed portable-PDB method ownership after assembly-reference normalization.
+  Sequence points and local scopes are reconciled against the final PE method
+  rows, async and iterator bodies remain attached to their generated
+  `MoveNext` methods, and overlapping visible spans within a method are
+  suppressed. This restores stable stepping for ordinary, top-level, match,
+  async, iterator, and macro-authored executable code.
+
+- Added compiler-owned debugging provenance for executable macro fragments.
+  Parsed expressions and statements retain authored `.rvn` locations,
+  string-built expansions can provide span mappings, and portable PDBs hide
+  unmapped generated plumbing. The VS Code Raven debugger can now build and
+  launch a separate .NET startup project, enabling F5 debugging of the Blazor
+  template sample through its web host and launch profile.
+
+- Fixed expanded macro documents so generated declarations retain line breaks
+  between adjacent members and receive context-aware indentation in compiler
+  expanded-source projections, including the VS Code expanded-syntax view.
+
+- Added compiler-owned script submission chains and a dedicated submission
+  binder. Variables, functions, and types from earlier submissions now
+  participate in semantic binding without being inserted into the current
+  top-level lexical scope.
+
+- Script submissions now persist top-level variable values in typed execution
+  slots. Later submissions can read and update those values without rerunning
+  earlier submission bodies; the storage code path is inactive for ordinary
+  files and projects.
+
+- Script submission functions and user-defined types now flow through emitted
+  metadata references, allowing later submissions to call and instantiate them
+  through normal CLR member references. Submission compilation state and its
+  code-generation bridge are isolated behind dedicated internal components.
+
+- Added Raven-owned `RavenScript`, `Script`, `ScriptOptions`, and `ScriptState`
+  hosting APIs. Script states execute only the newest submission, retain
+  variables and emitted declarations across continuations, and own a
+  collectible assembly-loading session that can be released explicitly.
+
+- Script states now expose the typed value of a submission's trailing
+  expression through `HasReturnValue` and `ReturnValue`, enabling `eval` and
+  interactive hosts without rewriting source text.
+
+- Added `rvn eval <code>` and an MVP `rvn repl`. The REPL retains variables,
+  functions, and types across submissions, uses compiler-owned completeness for
+  multiline input, and supports `:load`, `:reset`, `:references`, `:help`, and
+  `:quit`.
+
+- Centralized top-level function classification and added a semantic-model
+  submission declaration projection. Submission functions now bind against
+  prior submission state, while PE code generation resolves repeated metadata
+  type names against their containing assembly rather than an unrelated cached
+  assembly. Normal compilation keeps its existing file-local function policy.
+
+- Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
+  source. Hosts can distinguish complete submissions, trailing incomplete
+  constructs that need more input, and complete submissions with syntax errors.
+
+- Fixed **Raven: Run Active File/Project** in the VS Code extension so an active
+  project-backed source runs its owning `.rvnproj`, compiling all project source
+  files, while standalone sources continue to run as isolated file applications.
+
+- Fixed nullable generic substitution so Raven's unified nullable symbol is
+  preserved independently from its CLR ABI projection. Constructed type
+  and method symbols now retain whether the original signature projects to its
+  underlying type or `Nullable<T>`, preventing invalid calls such as
+  `EventCallback<int>.InvokeAsync` while keeping compiler API nullability intact.
+- Metadata symbol loading now falls back safely when an optional dependency is
+  absent from a metadata load context instead of crashing type classification.
+- Compiler API consumers can query a nullable type's CLR representation through
+  `GetNullableAbiProjection()`. The total API distinguishes non-nullable types,
+  annotated underlying-type projections, and `System.Nullable<T>` projections
+  without exposing Raven's internal nullable symbol implementation.
+- Added the off-by-default `EnableIsNotNullNarrowing` compatibility option.
+  A direct `value is not null` condition narrows a local or parameter only in
+  its true branch, and semantic type information and hover show the contextual
+  non-null type there. Raven's canonical `if let` and type-pattern bindings are
+  unchanged.
+
+- Raven MSBuild projects now implicitly include `.rvn` source files through the
+  standard `Compile` item contract. Set `EnableDefaultCompileItems` to `false`
+  and add explicit `Compile` items when a project needs a curated source list.
+
+- Removed the legacy `RavenCompile` MSBuild item. Raven projects now use the
+  same `Compile` item contract as SDK-style C# projects, and checked-in Raven
+  projects and test fixtures have been migrated accordingly.
+
+- Removed the legacy `Raven.MSBuild.targets` host-project bridge and its
+  `RavenProjectFile`/`RavenOutputDir` contract. Raven projects now build as
+  ordinary `.rvnproj` projects and participate through `ProjectReference`.
+
+- Removed support for the legacy `.ravenproj` project format from Raven's CLI,
+  compiler driver, documentation tool, workspace routing, and VS Code tooling.
+  `.rvnproj` is now the sole Raven project-file extension.
+
+- Removed the legacy Raven and composite workspace project-system services.
+  `RavenWorkspace`, `rvnc`, and compiler-plugin builds now use the MSBuild
+  project-system service directly.
+
+- Migrated project-system, package/framework-reference, generated-source,
+  analyzer-option, compiler-output, and file-watcher fixtures to SDK-style
+  `.rvnproj` files, and removed obsolete custom-solution persistence coverage.
+
+- Removed the custom `ProjectFile` and `SolutionFile` XML serializers and the
+  obsolete file-path solution persistence APIs. Project loading and saving now
+  remain entirely on the MSBuild-backed `.rvnproj` path.
+
+- Renamed the Raven.Core sources from legacy `.rav` to `.rvn` and removed its
+  explicit `Compile` list. Raven.Core now uses the same implicit source-item
+  behavior as other SDK-style Raven projects.
+
+- Documented the remaining MSBuild parity boundary: Raven still needs a
+  distributable MSBuild SDK with conventional props/targets, stronger
+  design-time and reference-assembly support, and less custom dependency flow.
+
+- Raven's MSBuild compile target now preserves the active `Configuration` and
+  inner-build `TargetFramework` when `rvnc` evaluates a project, including its
+  project references and compiler plugins. Multi-targeted Release builds no
+  longer fall back to Debug or the first declared target framework.
+
+- Raven project evaluation now ignores the SDK-injected
+  `Microsoft.NETCore.App` framework item. The workspace already supplies the
+  target framework reference assemblies, so package-only projects no longer
+  trigger a redundant restore.
+
+- MSBuild-backed `.rvnproj` workspace evaluation now applies `.editorconfig`
+  diagnostic severity and suppression settings to compilation options.
+
+- Fixed Raven MSBuild incrementality so unchanged projects skip `CoreCompile`.
+  Logical package and framework-reference names are no longer treated as input
+  file paths; their resolved assemblies remain tracked through `ReferencePath`.
+
+- `dotnet clean` now removes Raven-owned generated sources, intermediate and
+  copied documentation trees, dependency manifests, and runtime dependency
+  artifacts from the active build configuration and target framework.
+
+- Added optional target types to macro expression fragments through
+  `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
+  lambdas normal parameter inference and hover without exposing private DSL
+  trees. Optional provider failures remain isolated, and visible-value lookup
+  now handles detached recovered fragment syntax without crashing hover.
+
+- Fixed `TextSpan` value equality metadata so Raven code can use `==` and `!=`
+  without introducing an unsupported nullable conversion during emission.
+
+- Extended the HTML-to-Blazor macro prototype so component parameters of type
+  `EventCallback` or `EventCallback<T>` accept either callback references or
+  inline Raven lambdas. The macro now target-types the authored expression as
+  `Action` or `Action<T>` and emits the matching `EventCallback.Factory.Create`
+  wrapper, removing that boilerplate from component code.
+
+- Extended macro token symbol projection to contextual DSL references. The
+  HTML-to-Blazor sample now resolves component attributes to their ordinary
+  component property symbols, enabling standard hover and go-to-definition
+  without exposing the macro's private parser representation. Token lookup
+  follows reported Raven fragments into nested macro invocations, explicit
+  DSL token associations take precedence over containing fragments, and macro
+  invocation hints no longer occupy unresolved text inside token-tree bodies.
+
+- Updated the HTML-to-Blazor sample so component parameters and matching DSL
+  attributes follow .NET PascalCase naming conventions.
+
+- Extended the HTML-to-Blazor sample with an ordinary Razor `StatusBadge`
+  component from a referenced Blazor project. The HTML macro now also accepts
+  qualified component tags and maps their terminal type token and parameters
+  to ordinary compiler symbols for editor tooling. The badge's co-located
+  `.razor.css` demonstrates that components instantiated from Raven templates
+  retain Blazor's normal CSS-isolation pipeline.
+
+- Added evaluated `MacroOption` project items as a general immutable build-to-
+  macro configuration channel. The HTML-to-Blazor sample now uses it with the
+  Static Web Assets SDK to rewrite, bundle, publish, and apply isolated
+  `Counter.rvn.css` without generating Razor files or implementing a CSS parser.
+
+- Fixed workspace loading for compiler-plugin project references so the built
+  plugin assembly is available as both a macro provider and an ordinary
+  metadata reference. Macro libraries can now expose runtime helper types used
+  by their expansions without producing false editor diagnostics.
+
+- Fixed macro-fragment semantic queries over collection comprehensions and
+  nested macro expansions so detached fragment syntax no longer crashes while
+  creating synthesized locals, lambdas, or parameters. Hover now resolves the
+  outer comprehension source, condition, and iteration-local members. Nested
+  token-tree macro fragments inherit the lexical scope at their invocation, so
+  HTML expressions inside a comprehension resolve the item, its members, and
+  caller callbacks without HTML-specific language-server logic. Hover uses
+  authored names for compiler-synthesized comprehension locals and avoids
+  presenting a nested macro's generated lambda as the authored DSL symbol.
+
+- Added optional ordinary-symbol targets to macro token metadata. Outer DSL
+  tokens now reuse normal VS Code hover and go-to-definition, with the HTML
+  sample resolving component tags such as `<Greeting>` without exposing its
+  private parser structure or adding HTML-specific language-server code.
+
+- Added compiler-owned semantic lookup and normal VS Code hover and
+  go-to-definition presentation
+  for ordinary Raven expression and statement fragments inside token-tree
+  macro DSLs. Hover resolves caller locals, macro-introduced typed locals, and
+  their members through the same span metadata used by completion. Optional
+  declaration spans let DSL-introduced locals navigate back to their authored
+  token, without an HTML- or query-specific editor integration.
+
+- Added `fragment` and `token` contributions to token-tree `macro`
+  declarations, so Raven-authored DSL macros can publish ordinary Raven
+  expression, statement, type, pattern, or member regions, typed locals, and
+  token kind/classification metadata without separate provider classes.
+  Dedicated providers remain supported when tooling must be independent from
+  full expansion.
+
+- Extended the isolated HTML-to-Blazor macro sample with expression-based
+  conditional content, canonical prefix match rendering, filtered
+  list-comprehension rendering, native Blazor keys, and interactive
+  Match and Todo showcases whose model changes re-evaluate the rendered
+  expressions. The Match showcase now renders and destructures payload-bearing
+  union cases instead of matching integer phases.
+
+- Fixed collection-comprehension iteration locals captured by nested lambdas
+  so each generated delegate snapshots the current iteration value instead of
+  reading an uninitialized shared closure field.
+
+- Added end-to-end DSL-tooling acceptance coverage that compiles the checked-in
+  HTML macro and verifies cached token/fragment snapshots, cursor routing, and
+  authored diagnostics. The HTML/Blazor showcase now highlights its Raven code
+  and relies on inferred `unit` return types for effect-only functions.
+
+- Added `MacroInputSnapshot` as the compiler-owned combined view of a
+  token-tree invocation's classified tokens and embedded Raven regions, with
+  deterministic source ordering and most-specific cursor lookup. The language
+  server consumes this combined view for macro semantic highlighting.
+
+- Added compiler-owned macro token snapshots with provider raw kinds, authored
+  spans, stable standard or provider-defined kind names, keyword overlays, and
+  optional lightweight token classifications.
+  Invalid or failing optional metadata is normalized per token rather than
+  discarding otherwise valid snapshot data.
+  Token providers remain independent of Raven's global `SyntaxKind` values.
+  Token and embedded-fragment tooling results are cached by the owning semantic
+  model for the immutable invocation snapshot.
+  The language server now projects available macro token classifications into
+  semantic highlighting without loading or invoking providers itself.
+  The HTML-to-Blazor prototype supplies lightweight body-token classifications
+  in addition to its embedded Raven expression regions.
+
+- Added an optional token-tree macro fragment-region provider and compiler API
+  for surfacing body-relative expression, statement, type, pattern, and member
+  spans as authored source regions without exposing a macro's private DSL tree.
+  The HTML-to-Blazor sample now publishes its embedded Raven expression spans
+  through that contract. Ordinary Raven completion now routes through reported
+  regions using the invocation's caller scope, including local-symbol and
+  member-access completion, without requiring a DSL-specific completion API.
+  The Raven-authored LINQ-like query sample now proves the same contract for
+  its source, predicate, and projection fragments. Fragment regions can also
+  carry compiler-owned locals, with a focused sequence-element helper allowing
+  the query DSL's range variable to receive typed member completion in its
+  predicate and projection without exposing generated lambdas. Schema-backed
+  DSLs can provide an explicitly typed local directly.
+
+- Added exact-one member-declaration parsing for standalone syntax construction
+  and token-tree macro bodies. Empty, multiple, import-only, and global-
+  statement inputs are rejected instead of silently selecting a declaration.
+
+- Added source-backed type, pattern, and compilation-unit parsing to token-tree
+  macro contexts, with diagnostic-bearing results mapped to authored body
+  locations, plus matching `SyntaxFactory` entry points for standalone text.
+  Recovered macro fragment syntax now also retains its authored source
+  position instead of being rooted at position zero.
+
+- Fixed empty collection expressions targeting `ImmutableArray<T>` crashing
+  emission when the selected zero-argument static factory is metadata-marked
+  as an extension method.
+
+- Fixed bare type patterns such as `value is BaseType` being bound as value
+  constants and emitting invalid equality calls.
+
+- Fixed `rvnc` runtime dependency copying for `Microsoft.NETCore.App.Ref` and
+  `Microsoft.AspNetCore.App.Ref` inputs so executable projects copy runtime
+  assemblies instead of unloadable reference assemblies.
+
+- Restricted authored union bodies to cases, computed properties, indexers,
+  ordinary methods, and computed static properties. Storage properties and
+  other member kinds now report diagnostics, keeping union representation and
+  construction compiler-controlled in line with the C# union model.
+
+- Changed the body-declared union case ABI to emit non-generic cases inside the
+  union and generic-union cases inside an explicitly annotated non-generic
+  companion. Raven merges the carrier and companion during metadata import, so
+  case lookup, `import Union.*`, preludes, matching, and semantic ownership stay
+  unchanged while each CLR case carries only the generic parameters it uses.
+  The carrier retains the C# union constructor, `Value`, and `TryGetValue`
+  surface, and C# can construct and match cases as `Result.Ok<T>` and
+  `Result.Error<E>`.
+
+- Raven.Core nullable conversions and JSON naming-policy handling now use
+  explicit typed pattern bindings, and `Option` construction is qualified to
+  remain unambiguous against .NET 11 framework metadata.
+- Union cases now support positional unnamed payloads such as
+  `case Some(T)` and `case Pair(int, string)`. They project public `Value` or
+  `Item1`/`Item2` properties and stable generated constructor parameter names
+  for .NET interop, while normal Raven symbol display keeps the names omitted.
+  Named and unnamed payload forms cannot be mixed within one case. Raven.Core's
+  `Option.Some`, `Result.Ok`, and `Result.Error` now use the positional form.
+- Stabilized pre-nested union case construction and emission. Imported
+  free-standing cases retain contextual carrier conversion in constructor
+  arguments, explicit case-typed expressions emit the case value itself,
+  nullable value payloads emit valid `Nullable<T>` values, and carrier display
+  preserves the carrier's complete generic type arguments.
+- Canonicalized framework collection contracts loaded through runtime and
+  facade assemblies so Raven Core extensions bind consistently in mixed
+  reference environments such as the browser playground.
+- Fixed generic method inference so method-group adaptation cannot widen a type
+  argument already inferred from an ordinary argument.
+- Fixed bound-tree traversal through assignment expressions so async capture
+  analysis preserves locals used across suspension, including await-for
+  enumerators.
+- Fixed closure emission for target-typed lambdas inside Result-propagating
+  namespace functions when replayed binding omitted an outer parameter from the
+  recorded capture set.
+- **Breaking:** Raven no longer performs nullable-specific control-flow
+  refinement. A value with static type `T?` remains nullable after direct null
+  checks and must be explicitly pattern-bound, converted, conditionally
+  accessed, or suppressed before dereference. `TypeInfo` no longer exposes a
+  separate null-flow result, `CompilationOptions.EnableNullFlowAnalysis` has
+  been removed, and `RAV0402` now reports a static nullable-value access.
+  Nullable metadata remains part of source/PE boundary projection; in
+  particular, `MaybeNull` return contracts produce statically nullable results.
+- Parenthesized expressions now pass their contextual target type to the
+  enclosed value, keeping target-bound union cases stable after cold queries.
+- Cold contextual semantic queries now seed preceding lexical declarations
+  before binding their statement. Lambda parameters resolve against their
+  contextual delegate instead of falling through to a later shadowing local.
+- Parenthesized simple lambdas such as `(value => value)` are now parsed as
+  parenthesized expressions, while `(value) => value` remains the distinct
+  parenthesized-parameter lambda form.
+- Target typing now reaches only the value-producing branches of nested `if`
+  expressions and the trailing value of block expressions. Generic union cases
+  in nested match arms retain their constructed carrier type without restoring
+  ambient target-type leakage into unrelated descendants.
+- Missing closing parentheses in function and method parameter lists now
+  recover at return annotations, constraint clauses, and body boundaries.
+  Later declarations remain independently parseable and bindable during edits.
+- Binder target-type scopes are now attached to the expression they target
+  instead of flowing ambiently into every descendant. Composite operands keep
+  their own semantics, while genuinely target-dependent forms such as enum
+  member bindings receive their context explicitly.
+- Constructed nested generic members now canonicalize substituted self-types
+  back to their current constructed receiver. Source and PE conversion
+  operators consequently preserve both outer and inner type arguments in their
+  containing and return types.
+- Binary-expression result targets no longer flow into their operands. A
+  Boolean context such as a catch filter therefore preserves the method return
+  target of a nested `return` expression instead of coercing its value to
+  Boolean before operator binding.
+- Catch filters now participate in public reachability analysis as required
+  expressions. Nested `return` expressions make the catch body unreachable
+  without re-entering method binding during diagnostic production.
+- Public control-flow analysis now recognizes abrupt expressions in required
+  conditions, loop inputs, lock receivers, and match scrutinees. A nested
+  `return` makes dependent branches and following statements unreachable in
+  either semantic-query order.
+- Postfix null suppression now has an explicit bound-tree identity and produces
+  a non-nullable expression type. Inferred locals no longer
+  retain the nullable operand type or report a false possible-null dereference.
+- Reachability analysis now recognizes nested `return` expressions inside
+  eagerly evaluated invocation arguments, unary operands, receivers, indexers,
+  assignments, and object construction. Following statements are marked
+  unreachable, and public control-flow results include the nested return node.
+- User-defined conversion classification now selects an exact source or target
+  operator independently of declaration and semantic-query order instead of
+  returning the first applicable member. Competing candidates are compared on
+  both standard-conversion legs, while exact implicit operators retain a fast
+  path for reference-heavy builds.
+- Raven-emitted generic interfaces now preserve `in` and `out` variance in
+  their CLR generic-parameter metadata. Reloaded PE symbols consequently apply
+  the same covariant and contravariant interface conversions as source symbols.
+- Imported type-resolution scopes are deduplicated by compiler scope identity
+  instead of recursively comparing complete symbol graphs. This removes
+  pathological symbol-comparison work from reference-heavy Raven builds while
+  retaining each distinct source and metadata scope.
+- Constructed generic properties, indexers, and events now project accessors
+  back to the constructed member, and substituted parameters are owned by their
+  constructed method rather than directly by the containing type. Raven source
+  and emitted PE symbols now agree across the complete member graph.
+- Metadata `[MaybeNull]` output contracts now project call results as statically
+  nullable Raven types when the underlying type can represent null.
+- Generic inference and constructed signatures now preserve type parameters
+  nested through nullable arrays, tuples, and constructed generic arguments.
+  Raven tuple projections compare consistently with emitted
+  `System.ValueTuple` signatures, and incomplete available-state inference
+  falls back to authoritative binding instead of dropping a generic overload.
+  Mixed suffixes such as `T?[]`, `T[]?`, and `T?[]?` also retain their written
+  nesting order in the syntax tree.
+- Raven-emitted generic type and method parameters now preserve `notnull` when
+  reloaded from metadata. Constraint round-trip coverage also locks `class`,
+  `struct`, `new()`, base-class, and interface constraints across source and PE
+  symbols.
+- Nested constructed generic types now substitute outer type arguments inside
+  their own parameter constraints for both source and metadata symbols.
+  Constructor binding validates the final constructed type, so dependent
+  constraints cannot be bypassed by using a generic nested type as a call
+  target.
+- Nullable match exhaustiveness now preserves the complete non-null pattern
+  domain instead of reducing it to one opaque underlying-type case. Booleans,
+  enums, and sealed hierarchies can be covered case by case alongside `null`;
+  open hierarchies still require a base-type or `_` fallback. Missing-case code
+  fixes now generate typed sealed-hierarchy bindings from nullable scrutinees.
+- Nullability documentation now defines one coherent Raven policy: unified
+  nullable symbols for reference and value types, strict flow-based proof of
+  safe access, pattern-first handling, `Option<T>` for domain absence, and
+  direct null checks as supported compatibility forms. Compiler and analyzer
+  configuration are documented as policy controls rather than alternate type
+  systems.
+- Generic inference for `ref`, `out`, and `in` arguments now consumes the
+  referenced element type instead of leaking compiler-only address/ref wrapper
+  symbols into constructed method type arguments. Exact by-reference kind and
+  addressability checks still run during overload applicability.
+- Semantic queries after an event- or property-accessor body edit now recover
+  the accessor's method binder directly, preserving accessor parameters and
+  edited local types without forcing complete source declaration binding.
+- Generic calls rejected by type-parameter constraints now retain the inferred,
+  constructed method as their semantic candidate. Nullable generic parameters
+  are projected consistently through Raven's unified nullable symbol model for
+  both source and metadata methods.
+- Control-flow analysis now lets an abrupt `finally` replace pending loop
+  transfers before publishing exits. A `continue` in `finally` therefore
+  suppresses an enclosed `break` instead of making a non-completing loop appear
+  to have a reachable endpoint.
+- Lazy source member declaration now preserves every constructed containing-type
+  layer when rebuilding nested receivers. Rejected generic overload candidates
+  consequently expose the same projected constraints and containing types as
+  their metadata equivalents.
+- Public type information for constructor invocations now reports the
+  constructed containing type instead of the constructor's `unit` return type,
+  including every construction layer of nested generic types.
+- Constructing an error type through the public named-type API now preserves the
+  same recovery symbol instead of throwing `NotSupportedException`, keeping
+  semantic tooling total while source is incomplete. Error types also identify
+  themselves as closed type definitions through the ordinary symbol contract.
+- Local functions declared in nested statement and expression blocks no longer
+  leak into enclosing scopes through their emitted container. Lexical function
+  overload sets are restored on block exit, and semantic lookup admits local
+  functions only through an enclosing block.
+- An incomplete generic constraint clause such as `where T:` now reports a
+  localized missing-constraint diagnostic while retaining the declaration and
+  later sibling declarations for semantic queries during edits.
+- Constant-false catch filters likewise exclude their unreachable catch-body
+  mutations from the null-state joined after a `try` statement.
+- Cold public symbol queries now apply a method group's contextual delegate
+  conversion instead of returning an unresolved candidate set. Imported
+  generic and non-generic namespace-function overloads therefore select the
+  same method before and after diagnostics are collected.
+- Lexical function scopes now retain complete overload sets instead of replacing
+  an earlier overload with the last declaration of the same name. Higher-order
+  generic calls therefore see generic and non-generic namespace-function
+  overloads consistently, independent of declaration and semantic-query order.
+- Semantic queries over object-initializer syntax no longer throw during edit
+  recovery. Attached initializers report their containing construction type,
+  while temporarily detached recovery nodes produce an error result.
+- Conditional access now uses an expression-local non-null receiver conversion,
+  preventing false nullable-input diagnostics when invoking source extension
+  methods through `?.` without refining the original storage.
+- Reuse unchanged local macro partitions even when they contain authored
+  diagnostics, remapping those diagnostics after consumer-only workspace edits
+  instead of recompiling the macro partition.
+
+- Overload resolution now prefers an exact non-generic method over a generic
+  candidate whose inferred construction produces the same parameter sequence,
+  independent of declaration order. The same rule selects methods when a method
+  group is converted to a delegate.
+- Raven.Core's union JSON converters now preserve nullable payloads through
+  reflection by carrying the declared case/member type separately from the
+  possibly null value. Their Raven signatures also match the nullable .NET
+  contracts used by `JsonSerializer` and reflection invocation.
+- By-reference overload applicability now follows CLR signature identity for
+  nullability: nullable reference annotations do not make an otherwise matching
+  `ref`, `out`, or `in` argument inapplicable, while nullable value types remain
+  distinct.
+- Generic method inference now widens repeated type-parameter bounds for a
+  base/derived argument pair instead of depending on argument order. Partial
+  explicit type arguments on namespace functions also remain open through
+  invocation binding, so trailing fixed arguments and leading inferred
+  arguments are combined by the shared overload resolver.
+- Invocation and property-assignment inputs now honor .NET nullability
+  contracts. Non-nullable and `DisallowNull` inputs reject null or nullable
+  values, `AllowNull` accepts them without changing the declared/read type, and
+  PE property attributes are available through the public symbol model.
+- Source named types now expose the same local CLI `MetadataName` as PE named
+  types, including generic arity but excluding namespace and containing-type
+  paths. `ToFullyQualifiedMetadataName` owns complete identities, and emission
+  now uses it explicitly for top-level types while retaining nested builders.
+- PE by-reference parameters now retain their nullable element annotation,
+  using write-state nullability for `out` parameters even when reflection
+  exposes the annotation on the root by-ref node.
+- Constrained generic overloads now participate in fast semantic-query ranking
+  only when their constraints are satisfied. A generic identity conversion can
+  beat an `object` fallback, while a rejected generic candidate leaves the
+  fallback selectable, independent of declaration and diagnostic query order.
+- Fast semantic-model queries now apply generic method constraints before
+  publishing an invocation target. Dependent constraints such as
+  `TDerived: TBase` work for explicit and inferred calls through emitted Raven
+  libraries; invalid calls expose a failed candidate instead of a selected
+  method.
+- Name-based PE member lookup now resolves nested generic types by their
+  Raven-facing name (for example, `Inner` as well as the CLI name `Inner`1`).
+  Constructed nested generic types and their methods retain equal source/PE
+  identity across emit and reload, including inherited containing-type
+  substitutions.
+- `ConstructedMethodSymbol` object equality and hashing now use its constructed
+  signature identity instead of proxying to the open method definition.
+  Reflexive and independently reconstructed methods behave consistently in
+  ordinary sets as well as with `SymbolEqualityComparer`.
+- Source and PE symbols now retain stable identity across an emit/reload generic
+  boundary. PE modules expose their scope name and containing assembly when
+  reflection omits a module file name, and source generic method
+  `MetadataName` follows the CLI name rather than documentation-ID
+  double-backtick notation.
+- Definite-assignment analysis for `out` parameters now joins the actual exits
+  from `loop` statements. Assigning before every reachable `break` satisfies
+  the contract, while any unassigned break path still reports `RAV0269`.
+- Removed the unused placeholder local table and throwing declaration path from
+  `LocalScopeBinder`. Lexical locals remain owned by `BlockBinder`, leaving the
+  local-scope binder as the forwarding semantic boundary it actually provides.
+- `IForLoopOperation` now exposes source `for let` patterns and no longer
+  reports the binder's synthetic iteration temporary as the loop local.
+  `while let` and pattern-based `for` loops are covered as first-class public
+  operation shapes.
+- PE method and parameter symbols now project nullable flow attributes from
+  referenced assemblies, including return-level `MaybeNull` and parameter-level
+  `NotNullWhen` constructor values. The metadata decoder is shared across
+  method, return, and parameter attributes.
+- Higher-order generic calls now preserve constraint failures discovered while
+  constructing a method-group argument. Passing a constrained generic function
+  with incompatible inferred type arguments reports the constraint violation
+  instead of silently accepting the invocation.
+- Symbol queries for method-group arguments now use the enclosing invocation's
+  contextual binding before falling back to the visible open declaration. This
+  keeps inferred method symbols stable across cold queries, diagnostic queries,
+  and workspace edits.
+- Constraint clauses that name undeclared type parameters now report `RAV0360`
+  for functions, methods, function expressions, and macro declarations instead of
+  being silently ignored.
+- Duplicate lexical bindings in the same scope now report `RAV0167` as binding
+  errors. `RAV0168` remains a warning for intentional or accidental shadowing
+  across nested scopes.
+- Unsupported or programmatically constructed literal syntax now produces an
+  invalid-expression diagnostic and bound error expression instead of throwing
+  from semantic binding.
+- Incomplete interpolated strings remain bindable as strings during edits, and
+  unknown constructed content recovers through an invalid-expression
+  diagnostic instead of an exception.
+- Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
+  `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
+  exhaustiveness, emission, analyzer, and language-service behavior. Raven's
+  union feature remains independent; union syntax no longer falls back to a
+  synthesized or common-base type when its required union definition is absent.
+- `GetTypeInfo` now reports contextual conversions consistently for return,
+  assignment, and argument expressions. In particular, explicit return values
+  converted to a standard-union carrier retain their natural type while
+  exposing the carrier as `ConvertedType`, independent of expression shape,
+  available-state path, and query order.
+- Bound-tree walkers now use generated expression and statement dispatch and
+  accept every bound-node family without throwing on non-block statements.
+  This prevents analysis and lowering walkers from silently skipping newly
+  introduced bound expressions.
+- Pattern binding now recovers from unsupported synthetic pattern kinds with a
+  normal invalid-term diagnostic and error pattern instead of throwing. This
+  keeps semantic APIs total for edited or programmatically constructed trees.
+- Constant evaluation now folds logical negation of Boolean constants, so
+  control-flow and missing-return analysis recognize loops such as
+  `while !false` as non-terminating unless a reachable break exists. Boolean
+  conjunction, disjunction, and same-type constant equality are folded as well.
+- Control-flow analysis now recognizes parenthesized, converted, and
+  all-abrupt `if` and `match` expressions as non-completing, including when
+  such an expression is nested in a local initializer.
+- Nullable type symbols now project the underlying type's declared members for
+  both reference and value types. Public `GetMembers` therefore agrees with
+  `LookupType` and `IsMemberDefined` instead of exposing only base-type members.
+- Nullable symbol APIs now distinguish structural inspection from total
+  normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
+  `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`
+  helpers, and `GetNullableType` provides an immutable, idempotent nullable-type
+  transform. The resulting type symbol is the semantic nullability result for
+  both reference and value types; there is no parallel nullable-annotation API.
+- Lowering macro-introduced methods now preserves the binder-owned source method
+  when generated syntax is contextualized into an authored semantic model.
+  Emission no longer re-queries a detached declaration through a semantic model
+  that owns a different syntax tree.
+- Metadata loading now preserves non-null owner and type contracts for PE field,
+  property, event, and method symbols, using the compiler error type for
+  unreadable referenced signatures. Non-constant PE fields now return no
+  constant instead of invoking an invalid reflection operation, and projected
+  tuple fields no longer inherit from PE symbols with absent reflection state.
+  Syntax trees always expose source text; detached syntax nodes and tokens
+  explicitly expose nullable parents and source behavior, while default tokens,
+  node-or-token values, syntax lists, and separated lists are safe to inspect.
+  Child-list and reflected-property projections now materialize stable cached
+  views, detached nodes are rejected as declaration-table keys, and nested PE
+  types preserve their declaring type, namespace, and module ownership.
+  Separated-list tokens retain their actual parent and source position, while
+  token replacement can safely descend into structured recovery trivia.
+  Constructed generic methods preserve substituted array metadata, and
+  synthesized entry points use the compilation's canonical `string[]` type.
+  Detached symbols now expose nullable assembly and module containment in line
+  with the public compiler API while retaining stable names for presentation.
+  PE array loading preserves pointer and by-reference element symbol kinds
+  instead of projecting every wrapper element as a named type.
+- Public compiler-model queries no longer throw for array, tuple,
+  and module namespace symbols. `SourceText` now provides cached line
+  collections with line-break spans, validated copy operations, and cancellable
+  full or span-based writes without creating substring values.
+- Tuple symbols now report tuple identity consistently across source,
+  metadata, constructed, and aliased symbols. `UnderlyingTupleType` is present
+  only for tuple projections and is explicitly nullable for ordinary named
+  types.
+- Semantic-model queries now reject foreign and detached syntax consistently,
+  including symbol, type, operation, capture, flow-analysis, function-parameter,
+  and macro-expansion queries. Semantic-model acquisition distinguishes a null
+  tree from a non-null tree that is not part of the compilation, and reversed
+  statement regions no longer produce a successful control-flow analysis.
+- Source fields model an absent or null constant value without violating their
+  symbol contract. Failed type-resolution results without a detailed issue now
+  produce the ordinary fallback diagnostic instead of throwing, and parser
+  recovery coverage now checks every incomplete prefix of a macro declaration with
+  a match body.
+- Async lambda return-target and iterator signature recognition no longer
+  assumes that every named type exposes an original definition or a complete
+  namespace-parent chain, preventing malformed or custom symbols from causing
+  binding failures.
+- Nullable metadata now uses the .NET transform-flag convention for nested
+  generic arguments, arrays, generic value types, and by-reference positions.
+  Raven also imports both uniform and positional nullable annotations without
+  changing overload applicability based only on reference-type annotations.
+  Emitted source types now carry the conventional non-null nullable context, so
+  unannotated reference signatures round-trip as non-null through both .NET
+  reflection and Raven metadata import without redundant position attributes.
+  Synthesized nullable context and constraint attributes are emitted from raw
+  metadata blobs, avoiding unsupported constructor introspection when compiling
+  in the WebAssembly Playground.
+- Expression blocks now project `return` and `throw` items as abrupt expression
+  statements; bare expression-form `return` carries implicit `unit`. `break`
+  and `continue` remain statement-only and consistently report `RAV1902` or
+  `RAV1903` from expression blocks, including macro bodies and blocks nested in
+  loops.
+- Control-flow analysis now models unconditional `loop` statements, reachable
+  `break` exits, literal-true `while` loops, `unsafe` blocks, and `finally`
+  execution consistently. Exhaustive match statements now make their endpoint
+  unreachable when every arm returns or throws; missing coverage, guards, and
+  completing arms remain reachable.
+- `out`-parameter definite assignment now joins exhaustive match arms and
+  respects proven non-terminating loops. Raven locals continue to require an
+  initializer at declaration; the unused `RAV0165` use-before-assignment
+  descriptor has been removed instead of advertising an inactive rule.
+  Missing-return, unreachable-code, and `let ... else` diagnostics no longer
+  disappear behind blanket exception suppression when a body contains an
+  independent binding error.
+- Function declarations now have explicit isolation coverage proving that body
+  errors retain the declared signature, stay confined to the broken
+  declaration, and do not prevent valid sibling resolution after workspace
+  edits. `if` expression binding no longer changes scope by silently falling
+  back to the enclosing binder when branch-binder construction fails.
+- Target-typed expression binding now keys semantic cache entries by target type
+  for every expression form, including wrappers such as parenthesized
+  expressions, instead of relying on a syntax-kind allowlist. Semantic results
+  are stable regardless of which target-type context binds the syntax first.
+- Open generic method groups now infer and construct candidates from target
+  delegate parameter types. Their constructed signatures participate in outer
+  generic inference, delegate conversion, and semantic symbol publication, so
+  calls such as `Apply(21, Identity)` resolve both methods consistently.
+- Nullable parameter types now retain their underlying type during namespace
+  function signature declaration. Distinct overloads such as `string?` and
+  `object?` are no longer misdiagnosed as duplicates, while null-literal calls
+  consistently select the more specific reference overload.
+- Ambiguous invocations now publish `CandidateReason.Ambiguous` and the complete
+  candidate set through `SemanticModel.GetSymbolInfo`. Opportunistic invocation
+  lookup falls back to authoritative binding when it cannot select a method.
+- Failed invocation binding now retains every considered method candidate, so
+  `GetSymbolInfo` exposes useful candidates with
+  `CandidateReason.OverloadResolutionFailure`.
+- Incremental match exhaustiveness now has add-and-restore coverage for source
+  enums, Raven union cases, and sealed-hierarchy permitted subtypes, including
+  agreement between diagnostics and `GetMatchExhaustiveness` across snapshots.
+- Incomplete constructor declarations now recover with a missing block and a
+  targeted `RAV1028` diagnostic instead of throwing or silently accepting a
+  bodyless `init`. Recovery preserves following type members, and parser
+  mutation coverage now includes contemporary constructor and macro syntax.
+  Type-only declaration patterns now use their optional designation directly
+  instead of manufacturing a designation containing `None` tokens.
+- Incremental syntax updates now retain fragment parser diagnostics, discard
+  stale diagnostics from replaced syntax, and shift unaffected diagnostic spans
+  after edits. Green-node replacement also preserves unchanged sibling
+  identities instead of rebuilding the entire tree. Incremental parser tests
+  compare exact syntax shape and diagnostics with an authoritative full parse,
+  including incomplete macro declarations and repair edits. Recovery-sensitive
+  edits now fall back to an authoritative full-document parse, record and log a
+  reason-coded event for stabilization, and support a strict test mode that
+  throws rather than hiding an unexpected fallback.
+- Raven's nullability and control-flow code actions are usable through the
+  language server again: structured diagnostic arguments now survive the LSP
+  round trip, null-identity guidance is registered by default, nullable-to-Option
+  rewrites generate canonical `let` bindings, and if/else-to-match refactorings
+  preserve exact fallback semantics with `_` instead of guessing complementary
+  cases from names. The VS Code lifecycle log now records code-action requests
+  and returned action counts for future editor-side diagnosis.
+- Match exhaustiveness quick fixes now add all missing arms in one
+  deduplicated action for match statements and expressions, including matches
+  authored inside macro declarations. Generated patterns follow the scrutinee:
+  typed bindings for sealed classes and parenthesized unions, positional
+  bindings for sealed records, target-typed cases for case-declared unions and
+  enums, and literal patterns for finite literal cases.
+- Macro bodies now participate in primary semantic diagnostics like
+  ordinary function bodies. Invalid local macros report against authored source
+  immediately instead of waiting for the projected macro assembly, and project
+  diagnostics no longer replace those errors with generated source positions.
+  A broken macro declaration no longer prevents valid sibling macros from compiling
+  and expanding, and attached macro targets are modeled as implicit parameters
+  for normal lookup and semantic tooling. Incremental recovery now preserves
+  incomplete macro bodies, while language-service analysis retains the complete
+  authored macro compilation even when emission filters out a broken macro.
+  Document-scoped compiler diagnostics now unify the consumer and macro
+  projections of an authored file, so VS Code publishes macro-body diagnostics
+  during edits. Invocations still resolve to a recognized local macro
+  declaration when its implementation is broken, avoiding misleading
+  unresolved-macro cascades, while hover remains available throughout macro
+  parameters and bodies.
+- RavenDoc now omits redundant `public` modifiers, hides compiler-emitted
+  extension grouping types and implementation-only accessors, preserves
+  protected accessor contracts, and renders operator signatures without a
+  duplicated `func` keyword.
+- RavenDoc now groups case-declared union cases under their declaring union
+  using logical Raven names and signatures, while keeping parenthesized
+  member-type unions distinct and suppressing separate emitted case-type pages.
+- Published Raven.Core API pages are now generated from the Raven project
+  rather than its metadata assembly, restoring GitHub source links with line
+  anchors. Workspace project loading also honors `RavenEmitCoreTypesOnly` by
+  disabling framework projections while Raven.Core itself is analyzed.
+- Abstract syntax API families now carry generator-owned closed-hierarchy
+  metadata. Raven imports permitted subtype lists from referenced assemblies,
+  so matches over the `SyntaxNode` root, structured trivia, expressions,
+  statements, patterns, names, types, members, and other intermediate syntax
+  categories receive ordinary exhaustiveness diagnostics and missing-case
+  feedback, including recovery-only syntax nodes.
+
+- Unit-returning callables now report `RAV9034` when their final expression
+  produces a non-unit value, including effectful invocations. This prevents a
+  discarded value from looking like a valid tail result; `_ = expression`
+  remains the explicit intentional-discard form. The analyzer diagnostic can
+  be disabled through standard `.editorconfig` severity configuration.
+  Consumed block-expression and value-returning lambda tails remain valid
+  implicit results and are not reported.
+- Consolidated full returned-value handling into `RAV9034`, removing the
+  overlapping `RAV9029` diagnostic. Value-forming outer expressions such as
+  `2 + Compute()` are now reported even when a nested call may have effects,
+  while full mode extends the same diagnostic to bare calls and member access.
+- Added a user-facing built-in analyzer reference with default severities and
+  `.editorconfig` override guidance to the main documentation navigation.
+- Added a Playground sample demonstrating Raven's support for functional
+  programming patterns within its pragmatic, general-purpose model: immutable
+  transformations, value-producing `match` and `if` expressions, block
+  expressions, final-expression returns, and an effectful output shell around
+  a pure calculation core.
+- RavenDoc now accepts repeatable `--value name=value` inputs and substitutes
+  explicit `{{name}}` placeholders in Markdown, enabling publishing workflows
+  to inject paths, versions, commit identifiers, and version stamps while
+  leaving unresolved placeholders visible.
+- RavenDoc now separates its reusable page template and static assets from
+  symbol extraction, renders compact API headings, editor-like signatures with
+  generic constraints, distinct namespace/member icons, structured
+  documentation sections, and a responsive page outline.
+- Updated tests, samples, and language-facing documentation to use canonical
+  `let` lexical bindings while retaining `val` for immutable properties and
+  compatibility coverage. Compiler API, analyzer, source-generator, and macro
+  examples now prefer Raven where the API is being consumed from Raven, and
+  contributor guidance defines a gradual Raven-first infrastructure and
+  bootstrap boundary.
+- Added `Raven.Macros.Sha256Digest!` with the imported `sha256Digest!` alias.
+  It hashes literal values during compilation and expands to a lowercase
+  hexadecimal string, avoiding runtime hashing and naming collisions with
+  .NET's `SHA256` type.
+- Added `Raven.Macros.EmbedFileContent!` with the imported
+  `embedFileContent!` alias. It resolves paths relative to the invoking source
+  file, embeds UTF-8 text as a string literal, diagnoses missing files, and
+  invalidates cached expansions when observed files change or disappear.
+- Macro declarations now appear in VS Code's document outline with a
+  distinct operator symbol, including local functions nested in their bodies.
+- The documentation build now publishes independent RavenDoc API sites for
+  `Raven.Core` and `Raven.Macros` alongside the DocFX language site and browser
+  Playground. Library documentation is prominent in the main navigation,
+  compiler APIs are supporting tooling reference, and macro pages link to the
+  compiler syntax-tree guide.
+- RavenDoc now renders namespace functions and `macro` declarations on
+  namespace pages. Namespace-function pages preserve the Raven-facing shape
+  while identifying the emitted CLR container for consumers in other .NET
+  languages.
+- Moved the standard `quote` and `compile` declarations into the Raven-authored
+  `Raven.Macros` compiler-plugin assembly. Its aliases require
+  `import Raven.Macros.*`, while canonical qualified names remain available.
+- Raven compiler-plugin projects marked with `RavenCompilerPlugin` can now emit
+  reusable `macro` declarations, and compiler/MSBuild runtime dependency
+  propagation follows actual emitted assembly references instead of scanning
+  source for specific macro names.
+- Fixed a language-server hover regression that could recursively materialize
+  metadata symbols while resolving qualified names. Metadata types now use a
+  cached simple-name index, qualified namespace segments resolve from available
+  semantic state, and cold consumer-local hovers recover correctly in files
+  partitioned for local macro declarations.
+- VS Code and the language server now treat a source file outside evaluated
+  `.rvnproj` items as an isolated file-based application. Loose files no longer
+  leak declarations into one another or nearby projects, standalone snapshots
+  receive the standard prelude, and Run Active File/Project invokes `rvn run`
+  in an interactive terminal.
+- Added first-class file-based applications through `rvn run <file.rvn>` and
+  the `rvn <file.rvn>` shorthand. Arguments after `--` reach `Main`, process
+  exit codes are preserved, and one-shot compilation artifacts are isolated
+  from the source tree and cleaned after execution. A first-line
+  `#!/usr/bin/env rvn` shebang is preserved as trivia, enabling executable
+  Raven files on Unix-like systems.
+- Macro completion items now carry `IMacroSymbol` and map to VS Code's distinct
+  snippet icon instead of appearing as ordinary classes or untyped text.
+- Added compiler symbols for loaded and intrinsic macros. `nameof` now accepts
+  macro names and preserves the resolved alias or canonical spelling, while
+  `typeof` reports a dedicated diagnostic when its operand resolves to a macro.
+- Added namespace-qualified macro invocation and import-scoped macro aliases.
+  Compiler-provided `Raven.Macros.Quote` and `Raven.Macros.Compile` expose the
+  `quote` and `compile` aliases through `import Raven.Macros.*`; local names can
+  shadow imported aliases, while qualified invocation remains an escape hatch.
+  Argument-style bang invocations such as `twice!(21)` no longer require an
+  empty token-tree body, and invocable macro samples now use this preferred
+  form.
+- Fixed expanded-document commands for projects containing authored
+  `macro` declarations. `rvn dev syntax --syntax-view expanded` and
+  `rvn dev macros` now resolve the workspace document's projected compilation
+  tree, expand every sibling macro invocation, and preserve line breaks after
+  multiline token-tree invocations.
+- Fixed language-server hover inside authored `macro` declarations.
+  Their signature semantic model now provides method-like body scopes, so
+  parameter declarations, locals, references, member access, and invocations
+  resolve without consulting the lowered macro implementation tree.
+- Made authored `macro` declarations first-class incremental executable
+  owners. Signature and body edits now invalidate their semantic state without
+  discarding unrelated state, and language-service queries recover through
+  malformed intermediate edits instead of reusing stale parameters or locals.
+- Prevented authored macro parameters and attached-target names from
+  colliding with compiler-generated adapter locals during local macro lowering.
+- Updated the Playground metaprogramming sample to use native macro declarations
+  with real `ExpressionSyntax` and `IMacroTokenStream` parameters, and made
+  local macro partition emission work entirely in memory under WebAssembly.
+- Added type-directed `ExpressionSyntax` parameters to macro declarations. They project
+  authored invocation arguments as `ExpressionSyntax` and can be mixed with
+  ordinary typed values, while semantic symbols and runtime parameter
+  descriptors expose the shared `MacroParameterRole`.
+- Added native token-stream inputs to macro declarations. An
+  `body: IMacroTokenStream` parameter selects token-tree invocation syntax and
+  binds the raw body, while the remaining parameters continue
+  to use the typed caller-supplied argument model.
+- Added a compiler-normalized macro definition descriptor shared by provider
+  registration, synthesized symbols, validation, completion, signature help,
+  and hover. Legacy class-authored macro contracts are adapted once at
+  registration instead of being interpreted independently by each consumer.
+- Made `macro` declarations executable as same-compilation argument-style
+  and attached macros. Attached declarations mark one ordinary typed parameter,
+  such as `on property: PropertyDeclarationSyntax`, and ordinary synchronous bodies can
+  conditionally combine `expand`, `replace`, and `introduce` contribution
+  statements. The compiler lowers them to isolated provider adapters and typed
+  parameter objects while preserving `IMacroDeclarationSymbol` as their semantic
+  identity.
+- Removed the separate macro target-clause syntax. Attached target bindings now
+  participate in the shared parameter-role model as `AttachedTarget`, with
+  diagnostics for duplicate targets, defaults, unsupported syntax types, and
+  malformed declarations that remain queryable by language services.
+- Macro syntax return annotations now project to invocable grammar targets.
+  `ExpressionSyntax`, `StatementSyntax`, their union, and category-untyped
+  `SyntaxNode` expose normalized invocation flags; unsupported semantic return
+  types and attached/invocable contradictions produce declaration diagnostics.
+- Fixed declaration skeleton binding for union-type signatures so compiler API
+  symbols retain their `System.Union<...>` return shape instead of falling back
+  to the supplied default type.
+- Made the Playground own and serve its theme stylesheet directly so local
+  development and standalone subpath deployments use the same asset URL.
+- Reduced the Playground header to a compact Raven mark beside its title so the
+  complete desktop workspace fits without page-level scrolling on typical
+  laptop viewports.
+- Replaced the Playground's native example selector with a themed, searchable
+  picker that organizes samples into a Basics section and feature-focused
+  groups.
+- Added expression-form pattern binding with
+  `if let pattern = value { ... } else { ... }`. It uses the same pattern and
+  capture semantics as the existing statement form, scopes captures to the
+  successful branch, and computes its result from the two branch values.
+- Added compiler-integrated conditional compilation with `#if`, `#elif`,
+  `#else`, and `#endif`. Conditions support defined symbols, `true`/`false`,
+  parentheses, and Raven `not`/`and`/`or` operators (with
+  `!`/`&&`/`||` aliases). Symbols flow from MSBuild `DefineConstants` or the
+  `rvnc --define` option, inactive source remains lossless disabled trivia, and
+  the VS Code extension highlights directives and dims inactive code.
+- Added a Roslyn-inspired syntax tree visualizer to the VS Code extension. The
+  Explorer view presents compiler-produced nodes, tokens, trivia, property
+  roles, spans, raw kinds, missing elements, and diagnostics; supports authored
+  and fully macro-expanded trees; and opens the complete expanded source when
+  switching to the expanded tree.
+  `rvn dev syntax` now exposes the structured JSON and source-override contract
+  used by the view.
+- Namespace-level types, delegates, unions, and extension declarations now
+  default to `internal`; `public` explicitly exports them from the assembly and
+  is no longer diagnosed as redundant in that position. Type members,
+  including nested types, default to `public`, while Raven.Core now marks its
+  exported declarations explicitly. The former `MembersPublicByDefault`
+  compilation/project option and its CLI switches have been removed.
+- `use` bindings no longer report `RAV9027` merely because their bound value is
+  not read; establishing the disposal lifetime counts as the declaration's
+  intended use.
+- Added raw-body token-tree expression macros with `name!{ ... }` syntax,
+  lossless DSL body capture, body-relative diagnostics, and helpers for parsing
+  the complete body or selected embedded spans as Raven expressions. Macro
+  bodies bypass ordinary Raven tokenization, while expansion continues through
+  normal semantic binding and emit.
+- Added the alternate `name! { ... }` spelling for token-tree expression
+  macros. It has a dedicated syntax node while sharing macro binding,
+  expansion, completion, and language-service behavior with `name!{ ... }`.
+- Added `SyntaxToken.RawKind`, macro-local token reclassification through
+  `WithRawKind`, and detached custom-token construction without changing
+  ordinary Raven `SyntaxKind` classification or lexing.
+- Added replaceable macro token streams that emit `SyntaxToken`, including a
+  default Raven-lexer-backed stream, macro-local keyword/reserved-word overlays,
+  and compiler-discovered custom stream providers for DSL-specific lexers.
+- Added typed token-tree macro inputs through
+  `ITokenTreeMacro<TParameters>`, allowing validated positional or
+  named arguments before an unrestricted raw DSL body.
+- Added compiler-owned typed macro parameter descriptors and named-argument
+  completion for attached, argument-style, and token-tree macros.
+- Added context-aware macro-name completion for incomplete invocations.
+  Typing `#` in an expression offers only invocable and token-tree macros;
+  typing it in a declaration offers only attached macros and inserts the
+  complete `#[Macro]` attribute form.
+- Added a Raven-authored `guard!{ unless <expression> }` sample as the
+  token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
+  expression parsing, direct lowering, and end-to-end execution.
+- Extended the token-tree macro sample with
+  `choose!{ test ... then ... otherwise ... }`, demonstrating multiple
+  macro-local clauses, independently parsed Raven fragments, body-mapped
+  missing-clause diagnostics, and direct lowering to an `if` expression.
+- Added a minimal LINQ-like `#query` macro sample with one `from`, optional
+  `where`, and one `select` clause, directly lowering caller-scoped Raven
+  fragments to ordinary `Where`/`Select` calls and authored range-variable
+  lambdas.
+- Added diagnostic-bearing embedded Raven expression parsing for token-tree
+  macros. `ParseExpressionResult` returns recovered syntax plus immutable
+  native parser diagnostics mapped to the authored invocation, while the
+  existing `ParseExpression` convenience API remains available.
+- Added complete-body and selected-span Raven statement parsing for token-tree
+  macros. `ParseStatement` returns recovered `StatementSyntax`, while
+  `ParseStatementResult` also retains native authored-source diagnostics and
+  rejects trailing input.
+- Added compiler-owned macro signature help for typed attached, invocable,
+  and token-tree invocations. The semantic model now exposes normalized macro
+  parameters and the active argument, and the language server presents that
+  result including token-tree body shape.
+- Added the initial `macro` declaration boundary at compilation-unit and
+  namespace-member scope. It uses a dedicated
+  `MacroDeclarationSyntax`, treats `macro` contextually, and exposes a
+  distinct `IMacroDeclarationSymbol` with macro-owned parameters, generic
+  parameters, constraints, and call-site return type. Macro declarations do not
+  implement `IMethodSymbol`, enter ordinary runtime method binding, or support
+  `async`/`await`; semantic activation and lowering remain future work.
+- Added the compiler-owned expression-only `quote!{ ... }` intrinsic. It
+  preserves tokens and trivia, rejects malformed or trailing input at authored
+  locations, expands to fully qualified `SyntaxFactory` construction, and
+  participates in macro-name completion without a plugin reference.
+- Added `#(expression)` holes inside expression quotes. Holes are discovered
+  through the macro token stream without changing Raven lexing, accept ordinary
+  Raven expressions that bind as `ExpressionSyntax`, preserve surrounding
+  quote trivia, and retain native diagnostics at authored locations.
+- Added `compile<TDelegate>! { expression }`, which applies the `quote!` syntax
+  and hole model, compiles the resulting Raven expression at runtime, and
+  returns a strongly typed delegate. Compiler and SDK builds now add
+  `Raven.CodeAnalysis` and runtime compiler dependencies on demand for the
+  intrinsic while respecting an explicit project reference.
+- Migrated the Raven-authored sample `#add` procedural macro to construct its
+  expansion with `#quote` and argument-expression holes, validating quote while
+  compiling a macro plugin and loading that plugin in a consuming project.
+- Centralized compiler-provided macro registration in the compiler's default
+  macro environment and added `MacroReference.CreateFromImage`, allowing emitted
+  Raven macro plugins to be activated directly from memory as a foundation for
+  same-project macros and the Playground.
+- Added an explicit compile-time-only macro source partition to `Compilation`.
+  `AddMacroSyntaxTrees` compiles Raven macro declarations in memory before
+  consumer binding, reports partition diagnostics through the consumer
+  compilation, includes local macros in completion, and excludes plugin
+  implementation types from runtime emit.
+- Added automatic direct-declaration discovery for same-project macros. Macro
+  interface implementations move into the compile-time partition through
+  compiler, Workspace, and SDK compilation paths, while retaining
+  semantic-model access and requiring neither a `RavenMacro` item nor an
+  explicit compiler-contract project reference.
+- Retired the transitional consumer-authored `RavenMacro` project item.
+  Reusable compiler-plugin providers now use ordinary marked project,
+  assembly, or package references; project loaders report migration guidance
+  when the removed item is encountered.
+- Removed the transitional `IRavenMacroPlugin` aggregation contract and
+  `[LocalMacroPlugin]` source marker. Macros are now registered directly as
+  `IMacroDefinition` implementations.
+- Made macro category classification compiler-owned. Definitions implement
+  exactly one category-specific macro interface, and `MacroFacts` derives
+  `MacroKind` without a macro-overridable discriminator property.
+- Moved macro target applicability to `IAttachedDeclarationMacro`, removing
+  redundant `MacroTarget.None` implementations from invocable and
+  token-tree macros while retaining normalized queries through `MacroFacts`.
+- Added focused sample projects for custom macro token streams and quote-based
+  macro expansion.
+- Applied nominal-type macro replacements to base/interface binding, allowing
+  an attached macro to add a real interface contract alongside generated
+  members.
+- Migrated the remaining C# macro sample providers to Raven-authored macro
+  projects.
+- Renamed project sample files around their entry point, program, primary type,
+  or related type group instead of using `main.rvn` universally.
+- Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
+  compiler and tooling queries reuse the same definition instances.
+- Kept collectible macro assembly contexts alive for the lifetime of their
+  cached macro snapshots, preventing referenced helper assemblies from failing
+  to load when collection occurs before expansion.
+- Made VS Code language-server builds on extension activation opt-in. The
+  extension now starts an existing workspace or packaged server immediately by
+  default instead of blocking activation on a full compiler dependency build.
+- Added declaration-granular same-project macros through `[LocalMacro]`.
+  Marked top-level declarations are compiled and activated separately while
+  ordinary declarations in the same source remain runtime code, enabling macros
+  to be declared and consumed in one Playground buffer.
+- Reused emitted same-project macro partition artifacts across consumer-only
+  incremental edits, while invalidating them for macro or reference changes and
+  remapping cached partition diagnostics to the current syntax-tree projection.
+- Added `RAVM003` for local macro implementations that depend on consumer
+  declarations, identifying the compile-time activation cycle at the authored
+  reference in both dedicated and mixed-source macro layouts.
+- Added position-aware semantic-model lookup for mixed local-macro documents.
+  `Compilation.GetSemanticModel(tree, position)` and
+  `Document.GetSemanticModelAsync(position)` now route macro declaration
+  positions to the current macro projection while preserving the consumer model
+  for ordinary source positions and existing positionless calls.
+- Routed language-server hover and completion through the position-aware
+  semantic projection, enabling ordinary Raven symbol information and member
+  completion inside same-buffer local macro implementations.
+- Routed language-server definition, references, and rename through the
+  position-aware semantic projection. Reference search now scans both
+  compiler-owned projections of a mixed document while returning edits and
+  locations against the original authored source.
+- Made workspace analyzer execution projection-aware for mixed local-macro
+  documents. Syntax-node, symbol, operation, and syntax-tree actions now see
+  both ordinary consumer code and Raven macro implementation code with the
+  semantic model that owns each projection.
+- Added `InvocableMacroExpansionResult` factory methods for expression
+  results, forwarded parser diagnostics, macro-authored diagnostics, and
+  combined diagnostic results. The built-in `#quote` macro and Playground
+  local-macro example now use the factory path.
+- Added matching `MacroExpansionResult` factories for attached declaration
+  replacement, introduced members, peer declarations, and diagnostic-only
+  results. Mutable result properties remain available for compatibility.
+- Stabilized attached property replacement binding so declaration-pass
+  accessor skeletons are completed once and later binds reuse the registered
+  accessor symbols. Replacement properties now expose the same getter and
+  setter identities through both the property and containing type.
+- Improved typed macro failure diagnostics by unwrapping reflection invocation
+  failures. Attached and invocable macro authors now see their underlying
+  exception message at the authored macro name instead of a generic reflection
+  wrapper message.
+- Made attached and invocable macro expansion cancellation-aware. Direct
+  and reflection-wrapped cancellation now propagates to the compiler caller,
+  does not produce `RAVM020`, and does not cache a failed expansion, allowing a
+  later uncanceled request to retry normally.
+- Added the provider-owned `[assembly: RavenCompilerPlugin]` marker for
+  reusable Raven macro projects. Consumers can now use an ordinary
+  `ProjectReference`; the workspace builds and activates marked providers as
+  compiler plugins without adding them as runtime project references or
+  scanning unmarked dependencies.
+- Added deterministic macro export manifests through repeatable
+  `[assembly: RavenCompilerPlugin(typeof(MacroType))]` markers. File, assembly,
+  and in-memory macro references now select direct macro definitions, retain
+  bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+  Same-project macro partitions discover direct definitions without an
+  assembly export marker.
+- Added provider-marked C# compiler-plugin project references. Raven projects
+  can now consume a C# macro provider through an ordinary `ProjectReference`;
+  the project system builds and activates marked providers without adding them
+  to the consumer's runtime reference graph or scanning unmarked dependencies.
+- Added compiler-owned discovery of marked portable assembly references.
+  Direct DLL and resolved package references now join the same active macro
+  registry as explicit and same-project macros after a metadata-only marker
+  check; unmarked assemblies are never activated or searched for macro types.
+- Added split NuGet package support for compiler plugins. Consumer binding now
+  retains a package's `ref/<tfm>` assembly while a marked `lib/<tfm>`
+  implementation is activated separately as a macro reference. Macro helper
+  assemblies shipped beside the implementation are resolved without requiring
+  an application `.deps.json`; runtime assets supplied by transitive NuGet
+  packages are carried as private identity-checked macro dependency probes
+  rather than consumer metadata references.
+- Deferred assembly custom-attribute emission until source type builders and
+  members exist, allowing assembly attributes such as macro manifests to carry
+  `typeof` values that refer to types declared in the same Raven assembly.
+- Added runnable Playground examples for constructing syntax with `#quote` and
+  for defining local attached, argument-style expression, and token-tree
+  expression macros.
+- Prevented incomplete recovered source symbols from aborting external
+  documentation emission when no stable documentation member ID can be built.
+- Changed `Compilation.AddReferences` to append metadata references, matching
+  its Roslyn-style additive contract instead of replacing existing references.
+- Clarified that Raven-authored enums are closed by default for declared-member
+  match exhaustiveness, with no source modifier, and locked complete enum
+  matches with focused semantic coverage.
+- Documented the typestate pattern with phantom marker types, a state-erased
+  base class, and state-specific extensions, and added a runnable Playground
+  connection-lifecycle example.
+- Changed `RavenQuoter` to emit Raven `SyntaxFactory` construction code by
+  default, with explicit C# output available through `RavenQuoterOptions`.
+- Added a Raven-themed DocFX site with a dedicated carousel of language samples,
+  compact documentation navigation, VS Code-style Raven syntax highlighting,
+  and shared light/dark design tokens used by RavenDoc and the Playground.
+- Added compiler-owned Markdown classification for Raven documentation
+  comments and dedicated language-server semantic tokens for tags, headings,
+  links, inline code, and fenced code. Tag-like text in code remains literal.
+- Refreshed the `markdown-docs` library/consumer sample to demonstrate default
+  dual output, Raven-native role aliases, links, headings, inline code, and
+  fenced Raven examples without redundant project configuration.
+- Added the format-neutral `RavenDocumentation` compiler API. Markdown and XML
+  inputs now normalize into Raven-owned section and association roles before
+  XML projection, with a small compatibility alias set including `@parameter`,
+  `@result`, and `@throws`.
+- Raven library projects now emit both Raven Markdown documentation sidecars
+  and compatible .NET XML documentation by default. Raven consumes Markdown
+  first and falls back to XML for libraries without Raven documentation;
+  Markdown remains the default source comment format and XML authoring remains
+  explicit.
+- `Raven.Core` now emits and ships `Raven.Core.xml`, with documentation for its
+  public types, carrier members, LINQ helpers, JSON converters, and framework
+  projection adapters. Projected framework methods forward their adapter
+  documentation so hover can present the Raven-facing `Option`/`Result`
+  behavior.
+- XML documentation emission now handles source-field metadata names safely,
+  and MSBuild-relative default documentation paths resolve without duplicating
+  the intermediate output directory.
+
+- Updated the ASP.NET Core samples for .NET 11 Preview 6 union request,
+  response, streaming, JSON persistence, and OpenAPI `anyOf` support.
+
+- Restrict .NET 11 runtime-async method metadata to Task-like methods so async
+  iterators remain valid CLR types.
+
+- Allow multiline fluent expressions in typed `let ... else` declarations,
+  including unparenthesized awaited invocations.
+
+- Added Roslyn-shaped source generator APIs, dedicated workspace generator
+  references, and `.rvnproj` `<Analyzer>` / `<SourceGenerator>` assembly items
+  that run extensions in normal project builds.
+
+- Reorganized spans, stack allocation, ref structs, ref safety, and unsafe
+  interop into a dedicated systems-programming documentation section so these
+  specialized features no longer dominate the core language path.
+
+- Added first-class `Span<T>` and `ReadOnlySpan<T>` support across stack
+  allocation, covariant conversions, generic inference, overload resolution,
+  indexing, mutation, slicing, iteration, and span-targeted collection
+  expressions, with `Memory<T>` and `ReadOnlyMemory<T>` interoperability.
+- Added unsafe pointer-producing stack allocation with
+  `stackalloc T[count]`, including runtime-sized allocations, unmanaged element
+  validation, integer-count diagnostics, direct `localloc` emission, and safe
+  natural `Span<T>` or explicit `ReadOnlySpan<T>` targets.
+- Rejected returning `stackalloc` storage through direct expressions, locals,
+  and simple pointer or span aliases while preserving returns of spans backed
+  by parameters or managed arrays.
+- Added `ref struct` declaration syntax and source-symbol classification,
+  including modifier validation and consistency checks across partial
+  declarations, and emitted the standard `IsByRefLikeAttribute` metadata for
+  both generic and non-generic ref structs.
+- Added `readonly ref struct` classification and `IsReadOnlyAttribute`
+  emission, with diagnostics for mutable instance storage and inconsistent
+  partial declarations.
+- Added ref fields with `&T` field types inside ref structs, including semantic
+  restrictions, symbol API classification, and standard CLR `BYREF` field
+  signatures.
+- Rejected returning ref structs that contain references to method locals or
+  `stackalloc`-backed ref-like fields, including through simple local aliases,
+  while allowing caller-owned references and spans supplied by parameters.
+- Added the `allows ref struct` generic anti-constraint, including source
+  semantic classification and the standard CLI `AllowByRefLike` metadata flag.
+- Applied ref-like storage, capture, async, and iterator safety rules to type
+  parameters declared with `allows ref struct`, not only to concrete ref-like
+  named types.
+- Allowed managed-reference dereferences in safe code while retaining unsafe
+  diagnostics for raw pointer dereferences.
+- Rejected ref fields whose referent is itself ref-like or is a generic type
+  parameter that allows ref structs.
+- Diagnosed misplaced, duplicated, and `class`-conflicting
+  `allows ref struct` anti-constraints in both inline and `where` constraint
+  lists.
+- Recognized `ScopedRefAttribute` on consumed .NET parameters and exposed the
+  result through the Roslyn-like `IParameterSymbol.ScopedKind` API, including
+  constructed generic symbols.
+- Added `scoped` parameter syntax and source-symbol classification for both
+  scoped ref-like values and by-reference parameters.
+- Emitted `ScopedRefAttribute` for explicitly scoped parameters when required
+  by the C# metadata contract, including generic-safe metadata round trips.
+- Rejected returning scoped ref-like parameters through direct expressions or
+  local aliases.
+- Applied C#-compatible implicit scoped defaults to `out` parameters and `ref`
+  parameters of ref-like type, including metadata classification and emission.
+- Highlighted contextual `scoped` parameter modifiers in both semantic tokens
+  and the VS Code TextMate grammar without reserving identifier uses.
+- Added Raven-native `scoped val`/`var`/`let`/`const` local syntax, scoped-value
+  versus scoped-reference symbol classification, and editor highlighting.
+- Diagnosed `scoped` local declarations whose resulting type is neither
+  ref-like nor by-reference.
+- Diagnosed by-value `scoped` parameters of non-ref-like type while permitting
+  ordinary types behind `scoped ref`, `in`, and `out`.
+- Rejected returning scoped ref-like locals directly or through ordinary local
+  aliases.
+- Propagated scoped-local escape provenance through ref-like field containment.
+- Propagated scoped provenance into ref-like call results through receivers and
+  unscoped parameters, while excluding arguments to scoped parameters.
+- Rejected capturing scoped parameters and locals in lambdas or local
+  functions, including scoped references to ordinary value types.
+- Rejected scoped parameters and locals that would remain live across `await`
+  or `yield` suspension points.
+- Prevented overrides and explicit interface implementations from weakening a
+  scoped parameter contract while allowing implementations to strengthen it.
+- Required partial method declarations and implementations to agree on each
+  parameter's scoped contract.
+- Preserved scoped parameter attributes on emitted delegate `Invoke` methods,
+  including generic delegates that allow ref-like type arguments.
+- Rejected assignments that expose scoped values through by-reference
+  parameters or fields of `self` and by-reference receivers.
+- Enforced scoped indexer parameter contracts across overrides and explicit
+  interface implementations.
+- Correctly materialized value-type `self` when Raven methods request its value
+  while preserving the managed receiver for address-based access, keeping
+  generic `Option` and `Result` instance behavior portable across runtimes.
+- Materialized empty union cases through their enclosing carrier during `?`
+  propagation, preventing `None` from being returned with the incompatible
+  case-only runtime layout.
+- Computed async resume dispatch from the fully lowered protected-region tree
+  and entered nested guards at their boundaries, preventing branches into
+  `try` regions for `try? await` and Result propagation.
+- Lowered non-`use` async bodies before suspension rewriting so a `try await`
+  expression consumed by a match cannot acquire an unguarded protected region.
+- Emitted sequential storage for unions containing managed references while
+  retaining compact explicit storage for unmanaged-only unions, preventing
+  invalid overlapping object/value fields across runtimes.
+- Projected `DateTimeOffset`, `DateOnly`, `TimeOnly`, and `TimeSpan`
+  `TryParse(string)` methods as `Option<T>` values.
+- Added `lock expression { ... }` statements, lowering to exception-safe
+  `System.Threading.Monitor` acquisition and release.
+- Added playground samples showing guarded deconstruction in `for` iteration
+  and pattern-bound `while let` consumption of a domain event stream.
+- Added a contextual playground sample for mixed-era shipment references using
+  a type union with target-typed construction.
+- Prevented async lowering from redirecting synthesized state-machine receivers
+  through their own hoisted receiver field, producing portable async-iterator IL.
+- Added a cold-chain monitoring playground sample using `yield` and `await for`
+  to consume an asynchronous stream.
+- Added a webhook-routing playground sample that jointly matches dictionary
+  metadata and sequence-shaped request paths.
+- Recovered statically bound sequence types when matching nested tuple elements,
+  so sequence patterns compose with dictionary and other structural patterns.
+- Made cold metadata member lookup include explicit-interface properties and
+  enabled middle-rest sequence deconstruction over `ImmutableArray<T>`.
+- Kept parenthesized tuple patterns on tuple code generation when their runtime
+  types also expose indexable interface members, preserving composed structural
+  patterns across desktop and WebAssembly runtimes.
+- Added a playground sample that scopes `HttpClient` with `use`, loads the
+  deployed example catalog, deserializes its JSON, and models outcomes as a
+  union.
+- Preserved collection element types while resolving competing overloads so
+  generic enumerable overloads such as `Task.WhenAll([task1, task2])` infer
+  their type arguments instead of prematurely widening the elements.
+- Made the WebAssembly playground await synthesized async top-level entry
+  points directly instead of invoking their synchronously blocking console
+  bridge.
+- Added a checkout playground sample that starts independent warehouse stock
+  lookups together and awaits their results before presenting availability.
+- Added an order-boundary playground sample showing `Result` conditional
+  access and implicit error conversion during propagation.
+- Added a price-import playground sample that captures exceptions from a
+  throwing .NET API as typed results with `try?`.
+- Made `Result` propagation extract its error union case structurally instead
+  of depending on `UnwrapError`, preserving failure behavior across runtimes.
+- Added a dispatch-planning playground sample built with immutable collection
+  comprehensions, filtering, and collection spreads.
+- Added a contextual playground sample that models fulfillment routes as a
+  sealed class hierarchy with shared behavior, property patterns, and
+  exhaustive matching.
+- Emitted closed-hierarchy metadata without runtime constructor inspection, so
+  sealed class hierarchies compile in WebAssembly.
+- Prevented Monaco's automatic layout from repeatedly increasing the playground
+  workspace height by giving the desktop workspace a bounded viewport-relative
+  height and sizing the editor through flex layout.
+- Made the playground load Hello World deterministically on startup and added
+  shareable source URLs through a base64url `source` query parameter and Share
+  command.
+- Expanded the playground catalog with contextual examples of `Option` and
+  `let ... else`, framework parsing projected into typed flow, higher-order
+  functions, and `Result` propagation.
+- Resolved the playground's embedded .NET reference assemblies from MSBuild's
+  selected targeting pack instead of assuming its patch version matched the
+  browser runtime pack. Static builds now fail early if `System.Runtime` is
+  absent, and browser coverage executes every registered example.
+- Made PE attribute discovery tolerate missing transitive metadata dependencies,
+  preventing wildcard namespace imports from crashing browser compilation when
+  a nonessential attribute assembly cannot be resolved.
+- Emitted nullable metadata through raw custom-attribute blobs instead of
+  runtime constructor inspection, allowing user-defined unions and other
+  nullable shapes to compile under browser WebAssembly.
+- Made repository-local Raven MSBuild targets honor the active build
+  configuration when locating the compiler host and Raven.Core, so clean
+  Release builds no longer incorrectly require Debug artifacts.
+- Published the browser playground beneath `/playground/` in the same GitHub
+  Pages artifact as the documentation site, with top-level documentation links
+  and a relocatable static base path.
+- Added a playground-owned example catalog loaded from static files, allowing
+  curated Raven programs to be registered and updated independently of the
+  browser-hosted compiler code. Browser coverage compiles every registered
+  example.
+- Made playground completion visible and responsive by debouncing member-prefix
+  requests, explicitly opening Monaco suggestions after a short pause, and
+  avoiding uncancelable WebAssembly completion work on ordinary keystrokes.
+  Global completion remains available through `Ctrl+Space`.
+- Prevented equivalent synthesized methods from producing duplicate CLR method
+  definitions during emission. Raven.Core union carriers such as `Result<T, E>`
+  now emit a single executable `ToString` body instead of a bodyless method
+  that could fail at runtime with `BadImageFormatException`.
+- Aligned the WebAssembly playground's compilation environment with `rvnc` by
+  sharing the standard generated prelude, referencing Raven.Core, and compiling
+  against the .NET reference assemblies. Record equality synthesis now accepts
+  equivalent nullable and non-nullable metadata representations of
+  `object.Equals`, preventing platform-specific missing-member diagnostics.
+- Reused the WebAssembly playground's emitted assembly when Compile and Run
+  target the same immutable compilation snapshot, avoiding redundant browser
+  emission while preserving incremental recompilation after edits.
+- Reduced one-file compiler latency by indexing extension-conversion containers
+  directly from referenced assembly metadata instead of loading conversion
+  members across every referenced type.
+- Added a static-hostable Blazor WebAssembly playground starter with a Monaco
+  editor, Raven TextMate highlighting, separate Compile and Run commands, and
+  in-browser compilation and execution of emitted Raven assemblies. A
+  repository-owned browser smoke test covers the release-published static site,
+  compiler-backed Monaco completion, diagnostics, and emitted-program output.
+  The browser host advances an ordinary Raven workspace and reuses its current
+  compilation across editor requests and explicit compilation.
+- Removed two browser-WebAssembly blockers from compiler metadata loading:
+  assembly identities are read from portable executable metadata where runtime
+  assembly-loading APIs are unavailable, and unavailable runtime nullability
+  reflection falls back to explicit nullable metadata.
+- Added dotted property paths in property patterns. For example,
+  `Foo { Item.Size: 2 }` is shorthand for
+  `Foo { Item: { Size: 2 } }`. Completion and hover resolve each property-path
+  segment against its receiver type, including while a dotted path is being
+  typed.
+- Removed the experimental trailing-block call syntax and its builder/receiver
+  DSL infrastructure from the main language. Function values use ordinary
+  function-expression syntax.
+- Restored brace object initializers as a distinct construct: `Foo { Name =
+  "Foo" }` selects a parameterless constructor, while `Bar("Foo") { Age = 42 }`
+  initializes an object after an explicit constructor call. `value with { ... }`
+  remains the separate non-destructive copying form.
+- Made incremental document diagnostics independent of prior semantic queries
+  by declaring same-document member signatures before binding executable code.
+- Added the initial distribution contract: platform SDK archive builders,
+  relocatable compiler/MSBuild assets, `rvn sdk path`, installed-SDK discovery
+  in VS Code, a universal VSIX builder with a bundled language server,
+  checksum-verifying installers, and automated multi-platform release builds.
+  Packaged `rvn`, `rvnc`, and VSIX artifacts now share the release version;
+  both command-line tools expose it through `--version`.
+- Added `rvn doctor` to diagnose the .NET SDK and required Raven SDK files.
+- The VS Code extension now offers SDK installation instructions when build,
+  run, and debug tooling is unavailable, while retaining bundled editor support.
+- Locked the built-in union C# surface and serialization contract with direct
+  C# construction/extraction coverage: payload-first JSON remains the standard
+  behavior, while tagged Raven serialization requires explicit opt-in.
+- Highlighted constructor-form `init(...)` declarations and primary-constructor
+  access modifiers in the VS Code TextMate grammar.
+- Preserved keyword highlighting for parenthesized patterns such as `if let
+  (...)`, `while let (...)`, `for let (...)`, and `value is (...)` in both the
+  VS Code TextMate grammar and the DocFX site highlighter.
+- Removed `trait` as an alias for extension declarations; use `extension`.
+- Added the first generic instance framework projection:
+  `Dictionary<TKey, TValue>.TryGetValue(key) -> Option<TValue>`. Missing keys
+  become `None`, while constructed value-type nullability is preserved.
+- Projected `Guid.Parse(string)` as `Result<Guid, FormatException>` and
+  `int.Parse(string)` as `Result<int, FormatException | OverflowException>`.
+  Null-argument exceptions that require forcing null through the non-null Raven
+  signatures now propagate as faults rather than ordinary result errors; the
+  legacy lowercase `int.parse` Raven.Core helpers remain removed.
+- Added default-on framework API projections for the simplest `TryParse`
+  overloads on `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`.
+  Raven presents these as `Option<T>`-returning methods; projects can set
+  `RavenFrameworkProjections` to `None` to restore the ordinary CLR surface.
+  The exact mappings and failure recipes live in a versioned compiler catalog;
+  stable projection IDs bind each catalog entry to its attributed Raven.Core
+  bridge without relying on extension-method precedence.
+- Added projection-specific diagnostics for missing, duplicate, and
+  structurally incompatible framework projection bridges.
+- Validated built-in projection source and bridge methods against their full
+  reflected CLR signatures, including generic arguments and ref-kinds.
+- Presented receiver-specific projection overloads in signature help and
+  receiver-owned Raven signatures in hover, without exposing CLR `out`
+  overloads; loose-file language-server projects now preserve the workspace's
+  configured target framework when resolving framework and Raven.Core metadata.
+- Added the first same-signature `Parse -> Result` projection for
+  `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
+- Added Rust-style `let pattern = expression else { ... }` declarations. The
+  `else` branch must exit, and successful pattern bindings remain available in
+  the surrounding scope. Documentation now promotes `if let` and `let ... else`
+  for binding-oriented control flow while retaining `is` for boolean pattern
+  expressions.
+- Preserved target typing for ordinary typed `let` declarations after their
+  unification with pattern-declaration syntax, including shorthand union cases
+  in `if` expression branches.
+- Recognized interface implementations inherited from metadata base classes,
+  avoiding spurious missing-member diagnostics on derived Raven classes.
+- Ordered language-server diagnostic presentation per document and rejected
+  older editor versions, preventing recovery diagnostics from reappearing
+  after a newer compiler pass has cleared them.
+- Invalidated reused metadata load contexts when a portable reference is
+  rebuilt at the same path, preventing editor semantic requests from repeatedly
+  failing after project outputs such as `Raven.Core.dll` change.
+- Added `RAV1026`, a warning for lists that inconsistently mix comma and newline
+  separators. Union case and enum member lists now diagnose the mixed style
+  while continuing to parse both forms.
+- Finite union payload products now understand `not`, `and`, and `or`
+  combinators when proving collective case coverage. Removed the superseded
+  binder-owned exhaustiveness implementation so diagnostics and semantic
+  queries cannot drift between separate checking paths.
+- Missing-case diagnostics now identify uncovered alternatives inside wholly
+  or partially unmatched finite union payloads, such as
+  `Error(OverflowException)` and `Error(.ServiceUnavailable)`, instead of
+  collapsing the payload coverage to `Error`.
+- Exhaustiveness analysis now proves complete positional tuple matches when
+  tuple elements form a bounded finite product of booleans, enums, nested
+  tuples, or discriminated unions, including nullable tuple carriers and
+  pattern combinators.
+- Top-level `not` and `and` patterns now participate in discriminated-union
+  and enum exhaustiveness, including complements of payload cases whose
+  payload domains are not themselves finite.
+- Closed type unions and sealed hierarchies now apply conservative
+  none/some/all coverage algebra to `not` and `and` patterns. Nullable domains
+  likewise recognize `null`/`not null` as complementary coverage.
+- Constant-true nested guarded patterns now contribute their underlying
+  coverage, while dynamic or false guards remain conservative. A rest-only
+  sequence pattern is recognized as total for a compatible sequence input,
+  and reachability diagnostics use the same shared catch-all classification.
+- Compile-time-true match-arm guards now contribute consistently in every
+  domain, including `bool` and catch-all reporting. The singleton `unit` and
+  null-only domains are analyzed explicitly.
+- Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
+  authoritative evaluator across boolean, nullable, enum, union, sealed
+  hierarchy, structural, and numeric pattern domains. Diagnostics report every
+  missing semantic case returned by the API, while flow-sensitive struct-union
+  default-state handling remains limited to catch-all reachability warnings.
+- Match diagnostics and the semantic exhaustiveness API now use the same
+  interval analysis for integral comparison, range, `not`, `and`, and `or`
+  patterns. Complementary numeric arms can prove a match exhaustive, guarded
+  arms remain conservative, and a redundant catch-all is reported after full
+  explicit coverage.
+- Match exhaustiveness now combines nested discriminated-union case patterns,
+  so arms such as `.Error(.WrongCredentials)` and
+  `.Error(.ServiceUnavailable)` can collectively cover the complete `Error`
+  payload without requiring a discard arm. Finite `bool` payloads and bounded
+  Cartesian combinations of multiple finite payloads are analyzed likewise.
+- Adopted `let`/`var` as the standard spelling for lexical bindings while
+  retaining `val`/`var` for properties and signature-like declarations. A
+  `let` local remains semantically read-only and is displayed as `val` by hover
+  and symbol presentation. The former optional `PreferValInsteadOfLetAnalyzer`
+  was replaced by the optional `PreferLetInsteadOfValAnalyzer` (`RAV9035`) and
+  its code fix. `RAV9004` and its code fix are now provided by
+  `VarCanBeLetAnalyzer` and recommend `let` when a lexical `var` is never
+  reassigned.
+- Async-iterator method declarations now suspend incomplete awaits in
+  `MoveNextAsync` and return a
+  pending `ValueTask<bool>` instead of synchronously blocking in
+  `TaskAwaiter.GetResult()`. Their kickoff methods now carry
+  `AsyncIteratorStateMachineAttribute` metadata, so async streams such as the
+  greenhouse telemetry sample no longer occupy the caller thread while
+  awaiting delays or I/O.
+- Added primary-constructor accessibility modifiers after the type name and any
+  type parameters, e.g. `record struct Year private (Value: int)`. Constructor
+  accessibility is independent of accessibility on promoted parameters, so
+  records and other primary-constructor types can expose data while restricting
+  construction to factories or the containing assembly.
+- Improved language-server recovery after rapid edits by keeping analyzer
+  diagnostics on the active compiler snapshot and forwarding reusable
+  incremental semantic state across intermediate snapshots.
+- Reduced analyzer latency by enumerating narrowly registered expression-statement
+  operation actions without constructing unrelated operation graphs, and by
+  filtering unused-method invocation candidates before semantic lookup.
+- Reused metadata load contexts across incremental compilations when portable
+  metadata references are unchanged.
+- Kept document diagnostics demand-driven for source declarations instead of
+  eagerly declaring every project syntax tree after each edit.
+- Added struct-like discriminated union cases with named payload fields, e.g.
+  `case Closed { Reason: string? = null }`. Defaulted fields are optional in
+  named case construction, and `.Closed { ... }` lowers through the synthesized
+  case constructor rather than mutable object initialization.
+- Added statement-form `loop { ... }` for unconditional loops. `break` exits the
+  loop and `continue` jumps to the next iteration using the same structured
+  loop rules as `while` and `for`.
+- Added labeled `break label` and `continue label` for targeting enclosing
+  labeled loops. Unlabeled `break` and `continue` still target the closest
+  enclosing loop, and labels on ordinary statements remain `goto` targets.
+- Added keyword-first `match scrutinee { ... }` as the normal match expression
+  form, aligning match expressions with match statements. The older postfix
+  expression form remains supported for composition cases such as
+  `try expr match { ... }`.
+- Added support for `[method: ...]` attributes on class, struct, and record
+  declarations with primary constructors, applying them to the synthesized
+  constructor metadata.
+- Added unsafe block expressions, allowing `unsafe { ... }` in value-producing
+  expression positions while reusing the existing scoped unsafe context rules.
+- Added `RAV0404` so conditional access reports an error when `?.` is used on
+  a statically non-null receiver while preserving member binding for tooling.
+- Fixed interface contract diagnostics so concrete classes report missing
+  required interface members such as `IDisposable.Dispose`.
+- Fixed interface contract diagnostics so source explicit interface method
+  implementations satisfy the required interface member even when the emitted
+  method name is interface-qualified, and default interface members are not
+  treated as missing required implementations.
+- Fixed union case binding so bare case constructor calls require an explicit
+  target type, while pattern hovers report case symbols projected from the
+  matched union type arguments.
+- Fixed cold language-server hover resolution for pattern locals nested in
+  executable scopes such as `await for`, including both declarations and uses.
+- Fixed union declaration attribute validation so source unions accept
+  type-level attributes whose usage targets either class or struct carriers.
+- Changed `RAV9016` member-can-be-private and `RAV9017`
+  member-can-be-static analyzer diagnostics to default to informational
+  suggestions. `RAV9017` no longer suggests making methods static when they
+  satisfy inherited interface contracts such as `IDisposable.Dispose`.
+- Added code fixes for compiler-owned match exhaustiveness diagnostics: `RAV2100`
+  can insert a missing match arm, and `RAV2103` can remove a redundant catch-all arm.
+- Aligned union content nullability with C# unions: Raven now tracks nullable
+  parenthesized union contents from constructor/member case types, treats
+  `TryGetValue(out T)` as an extraction helper instead of an extra case source
+  when constructors exist, and imports nullable C# union contents from .NET 11
+  metadata.
+- Aligned nullable union contents with the C# access pattern: `HasValue` now
+  follows `Value != null`, `null` patterns over class unions check both the
+  carrier reference and active `Value`, and nullable-content parenthesized
+  unions no longer expose `null` as a pseudo member type. Bare `null` no longer
+  implicitly converts to nominal or Raven.Core union carriers just because one
+  payload type is nullable.
+- Changed plain Raven `union` declarations to synthesize struct carriers by
+  default, matching the C# generated-union direction. Raven.Core `Union<...>`,
+  `Option<T>`, and `Result<T, E>` now use that default struct carrier shape.
+  Struct-union match exhaustiveness now follows the C# contract: declared cases
+  are source-exhaustive, and the inactive `default` carrier is not treated as a
+  semantic case that must be written in source. Defensive catch-all arms on
+  struct unions are still allowed when local flow says the inactive carrier
+  state is physically possible, but active local values report redundant
+  catch-all arms. Passing a struct-union value that may still be the inactive
+  `default` carrier to a struct-union parameter now reports `RAV0405` at the
+  call site, so callee parameters can keep their active-value contract. Omitted
+  optional struct-union arguments whose default is the inactive carrier now
+  report the same diagnostic. Lowering and emit keep responsibility for
+  defensive runtime fallbacks when metadata consumers or forced default carriers
+  bypass Raven's source checks.
+- Returning a struct-union value that may still be the inactive `default`
+  carrier now reports `RAV0406` at the return boundary, preserving the same
+  active-value contract for callers.
+- Fixed matching over nullable union carriers (`U?`) so union case patterns are
+  checked against the underlying union while `null` is treated as a separate
+  nullable-wrapper case for exhaustiveness. This applies to both `union struct`
+  and `union class` carriers and does not make `null` a union pseudo-case.
+- Added .NET 11 C# interop coverage for Raven-produced union carriers and made
+  metadata nullability loading tolerate preview reflection types that do not
+  support `NullabilityInfoContext`.
+- Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
+  can query the same exhaustiveness information for match statements that it
+  already can for keyword-first and postfix match expressions.
+- Struct-union parameters and `self` are now treated as active inside the
+  callee, relying on call-site diagnostics to reject possibly inactive carriers
+  before entry. Raven.Core `Option<T>` and `Result<T, E>` helpers no longer need
+  source-level defensive default arms, and lowered source-exhaustive matches now
+  throw when no arm matches instead of falling through with a default result.
+- Raven.Core `Option<T>` and `Result<T, E>` JSON converters now serialize the
+  inactive default carrier as JSON `null` instead of emitting no token or an
+  empty object.
+- Fixed expanded `params` argument target typing so extra positional arguments
+  are bound against the params element type, including target-typed union cases.
+- Fixed extension member completion after partially typed member names so
+  imported metadata extension methods are offered for prefixes such as
+  `widget.Dou`.
+- Fixed editor compiler diagnostics after hover/inlay-style semantic queries so
+  presentation-only cache entries do not cause false missing local or missing
+  member errors in the same document snapshot.
+- Fixed member completion for interface-typed receivers so members inherited
+  through implemented interfaces are offered on values such as `IQueryable<T>`.
+- Added `scripts/build-project-samples.sh` to build all source sample projects
+  under `samples/projects` separately from the standalone sample compiler script.
+- Converted `Raven.Core` to a normal Raven MSBuild project so it builds through
+  the shared Raven language targets and participates in project references.
+- Added receiver-aware pipe target completion after `|>` and in the following
+  identifier, including applicable in-scope functions/static methods and
+  extension methods. The language server now registers `>` as a completion
+  trigger so typing `value |> ` opens the suggestion list.
+- Fixed editor diagnostics after text edits so syntax diagnostics are refreshed
+  from the pending document text immediately, clearing stale parser errors
+  while semantic diagnostics remain deferred.
+- Fixed editor diagnostic flicker while typing by translating the last computed
+  snapshot diagnostics across pending edits until fresh diagnostics are ready.
+- Changed `RAV0403` to report on the full `<expr>!` nullable suppression
+  expression and describe that the operand is treated as non-null.
+- Fixed member completion after nullable suppression expressions such as `x!.`
+  and target-typed `default!.`.
+- Fixed inlay hint flicker while editing by keeping visible providers stable
+  until a debounced refresh can request translated cached hints for pending
+  document text or fresh hints from the loaded workspace snapshot.
+- Fixed semantic queries for top-level global statements so editor features bind
+  through the compiler-owned top-level statement binder instead of throwing.
+- Added `RAV9034` for standalone value-producing expressions whose result is
+  known to be unused, such as literal/variable unary and binary expressions in
+  `unit`-returning bodies. Calls remain exempt.
+- Fixed `RAV9033` disposable-object diagnostics to use generic disposable-value
+  wording instead of guessing an object name from locals or producer members.
+- Fixed hover on `default` expressions so it shows a `default(T)` constant
+  expression preview instead of being suppressed as a keyword.
+- Fixed `use` declarations so nullable disposable targets such as
+  `IDisposable?` are rejected and invalid resources are not registered for
+  disposal.
+- Fixed inlay hint refreshes for top-level invocations with function arguments
+  so the refreshed request does not fail while rebinding global statements.
+- Fixed semantic symbol info for callable instance members so hovering or
+  analyzing the invoked name in `callback()` returns the member symbol instead
+  of the delegate `Invoke` method.
+- Fixed document compiler diagnostics so attributes on union declarations are
+  validated against the union type instead of synthesized helper methods after
+  editor semantic warm-up.
+- Fixed local symbol queries so inferred generic constructor initializers such as
+  `val values = List<JsonValue>()` return the constructed type instead of an
+  incomplete `List<>` symbol.
+- Fixed `self.` completion inside instance members and instance extension
+  members, restored partial property/event definition-implementation merging,
+  and re-enabled fast semantic coverage for positional pattern assignments.
+- Fixed attribute diagnostics so `GetDiagnostics()` reports invalid attribute
+  targets, duplicate attributes, and non-constant attribute arguments during the
+  diagnostic pass instead of depending on prior `GetAttributes()` queries.
+- Fixed semantic diagnostics so method-like members, primary constructor
+  parameters, indexer parameters, indexer async getters, and constructor
+  initializers are reported during `GetDiagnostics()` even when symbol
+  declarations were already cached.
+- Fixed diagnostic reuse for type declarations so partial-method, sealed
+  hierarchy, and static-type storage diagnostics remain available after
+  executable binding reuses cached declaration state.
+- Fixed duplicate diagnostics when rebinding finalizer declarations and partial
+  method definition/implementation counterparts.
+- Fixed complete semantic diagnostics so `GetDiagnostics()` collects
+  declaration-binder diagnostics instead of taking the document-scoped
+  incremental diagnostics path.
+- Fixed top-level `Main` entry-point discovery so invalid file-scoped statements
+  report `RAV1021` without also synthesizing or selecting a competing
+  top-level-program `Main`.
+- Fixed completion on cold semantic models so earlier top-level declarations
+  initialized from invocations or function expressions contribute their inferred
+  types to member lists and completion descriptions.
+- Fixed full diagnostics for top-level function attributes and extern
+  top-level functions with bodies.
+- Fixed qualified generic type lookup in member-access-shaped type expressions
+  such as `System.Func<int, string>`.
+- Fixed macro-expanded local declarations so documentation-comment lookup uses
+  the declarator syntax node instead of a token-only span, avoiding crashes when
+  inspecting expanded documents.
+- Fixed member completion after `nameof(...)` so the receiver is treated as
+  `string` instead of using the named symbol's type.
+- Fixed target-typed `default` for reference types so it is treated as a
+  nullable null value. Returning or assigning it to a non-nullable reference now
+  requires `default!` and reports the existing null-assignment diagnostic when
+  omitted.
+- Added first-class MSBuild language targets for `.rvnproj` builds. Raven projects
+  now build through `dotnet build`, produce SDK-style outputs, and can be consumed
+  from C# projects through normal `ProjectReference` when wired to
+  `build/Raven.Language.targets`.
+- Deprecated legacy `.ravenproj` project files in favor of MSBuild-backed `.rvnproj`
+  projects. The CLI now warns when compiling a legacy project file.
+- Added `[Receiver]` and `[Receiver<T>]` trailing-block parameters. An
+  unparameterized trailing block passed to a one-argument function parameter
+  marked with `[Receiver]` can access receiver members directly inside the block;
+  `[Receiver<T>]` narrows member lookup to an explicit compatible receiver type.
+- Added combined builder/receiver trailing blocks for DSLs such as
+  `[Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> UiNode`. The
+  result builder handles block lowering, while the receiver builder exposes the
+  component-specific member scope and produces the sub-result through
+  `BuildFinalResult(component, receiver)`.
+- Added class-only `base` expressions for instance members, enabling explicit
+  base-member access and non-virtual base method invocation such as
+  `base.OnFrameworkInitializationCompleted()`.
+- Added `_` discard parameters for function expressions and parameterized
+  trailing blocks. They consume the delegate parameter slot without introducing
+  a body-visible name or unused-parameter warning.
+- Trailing blocks now bind to the final visible function-typed parameter even
+  when earlier optional parameters are omitted with default values, enabling DSL
+  APIs such as `StackPanel(spacing: 8.0) { ... }` with
+  `content: (() -> UiNode)? = null`.
+- Added opt-in diagnostic `RAV9029` for bare member invocations and member accesses whose
+  returned value is ignored. Assign the returned value to a target, assign it to `_`, return
+  it, or pass it on. The analyzer is disabled by default while it uses whole-analyzer mode.
+- Added `--returned-value-handling <default|full|none|info|warning|error>` and
+  `--force-returned-value-handling` to configure `RAV9029` from the compiler CLI.
+- Added project-file mode configuration for `RAV9029` through `ReturnedValueHandlingMode` /
+  `RavenReturnedValueHandlingMode` and `EnableReturnedValueAnalyzer` /
+  `RavenEnableReturnedValueAnalyzer`.
+- Extended unused-variable analysis to report unused callable parameters as warning
+  `RAV9030`, covering methods, `func` statements, constructors, operators, and function
+  expressions.
+- Added hidden analyzer diagnostic `RAV9031` for unused wildcard namespace imports within
+  the lexical scope that declares them, with cleanup support through the redundant-import
+  code fix.
+- Added analyzer diagnostic `RAV9033` for disposable objects returned from calls or object
+  creation that are assigned to ordinary locals or discarded without a `use` declaration or
+  direct `Dispose()` call before scope exit.
+- Added source-applicable invocation parameter-name inlay hints. Positional arguments now
+  display their resolved parameter names, such as `StackPanel(spacing: 8.0)`, while already
+  named arguments are left alone. Positional and nominal deconstruction patterns now also
+  display inferred element names when the tuple or `Deconstruct` shape provides them.
+  Raven inlay hints now have a master VS Code setting plus separate per-kind settings for
+  inferred types and name hints.
+- Fixed editor diagnostic scheduling so open, edit, and save follow-up passes include
+  analyzer diagnostics such as unused locals and parameters, while typing uses a throttled
+  document-scoped analyzer pass instead of running full-project analyzers on every edit.
+- Fixed Raven.Core metadata union case imports so `import System.Result.*` and
+  `import System.Option.*` bring `Ok`, `Error`, `Some`, and `None` into
+  unqualified scope even though the PE case types are emitted as standalone
+  types.
+- Fixed `RAV9012` so inferred target declarations such as `val x = ...` are not
+  reported just because the initializer has a nullable type.
+- Fixed `RAV9019` so async `Main(args: string[]) -> Task` methods identified as
+  application entry points are not reported as unused when a synthesized entry-point
+  bridge is used.
+- Fixed pattern matching, propagation, and carrier conditional access over
+  Raven.Core metadata unions by matching logical case wrappers and constructed
+  PE case types by stable metadata identity.
+- Unused parameter, method, and property analyzer diagnostics now skip members
+  that are required by virtual/override or interface implementation contracts.
+- Fixed full-document and focused-range inlay hints for small real-world files
+  so target-typed constructor shorthand arguments such as
+  `.(1, "Ana", 29, true)` still show source-applicable parameter names.
+- Fixed VS Code inlay refresh behavior so Raven edits re-request visible hints
+  after the existing debounce, and locally superseded inlay requests no longer
+  publish an empty hint set that can make hints flicker off.
+- Fixed VS Code project build, run, and debug commands so `.rvnproj` targets use
+  the `rvn build` frontend instead of invoking the `rvnc` compiler driver with
+  publish-only arguments.
+- Split unused local and unused parameter analysis into distinct built-in analyzers while
+  keeping `UnusedVariableAnalyzer` as a compatibility disable name, and tightened analyzer
+  symbol matching so equivalent lazy-bound symbols are compared with Raven symbol equality
+  instead of object identity.
+- Renamed the property initialization diagnostic analyzer to
+  `UninitializedPropertyAnalyzer`, generalized its wording from auto-properties to
+  stored properties, and added `UninitializedFieldAnalyzer` for explicit private fields.
+- Constructor declarations now participate in lightweight member signature declaration,
+  making symbol-based analyzers see constructor parameters deterministically after edits
+  without requiring a prior full body bind.
+- Workspace analyzer diagnostics now log cache hits, misses, stores, cancellations,
+  failures, and per-analyzer execution failures so editor diagnostic latency can be
+  traced without conflating it with foreground semantic requests.
+- Analyzer infrastructure now supports Roslyn-style operation actions through
+  `RegisterOperationAction`, and the document analyzer driver dispatches them from one
+  shared operation traversal. Returned-value and immutable-collection result analyzers
+  now use operation actions instead of syntax callbacks that each queried operations.
+- Language-server semantic tokens now focus on semantic symbol classifications and
+  regex string specialization, leaving keywords, literals, comments, and operators to
+  the VS Code TextMate grammar. The grammar now covers ordinary attributes,
+  documentation comments, character literals, labels, constructor-like calls, dot
+  punctuation, and missing Raven keywords such as `goto`, `yield`, `fixed`, and `new`.
+
+### Changed
+- Unused local value diagnostics now say `Value '<name>' is never used.` while unused
+  parameters continue to say `Parameter '<name>' is never used.`.
+- `TopLevelAttribute` is now generated in the `System.Runtime.CompilerServices`
+  namespace, so namespace-member containers are marked with
+  `System.Runtime.CompilerServices.TopLevelAttribute`.
+- Namespace-level `func` and `const` declarations now bind as namespace-level members emitted into a synthesized `[TopLevel]` `NamespaceMembers` container, and static types marked with `[TopLevel]` promote their static members through namespace lookup/completion. `AllowNamespaceMembers` controls declarations independently from top-level statements, while `AllowNamespaceMemberImports` controls namespace promotion from namespace-member containers.
+- Project and single-file compilations now generate a prelude of global imports by default, including common `System` namespaces plus `System.Result.*` and `System.Option.*`; ordinary union cases are no longer introduced unqualified unless imported or referenced with target-typed `.Case` syntax.
+- Attached declaration macros targeting types are now valid on union case declarations, matching the compiler's representation of cases as generated case types.
+- Records now use the full primary-constructor parameter list as their canonical value shape, including non-public promoted parameters, and record bodies now reject extra instance storage and secondary instance constructors.
+- The language server now provides source-applicable inlay hints for inferred local type annotations and inferred function return type annotations, and the VS Code extension can toggle those hints with `raven.inlayHints.inferredTypes.enabled` or `Raven: Toggle Inferred Type Inlay Hints`.
+- Language-server document edits now preserve `SourceText` change ranges through incremental sync, fall back to full parsing for whole-document or large paste edits, debounce macro-consumer refreshes, and keep normal typing diagnostics syntax-only so expensive semantic diagnostics wait for open/save.
+- Match expression arms now accept direct `return` expressions, aligning them with other expression-oriented value positions while preserving diagnostics for statement `return` inside block-expression arms.
+- `for` loop identifier targets now support explicit type annotations such as `for item: int in items`, and inferred type inlay hints are offered for unannotated identifier targets.
+- Outer pattern-binding contexts now allow implicit deconstruction captures to carry type annotations without repeating the binding keyword, so forms such as `val (key: string, value: int) = entry` and `val [head: string, ..tail: string[]] = values` parse as typed captures.
+- Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
+- Raven unions now align their emitted interop surface with the .NET 11 union
+  direction by implementing `IUnion`; body-declared Raven case types are recorded
+  on the carrier with Raven-owned metadata instead of non-standard system case
+  marker attributes.
+
+### Fixed
+- String `==` and `!=` now use `System.String` value equality instead of
+  reference equality.
+- Function expressions inside instance methods now capture unqualified instance
+  property receivers correctly.
+- Interface-typed receivers now resolve `System.Object` instance members such
+  as `GetType`, `ToString`, `Equals`, and `GetHashCode`.
+- Function expressions now capture variables assigned through the left side of an
+  assignment, including function expressions passed as call arguments, and nested
+  function expressions now reuse the owning method closure instead of snapshotting
+  stale values.
+- Diagnostic binding now follows macro replacement declarations, preventing
+  attached property macros from reporting the original property as a duplicate
+  member after the replacement property has already been registered.
+- Target-typed enum member defaults on external enum parameters and `double`
+  default parameter constants now bind and emit without compiler crashes.
+- Emitting direct signatures over NuGet `ref/` assembly types now prefers the
+  corresponding `lib/` runtime assembly and guards type probing failures,
+  preventing external packages such as Avalonia from crashing emit during
+  runtime type resolution.
+- Metadata base-type resolution now falls back to compilation-level package
+  references when a module-local reference walk misses, fixing inherited
+  member lookup and reference conversions across package sibling assemblies
+  such as Avalonia `Button` to `Interactive`.
+- Runtime MethodInfo resolution now handles methods from constructed generic
+  package types, fixing emit for calls such as Avalonia `StackPanel.Children.Add`.
+- The compiler CLI now copies native NuGet runtime assets for the current
+  platform when running or publishing, so packages such as Avalonia can load
+  native dependencies like SkiaSharp from the output directory.
+- Unused-parameter analysis now treats constructor parameters passed to
+  constructor initializers such as `base(value)` as used.
+- `MemberCanBeStatic` now recognizes instance callable members invoked through
+  bare identifier syntax, avoiding false positives for callback wrapper methods.
+- Unused-property analysis now respects interface property implementations.
+- Removed builder-method-name exemptions from unused-method analysis so generic
+  unused-member diagnostics are not coupled to DSL lowering conventions.
+- Incremental executable-owner analysis now treats top-level `func` statements as
+  function owners instead of generic global-statement owners, improving editor
+  recovery after wrapping top-level statements in `func Main`.
+- Semantic invocation queries can now use already-available argument types to
+  construct simple generic metadata candidates, avoiding unnecessary body
+  rebinding for language-service hovers such as `JsonSerializer.Serialize` /
+  `Deserialize<T>` chains.
+- Large full-document inlay hint requests now avoid cold expensive binding
+  fallbacks, reducing editor request pile-ups while small documents and precise
+  range requests can still bind to fill missing hints.
+- Full-document inlay hint responses now skip eager tooltip markdown generation,
+  keeping initial annotation payloads lighter while focused range requests still
+  include richer tooltip content.
+- Pattern inlay hints now skip assignment patterns that deconstruct into
+  existing variables, while still annotating `val`/`var`/`let` pattern
+  declarations and inline pattern bindings.
+- The redundant-import quick fix now offers a document-level action to remove all imports already covered by global imports.
+- Optional enum parameter defaults now accept target-typed member binding syntax such as `value: ServiceLifetime = .Scoped`.
+- Qualified constant-member patterns such as `value is Math.PI` and enum-member patterns such as `value is JsonValueKind.True` now bind and emit as value comparisons instead of type tests.
+- Enum conversions now follow C#/CLR rules for explicit enum-to-integral, integral-to-enum, and enum-to-enum conversions, and emitted casts preserve CLR-open enum values that are not declared members.
+- Attribute arguments now accept enum constants in qualified and target-typed forms, including enum flag compositions such as `.Class | .Delegate`.
+- Type wildcard imports now expose enum members alongside normal static members and constants, and individual enum members can be imported as specific constant imports.
+- Delegate declaration attributes now bind to the delegate type, validate against the CLR `delegate` attribute target, and emit to delegate metadata.
+- Generated display-class closure frame types now consistently carry `CompilerGeneratedAttribute` metadata.
+- Metadata type symbols now preserve declared visibility from referenced assemblies, and delegate declarations now emit CLR delegate metadata with nested placement, `abstract sealed` flags, by-ref parameter shapes, and `unit` `Invoke` returns as `void`.
+- Conditional element access such as `values?[index]` now emits correctly for array receivers.
+- Line-leading pointer dereference assignments such as `*ptr = value` now parse as new statements after expression statements instead of being treated as multiplication continuations.
+- Semantic symbol queries for user-defined unary and binary operator expressions now return the selected operator method instead of rebinding the expression out of scope.
+- Mixed nullable equality checks with user-defined equality operators no longer recurse through target-type lookup.
+- `GetDeclaredSymbol` on field declarators now returns the declared field instead of routing through local-variable binding.
+- `GetDeclaredSymbol` on function-statement parameters now returns the method parameter symbol, and member-access completion can resolve parameter receivers without a prior bind.
+- `GetDeclaredSymbol` on async methods with annotated `Task<T>` return types now completes the method signature before returning the symbol, avoiding stale provisional `Task` skeletons.
+- Early method signature symbols now mark `ref` and `out` parameters as mutable, matching fully bound parameter symbols.
+- Field-targeted attributes on auto-properties are now attributed to the synthesized backing field rather than validated against the property symbol.
+- Expression-backed value patterns such as `person is { Name: name }` now compare against the runtime value of `name` even when `name` is a parameter or local rather than a compile-time constant.
+
+## 2026-05-09
+
+### Changed
+- `RavenUnionJsonConverter` has been renamed to `RavenTaggedUnionJsonConverter` to make its tagged JSON shape explicit.
+- `RavenTaggedUnionJsonConverter<TUnion>` now writes direct parenthesized union members such as scalar values and arrays under a tagged `value` payload, preserving existing flattened output for body-form cases while allowing `JsonValue[]` members to serialize.
+- Added a dedicated `json-modeling-playground` sample that models JSON structure with records and unions, using both built-in Raven.Core and custom JSON converters.
+- Collection literals target-typed as a union now use the single collection-shaped union member when one exists, so nested values such as `JsonValue[]` can be inferred inside `JsonValue` dictionaries.
+- Language-server open and save events now schedule a deferred full diagnostic pass after the immediate syntax pass, so analyzer diagnostics appear without requiring a document edit and stale analyzer diagnostics can be cleared after saving.
+- Language-server semantic tokens now skip unmapped classifications instead of emitting default keyword tokens, and classify local declaration/designation identifiers from syntax so open-document tuple deconstruction edits keep correct spans and token types.
+- Semantic declared-symbol lookup for pattern declaration assignments now binds the owning statement before fallback synthesis, so hovering a tuple-deconstruction declaration such as `val (no, _) = Get()` reports the same element type as later references.
+- Language-server tuple type hovers now present the underlying `ValueTuple<...>` shape with its implemented interfaces, while tuple element type hovers resolve to the individual element types for both named and unnamed tuple syntax.
+
+## 2026-05-08
+
+### Changed
+- Attached property macros that replace their target declaration with syntax derived from the original property now reuse the effective declaration symbol, preventing false duplicate-member diagnostics while preserving generated accessors.
+- The language server now ignores IDE build/debug artifact folders such as `.raven-build` and `.debug` when deciding whether watched file changes should reload the workspace, so compiling from the editor does not disturb open-document semantic state.
+
+## 2026-05-07
+
+### Changed
+- Target-typed constructor binding now supports `.(...)`, allowing assignments, arguments, and collection elements with a known target type to construct that type without repeating its name.
+
+## 2026-05-04
+
+### Changed
+- Runtime-async entry-point bridges targeting .NET 11 now call `System.Runtime.CompilerServices.AsyncHelpers.HandleAsyncEntryPoint(...)` for `Task` and `Task<int>` `Main` methods instead of hand-emitting awaiter blocking, while Raven-specific `Result<..., ...>` entry points keep their result-mapping bridge.
+- `Raven.Core` now treats each target-specific `bin/<Configuration>/<TargetFramework>/Raven.Core.dll` as an incremental build output, so it is regenerated only when the Raven source list or sources change, or when the target DLL is missing.
+- Standard union type syntax is back: `T1 | T2` now parses as a type annotation
+  and binds to `System.Union<T1, T2>` from `Raven.Core`, with arities two
+  through five.
+- `$identifier` string interpolation shorthand now preserves the identifier width even for keyword-shaped names, preventing subsequent syntax and editor spans from drifting while binding can still diagnose unresolved names.
+- `Option<T>` JSON serialization now maps `.Some(value)` directly to the payload JSON and `.None` to `null`, matching JSON's native nullable-property shape. `Result<T, E>` keeps its tagged converter shape.
+- Constant field emission now supports narrow and unsigned primitive constants, fixing metadata enum members with byte-backed values such as `JsonValueKind.Null`.
+
+## 2026-05-03
+
+### Changed
+- Trailing blocks now support an optional parameter clause before the body, such as `GET("/{id:int}") { id => ... }` or `Combine { (left, right) => ... }`, and use the declared arity during overload resolution.
+- Target-typed union case construction now works in constructor arguments even when overloads have same-arity parameters, so nested calls such as `Theme(None)` and `Theme(.None)` bind against an `Option<T>` parameter without requiring `Option<T>.None`.
+- The language server now ignores generated, package/cache, build output, and temporary probe directories when discovering projects or reacting to watched-file changes, reducing full workspace reload storms in VS Code.
+- Semantic queries over brace trailing blocks now bind the trailing block expression instead of throwing, so hover and related editor features remain stable when the cursor lands inside that syntax.
+- VS Code syntax highlighting and language-server semantic tokens now classify call targets inside trailing-block DSLs consistently, including uppercase extension-style calls and constructor-like calls such as `GET("/") { ... }`.
+- Generic type construction can now infer type arguments from explicit function-expression parameters even when a same-named non-generic type exists, enabling DSL shapes such as `GET("/{id:int}", func (id: int) => ...)` to select `GET<int>` when the non-generic constructor is not applicable.
+- Repeated trailing-block calls in the same scope now emit distinct lambda bodies, including builder-rewritten trailing blocks used by lightweight DSLs.
+
+## 2026-05-02
+
+### Changed
+- `Raven.Core` now includes the generic `RavenTaggedUnionJsonConverterFactory`/`RavenTaggedUnionJsonConverter<TUnion>` implementation for opt-in JSON serialization of ordinary Raven unions, while `Option<T>` and `Result<T, E>` keep their specialized JSON converters.
+- Generic Raven union JSON serialization now supports a configurable case discriminator property. `"$case"` remains the default, and `[RavenTaggedUnionJsonConverter("kind")]` can be used when a domain-specific property name fits better.
+
+## 2026-05-01
+
+### Changed
+- Overload resolution now target-types collection literal arguments against array-shaped parameters when overload candidates disagree on the parameter type, so calls such as `Activator.CreateInstance(type, [value])` bind to the `object?[]` overload instead of falling back to an inferred immutable list.
+- Trailing blocks can now receive implicit closure parameters from the selected final function parameter. Parameters are available as Swift-style `$0`, `$1`, etc., and `it` aliases the first lambda parameter.
+
+## 2026-04-30
+
+### Changed
+- Brace trailers now bind as Swift-like trailing closure call syntax. `callee(args) { ... }` appends a zero-argument closure as the final argument, and `callee { ... }` is accepted when overload resolution can bind that trailing closure.
+- Trailing closure parameters annotated with `[Builder<T>]` now activate builder-block binding for expression components and `if`/`else` composition through Swift-like builder methods such as `BuildExpression`, `BuildBlock`, `BuildOptional`, `BuildEither`, and `BuildFinalResult`.
+- `TrailingBlockExpressionSyntax` now wraps a normal block body, so statements inside trailing blocks are ordinary Raven statements instead of initializer-style entries.
+
+Impact:
+- `Type { ... }` is no longer an initializer-like DSL placeholder. It is valid only when a function, method, delegate invocation, or constructor accepts the final closure argument; object initialization remains `Type with { ... }`.
+
+## 2026-04-24
+
+### Changed
+- `while` statements now support the same outer pattern-binding form as `if`, allowing loops such as `while val pattern = expr { ... }` where captured pattern locals are available inside the loop body.
+- Object initialization can now use the `Type with { ... }` form. The compiler binds this through the existing object-initializer path, so `init`, `required`, compound assignment, and event subscription semantics are preserved while brace trailers remain available for future DSL work.
+- Brace trailers are now represented in the syntax tree as `TrailingBlockExpression` nodes with `TrailingBlockEntry` children instead of object-initializer syntax nodes, matching their role as the future DSL block surface.
+- Brace trailers no longer bind as object initializers. They now report a dedicated trailing-DSL diagnostic until DSL binding support is introduced.
+- The language docs and reference spec now describe the current union-body model more directly: body-form unions use `case` declarations inside an ordinary member body, may contain authored members beside cases, may be declared `partial`, reserve `Value`/`HasValue`, and follow record-like `ToString()` override behavior while still rejecting authored union equality/hash special members.
+- The compiler diagnostics reference now includes the union-specific reserved-name and unsupported-special-member diagnostics `RAV2111` and `RAV2112`.
+- Language-server semantic tokens now recognize string arguments passed to parameters annotated with `System.Diagnostics.CodeAnalysis.StringSyntaxAttribute.Regex` and classify those literals as `regexp`.
+- Attribute binding and emission now route `[module: ...]` attributes to the module symbol and `[field: ...]` attributes on auto-properties to the synthesized backing field.
+
+Impact:
+- The written language reference now matches the compiler and `Raven.Core` surface more closely for modern unions such as `Option<T>` and `Result<T, E>`.
+- Editors can apply regex-aware highlighting to Raven string literals when APIs use the standard .NET string-syntax annotation.
+- Module-level metadata and backing-field-specific property annotations now round-trip through symbols and emitted assemblies.
+
+## 2026-04-19
+
+### Changed
+- Union body declarations now require the `case` keyword for each declared case, and the parser preserves that keyword in the syntax tree for nested union case clauses.
+- Samples, language docs, and compiler-facing symbol displays now reflect the prefixed declaration form, including member-keyword formatting for nested union case types.
+
+Impact:
+- Union declarations now read as `union Result<T> { case Ok(value: T) case Error(error: E) }`, which gives nested case declarations an explicit syntactic marker ahead of larger union-surface changes.
+- Tools and diagnostics that request member keywords now identify nested union case types as `case` members instead of displaying them like ordinary nested types.
+
+## 2026-04-18
+
+### Changed
+- Top-level binder creation no longer eagerly binds global statements during root-binder setup. Raven now finishes source declaration/member registration across the compilation before top-level statements are bound, which removes file-order sensitivity for top-level code that touches members declared in other source files.
+- Match-expression arms now tolerate the arm expression starting on the line after `=>`, which fixes recovery/binding failures for multiline union matches such as JSON serialization helpers.
+
+Impact:
+- Multi-file Raven projects no longer spuriously report missing members like `RAV0103` / `RAV0117` just because a top-level statement bound before another file had registered its members.
+- Newline-styled `match` arms bind the same way as single-line arms, which makes editor diagnostics and sample projects much less brittle around multiline union handling code.
+
+## 2026-04-08
+
+### Changed
+- Deconstruction patterns now support named elements for `Deconstruct`-backed shapes in both matching and declaration/assignment forms. Raven accepts forms such as `Person(Items: val items, Name: val name, Age: 42)` and `val (Items: items, Name: name, Age: age) = person`, binds named elements by `Deconstruct` parameter name in any order, and now reports `RAV1602` when a supplied deconstruction name does not exist on the target shape.
+- Union carriers now expose a conventional union-root `Value` property, and `union struct` carriers reserve discriminator `0` as an uninitialized/default state so `default(U).Value` is `null` until a real case is assigned.
+- `Raven.Core` now declares `Option<T>` and `Result<T, E>` as `union class` carriers instead of `union struct`, removing the implicit default/uninitialized state from the standard library’s primary algebraic carriers.
+- Synthesized union `Value` now follows the carrier nullability contract more closely: `union struct` exposes `Value: object?`, ordinary class carriers expose `Value: object`, and class carriers with nullable member payloads expose `Value: object?`.
+- Synthesized union carriers now also expose `HasValue`, allowing callers to distinguish default/uninitialized `union struct` values from active cases even when nullable annotations are not observed by consuming C# code.
+- Statement-form `if`, `if val`, `while`, and `for` bodies can now be written without braces when the body statement starts on the next line. Raven now rejects same-line non-block forms such as `if flag return`, while still allowing block bodies and `else if` chaining on one line.
+- Parenthesized union declarations now use `|` between member types instead of `,`, and compiler-facing displays such as symbol formatting, hover text, signature help, samples, and spec examples now reflect the bar-separated form consistently.
+- Async iterators now support C#-style enumeration cancellation. `CancellationToken` parameters marked with `[EnumeratorCancellation]` receive the token passed to `GetAsyncEnumerator(...)`, Raven warns when async iterators declare `CancellationToken` parameters without marking one, and parenthesized async lambdas accept the inline parameter-attribute form `async ([EnumeratorCancellation] token: CancellationToken) => ...`.
+- Iterator statements now accept the shorthand `yield expression` in addition to `yield return expression`. Both spellings lower identically, while `yield break` remains the early-termination form.
+
+Impact:
+- Raven unions now align more closely with the emerging .NET/C# union contract: tooling and runtime consumers can inspect the active carrier payload through `Value`, while defaulted struct unions no longer masquerade as the first declared case.
+- `Option` and `Result` now model only their authored case sets in ordinary use, instead of also carrying a silent struct-default state that callers had to treat as an extra runtime possibility.
+- Control-flow statements read more naturally in Raven’s newline-sensitive style without reopening the same-line ambiguity that previously made single-statement bodies look like adjacent tokens instead of a structured body.
+- Parenthesized unions now align their declaration syntax with Raven’s broader union-type notation, so authored code and tooling output present the same shape for unions like `union Payment(Cash | Card)`.
+- Async streaming code now follows the same cancellation model as C# async iterators, including Minimal API-style handlers that expose the request cancellation token through an attributed lambda parameter.
+- Iterator code can now use the shorter `yield value` spelling without changing semantics, which better matches the fact that iterator elements are produced rather than returned from the method.
+
+## 2026-04-05
+
+### Changed
+- Collection expressions now continue to honor builder-backed target types such as `ImmutableArray<T>` in ordinary assignments, expression-bodied returns, and object-initializer property assignments. Non-empty `[...]` still reject non-collection targets, but they no longer fall back to `ImmutableList<T>` when the target is a supported builder-backed collection.
+
+Impact:
+- Samples and APIs that expose `ImmutableArray<T>` regain target-typed `[]` behavior, including macro expansion results and object-initializer assignments, while the earlier overload-resolution fix still preserves the intended `Cannot convert from 'ImmutableList<T>' to 'T'` diagnostic for non-collection targets.
+
+## 2026-04-04
+
+### Changed
+- The Raven VS Code extension now supports `raven.sdkPath`, an SDK-root override that lets one extension installation target different Raven toolset builds by resolving `Raven.LanguageServer.dll`, `rvn.dll`, and related assemblies from a chosen SDK directory.
+- Workspace-built language servers launched by the VS Code extension are now staged into an isolated extension-owned directory but keep the repository root as their working directory, so repo-relative assets such as `Raven.Core.dll` still resolve without leaving the live workspace binaries locked.
+- The VS Code extension now restarts the Raven language client when workspace folders change in the same session, so diagnostics and project loading re-root correctly after switching between sample folders.
+
+Impact:
+- Developers can validate multiple Raven SDK builds or packaged toolsets against the same VS Code extension without rebuilding or retargeting the extension itself.
+- Using the editor no longer competes as aggressively with local Raven builds, while project-backed diagnostics like `HelloWorld` still resolve `Raven.Core` and other repo-relative assets correctly.
+- Opening a different Raven workspace in the same VS Code session no longer leaves the language server pinned to stale project roots.
+
+## 2026-04-02
+
+### Changed
+- Overload resolution now respects `System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute` on applicable methods, including methods imported from referenced assemblies. Higher-priority candidates are kept before Raven runs its usual specificity comparison.
+- Function and block bodies can now declare local `class`, `struct`, `record`, and `enum` helper types. These declarations are block-scoped in source and emitted as compiler-mangled nested types under the enclosing containing type.
+- Imported extension members are now classified per member instead of per container. Classic extension methods continue to use `IsExtensionMethod`, while Raven/C#-style static extension members bind through extension-receiver metadata even when they live in mixed extension containers. Generic metadata extension methods now recover method type parameters correctly during PE import.
+- Source classic extension methods declared with `static` members plus `ExtensionAttribute` now remain discoverable during same-compilation binding and through `CompilationReference` imports. Raven no longer caches `IsExtensionMethod = false` just because the method symbol was observed before its parameter symbols were assigned.
+- `Raven.Core` parse errors now use a stricter `IError` contract: `Message` is required, `Cause` remains optional, and `IError.WithMessage(...)` now preserves the original error as the wrapped cause instead of constructing an invalid `ContextError`.
+- `Raven.Core` now exposes generic `ContextError<TError>` and a typed `WithMessage(...)` wrapper, so Raven code can retain the concrete wrapped error type while still surfacing the shared `IError` contract. When callers only have `IError`, the erased wrapper shape is `ContextError<IError>`.
+- `Result<T, E>` now also supports `WithMessage(...)` when `E : IError`, projecting only the error channel to `ContextError<E>` instead of wrapping the entire result carrier.
+- Imported metadata types now compute `AllInterfaces` transitively from declared interfaces and base types instead of relying on reflection’s flattened view. This restores generic constraint checks like `E : IError` for metadata-backed types such as `ParseIntError` implementing `IParseError : IError`.
+- Source explicit interface implementations now bind correctly for methods and properties because source interface members are registered before classes that implement them, including nested interface declarations. This also unlocks explicit interface property implementations such as `val IError.Cause`.
+- Generic methods that lower captured lambdas now emit generic display classes when they need the enclosing method's type parameters. This fixes runtime `BadImageFormatException` failures in patterns such as `Result<T, E>.WithMessage(...)` implemented via `MapError(error => error.WithMessage(message))`.
+
+Impact:
+- Raven now matches C#’s overload-priority behavior for APIs that intentionally hide more specific overloads behind `OverloadResolutionPriorityAttribute`, which improves interop with modern .NET libraries and C#-authored metadata.
+- Helper types can now live next to the code that uses them without being promoted to outer type scope, while keeping runtime metadata isolated behind compiler-generated nesting names.
+- Mixed extension containers in referenced assemblies now interoperate more like .NET/C#: `int.parse(...)` binds again as a static extension member, while classic generic extension methods like `OptionExtensions.UnwrapOr<T>` continue to import as extension methods instead of degrading to unreadable metadata signatures.
+- Classic C#-style source extension methods are stable again across both direct source binding and referenced-compilation imports, which restores samples and semantic tests that rely on `static class` + `[ExtensionAttribute]` interop semantics.
+- Parse-oriented Raven APIs now expose a more coherent error surface to both Raven code and .NET consumers: every `IError` has a meaningful message, wrapping keeps provenance through `Cause`, and `Parse.rav` no longer relies on an invalid constructor call during core emission.
+- Error-wrapping code no longer has to choose between provenance and static type information: callers can use `ContextError<TError>.Cause` when they want the concrete wrapped error, or treat the wrapper as plain `IError` through the explicit interface `Cause`.
+- Result pipelines can now add context at the right abstraction level: `int.parse(text).WithMessage("...")` keeps the carrier as `Result<T, ...>` and only enriches the error payload.
+- Metadata-backed generic constraints now see transitive interface implementations consistently, so extension members like `Result<T, E>.WithMessage(...) where E : IError` bind correctly from `Raven.Core.dll` and other referenced assemblies.
+- Raven can now express .NET-style explicit interface members in source without spurious `RAV0315` failures, which makes contracts like `IError.Cause` compose cleanly with typed overload properties on the same type.
+- Captured-lambda codegen is now stable for generic helper methods that flow constrained type parameters through higher-order functions, so error-channel projection helpers like `WithMessage` no longer compile successfully and then fail at runtime with invalid IL.
+
+## 2026-04-01
+
+### Added
+
+- Added the standard `timer! { statements }` statement macro, including
+  hygienic `Stopwatch` expansion, a release-code warning, and a runnable sample
+  project. Its expansion is implemented in Raven inside `Raven.Macros`, making
+  it an initial dogfooding case for moving standard macro behavior out of
+  compiler-owned C# helpers.
+- `Raven.Core` now defines `System.IParseError`, `System.ParseIntError`, `System.IntErrorKind`, and lowercase `int.parse(...)` static extension helpers that return `Result<int, ParseIntError>` instead of throwing for null, empty, format, and overflow failures.
+
+Impact:
+- Raven code can now use `int.parse("42")` and propagate parse failures through `Result` pipelines with `?`, avoiding direct dependency on CLR exceptions at the call site.
+
+## 2026-03-28
+
+### Changed
+- `catch` clauses now reuse Raven’s pattern syntax instead of a bespoke `catch(Type name)` declaration form. Raven accepts preferred forms like `catch FormatException ex` and still parses parenthesized patterns such as `catch (FormatException ex)` for grouping and forward compatibility.
+- Sealed hierarchies now include interfaces: Raven accepts `sealed interface` declarations, allows optional `permits` clauses on interfaces, and enforces the closed set across direct implementors and subinterfaces.
+- Nested type declarations inside interfaces now participate in sealed-hierarchy modeling, so interface-scoped case-like records/classes can be used as direct sealed-interface members.
+- Nested direct cases inside generic sealed hierarchies no longer capture outer type parameters at runtime. They now behave like algebraic-data-type cases, which fixes invalid CLR generic nesting and runtime failures such as `BadImageFormatException` when constructing generic sealed-interface cases.
+- Sealed hierarchy signatures and hover now print `sealed` for sealed classes and interfaces, bare generic sealed roots are diagnosed consistently in storage-type positions, and target-typed `.Case(...)` patterns now bind for nested sealed-hierarchy direct cases when the scrutinee already determines the sealed root.
+- Method generic `where` clauses are now initialized consistently for member methods as well as local functions, which fixes constrained generic math scenarios such as `where T : INumber<T>` inside sealed-hierarchy evaluators and other generic member bodies.
+- Built-in binary operator binding now follows a fuller predefined numeric-promotion model, so `float`, `uint`, `ulong`, `short`, `ushort`, and `sbyte` participate consistently instead of only `int`/`long`/`double`/`decimal` plus a few ad hoc promoted cases.
+- Unused-variable analysis now treats interpolated-string identifier reads as real local usage and falls back to binder-based local lookup when symbol lookup does not report the local directly, which fixes false positives such as `val content = ...; return "submitted: $content"`.
+- `typeof` over open generic source types now emits the generic type definition token instead of an invalid placeholder-instantiated runtime type, which fixes runtime failures in scenarios like `typeof(Result<,>)` inside JSON converter factories.
+- The file-local type modifier is now spelled `fileprivate` instead of `filescope`, aligning the surface syntax with its accessibility semantics and Swift-style precedent.
+
+Impact:
+- Exception handling syntax now aligns more closely with the rest of Raven’s pattern surface, reducing one-off grammar and leaving room for future richer catch-pattern work.
+- Raven can model Java/Kotlin-style sealed interface families directly, including patterns where the direct cases live inside the interface declaration.
+- Exhaustiveness and hierarchy validation now treat sealed interfaces consistently with sealed classes and record classes.
+- Generic sealed hierarchies can now use nested case declarations without forcing CLR-style outer generic qualification such as `Expr<float>.Case`, which better supports ADT and future GADT-style modeling.
+- Sealed-hierarchy direct cases are now documented and implemented as full named types whose nesting is optional source organization, while the nested form still supports `Expr.Case(...)` construction and target-typed `.Case(...)` patterns.
+- Generic member methods now honor their declared `where` constraints during body binding, so generic math interfaces like `INumber<T>` can drive operator binding in normal member methods and generic sealed-hierarchy evaluators.
+- Numeric expressions across Raven’s predefined types now behave much more uniformly, including float arithmetic/order comparisons and the unsigned/small-integral families.
+- Interpolated strings no longer trigger bogus `RAV9027` warnings for locals that are only read inside `$name` / `${expr}` segments, including project-based app samples and async handler code.
+- Project-based apps and Raven.Core JSON converters no longer fail with `BadImageFormatException` just from inspecting `Result<...>` / other open generic source types via `typeof`.
+- Source code, tests, specs, and editor grammar should now use `fileprivate` for file-local type-like declarations and extensions.
+
+## 2026-03-26
+
+### Changed
+- Synthesized union `ToString()` bodies now quote generic string and char payloads on the bound-body path, so parenthesized generic unions print values like `Either<Int32, String>("invoice")` and `Either<Char, String>('x')` instead of emitting raw unquoted payload text.
+- Hover text for extension members now identifies them as extension methods/properties and shows the qualified declaring extension container instead of collapsing them into an ordinary containing type display.
+
+Impact:
+- Generic union `ToString()` output is now consistent with other quoted literal-style displays for string and char payloads, especially on synthesized carrier formatting paths.
+- Extension APIs are easier to distinguish from ordinary instance members during hover in VS Code, especially when users need to see which extension declaration contributes a member.
+- Hover now makes it clear which extension declaration contributes a member when multiple similarly named members are in scope.
+
+## 2026-03-25
+
+### Changed
+- Raven unions now explicitly use one runtime model: a carrier plus independent case types. Body-form unions continue to synthesize case types, but those case types no longer form an inheritance hierarchy with the union root.
+- Union construction, matching, propagation, and conditional-access lowering now consistently target carrier semantics, with `TryGetValue(out CaseType)` and pattern matching as the extraction surface.
+- Compiler naming and docs continue the move away from the old “discriminated union” terminology toward the simpler `union` / `union case` vocabulary where possible.
+
+Impact:
+- `union` now has a clearer contract: it describes a closed carrier type rather than an inheritance-oriented object model.
+- Users who want OOP subtype semantics should prefer Raven sealed hierarchies, while unions remain the right tool for closed carrier-style data modeling and Result/Option-style APIs.
+
+## 2026-03-24
+
+### Changed
+- Declaration-oriented separated lists now accept newline-delimited separators in more places, including enum member lists, parameter lists, type-parameter lists, and type-argument lists. The syntax tree preserves explicit separator tokens when present, uses `SyntaxKind.None` for valid newline-delimited boundaries, and recovers same-line omissions with missing expected separator tokens.
+- Enum member lists now also accept `;` as an explicit separator alongside `,`, while keeping comma as the canonical recovery separator when an explicit same-line separator is missing.
+- Enum member lists now also diagnose mixed explicit separator kinds within the same declaration, so `,`/`;` style stays internally consistent while newline-delimited implicit boundaries remain neutral.
+- Added warning `RAV9028` for unnecessary trailing separators in ordinary comma-delimited separated lists with closing delimiters. The warning only applies to real explicit trailing separator tokens and does not fire for newline-delimited implicit boundaries or enum member lists.
+- Newlines are now modeled strictly as trivia in the syntax tree. Implicit statement and declaration termination uses surrounding end-of-line trivia together with `SyntaxKind.None` terminator/separator slots instead of any dedicated newline token.
+- Imported .NET nullability now preserves ordinary nullable reference annotations such as `object.Equals(object?)`, `object.ToString() -> string?`, and `Console.ReadLine() -> string?`, while generic type-parameter positions only become nullable when metadata carries explicit `NullableAttribute` flags. This restores metadata-backed conversions like `string? -> Option<string>` without regressing LINQ and collection APIs that use plain `T`.
+- Record value-member synthesis and record `with` expressions now work again under the imported-nullability model, because synthesized record support can once more see the expected nullable `object` members from metadata.
+- Property patterns and nominal deconstruction patterns now treat nullable scrutinees such as `object?` as valid runtime-test inputs when the underlying non-nullable type can participate in the pattern. This fixes cases like `if candidate is Shipment { ... }` and `if x is Foo(...)` where the input was nullable only because of flow/state, not because the pattern itself was invalid.
+- Patterns that introduce bindings now support nested `when` guards inside the pattern itself. This works in statement-form conditional binding, `for` pattern targets, and collection-comprehension pattern targets, so forms like `for val (id, amount when > 100) in orders` and `if val (id, name when name.Length > 5) = customer { ... }` bind the value and then apply either a secondary pattern guard or a boolean guard expression in the bound-local scope.
+- Match exhaustiveness now treats pure deconstruction inside discriminated-union case payload patterns the same as direct payload binding when the deconstruction is total. In particular, extension-based `Deconstruct` patterns such as `.Error((val message))` no longer force a redundant `_` arm just to satisfy exhaustiveness.
+- Syntax highlighting now treats `default`, type-parameter variance keywords (`in`/`out` in generic parameter lists), and conversion-operator keywords (`implicit`/`explicit`) as first-class keyword/modifier scopes in the editor grammar, and focused semantic/highlighter tests lock that coverage in.
+- Static framework and user-defined types now follow normal .NET storage rules during binding. Raven reports `RAV2810` when a static type is used for a local, field, property, indexer, or parameter type instead of silently accepting declarations such as `val file: File`.
+
+Impact:
+- Deconstruction code can now keep the matched value in scope while still filtering on that same value, instead of forcing users to choose between pattern-only matching (`> 100`) and a named binding (`amount`).
+- Result-style matches can now use payload deconstruction directly inside a case arm without losing redundant-catch-all warnings or adding placeholder fallback arms.
+- Editor coloring for generic variance, conversion operators, and `default` literals is now more consistent across themes that did not visibly style the generic operator-word scope.
+- Static types now behave more like they do in C# at declaration sites, so invalid storage declarations fail early with a targeted diagnostic instead of surfacing later binder or emit noise.
+
+## 2026-03-20
+
+### Added
+- Raven now supports F#-style scoped pinning through `use ptr = fixed &expr` in unsafe contexts. The `fixed` initializer yields a native pointer, requires explicit address-taking with `&`, and releases the pin automatically when the `use` scope exits.
+- `use` declarations now also support an explicit nested-scope form, `use value = expr in { ... }`, which is equivalent to a nested block starting with the `use` declaration and avoids ambiguity with object initializer braces.
+- The macro spec and focused tests now explicitly define how attached declaration macros compose when multiple macros target the same declaration and when both a parent declaration and its members use macros.
+- Collection comprehensions now accept pattern targets, including deconstruction patterns, so forms like `[for val (key, value) in pairs => ...]` and `[for val (2, name) in people => name]` behave consistently with `for` statements.
+
+### Changed
+- Attached declaration macros are now documented as a source-ordered same-target pipeline: each macro sees both the original authored declaration and the current pre-application declaration, replacement results feed later macros on that declaration, introduced members are integrated first, the last replacement wins for the declaration itself, and peer declarations are integrated afterward.
+- Result propagation lowering and block-expression codegen are now more robust in composed expression contexts. Propagated expressions used inside invocation/object-creation arguments are lowered through temporaries before emission, nested propagate nodes are rewritten consistently, exception-to-error rewriting only synthesizes a catch path when an actual `Exception` can convert into the enclosing error payload, and discard-context block expressions no longer leak `Unit` values onto the evaluation stack.
+
+Impact:
+- Managed storage can now be pinned without introducing a separate C#-style `fixed (...) { ... }` statement, so pinning composes with Raven’s existing `use` lifetime model and keeps address selection explicit.
+- Resource lifetimes can now be narrowed inline without relying on extra surrounding braces, while object-initializer forms such as `use obj = Foo { Value = 2 } in { ... }` remain syntactically clear.
+- Macro authors now have a stable, documented composition model to target, including explicit access to both authored syntax and composed same-target syntax, while IDE expansion views still show the full declaration result after all attached macros have run.
+- Comprehensions can now reuse Raven’s existing pattern/deconstruction surface directly in collection-building code instead of forcing tuple/item access inside the selector.
+- Raven code that combines `?` propagation with method arguments, generic calls, and lowered block expressions now emits valid IL and runs correctly instead of failing with `InvalidProgramException` or stack-shape bugs in mixed lowering/codegen paths.
+
+## 2026-03-19
+
+### Changed
+- Nullable conditional member access now supports statement-form assignment. Raven accepts `x?.Name = value` and compound forms like `x?.Name += delta`, evaluates the receiver once, and skips the write when the receiver is `null`.
+- Collection literals now have a clear split between general collection expressions and explicit arrays. Plain `[...]` remains the general collection form, defaulting to `ImmutableList<T>` in untyped contexts and `List<T>` when prefixed with `!`, while explicit arrays now use `[| ... |]`.
+- Target typing still governs how `[...]` binds in typed contexts, so existing assignments such as `int[] = [1, 2, 3]`, `ImmutableArray<int> = [1, 2, 3]`, and `List<int> = [1, 2, 3]` continue to work without extra syntax.
+- Collection expressions now also support dictionary-shaped literals. In addition to `key: value` entries, dictionary literals can now spread other dictionary-compatible sources with `...expr`, use single-entry spread syntax like `...key: value`, and build entries through dictionary comprehensions such as `[for item in items => item.Name: item.Value]`. Targetless forms follow the same immutable-by-default rule as list literals: bare forms infer `ImmutableDictionary<TKey, TValue>` and `!` forms infer `Dictionary<TKey, TValue>`.
+- Pattern matching and deconstruction now support keyed dictionary forms. Raven can match dictionary-compatible values with patterns like `["a": val first, "b": 2]`, and declaration/assignment deconstruction now supports keyed extraction such as `val ["a": first, "b": second] = values`.
+- Sequence-pattern slice captures now preserve concrete collection families when the scrutinee has one. Rest and fixed-segment captures over `List<T>`, `ImmutableList<T>`, and `ImmutableArray<T>` now bind back to those same collection types instead of degrading to `T[]`, while strings and arrays keep their existing slice behavior.
+- Array support is now more stable across jagged and multidimensional CLR shapes. Jagged arrays continue to work through nested one-dimensional arrays, multidimensional array indexing/assignment now binds and emits correctly, and internal CLR type normalization no longer collapses multidimensional array metadata to `T[]`. Collection/array literal syntax remains intentionally single-dimensional, so explicit multidimensional array construction still goes through runtime APIs such as `System.Array.CreateInstance(...)`.
+- Statement-form conditional pattern binding is now explicitly documented and test-covered for property patterns, so forms like `if val Person { Name: "Ada", Age: age } = value { ... }` are treated as part of the normal general-pattern surface rather than as an undocumented side effect of the shared binder path.
+
+Impact:
+- Raven code can now express common null-guarded property/field updates without spelling an explicit `if receiver != null` block, while compound assignments preserve the usual single-evaluation guarantee for the left-hand side.
+- Raven local code now reads more consistently: `[...]` stays list-oriented unless target-typed otherwise, while `[| ... |]` carries explicit array intent through spreads and other composed expressions.
+- Raven collection literals can now describe both list-like and dictionary-like construction without introducing a separate keyword or constructor-style syntax.
+- Destructuring and pattern matching over immutable collections are now more predictable because captured slices keep the same collection semantics as the source value instead of silently changing APIs and mutability characteristics.
+- Keyed lookup scenarios can now stay in Raven’s existing pattern/deconstruction syntax instead of dropping to manual `ContainsKey` / indexer code for dictionaries.
+- Existing array code is more predictable: nested array literals keep working for jagged arrays, multidimensional interop no longer loses rank information in emitted metadata, and unsupported multidimensional literals now fail at analysis time instead of reaching broken codegen.
+
+## 2026-03-18
+
+### Added
+- `SemanticModel.GetExpandedRoot()` and `Document.GetExpandedSyntaxRootAsync()` now expose an incremental expanded-document view that rewrites attached declaration macros and invocable macros into a single syntax root for tooling and debugging.
+- Raven now supports a `fileprivate` modifier on type-like declarations. File-scoped declarations bind only within the declaring source file, file-scoped partial types must stay in one file, and emitted type/container metadata names are mangled so file-local helpers do not publish a stable CLR-facing name.
+
+### Changed
+- `rvn` now supports `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` so a single-file compile can show the pre-expansion source beside the currently expanded macro view, either as raw text or highlighted output.
+- `.debug` compiler captures now also include per-document macro original/expanded source snapshots, including a plain text highlighted dump for the expanded view.
+- Macro language-service support now treats macro names as first-class completion sites: `#[...]` offers attached macro names, `name!(...)` offers invocable macro names before the call is complete, and macro hovers include kind/target/argument hints alongside the existing expansion preview.
+
+Impact:
+- Macro debugging from the CLI no longer requires manually inspecting per-node expansion results just to compare authored source with the compiler’s current expansion output.
+- Tooling and tests can request one expanded syntax root directly instead of reconstructing document-level macro output ad hoc.
+- The ReactiveMacros-style editing loop is more discoverable because authors now get completion at the macro invocation site and immediate hover guidance about what a macro applies to before expanding it.
+
+## 2026-03-17
+
+### Changed
+- Partial nominal types now behave consistently across classes, structs, records, and interfaces. Matching partial declarations merge into one type symbol, interface parts can contribute members across files, and conflicting accessibility/type-parameter shapes now report dedicated diagnostics instead of silently taking whichever declaration bound first.
+- Partial methods, partial properties, and partial events are now supported inside partial nominal types. Raven accepts declaration/implementation pairs, merges them into a single symbol, and reports dedicated diagnostics when either side of the pair is missing or when a property/event implementation is left as auto/field-like syntax.
+
+Impact:
+- Multi-file type organization is now more predictable because partial-type compatibility is checked explicitly instead of depending on declaration order.
+- Library authors can now split method/property/event contracts from their implementations in the same way they already split types, while still getting clear compiler feedback when a partial-member pair is incomplete.
+
+## 2026-03-16
+
+### Changed
+- Collection expressions now reserve `...` for general spread segments and treat bare range elements such as `[1..3]`, `[1, 3..4, 9]`, and `[1..<4]` as inline sequence expansion. Constant-bounds range elements also participate in fixed-length array inference for targetless literals, including constant endpoints like `const MAX_VALUE = 10; [3..MAX_VALUE]`. This also fixes exclusive upper-bound handling for range-backed collection comprehensions so `..<` stops before the upper endpoint consistently.
+- Raven now supports single-dimensional fixed-length array types written as `T[N]`. The compiler tracks the declared length on array symbols, preserves it through emitted `System.Runtime.CompilerServices.FixedLengthArrayAttribute` metadata, allows implicit conversion from `T[N]` to open `T[]`, and uses the fixed length during sequence-pattern/deconstruction analysis.
+- Plain local collection literals now infer fixed-length arrays when the total length is statically known. That includes fixed-length array spreads, so expressions like `[...a, 3]` infer a fixed-length result when `a` is `T[N]`, while spreads from open arrays and comprehensions still infer open arrays.
+- Fixed-length-array assignment/conversion failures now report size-aware diagnostics for open-array-to-fixed-array and mismatched fixed-length assignments instead of falling back to generic conversion errors.
+- Sequence patterns now accept bare `...` as a non-capturing rest segment, so forms like `[first, ...]` and `[first, ..., last]` ignore the unmatched slice without introducing a binding. Captured rest segments like `...rest` may likewise appear in the middle or at the end of the pattern.
+- Sequence-pattern captures over fixed-length arrays now preserve inferred segment sizes when the width is statically known. For example, deconstructing `int[4]` with `[a, b, ...rest]` binds `rest` as `int[2]`, and `[..2 head, tail]` over `int[3]` binds `head` as `int[2]`.
+
+Impact:
+- Raven now preserves obvious fixed array lengths without forcing annotations in local collection-expression code, while still keeping inference conservative in cases such as comprehensions and open-array spreads where the compiler does not yet model a statically known length.
+- Raven now supports postfix nullable suppression via `expr!` as a narrow interop-oriented escape hatch. The parser models it as `SuppressNullableWarningExpression`, nullable references narrow to their underlying non-nullable type without changing runtime codegen, and nullable value types reuse the existing unwrap path. Using `!` now reports warning `RAV0403`, and this also fixes false `RAV0162` unreachable-code warnings on forms like `return value!`.
+- Added statement-form conditional pattern binding via `if val pattern = expr { ... }` / `if var pattern = expr { ... }`. The compiler lowers this through the existing pattern-matching machinery, and the dedicated syntax node for the form is now `IfPatternStatement`.
+- Statement-form conditional pattern binding now supports typed implicit captures under the outer binding keyword, so forms like `if val x: int = input { ... }` narrow nullable values and bind `x` without requiring an inner `val x: int`.
+- Nominal `Type(...)` patterns now work for deconstructable primary-constructor classes and structs in addition to records. Public promoted `val` / `var` parameters synthesize a `Deconstruct` method in declaration order, so class patterns like `if val Person(1, name, _) = person { ... }` bind and type-check the same way as record patterns.
+- `for` loop headers now accept an optional outer binding keyword before the iteration target. Forms like `for val item in items { ... }` and `for val Person(1, name, _) in persons { ... }` are supported, and for pattern targets the outer binding keyword supplies the binding mode for otherwise bare captures using the same shorthand rule as deconstruction assignment.
+- `match` arms now accept an optional outer binding keyword before the arm pattern. Forms like `val [first, second, ...rest] => ...` and `val Some((x, y)) => ...` are supported, and the outer keyword supplies the binding mode for otherwise bare captures in the arm pattern.
+- Structural patterns now support trailing whole-pattern designations consistently across `if val pattern = expr`, `for val pattern in values`, and match arms. Forms like `if val (2, > 0.5) point = input`, `for val Person(1, name, _) person in persons`, and `val Some((x, y)) pair => ...` bind the full matched value when the pattern succeeds.
+- Explicit pattern comparisons now use a single comparison-pattern family across `==`, `!=`, `<`, `<=`, `>`, and `>=`. The parser no longer produces a separate explicit-value-pattern syntax node for `== expr`; compiler APIs now expose `ComparisonPatternSyntax` / `BoundComparisonPattern` / `IComparisonPatternOperation` consistently for all operator-led pattern comparisons.
+- Comparison and range patterns now require the operand/bound type to match the scrutinee type after plain-type unwrapping. Raven no longer applies ordinary implicit numeric widening inside patterns, so forms like matching an `int` against `> 0.5` now report `RAV1606` instead of silently converting the operand.
+- Record-pattern diagnostics now describe the real requirement: the nominal type must support deconstruction, not merely carry the `record` modifier.
+- `RAV2704` now suggests the concrete `Task<...>` wrapper Raven expects when an `async` method, property getter, or function expression is annotated with a non-task return type, and async lambdas with that error now suppress the confusing follow-on body conversion diagnostic that previously obscured the root cause.
+
+Impact:
+- Swift-style conditional binding can now be written directly in statement form without introducing a separate `is` condition by hand, while still reusing Raven’s existing pattern scoping, shadowing, and flow analysis rules.
+- Primary-constructor nominal types participate more naturally in positional matching and deconstruction-based APIs because the compiler now supplies a consistent `Deconstruct` surface for their promoted public state.
+
+## 2026-03-15
+
+### Changed
+- `for` loop headers now accept pattern targets in addition to simple identifiers, so forms like `for (val x, 0) in points { ... }` and `for [val head, ..val tail] in values { ... }` lower to per-element pattern guards instead of requiring a manual `if value is ...` inside the loop body.
+- Removed the legacy `for each` / `await for each` syntax. Raven now uses `for` and `await for` exclusively, with `_` or an omitted target for element-discarding loops.
+- Macro plugins can now report macro-specific validation diagnostics with custom messages and optional argument locations through `MacroExpansionDiagnostic` plus helper methods on macro contexts, without having to manufacture raw compiler `DiagnosticDescriptor` instances.
+- The existing `RAV9012` nullable-type guidance now offers a scoped `"Rewrite nullable flow to Option pattern matching"` code fix for simple local flows, rewriting a nullable local plus its immediately following `if x != null` / `if x is not null` branch into an `Option<T>` local and `Some(...)` pattern check when all uses stay inside that guarded flow.
+- Style-only source-shape rewrites now use the new context-driven refactoring pipeline instead of built-in analyzer diagnostics. Target-typed union-case rewrites, expression-body/block-body conversions, redundant accessor removal, and string-concatenation rewrites now surface as on-demand editor suggestions without occupying the diagnostics list.
+- Added a separate `"Convert if/else to match"` refactoring for pattern-based `if` statements, so control-flow shape changes are independent from the nullable-to-`Option` migration.
+- `"Convert if/else to match"` now preserves common complementary union cases when rewriting pattern checks, so `Some(...)` rewrites pair with `None` and `Ok(...)` rewrites pair with `Error` instead of falling back to `_`.
+- Raven code actions now expose preview entries that open a before/after diff for both diagnostic-backed fixes and context-driven refactorings, using the same general preview model instead of feature-specific expansion viewers.
+- Signature help now behaves more like C#: partial invocations no longer crash extension-method pre-inference, and the language server gathers overloads from the underlying method group so `Foo(` can continue showing the full overload list instead of collapsing to only the currently selected candidate.
+
+Impact:
+- Collection iteration can now express filtering and deconstruction directly in the loop header, and the published grammar/editor tooling no longer advertises the retired `each` keyword.
+- Macro authors can surface input-validation errors at the macro or argument site using a stable compiler-owned diagnostic path (`RAVM021`) while still keeping existing raw diagnostic emission available for advanced cases.
+- Nullable-to-option guidance can now upgrade straightforward user-authored null-guarded locals into idiomatic `Option<T>` flow without crossing broader API boundaries or forcing a separate control-flow shape rewrite.
+- Built-in diagnostics are now more focused on policy and correctness guidance, while purely optional shape rewrites come from refactoring providers and no longer require suggestion-mode analyzers.
+- Users can inspect the effect of a Raven fix/refactoring before applying it, which makes the new suggestion-only actions usable without having to trust the edit blindly.
+- Overload help is now more stable while typing incomplete calls and more useful for overloaded APIs, because the editor keeps showing the full callable surface even after one overload becomes the current best match.
+
+## 2026-03-13
+
+### Changed
+- Inline and freestanding positional/list/record/member patterns now require an explicit binding keyword (`val`, `var`, or `let`) to capture variables; bare identifiers in those pattern positions are interpreted as existing-value matches instead. Assignment/declaration deconstruction shorthand such as `(a, b) = expr`, `val (a, b) = expr`, `[a, b] = expr`, and `val [a, b] = expr` is unchanged, and inline collection rest captures now use forms like `..val rest`.
+- Collection patterns and collection deconstruction now support fixed-size sequence segments with operator-first syntax such as `[..2 val start, val end]`, alongside `..val rest` / `...val rest`. Strings participate in the same model: single-element captures bind `char`, while fixed/rest segment captures bind `string`.
+
+- Added Roslyn-style syntax formatting hooks: `Formatter.Annotation`,
+  `SyntaxAnnotation.ElasticAnnotation`, and elastic trivia helpers on
+  `SyntaxFactory`, with `SyntaxNormalizer` updated to honor formatter
+  annotations and elastic whitespace.
+- Clarified the syntax API docs to state that `SyntaxFactory` creates raw
+  structured nodes that callers must format or attach trivia to explicitly.
+
+### Added
+- Added initial macro-system scaffolding: `#[MacroName]` syntax is now recognized as a distinct macro-style annotation surface, and public .NET plugin contracts were introduced under `Raven.CodeAnalysis.Macros`.
+- Added targeted parser/semantic tests for macro-style attributes and plugin reference discovery.
+- Added a sample project layout under `samples/projects` showing the intended `AddEquatable` Raven source and companion .NET macro plugin shape.
+- Added project-system/compiler support for `RavenMacro` assembly references plus initial macro diagnostics for unknown/duplicate/invalid attached macros and plugin load failures.
+- Added generic attached-macro expansion invocation and caching on `SemanticModel`, including plugin diagnostics and expansion-failure diagnostics, so tooling can inspect expansion results without compiler-side macro synthesis.
+- Added optional replacement-declaration support to `MacroExpansionResult` so attached macros can move beyond additive member generation toward property/declaration rewriting scenarios.
+
+### Changed
+- Fixed generated TargetFramework handling so SDK-style projects with an explicit top-level `func Main() -> unit` no longer synthesize a competing entry point from the generated framework-attribute document.
+- Fixed value-type indexer call emission so Raven-authored macro plugins can safely access struct-backed syntax collections without generating invalid IL.
+- `use` declarations in async contexts now prefer `IAsyncDisposable.DisposeAsync()` when available and fall back to `IDisposable.Dispose()` otherwise, while keeping sync contexts on ordinary `Dispose()`.
+- Attached macro replacement/introduction now participates in semantic declaration binding for type members, so replacement properties and generated members show up through declared-symbol lookup instead of remaining expansion-only metadata.
+- Attached macro-generated syntax now participates in emit as well as semantic binding, so introduced methods and replacement properties change the generated IL instead of remaining tooling-only expansions.
+- MSBuild `RavenMacro` items can now point at Raven macro projects directly, and the project system will build/load the current plugin assembly instead of silently using a stale checked binary.
+- Added an initial macro-expansion editor experience: hovering a macro shows an expansion preview, and VS Code now offers a `Show macro expansion` code action that opens the rendered expansion in a preview editor.
+- Fixed the Raven-authored `#[Observable]` sample macro to use the property type itself instead of the full type-annotation clause, so the sample now produces a real replacement setter and raises `PropertyChanged` as intended.
+- Macro attributes now use `#[...]` instead of escaped attribute identifiers, `#` only tokenizes that way when immediately followed by `[`, and the VS Code grammar now highlights macro attributes separately from ordinary attributes.
+- Macro project loading is now deterministic across target frameworks and dependencies: Raven-authored macro projects emit under framework-specific output folders, rebuild inputs include referenced project outputs, and macro load contexts no longer reuse arbitrary same-name process assemblies.
+- Metadata methods with unreadable signatures no longer collapse to arity-zero methods during symbol loading; the compiler now preserves them as invalid signatures instead of silently rebinding them as parameterless APIs.
+- Attached macro plugins now receive both the raw parsed argument list through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`, where each `MacroArgument` exposes both a richer constant representation and a direct CLR `Value`.
+- Added `IMacroDefinition<TParameters>` as the public marker for the typed macro-parameter-object direction, so attached macros can move toward attribute-like argument binding and editor experience without changing invocation syntax again.
+- Added `IAttachedDeclarationMacro<TParameters>` and the first compiler-bound typed-parameter path for attached macros: positional arguments bind through a single public constructor, named arguments bind through writable properties, and invalid names/conversions now report dedicated macro diagnostics before expansion.
+- Added invocable macros with `name!(...)` syntax, typed parameter binding, semantic-model expansion lookup, and initial language-server preview/definition support.
+- Macro argument constant values are now evaluated without re-entering semantic diagnostics during expansion, so macros can read literal argument values without recursively re-triggering their own expansion and blowing the stack.
+- Accessor parsing and formatting now preserve explicit same-line `;` separators, and `SyntaxNormalizer` inserts line breaks between adjacent accessors and block statements when raw generated syntax omits trivia, so macro expansion previews stay readable without requiring macros to hand-format every token.
+- `SyntaxFactory.ArrowExpressionClause(...)` now defaults to the fat arrow token `=>` at the syntax-model level, so generated accessor and member expression bodies no longer drift back to pointer-style `->` after regeneration.
+- `SyntaxFactory` token convenience members now return fresh token instances instead of reusing shared singleton tokens, so Raven-authored macros can safely use helpers like `CommaToken` and `SetKeyword` multiple times while building detached syntax trees.
+- Statement factory convenience overloads now default `TerminatorToken` to `SyntaxKind.None`, matching the parser’s newline-as-trivia model so raw `SyntaxFactory` statements no longer synthesize newline terminator tokens.
+- `SyntaxFactory` convenience overloads can now be defined explicitly in `Syntax/Factories.xml`, and the node generator validates those overload definitions against the syntax model so invalid slot mappings and hazardous combinations like non-null `Body` plus `ExpressionBody` are rejected during generation.
+- Nodes with explicit `Syntax/Factories.xml` definitions now expose only those validated red `SyntaxFactory` overloads, instead of also publishing a raw full-slot overload that could bypass invariants such as `AccessorList` plus `ExpressionBody` on the same declaration.
+- Explicit syntax-factory overloads can now declare carefully-chosen aliases such as `StoredPropertyDeclaration`, with generated XML docs that make clear the alias is only a descriptive wrapper over the canonical factory shape.
+- `Raven.CodeAnalysis` now emits XML documentation files, and PE symbol documentation lookup correctly resolves sidecar XML member IDs for generic parameter types, so Raven code can consume generated `SyntaxFactory` documentation from metadata references.
+- Metadata documentation lookup now supports assembly-adjacent Markdown sidecars (`<AssemblyName>.docs/manifest.json` + symbol files), prefers Markdown over XML when both exist, and uses hashed XML-doc-ID filenames to keep metadata doc paths stable and filesystem-safe.
+- Hover and signature help now render XML documentation comments into readable Markdown sections instead of showing raw XML fragments, so metadata docs from XML sidecars display cleanly in the editor.
+- Markdown documentation comments now support structured `.NET`-style block tags such as `@param`, `@typeparam`, `@returns`, and `@remarks`, and the shared documentation formatter renders those tags into clean hover/signature-help sections instead of showing the raw tag lines.
+- Added a sibling-project `markdown-docs` sample that exercises Markdown documentation, structured tags, `xref:` links, and XML/Markdown sidecar emission across a library and consumer project.
+- Hover and signature help now rewrite documentation `xref:` links into actionable editor commands that open Raven symbol documentation pages, instead of degrading those references to plain display text.
+- Markdown sidecar files may now carry optional top-of-file front matter such as `xref: ...`; that metadata is stripped before rendering and used only to bind/validate the document against a specific symbol.
+- Markdown documentation structure extraction is now exposed through a shared API, and XML emission reuses that extracted summary/parameter/returns/remarks shape instead of flattening Markdown comments into a single raw `<summary>` blob.
+- Documentation extraction is now centered on a format-neutral Raven documentation structure, so both Markdown and XML comments project into the same intermediate model before being rendered or emitted.
+- Project builds now require an explicit `GenerateXmlDocumentationFromMarkdownComments` opt-in before Markdown-authored comments are projected into emitted XML documentation; XML-authored comments continue to emit normally without that flag.
+- Recognized Markdown documentation headings such as `### Remarks` now flow through the shared documentation structure instead of being rendered once as raw body text and again as a structured section, so hover/signature-help output no longer duplicates those sections.
+- Delegate parameter inference is now covered for both direct metadata-delegate assignment and `PropertyChanged += (sender, args) => ...` event subscriptions, including the observable sample shape.
+- The `macro-observable` sample now uses inferred lambda parameter types for its `PropertyChanged` handler, matching ordinary delegate assignment behavior.
+- Lambda parameter declarations in target-typed function expressions now resolve through the same contextual semantic binding as identifiers inside the body, and compound assignment statements now surface stable assignment operations instead of crashing operation traversal.
+- The language server now keeps project-backed documents stable across multi-project workspaces: sibling-project files can be resolved by URI on demand, and closing an open project document no longer removes it from the underlying workspace project graph.
+- Language-server diagnostics now match source-backed compiler diagnostics by file path instead of requiring the exact same syntax-tree instance, so compiler `Info`/hint diagnostics keep showing up for open documents instead of only analyzer suggestions surviving the filter.
+- Semantic diagnostics no longer crash on malformed invocations inside match arms; argument binding now tolerates missing argument nodes and continues reporting parser/binder diagnostics.
+- Top-level and namespace parsing now correctly distinguishes sequence-pattern assignment statements from attribute/declaration preludes, so `[val first, val second] = values` no longer gets misparsed as a broken attribute list.
+- Hover resolution inside lambda bodies is now more robust: member-name tokens are resolved before enclosing-block locals can hijack them, and lambda pattern locals no longer get misidentified as plain parameters.
+- Attached macros can now return syntax built directly with `SyntaxFactory` without needing synthetic source rooting first; replacement members are contextualized against the real containing declaration before binding/emit, and detached generated syntax no longer crashes source symbol or method-body emission paths.
+- Project-reference compilations now force source declaration symbols for referenced Raven projects before they are exposed as `CompilationReference`s, so sibling-project source types participate in name binding and editor navigation instead of degrading to `Error` across workspace boundaries.
+- `Go to definition` now resolves `#[MacroName]` sites back to the macro declaration project when the macro project is open in the workspace, using the macro reference’s source project path to map the loaded macro type back to source.
+- `Go to definition` and expansion preview now also work for invocable macro invocations such as `answer!()`.
+- Fixed `SeekableTextSource.PeekChar(offset, ...)` so offset-aware peeks actually honor the requested offset; this was required to keep `#pragma` on the directive path while adding invocable `name!(...)` parsing.
+
+Impact:
+- Raven now has a stable syntax and host API foundation for attached macros without routing them through the normal CLR attribute pipeline.
+- Plugin authors have a concrete contract to target, Raven projects can point at macro plugin assemblies, and the compiler can now execute attached macros generically while keeping generated-member semantics out of the compiler for now.
+- Raven-authored macro plugins now load cleanly even when they index into value-type syntax collections, and SDK-style executable projects no longer hit spurious entry-point ambiguity from generated framework metadata.
+- Macro-driven member replacement is now visible to semantic tooling, and the editor can surface the generated expansion without requiring a debugger or ad hoc compiler logging.
+- The Raven-authored observable sample now exercises a real end-to-end replacement macro path instead of silently falling back to the source auto-property.
+- Multi-target workspaces can now reference the same Raven-authored macro project without reusing the wrong plugin binary, and metadata probing no longer risks rebinding unreadable APIs as parameterless methods.
+- Attached macros can now safely inspect literal argument constants during expansion, and the observable sample no longer appears to hang when the plugin reads `context.Arguments[0].Constant`.
+- The macro contract now has an explicit typed-parameter direction, aligning future completion/signature help and argument diagnostics with the way normal attributes are presented in the IDE.
+- Raw `SyntaxFactory`-built macro expansions now display with sensible accessor and statement layout in the editor even when the macro only supplies structural terminators instead of fully formatted trivia.
+- Macro expansion hover/code-action previews are stable again after syntax regeneration, because detached `SyntaxFactory` expression bodies now render with `=>` consistently.
+- Macro expansion hover/code-action previews no longer disappear when a macro builds syntax from repeated `SyntaxFactory` token helpers, because formatter rewrites now see distinct token identities instead of duplicate singleton token objects.
+- `SyntaxFactory` statement builders now produce structurally terminated statements by default, keeping the API focused on syntax structure while leaving indentation and spacing to normal formatting.
+- Public syntax-factory API shape is no longer forced to follow slot heuristics alone; explicit factory definitions now let Raven control convenience overloads separately from raw tree structure while keeping the generated API validated against the underlying slots.
+- Red `SyntaxFactory` now trends toward valid-by-construction APIs for nodes with explicit factory definitions, while low-level tests can still use node constructors when they intentionally need malformed or manually-tokenized syntax.
+- Raven-authored tools and macro projects can now surface XML documentation from referenced `Raven.CodeAnalysis` APIs such as `SyntaxFactory` aliases instead of seeing empty metadata docs.
+- Raven-authored tools and future RavenDoc output can target one shared metadata documentation convention, with Markdown sidecars taking precedence while preserving XML fallback for ordinary .NET libraries.
+- Cross-project workspace navigation is now reliable for both normal Raven project references and open Raven macro projects, so definition requests no longer fall back to same-file error locals or stay stuck on the `#[]` use site.
+- Delegate inference behavior around event subscriptions is now locked by focused tests, and the observable sample demonstrates the inferred-parameter form directly.
+- Hover/symbol lookup for inferred lambda parameters is now consistent with the compiler’s actual binding, and operation-based tooling no longer trips over `+=` statements while walking child operations.
+- Hover/code-action requests for files in referenced sibling projects no longer lose their semantic model because the LSP workspace was deleting real project documents on close or relying solely on transient open-document ownership.
+- Open-document diagnostics in the editor are now resilient to equivalent syntax-tree instances, which fixes missing compiler hints/information diagnostics in the normal LSP publish path.
+- Broken source inside a match arm now degrades to diagnostics instead of throwing a null-reference exception during semantic-model construction.
+- Sequence-pattern assignment now binds from the correct syntax shape at top level and inside namespaces, which restores parser/semantic coverage for destructuring assignment scenarios.
+- Hover over member-access names and lambda pattern locals is now less sensitive to stale or over-broad fallback resolution, reducing false symbol results in the language server.
+- Raven-authored macros can now construct generated declarations structurally and preserve reused source syntax such as property initializers, instead of having to round-trip through parsed helper strings or synthetic wrapper trees.
+
+## 2026-03-12
+
+### Added
+- Expanded Operations API coverage for newer language constructs and bound nodes.
+- Added targeted sample coverage around generic parsing with static interface constraints.
+- Added style analyzer + code fix to convert expression-bodied members to block-bodied form.
+- Added an MSBuild-backed Raven project-system service so workspaces can open SDK-style project files with `RavenCompile` items and traverse `ProjectReference` through the project-system abstraction.
+
+Impact:
+- Compiler API consumers can inspect more semantics directly.
+- Regressions in generic-constraint scenarios are easier to catch with samples.
+- Raven workspace consumers are no longer limited to the custom `.ravenproj` file format.
+
+### Changed
+- Null-assignment diagnostics were tightened and message quality improved (clearer assignment errors and hint formatting).
+- Static interface member resolution and generic constraint checks were corrected for `IParsable<T>`-style flows.
+- Cascade behavior after failed generic binding was reduced to avoid misleading downstream errors.
+- Generic method calls with explicit type arguments now follow C# more closely by skipping extra method-type inference passes for later lambda arguments, and overload reporting suppresses more downstream cascades when an argument already carries an error type.
+- Several binder/codegen regression fixes landed (including interpolation/object-dumper/runtime sample paths).
+- Hover/signature display for promoted primary-constructor parameters now preserves binding keyword semantics (`val`/`var`) when the parameter maps to a property.
+- Compiler projects were retargeted from `net10.0` to `net10.0` (including build scripts/default framework switches).
+- The primary Raven CLI command name is now `rvn`, and project scaffolding/help now advertise SDK-style `.rvnproj` files.
+
+Impact:
+- Fewer false diagnostics and better first-error quality.
+- Fewer compile-success/runtime-fail scenarios in generic and interpolation-heavy code.
+
+### Removed
+- Removed stale/incorrect operation naming in favor of updated terminology alignment (for example, moving from switch-centric naming toward match-centric naming where applicable).
+
+Impact:
+- Operations API is more consistent with current language semantics.
+
+---
+
+## 2026-03 (early to mid)
+
+### Added
+- Added destructuring and pattern expressiveness upgrades: nested patterns, explicit value patterns, sequence deconstruction support across more shapes.
+- Added collection builder support and spread/target-type inference improvements.
+- Added analyzers/code fixes for expression-body preferences and diagnostic suppression directives.
+
+Impact:
+- Pattern-based code became more expressive and concise.
+- Collection inference became more predictable in real-world generic code.
+
+### Changed
+- Function syntax direction shifted toward first-class function expressions and updated signature/hint presentation.
+- Parameter deconstruction support expanded (including lambda parameter deconstruction).
+- Parser hardening for argument lists and continuation/newline-sensitive forms.
+
+Impact:
+- Improved ergonomics for functional style and lambda-heavy APIs.
+- Reduced parser drift on edge-case call syntaxes.
+
+### Removed
+- Removed residual syntax/display traces that no longer match current function and parameter terminology.
+
+Impact:
+- Tooling output better matches current language surface.
+
+---
+
+## 2026-02
+
+### Added
+- Added/expanded language server capabilities: hover docs, completions, signature help, code actions, symbol outline, logging hooks.
+- Added project-system and runtime integration work: framework references, NuGet support, output layout improvements, .editorconfig participation.
+- Added async runtime support/stabilization work (including runtime async and ValueTask-oriented paths).
+- Added richer pattern and control-flow support: range patterns, guarded matching improvements, return-expression and throw-expression support.
+- Added OOP surface enhancements: abstract classes, interface support maturation, property/accessor and constructor-related semantics.
+
+Impact:
+- Authoring/debugging experience improved materially in editor workflows.
+- More practical .NET integration for non-trivial Raven projects.
+- Broader set of control-flow/pattern constructs compile and run reliably.
+
+### Changed
+- Match semantics and exhaustiveness checks were repeatedly hardened (including diagnostics and generic display improvements).
+- Async lowering behavior was stabilized across edge cases (implicit return interactions, try/catch flows, lambda paths).
+- Accessibility/default-member behavior and declaration rules evolved, with related diagnostic updates.
+
+Impact:
+- Fewer runtime surprises in async/match heavy code.
+- Stricter, clearer declaration behavior for class members and access control.
+
+### Removed
+- Removed type unions and type literals from active language surface (and associated normalization/parsing paths).
+- Removed named constructors feature.
+- Removed legacy `Try*` LINQ extension route.
+
+Impact:
+- Breaking change for code depending on union/literal type syntax.
+- Language surface became narrower and easier to stabilize.
+
+---
+
+## 2025-09 (from 2025-09-12 onward)
+
+### Added
+- Added generics foundation and constraints across types/methods.
+- Added interface declarations and base-list support for classes/interfaces.
+- Added extension-method consumption and lowering support (including staged parity improvements).
+- Added Operations API initial infrastructure.
+- Added attribute support across assembly/type/member/parameter/return contexts.
+- Added control-flow/codegen support for break/continue, goto/labels, and more lowering targets.
+- Added CLI and diagnostics tooling improvements (`-bt`, diagnostics-only highlighting, source-symbol/bound dumps).
+
+Impact:
+- Major expansion in language expressiveness and tooling introspection.
+- Better parity with .NET expectations for attributes, interfaces, and generic constraints.
+
+### Changed
+- Overload resolution and conversion logic was hardened (nullable/lambda/extension interactions, byref matching, generic substitution paths).
+- Match lowering and diagnostics were corrected for null/literal/value-type cases and exhaustiveness flows.
+- Parser robustness improved for rewinds, continuations, skipped tokens, and missing-terminator recovery.
+
+Impact:
+- More deterministic binding decisions.
+- Better diagnostic precision and fewer parser-induced semantic cascades.
+
+### Removed
+- Removed or phased out unstable/unsupported intermediate behavior around extension and union-related paths as the model converged.
+
+Impact:
+- Some experimental edge behavior no longer compiles; diagnostics are now more explicit.
+
+---
+
+## Migration Notes
+
+- If old code assigns `null` to non-nullable types, migrate to nullable/optional forms.
+- If old code uses union/type-literal syntax, migrate to current Raven constructs.
+- Re-check overload-heavy calls (especially lambdas/extensions/generics) because binder behavior is now stricter and more correct.
+- For compiler API integrations, prefer current Operations API names/shapes aligned to match-oriented semantics.
+- Changed: invocation arguments for `ref`, `out`, and `in` parameters now use explicit call-site keywords instead of `&` at ordinary call sites. Raven now supports `Set(ref value)`, `TryParse(text, out result)`, and declaration forms like `TryParse(text, out var result)` and `TryParse(text, out val result)`.
+- Added a sibling-project `samples/projects/macro-invocable` sample showing a Raven-authored invocable macro plugin and executable app project using `add!(...)`.
+- Added a sibling-project `samples/projects/macro-reactive` sample showing an attached property macro and an invocable subscription macro working together in Raven-authored projects.
+- Changed the VS Code extension defaults to disable color decorators in Raven files so invocable macros like `add!(...)` do not trigger hex-color pickers.
+- Changed macro contracts so `MacroKind` is inferred from `IAttachedDeclarationMacro` and `IInvocableMacro`, removing redundant boilerplate from implementations.
+- Changed `macro-reactive` to use `System.Reactive` and `IObservable<T>`/`Subject<T>` in the sample runtime shape instead of a custom in-sample observable type.
+- Fixed sequence-point emission for macro-generated zero-width spans so generic introduced-member initializers no longer crash emit.
+- Changed: compiler-emitted documentation now writes symbol-addressable outputs.
+  Markdown uses assembly-adjacent `.docs/` sidecars with an `invariant/`
+  locale root, and XML uses standard `<doc><members>` symbol IDs instead of the
+  old file/line dump format. This aligns emitted docs with metadata lookup in
+  the IDE/compiler and leaves room for RavenDoc/localization integration later.
+- Changed: Raven's workspace/MSBuild project model now preserves
+  `GenerateDocumentationFile`, `GenerateMarkdownDocumentationFile`,
+  `DocumentationFile`, and `MarkdownDocumentationOutputPath` on open/save so
+  documentation emission settings round-trip cleanly through project editing.
+## Unreleased
+
+### Added
+- Added a separate context-driven code refactoring provider pipeline so editor suggestions can appear without requiring a backing diagnostic. The workspace and language server now surface diagnostic-backed quick fixes and diagnostic-free refactorings as distinct code action sources.
+- RavenDoc now publishes Raven API-reference sites from `.rvnproj` projects,
+  individual source files, source directories, or compiled libraries with
+  adjacent Markdown `.docs` sidecars. Its built-in responsive presentation now
+  uses Raven-specific navigation, branding, light/dark styling, and offline
+  syntax highlighting for fenced Raven code.
+- RavenDoc and the browser Playground now share a consolidated Raven visual
+  foundation across light and dark modes, including brand, color, typography,
+  surface, and code-presentation tokens. The Playground's Monaco editor follows
+  the active system color scheme with matching Raven syntax themes, and its
+  persisted theme selector can explicitly choose System, Light, or Dark.
+
+### Changed
+- Removed the legacy `new Foo(...)` object-creation syntax. Raven object construction now uses direct type invocation (`Foo(...)`) consistently across parsing, samples, and tests.
+- Top-level type declarations are now hoisted for binding, so console-app file-scope code can be interleaved with `class`, `struct`, `record`, `enum`, `union`, `interface`, and `delegate` declarations without triggering ordering diagnostics.
+- Parenthesized unions now support nominal deconstruction patterns over their declared member types, so matches like `Cash(val amount)` and `Card(val reference)` lower through the same `TryGetValue` carrier extraction path as `Cash cash` and `Card card`.
+- Function expressions can now be iterator generators both with declared iterator return types and with inferred iterator return types. Raven now lowers `yield` inside lambda/function-expression bodies to the same synthesized iterator state machines used for ordinary functions, including `IEnumerable<T>` and `IAsyncEnumerable<T>` shapes.
+
+Impact:
+- Higher-order Raven APIs can now keep generator logic inline in function expressions instead of forcing local helper functions just to use `yield`.

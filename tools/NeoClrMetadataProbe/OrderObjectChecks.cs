@@ -1,0 +1,310 @@
+using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+
+using NeoCLR.Metadata.Experimental.Model;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.NeoClr;
+using Raven.CodeAnalysis.Syntax;
+
+namespace NeoClrMetadataProbe;
+
+internal static class OrderObjectChecks
+{
+    internal static async Task Run(string sourcePath, string output, string runtime)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var original = File.ReadAllText(sourcePath);
+        var declaration = SyntaxTree.ParseText(original).GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Order");
+        if (declaration.Parent is not CompilationUnitSyntax) throw new InvalidDataException("Order namespace selection needs updating");
+        var order = declaration.ToFullString();
+        const string consumer = """
+            func Identity(order: Order) -> Order => order
+            func Identity(copy: Copied) -> Copied => copy
+            func CreateOrder() -> Order => Order(41, true)
+            func UpdateOrder(order: Order) { order.Number = 42 }
+            class ReadonlyStorage {
+                private val stored: Order
+                val Number: int = 41
+                init(order: Order) { stored = order; Number = 42 }
+                func Read() -> Order => stored
+            }
+            class ExplicitBaseRoot {
+                private var counter: Counter = Counter(40)
+                var Number: int = counter.Next()
+                init(): base() { Number = counter.Next() + 1 }
+                init(extra: int): base() => Number = counter.Next() + extra
+            }
+            class ForwardProperty {
+                var Value: LaterItem = LaterItem(17)
+            }
+            class LaterItem {
+                var Number: int
+                init(number: int) { Number = number }
+            }
+            class PropertyHolder {
+                var Value: Order = Order(7, false)
+                var Explicit: Order {
+                    get => field
+                    set => field = value
+                }
+                val Current: Order => Value
+                val Selected: Order {
+                    get { return Value }
+                    private set { Value = value }
+                }
+                init(value: Order) { Explicit = value }
+                func Replace(value: Order) { Selected = value }
+            }
+            class Holder {
+                public field Value: Order
+                private var stored: Order
+                private var initial: Order = Order(7, false)
+                init(value: Order) { Value = value; stored = value }
+                func Read() -> Order => stored
+                func Initial() -> Order => initial
+                func Replace(value: Order) { stored = value; Value = value }
+            }
+            class Storage {
+                public field Number: int = 40
+                internal field Wide: long = 5000000000L
+                private field active: bool = true
+                func Active() -> bool => self.active
+            }
+            class Copied {
+                private var number: int
+                init(order: Order) { number = order.Number }
+                val Number: int => number
+            }
+            class Counter {
+                private var Number: int
+                func Same() -> Counter => self
+                public func Read() -> int => self.Number
+                init(number: int) { Number = number }
+                public func Next() -> int {
+                    let previous = Number
+                    Number = Add(Number, 1)
+                    return previous
+                }
+                private func Add(left: int, right: int) -> int => left + right
+                public func Combine(left: int, right: int) -> int => left * 10 + right
+                public func Reset(number: int) { Number = number }
+                public func Increment(amount: int) -> int {
+                    Number = Add(Number, amount)
+                    return Number
+                }
+            }
+            class Initialized {
+                private var first: int = 20
+                var Number: int = 21
+                val Sum: int => first + Number
+            }
+            class ExplicitInitialized {
+                private var first: int = 20
+                var Number: int = 21
+                init() { Number = first + Number + 1 }
+            }
+            class Created {
+                var Number: int
+                init(value: int) => Set(value)
+                init(left: int, right: int) => Number = left * 10 + right
+                private func Set(value: int) { Number = value + 1 }
+            }
+            class Gauge {
+                private var amount: int
+                init(amount: int) {
+                    self.amount = amount
+                    Offset = 0
+                }
+                var Offset: int {
+                    get => field
+                    set => field = value + 1
+                }
+                val Doubled: int => amount * 2
+                var Amount: int {
+                    get { return self.amount }
+                    set {
+                        if value < 0 { amount = 0 } else { amount = value }
+                    }
+                }
+                val Adjusted: int {
+                    get => amount + 1
+                    private set => amount = value - 1
+                }
+                func Reset(value: int) { Adjusted = value }
+            }
+            func Main() -> int {
+                if !Order(1, true).Pending { return 1 }
+                if Order(2, false).Pending { return 2 }
+                if Order(-2147483647 - 1, false).Number != -2147483647 - 1 { return 3 }
+                if Order(2147483647, true).Number != 2147483647 { return 4 }
+                let original = Identity(CreateOrder())
+                let alias = original
+                Identity(original)
+                UpdateOrder(alias)
+                alias.Pending = false
+                if original.Pending { return 5 }
+                let counter = Counter(1)
+                if counter.Combine(counter.Next(), counter.Next()) != 12 { return 6 }
+                if counter.Read() != 3 { return 7 }
+                counter.Reset(40)
+                if counter.Same().Increment(2) != original.Number { return 8 }
+                let gauge = Gauge(3)
+                if gauge.Doubled != 6 { return 9 }
+                gauge.Amount = -1
+                if gauge.Amount != 0 { return 10 }
+                gauge.Offset = 41
+                if gauge.Offset != 42 { return 13 }
+                gauge.Reset(22)
+                if gauge.Adjusted != 22 { return 11 }
+                if gauge.Doubled != original.Number { return 12 }
+                counter.Reset(4)
+                if Created(counter.Next(), counter.Next()).Number != 45 { return 14 }
+                if counter.Read() != 6 { return 15 }
+                if Created(41).Number != original.Number { return 16 }
+                if Initialized().Sum != 41 { return 17 }
+                if ExplicitInitialized().Number != 42 { return 18 }
+                if Identity(Copied(original)).Number != 42 { return 19 }
+                let storage = Storage()
+                let storageAlias = storage
+                storageAlias.Number = storageAlias.Number + 2
+                storageAlias.Wide = storageAlias.Wide + 1L
+                if !storage.Active() { return 20 }
+                if storage.Wide != 5000000001L { return 21 }
+                if storage.Number != 42 { return 22 }
+                let holder = Holder(original)
+                holder.Value.Number = 43
+                if holder.Read().Number != 43 { return 23 }
+                if original.Number != 43 { return 24 }
+                if holder.Initial().Number != 7 { return 25 }
+                holder.Replace(CreateOrder())
+                holder.Read().Number = 42
+                if holder.Value.Number != 42 { return 26 }
+                original.Number = 42
+                if ExplicitBaseRoot().Number != 42 { return 32 }
+                if ExplicitBaseRoot(1).Number != 42 { return 33 }
+                if ForwardProperty().Value.Number != 17 { return 31 }
+                let readonlyStorage = ReadonlyStorage(original)
+                readonlyStorage.Read().Number = readonlyStorage.Number
+                if original.Number != 42 { return 34 }
+                let properties = PropertyHolder(original)
+                if properties.Current.Number != 7 { return 27 }
+                properties.Explicit.Number = 43
+                if original.Number != 43 { return 28 }
+                properties.Replace(original)
+                properties.Current.Number = 40
+                if properties.Selected.Number != 40 { return 29 }
+                properties.Value = CreateOrder()
+                if original.Number != 40 { return 30 }
+                properties.Value.Number = 42
+                return properties.Selected.Number
+            }
+            """;
+        var host = typeof(object).Assembly.GetName();
+        var core = new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        foreach (bool reversed in new[] { false, true })
+        {
+            var trees = new[] { SyntaxTree.ParseText(order, path: "Order.rvn"), SyntaxTree.ParseText(consumer, path: "Main.rvn") };
+            if (reversed) Array.Reverse(trees);
+            var name = "OrderObject" + reversed;
+            var compilation = Compilation.Create(name, trees, references, new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+            using var native = new MemoryStream();
+            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, native, new(new(name, new Version(1, 0, 0, 0)), core, []));
+            if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+            var snapshot = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.ReadCliProjection(native.ToArray());
+            var type = snapshot.MainModule.Types.Single(t => t.Name == "Order");
+            if (type.Fields.Count != 2 || type.Properties.Count != 2 || type.Methods.Count != 5 || type.Properties.Any(p => p.GetMethod is null || p.SetMethod is null))
+                throw new Exception("Order metadata lost members");
+            var counterType = snapshot.MainModule.Types.Single(t => t.Name == "Counter");
+            if (counterType.Fields.Count != 1 || counterType.Properties.Count != 0 || counterType.Methods.Count != 8)
+                throw new Exception("private storage must emit only a field");
+            var gaugeType = snapshot.MainModule.Types.Single(t => t.Name == "Gauge");
+            if (gaugeType.Fields.Count != 2 || gaugeType.Properties.Count != 4 || gaugeType.Methods.Count != 9 ||
+                gaugeType.Properties.Single(p => p.Name == "Doubled").SetMethod is not null ||
+                (gaugeType.Properties.Single(p => p.Name == "Adjusted").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
+                throw new Exception("computed accessor metadata mismatch");
+            var storageType = snapshot.MainModule.Types.Single(t => t.Name == "Storage");
+            if (storageType.Fields.Count != 3 || storageType.Properties.Count != 0 ||
+                (storageType.Fields.Single(f => f.Name == "Number").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Public ||
+                (storageType.Fields.Single(f => f.Name == "Wide").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Assembly ||
+                (storageType.Fields.Single(f => f.Name == "active").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Private)
+                throw new Exception("explicit field metadata mismatch");
+            var propertyHolder = snapshot.MainModule.Types.Single(t => t.Name == "PropertyHolder");
+            if (propertyHolder.Properties.Count != 4 || propertyHolder.Fields.Count != 2 ||
+                propertyHolder.Properties.Any(p => p.GetMethod is null || !p.GetSignature().Skip(2).SequenceEqual(p.GetMethod.GetSignature().Skip(2))) ||
+                propertyHolder.Properties.Single(p => p.Name == "Current").SetMethod is not null ||
+                (propertyHolder.Properties.Single(p => p.Name == "Selected").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
+                throw new Exception("nominal property projection lost type/accessor identity");
+            var readonlyStorage = snapshot.MainModule.Types.Single(t => t.Name == "ReadonlyStorage");
+            if (readonlyStorage.Fields.Count != 2 || readonlyStorage.Fields.Any(f => (f.Attributes & (ushort)FieldAttributes.InitOnly) == 0) ||
+                readonlyStorage.Properties.Single(p => p.Name == "Number").SetMethod is not null)
+                throw new Exception("readonly storage flags/accessors lost");
+            var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
+            foreach (var command in new[] { "verify", "run" })
+            {
+                var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
+                start.ArgumentList.Add(command); start.ArgumentList.Add(path);
+                using var process = Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                var text = await stdout + await stderr;
+                if (process.ExitCode != (command == "verify" ? 0 : 42)) throw new Exception(text);
+            }
+            using var cli = new MemoryStream();
+            var emitted = compilation.Emit(cli);
+            if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+            if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI result mismatch");
+        }
+        foreach (var unsupported in new[] {
+            "open class Base { init(value: int) { } }\nclass Chained : Base { init(): base(1) { } }",
+            "class StaticStorage { public static field Number: int = 42 }",
+            "class NominalStorage { public field Value: NominalStorage? }",
+            "class NullableProperty { var Value: NullableProperty? }",
+            "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
+            order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
+        })
+        {
+            var compilation = Compilation.Create("UnsupportedObject", [SyntaxTree.ParseText(unsupported)], references,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (errors.Length != 0) throw new Exception("rejection fixture must bind: " + string.Join("; ", errors.Select(d => d.ToString())));
+            using var image = new MemoryStream();
+            var rejected = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new("UnsupportedObject", new Version(1, 0, 0, 0)), core, []));
+            if (rejected.Success || image.Length != 0) throw new Exception("unsupported object contract wrote output");
+        }
+        File.WriteAllText(Path.Combine(output, "Order.rvn"), order);
+        File.WriteAllText(Path.Combine(output, "Main.rvn"), consumer);
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
+        {
+            source = Path.GetFileName(sourcePath),
+            sourceSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(original))),
+            consumerSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(consumer))),
+            runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
+            selectedSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(order))),
+            sourceOrders = 2,
+            cliResult = 42,
+            nativeResult = 42,
+            nativeVerify = true,
+            fullConsumer = false,
+            nominalLocalsAndAliasing = true,
+            ordinaryInstanceCalls = true,
+            privatePrimitiveStorage = true,
+            computedAndExplicitAccessors = true,
+            expressionConstructors = true,
+            implicitConstructorsAndInitializers = true,
+            nominalParametersAndResults = true,
+            explicitPrimitiveFields = true,
+            nominalFieldStorage = true,
+            nominalPropertyMetadata = true,
+            explicitRootBaseInitialization = true,
+            readonlyInstanceStorage = true,
+            rejectedIncompleteContracts = 6
+        }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
+    }
+}

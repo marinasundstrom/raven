@@ -1778,6 +1778,22 @@ an external generic C# contract and observes mutation through that contract. The
 ordinary driver workflow also returns 42. No Runtime Contract or native dependency is
 needed for this fix. Keep it isolated for independent validation on main.
 
+2026-10-04 text gate: portable value/interface boxing and grapheme literal/pattern/equality
+lowering are now exercised by separate native consumers. These portable components are
+absent from main, so no independent cherry-pick is claimed validated. Keep them as explicit
+reconciliation candidates; native storage/provider policy stays in the NeoCLR adapter.
+No default Reflection/Emit changes or new main backport are required by this slice.
+
+2026-10-04 encoding gate: reference-field receiver spilling is a general portable-emission
+correctness fix with .NET evaluation-order coverage. The portable component is absent
+from main; retain it for shared-line reconciliation, rather than copying a new emission
+subsystem onto main merely to backport this fix. No default .NET defect is demonstrated.
+
+2026-10-04 text-stream gate: match initializer/statement-wrapper normalization is in
+the existing shared portable body adapter. Main does not contain this component. Keep
+the independently tested .NET control-flow fixture and the fix as reconciliation
+candidates; no default binder or Reflection/Emit defect requiring a backport is shown.
+
 
 ### Reference field assignment with early return (2026-10-05)
 
@@ -1799,6 +1815,32 @@ value-receiver tests pass on .NET 11. The new Debug/Release controls check both
 returning and fallthrough execution, evaluation order, once-only receiver evaluation,
 original-object identity when the RHS replaces the receiver variable, and skipped
 storage on early return. No public API or website example changed.
+
+Integrated independently as Raven main `08f34891b`; the temporary fix branch was
+deleted after fast-forward integration. This replaces the pending .NET field-return
+candidate, without copying portable native emission onto main.
+
+Integration validation: all 14 focused field/address and portable pattern-body checks
+pass on .NET 11, including the unchanged portable empty-stack regression.
+
+
+## Reference producer compatibility regression — 2026-10-05
+
+Resolved by the union lexical case repair below; the following records the original reproduction.
+
+Website release preparation rebuilt NeoCLR's `docs/experiments/raven-target/Probe.csproj`
+and ran `--reference-core`. With this integration at `9a4f74884`, the producer rejects
+`System.Optional<T>` with RAV0103 (`None` is not in scope). Rebuilding the same bridge
+sources against Raven main `08f34891b` generates the reference successfully. The bridge
+compiles the checked-in Optional source without consumer substitutions; the failure is
+not a native metadata runtime failure. Owner-aware diagnostics identify the source.
+
+The website snapshot therefore uses the validated main producer. Keep this integration
+regression open for isolation and repair; passing native Optional consumers and the
+field-return tests do not qualify this separate CLI producer. The owning compiler change has
+not yet been isolated. Reproduce using the current NeoCLR
+bridge, explicit RavenRoot, BuildProjectReferences=false and the corresponding built
+.NET 11 compiler, then invoke Probe.dll --reference-core with a fresh output path.
 
 
 ### Union lexical case repair (2026-10-05)
@@ -1824,6 +1866,36 @@ this test correction is not claimed as new constructor support.
 Main validation: all 190 union semantic, imported empty-case and bootstrap replacement
 checks pass on .NET 11. This repair is independent of the native metadata backend.
 
+Validation: 196 focused union, bootstrap and expression-return diagnostic tests pass
+on the integration line. The current bridge regenerates its full CLI reference with
+unchanged Optional source. The ordinary driver probe executes plain/generic union factories
+on CLR and NeoCLR, both owned and separately compiled, with return 42 and expected stdout;
+malformed case metadata still rejects before output. The general fix is integrated into
+local main as `edff20273` (190 focused checks); its temporary branch is deleted.
+No bridge encoding, Runtime Contract, metadata schema or runtime change is needed.
+
+
+2026-10-05 editor candidates: explicit artifact-watch inputs and visible project
+reload failure diagnostics are target-neutral improvements exposed by native metadata.
+They currently remain with the optional native project integration; independently
+exercise ordinary CLI artifact replacement/failure recovery before proposing a main
+backport. The native metadata declaration viewer is explicitly target-gated. No main
+integration is claimed for these new editor changes.
+
+### Default value receiver temporary (2026-10-06)
+
+The portable body planner now admits `default(T).Method()` using the same temporary
+storage path as value-returning calls and properties. The receiver is initialized once
+and its temporary address is passed to the method; no source storage is written back.
+A general C# regression checks portable lowering plus ordinary .NET execution with a
+mutating struct method. The native source IntPtr/UIntPtr consumer exercises the same
+path. No new syntax or Runtime Contract setting is introduced.
+
+This is isolated from native-width metadata/mapping work. Main's current tree has no
+`CodeGen/Portable/LinearMethodBody.cs`, so the owning layer cannot be cherry-picked
+independently there. Carry the fix with that layer's eventual integration; do not copy
+the experimental backend to main solely to apply this one-line correction.
+
 ## Returned out forwarding (2026-10-20)
 
 A general reproduction on Raven main found RAV0269 for a generic direct call in
@@ -1835,3 +1907,14 @@ public semantic API or emitted metadata representation changes; this repairs a
 general diagnostic and permits ordinary CLI emission. All 44 focused semantic and runtime
 ByRefParameter tests pass on modern .NET; native integration is validated separately
 when deliberately carried to codex/neoclr, without merging branches.
+
+### 2026-10-26 — Shared interface member accessibility
+
+Carry the shared C# accessibility correction independently on `main` and
+`codex/neoclr`; no branch merge or target-specific accessibility policy is needed.
+Private helpers, explicit non-public implementation, combined accessor modifiers,
+protected lookup and CLI virtual/access-check flags are covered by the shared
+regression matrix. The neoCLR compiler branch passes 43 focused and 404 surrounding
+cases on modern .NET; three unrelated broader failures reproduce with its
+pre-change compiler. See the [CLI bridge record](neoclr-cli-bridge.md#interface-member-accessibility-alignment-2026-10-26)
+for encoding ownership, native replacement requirements and validation limits.

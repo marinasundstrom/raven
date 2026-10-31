@@ -1,0 +1,17 @@
+{
+  "contractsSha256": "9E7C535E874196C30ED66427CE613205873970F308C5259A6FFDB07B3942CB80",
+  "consumerSha256": "C94AC26C60353F30412F482CA6F4E1198E72C2668B09C03095FAD87B4E45DA1A",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "sourceOrders": [
+    "forward",
+    "reverse"
+  ],
+  "cliResult": 42,
+  "nativeResult": 42,
+  "nativeVerified": true,
+  "interfaceDispatch": true,
+  "inheritedContract": true,
+  "propertyDispatch": true,
+  "referenceArray": true,
+  "limitations": "Owned nongeneric interfaces and implicit public root-class implementations; host-core bootstrap. Generic interface dispatch and explicit/default implementations remain unsupported by this adapter."
+}

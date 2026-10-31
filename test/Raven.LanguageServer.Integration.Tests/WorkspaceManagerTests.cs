@@ -1512,6 +1512,58 @@ func Main() -> unit { }
                    StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ReloadForWatchedFiles_MetadataInputs_AreObservedWithoutEvaluatingUnrelatedChangesAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "App", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var inputPath = Path.Combine(_tempRoot, "references", "runtime-contracts.json");
+        var service = new CountingProjectSystemService(new MsBuildProjectSystemService())
+        {
+            MetadataInputs = [inputPath]
+        };
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: service);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var requestsAfterLoad = service.MetadataInputRequests;
+        await Notify(Path.Combine(_tempRoot, "obj", "generated.rvn"));
+        service.MetadataInputRequests.ShouldBe(requestsAfterLoad);
+        service.OpenAttempts.ShouldBe(1);
+
+        var replacementInput = Path.Combine(_tempRoot, "references", "replacement.json");
+        service.MetadataInputs = [replacementInput];
+        service.FailNextOpen = true;
+        await Notify(inputPath);
+        service.OpenAttempts.ShouldBe(2);
+        manager.GetProjectLoadFailures().Keys.ShouldContain(projectPath);
+        await Notify(inputPath);
+        service.OpenAttempts.ShouldBe(3);
+        manager.GetProjectLoadFailures().ShouldBeEmpty();
+
+        await Notify(replacementInput);
+        service.OpenAttempts.ShouldBe(4);
+        var requestsAfterRecovery = service.MetadataInputRequests;
+        await Notify(Path.Combine(_tempRoot, "unrelated.json"));
+        service.MetadataInputRequests.ShouldBe(requestsAfterRecovery);
+        service.OpenAttempts.ShouldBe(4);
+
+        Task<IReadOnlyList<DocumentUri>> Notify(string path)
+            => manager.ReloadForWatchedFilesAsync([
+                new FileEvent { Uri = DocumentUri.FromFileSystemPath(path), Type = FileChangeType.Changed }
+            ]);
+    }
+
     [Theory]
     [InlineData("workspace")]
     [InlineData("target/workspace")]
@@ -3022,10 +3074,24 @@ class AnswerMacro: IMacroDefinition {
         public ProjectId OpenProject(Workspace workspace, string projectFilePath)
         {
             OpenAttempts++;
+            if (FailNextOpen)
+            {
+                FailNextOpen = false;
+                throw new InvalidOperationException("Synthetic metadata reload failure.");
+            }
             return _inner.OpenProject(workspace, projectFilePath);
         }
 
         public int OpenAttempts { get; private set; }
+        public bool FailNextOpen { get; set; }
+        public IReadOnlyList<string> MetadataInputs { get; set; } = [];
+        public int MetadataInputRequests { get; private set; }
+
+        public IReadOnlyList<string> GetMetadataInputPaths(string projectFilePath)
+        {
+            MetadataInputRequests++;
+            return MetadataInputs;
+        }
 
         public void SaveProject(Project project, string filePath)
             => _inner.SaveProject(project, filePath);

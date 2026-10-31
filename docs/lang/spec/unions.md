@@ -20,10 +20,24 @@ kind of union or change their semantics.
 Ad-hoc unions combine existing types directly when a value may have one of
 several forms.
 
-The type syntax `T1 | T2` is shorthand for `System.Union<T1, T2>`. The same
-spelling supports three, four, and five alternatives. The standard union
-carriers are provided by `Raven.Core` as a temporary bridge until .NET adopts a
-standard union type.
+The structural type syntax `T1 | T2` describes a value that belongs to one of
+its alternatives. This is a shared language feature; its meaning does not require
+a particular carrier class. “Ad-hoc” emphasizes that the expression introduces no
+new declared name, while “structural” emphasizes that its alternatives determine
+the type rather than a nominal declaration.
+
+### Runtime representation
+
+On .NET, ad-hoc unions map to `System.Union<T1, T2>` and the corresponding
+three-, four- and five-alternative carriers in `Raven.Core`. Those carrier classes
+are a .NET implementation detail, not the definition of a union in the language.
+
+On neoCLR, structural unions use the target's structural type representation and
+native metadata/runtime implementation. They do not require the .NET carrier
+mapping. Native implementation and execution-mode limits are tracked in the
+[structural composition implementation notes](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/intersection-types.md).
+A limitation of one runtime representation does not make unions exclusive to
+that target.
 
 Use ad-hoc unions to expose several existing error types in a Result without
 conversion boilerplate; see [combining error types](async-and-error-propagation.md#combining-error-types-with-an-ad-hoc-union).
@@ -39,7 +53,7 @@ Raven reports ambiguity regardless of declaration order. The argument's static
 type determines overload selection; its active union alternative does not select
 a different overload at runtime.
 
-An ad-hoc carrier implicitly converts to another when every source alternative
+An ad-hoc union implicitly converts to another when every source alternative
 occurs exactly in the destination. This supports widening (`A | B` to
 `A | B | C`) and reordering (`A | B` to `B | A`). When both larger union overloads
 are applicable, the ordinary better-conversion rule applies: a strict subset is

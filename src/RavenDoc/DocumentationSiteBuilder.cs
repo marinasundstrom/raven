@@ -148,6 +148,15 @@ public static class DocumentationSiteBuilder
 
         if (apis.Any(api => api.Inputs.Any(input => IsWithin(output, input) || IsWithin(input, output))))
             throw new InvalidOperationException("API input and site output must be separate directories.");
+        foreach (var api in apis)
+        {
+            var nativeCore = api.Definition.NativeCoreReference ?? configuration.NativeCoreReference;
+            if (nativeCore is null) continue;
+            var nativeInputs = configuration.References.Concat(api.Definition.References).Append(nativeCore)
+                .Select(path => Path.GetFullPath(path, root));
+            if (nativeInputs.Any(input => IsWithin(output, input)))
+                throw new InvalidOperationException("Site output must not contain native metadata inputs.");
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         var staging = Path.Combine(Path.GetDirectoryName(output)!, $".ravendoc-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
@@ -158,7 +167,7 @@ public static class DocumentationSiteBuilder
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
                 configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId, configuration.ShowEmptyNamespaces, configuration.ExtensionNamespaces, configuration.ExtensionMembers,
-                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root), SharedApiNavigation: configuration.SharedApiNavigation);
+                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root), SharedApiNavigation: configuration.SharedApiNavigation, ModuleTerminology: configuration.ModuleTerminology);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             var libraryNavigation = apis.Select(api => new DocumentationNavigationItem(api.Title, api.Path + "/index.html")).ToArray();
@@ -180,8 +189,14 @@ public static class DocumentationSiteBuilder
                         ApiContent = api.Definition.ApiContent is { } content ? Path.GetFullPath(content, root) : options.ApiContent
                     };
                     var framework = api.Definition.Framework ?? configuration.Framework;
+                    var nativeCore = api.Definition.NativeCoreReference ?? configuration.NativeCoreReference;
+                    var referencePaths = configuration.References.Concat(api.Definition.References)
+                        .Select(path => Path.GetFullPath(path, root)).Distinct().ToArray();
+                    if (nativeCore is not null && !api.Input.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("Native documentation requires compiled .dll inputs.");
                     if (api.Input.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                        RavenDocCommand.GenerateFromAssemblies(api.Inputs, apiOutput, framework, apiOptions);
+                        RavenDocCommand.GenerateFromAssemblies(api.Inputs, apiOutput, framework, apiOptions,
+                            nativeCore is null ? null : Path.GetFullPath(nativeCore, root), referencePaths);
                     else
                         RavenDocCommand.GenerateFromSource(api.Input, apiOutput, framework, apiOptions,
                             configuration.References.Concat(api.Definition.References).Select(path => Path.GetFullPath(path, root)).Distinct().ToArray());
@@ -278,7 +293,7 @@ public static class DocumentationSiteBuilder
                     DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (explicitSection || navigationRoot is null
                         ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination,
                             sectionTitle ?? configuration.NavigationTitle)
-                        : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination)) : "", configuration.Name,
+                        : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination, configuration.ModuleTerminology)) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
                     configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,
@@ -337,6 +352,7 @@ public static class DocumentationSiteBuilder
         public bool Search { get; init; }
         public bool CopyCode { get; init; }
         public bool SharedApiNavigation { get; init; }
+        public bool ModuleTerminology { get; init; }
         public string Name { get; init; } = "Documentation";
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
@@ -353,6 +369,7 @@ public static class DocumentationSiteBuilder
         public bool ShowEmptyNamespaces { get; init; }
         public List<string>? ExtensionNamespaces { get; init; }
         public List<string>? ExtensionMembers { get; init; }
+        public string? NativeCoreReference { get; init; }
         public string? ApiContent { get; init; }
         public DocumentationSourceRepository? SourceRepository { get; init; }
         public string MemberGrouping { get; init; } = "kind";
@@ -391,6 +408,7 @@ public static class DocumentationSiteBuilder
         public required string Path { get; init; }
         public string? Title { get; init; }
         public string? Framework { get; init; }
+        public string? NativeCoreReference { get; init; }
         public string? ApiContent { get; init; }
         public DocumentationSourceRepository? SourceRepository { get; init; }
         public List<string> References { get; init; } = [];

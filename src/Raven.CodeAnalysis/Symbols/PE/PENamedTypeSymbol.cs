@@ -63,7 +63,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         ["System.Runtime.CompilerServices.AsyncStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute,
         ["System.Runtime.CompilerServices.IteratorStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute,
         ["System.Threading.Tasks.Task"] = SpecialType.System_Threading_Tasks_Task,
-        ["System.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
+        ["System.Concurrency.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
         ["System.Threading.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
         ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken,
         ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T,
@@ -952,6 +952,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             var type = _typeInfo.AsType();
             var fullName = Targets.NeoClrCliCompatibility.GetSpecialTypeMetadataName(
                 type.Assembly.GetName().Name, type.IsValueType, type.FullName);
+            if (fullName == Compilation.RuntimeAsyncStateMachineTypeName &&
+                type.Assembly.GetName().Name == (Compilation.Options.MetadataImportOptions?.AsyncAssemblyName
+                    ?? Compilation.Options.MetadataImportOptions?.CoreAssemblyName ?? Compilation.Options.TargetCoreAssemblyName))
+                return SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
+
             if (fullName is not null &&
                 s_specialTypeByFullName.TryGetValue(fullName, out var specialType))
             {

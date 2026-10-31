@@ -11,6 +11,21 @@ internal static class TargetDiagnostics
         "RAVT003", "Invalid target core configuration", "", "",
         "Target core configuration cannot be used: {0}.", "compiler", DiagnosticSeverity.Error, true);
 
+    private static readonly DiagnosticDescriptor s_unsupportedScopeExitCleanup = DiagnosticDescriptor.Create(
+        "RAVT006", "Unsupported scoped cleanup", "", "",
+        "Exception-free use cleanup is currently supported only in synchronous, non-iterator functions.",
+        "compiler", DiagnosticSeverity.Error, true);
+
+    internal static Diagnostic UnsupportedScopeExitCleanup(Location location)
+        => Diagnostic.Create(s_unsupportedScopeExitCleanup, location);
+
+    private static readonly DiagnosticDescriptor s_jumpSkipsResourceInitialization = DiagnosticDescriptor.Create(
+        "RAVT007", "Jump skips resource initialization", "", "",
+        "Cannot jump past a use initializer into that resource's lifetime.", "compiler", DiagnosticSeverity.Error, true);
+
+    internal static Diagnostic JumpSkipsResourceInitialization(Location location)
+        => Diagnostic.Create(s_jumpSkipsResourceInitialization, location);
+
     internal static Diagnostic? InvalidConfiguration(string? error)
         => error is null ? null : Diagnostic.Create(s_invalidTargetCore, Location.None, error);
 

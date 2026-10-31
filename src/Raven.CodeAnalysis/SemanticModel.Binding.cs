@@ -261,10 +261,43 @@ public partial class SemanticModel
             }
         }
 
+        if (Compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+            DeclareNamespaceValueMembers(containerNode, parentNamespace);
+
+        static IEnumerable<AttributeListSyntax> GetNamespaceContainerAttributeLists(SyntaxNode declaration)
+            => declaration switch
+            {
+                FunctionStatementSyntax function => function.AttributeLists,
+                MemberDeclarationSyntax member => member.AttributeLists,
+                _ => []
+            };
+    }
+
+    private bool _sourceCoreNamespaceValuesDeclared;
+    internal void EnsureSourceCoreNamespaceValuesDeclared()
+    {
+        if (_sourceCoreNamespaceValuesDeclared || Compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+            return;
+        _sourceCoreNamespaceValuesDeclared = true;
+        var root = (CompilationUnitSyntax)SyntaxTree.GetRoot();
+        var fileNamespace = root.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
+        var owner = fileNamespace is null ? Compilation.GlobalNamespace
+            : Compilation.GetOrCreateNamespaceSymbol(fileNamespace.Name.ToString())!;
+        DeclareNamespaceValueMembers(root, owner);
+    }
+
+    private void DeclareNamespaceValueMembers(SyntaxNode containerNode, INamespaceSymbol parentNamespace)
+    {
         foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
+                case BaseNamespaceDeclarationSyntax nsDecl when Compilation.Options.MetadataImportOptions?.UseSourceCore == true:
+                    var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
+                        ? nsDecl.Name.ToString()
+                        : parentNamespace.QualifyName(nsDecl.Name.ToString());
+                    DeclareNamespaceValueMembers(nsDecl, Compilation.GetOrCreateNamespaceSymbol(namespaceName)!);
+                    break;
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
                          !Compilation.IsFileScopeLocalFunction(globalStatement) &&
@@ -288,14 +321,6 @@ public partial class SemanticModel
                     }
             }
         }
-
-        static IEnumerable<AttributeListSyntax> GetNamespaceContainerAttributeLists(SyntaxNode declaration)
-            => declaration switch
-            {
-                FunctionStatementSyntax function => function.AttributeLists,
-                MemberDeclarationSyntax member => member.AttributeLists,
-                _ => []
-            };
     }
 
     private void DeclareMacroSymbol(
@@ -790,12 +815,12 @@ public partial class SemanticModel
             var constraints = ImmutableArray.CreateBuilder<ITypeSymbol>();
             foreach (var reference in typeParameter.ConstraintTypeReferences)
             {
-                if (reference.GetSyntax() is not TypeConstraintSyntax typeConstraint)
+                if (reference.GetSyntax() is not TypeSyntax constraintType)
                     continue;
 
                 constraints.Add(MemberSignatureDeclarationPass.ResolveSkeletonType(
                     this,
-                    typeConstraint.Type,
+                    constraintType,
                     Compilation.ErrorTypeSymbol,
                     symbol.DefinitionType,
                     symbol.TypeParameters));
@@ -2286,7 +2311,10 @@ public partial class SemanticModel
         if (!allowSourceDeclarationCompletion &&
             (deferredWildcardImports.Count > 0 || deferredConstantImports.Count > 0))
         {
-            Compilation.EnsureSourceDeclarationsDeclared();
+            // Resolve source import targets from declaration shells first. Completing
+            // member signatures here re-enters this cached, unfinished import scope
+            // and can permanently bind function parameters to error types.
+            Compilation.EnsureSourceTypeDeclarationsDeclared();
         }
 
         foreach (var baseName in deferredWildcardImports)
@@ -2661,7 +2689,7 @@ public partial class SemanticModel
 
         static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
         {
-            if (type is PEUnionCompanionSymbol companion &&
+            if (type is IUnionCompanionSymbol companion &&
                 companion.TryGetAssociatedUnion(out var union))
             {
                 return (ITypeSymbol)union;
@@ -3482,7 +3510,8 @@ public partial class SemanticModel
         var effectiveDeclaration = GetEffectiveNominalTypeDeclaration(declaration);
 
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
-        var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(effectiveDeclaration, objectType, valueType);
+        var defaultBaseType = Compilation.IsSourceObjectRoot(typeSymbol) ? null
+            : GetDefaultBaseTypeForNominalDeclaration(effectiveDeclaration, objectType, valueType);
         var defaultInterfaces = GetDefaultNominalInterfaces(typeSymbol);
         var shape = declarationBinder.BindNominalTypeShape(effectiveDeclaration, defaultBaseType, defaultInterfaces);
         var baseTypeSymbol = shape.BaseType;
@@ -4057,7 +4086,7 @@ public partial class SemanticModel
         if (typeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsRecord)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
-        if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is not INamedTypeSymbol equatableDefinition)
+        if (Compilation.GetTypeByMetadataName(Compilation.RuntimeRecordEquatableTypeName) is not INamedTypeSymbol equatableDefinition)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
         var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(typeSymbol);
@@ -5514,6 +5543,9 @@ public partial class SemanticModel
     private IMethodSymbol GetObjectToStringMethod()
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        // A source-owned core has declaration shells before it has member signatures.
+        // Use the normal lazy signature path, including when Object shares this file.
+        TryEnsureSourceTypeMethodSignaturesDeclared(objectType, "ToString", out _, out _);
         return objectType!
             .GetMembers("ToString")
             .OfType<IMethodSymbol>()

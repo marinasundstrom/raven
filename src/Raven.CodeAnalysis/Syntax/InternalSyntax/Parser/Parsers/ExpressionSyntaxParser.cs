@@ -1187,7 +1187,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             var next = PeekToken();
 
-            return !next.IsKind(SyntaxKind.FatArrowToken);
+            return !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next);
         }
         finally
         {
@@ -2505,6 +2505,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return MacroExpansionExpression(keyword, expression);
     }
 
+    private static bool CanFollowIntersectionCast(TypeSyntax type, SyntaxToken token)
+    {
+        // Identifier intersections also parse as bitwise expressions. A following
+        // binary operator or member access belongs to the parenthesized expression.
+        return type is not IntersectionTypeSyntax ||
+            (CanStartExpressionAfterMatchArrow(token) &&
+             !token.IsKind(SyntaxKind.MinusToken) &&
+             !token.IsKind(SyntaxKind.DotToken));
+    }
+
     private ExpressionSyntax ParseParenthesisOrTupleExpression()
     {
         var openParenToken = ReadToken(); // Consumes '('
@@ -2523,7 +2533,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var closeParen = ReadToken();
             var next = PeekToken();
-            if (!next.IsKind(SyntaxKind.DotToken) &&
+            if (CanFollowIntersectionCast(typeName, next) &&
+                !next.IsKind(SyntaxKind.DotToken) &&
                 !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&
                 !next.IsKind(SyntaxKind.SemicolonToken) &&

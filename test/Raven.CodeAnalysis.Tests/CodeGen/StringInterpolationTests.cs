@@ -63,6 +63,32 @@ public class StringInterpolationTests
     }
 
     [Fact]
+    public void UnionWithoutRuntimeConcatReportsDiagnosticDuringEmission()
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var core = paths.Single(path => Path.GetFileName(path) == "System.Runtime.dll");
+        using var image = Mono.Cecil.AssemblyDefinition.ReadAssembly(core);
+        var stringType = image.MainModule.GetType("System.String");
+        foreach (var method in stringType.Methods.Where(method => method.Name == "Concat").ToArray())
+            stringType.Methods.Remove(method);
+        using var modified = new MemoryStream();
+        image.Write(modified);
+        var references = paths.Select(path => path == core
+            ? MetadataReference.CreateFromImage(modified.ToArray())
+            : MetadataReference.CreateFromFile(path)).ToArray();
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+            .WithTargetCoreAssemblyName("System.Runtime");
+        var compilation = Compilation.Create("MissingUnionConcat",
+            [SyntaxTree.ParseText("public union Outcome { case Ready(int) case Empty }")], references, options);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Id == "RAV1501" && d.GetMessage().Contains("String.Concat"));
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
     public void InterpolationPreservesEvaluationOrderAndNullText()
     {
         var tree = SyntaxTree.ParseText("""

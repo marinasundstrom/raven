@@ -4,3 +4,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Raven.CodeAnalysis.Testing")]
 [assembly: InternalsVisibleTo("Raven.LanguageServer")]
 [assembly: InternalsVisibleTo("rvnc")]
+[assembly: InternalsVisibleTo("Raven.CodeAnalysis.NeoClr")]

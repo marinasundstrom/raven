@@ -1,0 +1,178 @@
+{
+  "date": "2026-10-31",
+  "commands": [
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll",
+        "--native-source-core",
+        "/tmp/raven-reconcile-native-source-core-final"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "PASS reference-free source core, source native-call markers, managed array reservation, array views, consumer emission/completion and configuration/signature rejection\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core-final/Consumer.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core-final/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll"
+      ],
+      "expectedExitCode": 42,
+      "exitCode": 42,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core-final/ReadUninitialized.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core-final/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll"
+      ],
+      "expectedExitCode": 1,
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "RuntimeError: Runtime error\n   at System.Example.ReadUninitialized [instruction 3]\n   at Main [instruction 0]\n"
+    },
+    {
+      "command": [
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "run",
+        "/tmp/raven-reconcile-native-source-core-final/NegativeLength.dll",
+        "--execution",
+        "interpreter",
+        "--system",
+        "/tmp/raven-reconcile-native-source-core-final/System.neox",
+        "--object-root",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll",
+        "--module",
+        "/tmp/raven-reconcile-native-source-core-final/SourceCore.dll"
+      ],
+      "expectedExitCode": 1,
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "RuntimeError: Runtime error\n   at neoCLR.Runtime.ReserveArray [instruction 1]\n   at System.Example.NegativeLength [instruction 1]\n   at Main [instruction 0]\n"
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "/tmp/raven-reconcile-dotnet-driver/Main.rvn",
+        "--framework",
+        "net10.0",
+        "-o",
+        "/tmp/raven-reconcile-final-driver/Main.dll"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "Build succeeded in 3,0s\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/tmp/raven-reconcile-final-driver/Main.dll"
+      ],
+      "expectedExitCode": 42,
+      "exitCode": 42,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-native-driver-project/App.rvnproj",
+        "--run",
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "expectedExitCode": 42,
+      "exitCode": 42,
+      "stdout": "Native build output: /tmp/raven-reconcile-native-driver-project/bin/neoclr/DriverConsumer.dll\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-signals/SignalsDemo.rvnproj",
+        "--run",
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "Native build output: /tmp/raven-reconcile-signals/bin/neoclr/SignalsDemo.dll\nsignals: ordered subscriptions, duplicate handles, nullable arguments and removal passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-SignalReflectionDemo/SignalReflectionDemo.rvnproj",
+        "--run",
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "Native build output: /tmp/raven-reconcile-SignalReflectionDemo/bin/neoclr/SignalReflectionDemo.dll\nsignals: closed method reflection passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "dotnet",
+        "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+        "neoclr",
+        "--project",
+        "/tmp/raven-reconcile-AsyncSignalsDemo/AsyncSignalsDemo.rvnproj",
+        "--run",
+        "/tmp/raven-reconcile-final-runtime/neoclr",
+        "--execution",
+        "interpreter"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "stdout": "Native build output: /tmp/raven-reconcile-AsyncSignalsDemo/bin/neoclr/AsyncSignalsDemo.dll\nsignals: asynchronous callback observed through Promise\n",
+      "stderr": ""
+    }
+  ],
+  "sha256": {
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll": "aace4774c2dc93fdbbaf5770609d5f3d7e05e0474f19805c1f3fc3bb97dd1ff7",
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.dll": "f24846d275e6a3703d75b63b62cab011a7f481393aed26b2dabbd2d3a70d1bf7",
+    "/Users/robert/Projects/Raven-reconcile/src/Raven.Compiler/bin/Debug/net11.0/Raven.CodeAnalysis.NeoClr.dll": "2b553aabfeff9c764da4d46c19f4a372a9900635b544f544671097778b07d152",
+    "/Users/robert/Projects/Raven-reconcile/tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll": "a8d3b2af25bedebbc9d3f3526a8e2f51e3fe54cd8c94bf9f61cba1798531b24f",
+    "/Users/robert/Projects/Raven-reconcile/tools/NeoClrMetadataProbe/bin/Debug/net10.0/Raven.CodeAnalysis.dll": "37e9cf80da862e17e9860bcebc2ae0bab7e869bd70bfc52f2f952ae8d3eddc61",
+    "/Users/robert/Projects/Raven-reconcile/tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoCLR.Metadata.Experimental.dll": "9d3292428860fb39843d9074fc0c409406358f4f4d9ab3f36dd0d937d133b6c9",
+    "/tmp/raven-reconcile-final-runtime/neoclr": "4962197d501dc13198a228b208ad20e5aac546905a18993f70e70b5842e751f4"
+  },
+  "metadataSourceCommit": "4ca2b990bc2356ae159735976091495c9e793af0",
+  "metadataSourceWorktree": "/Users/robert/Projects/neoclr-raven-reconcile"
+}

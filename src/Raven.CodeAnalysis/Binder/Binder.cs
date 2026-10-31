@@ -1551,6 +1551,9 @@ internal abstract partial class Binder
                 return false;
             }
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+                return false;
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
                 !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
@@ -1738,6 +1741,9 @@ internal abstract partial class Binder
         var location = issueSyntax?.GetLocation() ?? fallbackLocation;
         switch (primaryIssue.Kind)
         {
+            case TypeResolutionFailureKind.IntersectionTypeNotSupported:
+                yield return Diagnostic.Create(CompilerDiagnostics.IntersectionTypeNotSupported, location);
+                break;
             case TypeResolutionFailureKind.ArityMismatch:
                 {
                     var typeName = issueSyntax?.ToString() ?? fallbackName;
@@ -2159,6 +2165,12 @@ internal abstract partial class Binder
                 allSatisfied = false;
             }
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "func", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
@@ -2235,8 +2247,24 @@ internal abstract partial class Binder
 
     private void EnsureTypeParameterConstraintTypesResolved(ITypeParameterSymbol typeParameter)
     {
-        if (typeParameter is not SourceTypeParameterSymbol source || source.HasResolvedConstraintTypes)
+        if (typeParameter is not SourceTypeParameterSymbol source)
             return;
+
+        if (source.HasResolvedConstraintTypes)
+        {
+            if (!ReferenceEquals(source.ContainingSymbol, ContainingSymbol))
+                return;
+
+            // Resolution may have happened in a non-reporting query or an earlier
+            // declaration binder. The active binder must own failures as well.
+            for (var i = 0; i < source.ConstraintTypes.Length; i++)
+            {
+                if (source.ConstraintTypes[i].TypeKind == TypeKind.Error &&
+                    source.ConstraintTypeReferences[i].GetSyntax() is TypeSyntax failedConstraint)
+                    _ = BindTypeSyntaxAndReport(failedConstraint);
+            }
+            return;
+        }
 
         if (source.ConstraintTypeReferences.IsDefaultOrEmpty)
         {
@@ -2262,9 +2290,9 @@ internal abstract partial class Binder
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
         foreach (var reference in source.ConstraintTypeReferences)
         {
-            if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
+            if (reference.GetSyntax() is TypeSyntax constraintType)
             {
-                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type, options);
+                var resolved = BindTypeSyntaxAndReport(constraintType, options);
                 builder.Add(resolved);
             }
         }
@@ -2339,6 +2367,12 @@ internal abstract partial class Binder
                 allSatisfied = false;
             }
 
+            if (constraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && !SemanticFacts.SatisfiesFunctionTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "func", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
@@ -2401,6 +2435,16 @@ internal abstract partial class Binder
     {
         switch (type)
         {
+            case FunctionReturnTypeSymbol projection:
+                return projection.Substitute(t => SubstituteConstraintType(t, substitutions));
+
+            case StructuralFunctionTypeSymbol function:
+                return function.Substitute(t => SubstituteConstraintType(t, substitutions));
+
+            case IStructuralUnionTypeSymbol union:
+                return TypeSubstitution.SubstituteStructuralUnion(union, t => SubstituteConstraintType(t, substitutions));
+            case IIntersectionTypeSymbol intersection:
+                return TypeSubstitution.SubstituteIntersection(intersection, t => SubstituteConstraintType(t, substitutions));
             case ITypeParameterSymbol typeParameter:
                 return substitutions.TryGetValue(typeParameter, out var substitutedType)
                     ? substitutedType

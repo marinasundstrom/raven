@@ -5,8 +5,9 @@ and be declared at namespace scope, as members of types, or locally inside
 another function.
 
 Functions are also first-class values in Raven. They can be assigned to
-variables, passed to other functions, returned as values, and converted to
-compatible .NET delegate types.
+variables, passed to other functions, and returned as values. On .NET, compatible
+function values can also be converted to delegate types. neoCLR represents
+function values through its structural callable types.
 
 ```raven
 func add(a: int, b: int) -> int {
@@ -648,3 +649,31 @@ highest-priority candidates before applying normal overload comparison.
 Delegate bridges use the emitted return signature when adapting Unit and explicit
 `System.Void` returns. A source function returning Unit can emit a CLI no-result
 method; invoking it must not discard a stack value that was never produced.
+
+## Native function category constraints (neoCLR target)
+
+**neoCLR only.**
+
+On the neoCLR target, `where T: func` restricts a type argument to a structural
+function signature. For example, the validated `FunctionSlot<T> where T: func`
+fixture stores `T` and returns it; a consumer constructs
+`FunctionSlot<(int) -> int>`, retrieves that concrete function and invokes it.
+`System.Func<int, int>`, `System.Action`, arbitrary objects with `Invoke`, and
+unconstrained type parameters do not satisfy this category. A parameter already
+constrained with `func` can be forwarded. `func` must be the sole constraint.
+
+The constraint does not describe the parameters/result of `T`, so a generic body
+cannot call `T` solely because it has this constraint. Function-signature bounds
+such as `where T: () -> T2` are a separate design and are not enabled for native
+emission by this feature. No reflection invocation or observer API is introduced.
+
+The parser exposes `FunctionConstraintSyntax.FuncKeyword`; semantic symbols retain
+`TypeParameterConstraintKind.FunctionType`. Ordinary Raven/.NET rejects this
+constraint with RAV0365 instead of substituting a nominal Delegate bound. Native
+emission supports generic class parameters and generic function/method parameters.
+For example, `func Keep<F>(callback: F) -> F where F: func => callback`
+preserves the category through separate native providers. A caller may forward a
+method parameter carrying the same requirement; arbitrary class-parameter forwarding
+into a constrained generic method is not yet qualified. This is a native target
+feature of the shared compiler; it is not part of the .NET language profile.
+Existing .NET function mappings are unchanged.

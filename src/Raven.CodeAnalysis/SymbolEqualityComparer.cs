@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis;
 
@@ -56,6 +57,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (x.Kind != y.Kind)
             return false;
 
+        var importedX = (x as IImportedAssemblySymbol)?.DefinitionIdentity;
+        var importedY = (y as IImportedAssemblySymbol)?.DefinitionIdentity;
+        if (importedX is not null || importedY is not null)
+            return importedX is not null && importedY is not null && importedX.Equals(importedY);
+
         if (x is ITypeSymbol typeX && y is ITypeSymbol typeY)
         {
             if (typeX.TypeKind != typeY.TypeKind)
@@ -80,6 +86,15 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!visited.Add(pair))
             return true;
         visited.Add(new SymbolPair(y, x));
+
+        if (x is StructuralTupleTypeSymbol || y is StructuralTupleTypeSymbol)
+        {
+            if (x is not StructuralTupleTypeSymbol tupleX || y is not StructuralTupleTypeSymbol tupleY ||
+                tupleX.TupleElements.Length != tupleY.TupleElements.Length) return false;
+            for (var i = 0; i < tupleX.TupleElements.Length; i++)
+                if (!EqualsCore(tupleX.TupleElements[i].Type, tupleY.TupleElements[i].Type, visited)) return false;
+            return true;
+        }
 
         // >>> NEW BLOCK: relaxed comparison for type parameters
         if (_ignoreContainingNamespaceOrType &&
@@ -195,6 +210,73 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
 
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
+        }
+
+        if (x is IFunctionReturnTypeSymbol || y is IFunctionReturnTypeSymbol)
+            return x is IFunctionReturnTypeSymbol leftProjection && y is IFunctionReturnTypeSymbol rightProjection &&
+                EqualsCore(leftProjection.FunctionType, rightProjection.FunctionType, visited);
+
+        if (x is StructuralFunctionTypeSymbol || y is StructuralFunctionTypeSymbol)
+        {
+            if (x is not StructuralFunctionTypeSymbol left || y is not StructuralFunctionTypeSymbol right ||
+                left.ParameterTypes.Length != right.ParameterTypes.Length ||
+                !left.ParameterRefKinds.SequenceEqual(right.ParameterRefKinds) ||
+                !EqualsCore(left.ReturnType, right.ReturnType, visited)) return false;
+            for (var i = 0; i < left.ParameterTypes.Length; i++)
+                if (!EqualsCore(left.ParameterTypes[i], right.ParameterTypes[i], visited)) return false;
+            return true;
+        }
+
+        if (x is IStructuralUnionTypeSymbol unionX && y is IStructuralUnionTypeSymbol unionY)
+        {
+            if (unionX.ConstituentTypes.Length != unionY.ConstituentTypes.Length)
+                return false;
+
+            var matched = new bool[unionY.ConstituentTypes.Length];
+            foreach (var left in unionX.ConstituentTypes)
+            {
+                var index = -1;
+                for (var i = 0; i < matched.Length; i++)
+                {
+                    if (!matched[i] && EqualsCore(left, unionY.ConstituentTypes[i], new HashSet<SymbolPair>(visited)))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+
+                if (index < 0)
+                    return false;
+                matched[index] = true;
+            }
+
+            return true;
+        }
+
+        if (x is IIntersectionTypeSymbol intersectionX && y is IIntersectionTypeSymbol intersectionY)
+        {
+            if (intersectionX.ConstituentTypes.Length != intersectionY.ConstituentTypes.Length)
+                return false;
+
+            var matched = new bool[intersectionY.ConstituentTypes.Length];
+            foreach (var left in intersectionX.ConstituentTypes)
+            {
+                var index = -1;
+                for (var i = 0; i < matched.Length; i++)
+                {
+                    if (!matched[i] && EqualsCore(left, intersectionY.ConstituentTypes[i], new HashSet<SymbolPair>(visited)))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+
+                if (index < 0)
+                    return false;
+                matched[index] = true;
+            }
+
+            return true;
         }
 
         // Arrays have structural identity. Imported and source-created array
@@ -401,6 +483,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
+        if (obj is IImportedAssemblySymbol { DefinitionIdentity: { } identity })
+        {
+            hash.Add(identity);
+            return hash.ToHashCode();
+        }
 
         if (obj is ITypeSymbol typeSymbol)
         {
@@ -412,6 +499,57 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is IFunctionReturnTypeSymbol projection)
+        {
+            hash.Add(GetHashCodeCore(projection.FunctionType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            return hash.ToHashCode();
+        }
+
+        if (obj is StructuralFunctionTypeSymbol function)
+        {
+            hash.Add(GetHashCodeCore(function.ReturnType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            for (var i = 0; i < function.ParameterTypes.Length; i++)
+            {
+                hash.Add(function.ParameterRefKinds[i]);
+                hash.Add(GetHashCodeCore(function.ParameterTypes[i], new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            }
+            return hash.ToHashCode();
+        }
+
+        if (obj is StructuralTupleTypeSymbol tuple)
+        {
+            hash.Add(tuple.TupleElements.Length);
+            foreach (var element in tuple.TupleElements)
+                hash.Add(GetHashCodeCore(element.Type, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            return hash.ToHashCode();
+        }
+
+        if (obj is IStructuralUnionTypeSymbol union)
+        {
+            // Each branch gets the same recursion ancestry so sibling ordering
+            // cannot change the hash through shared containing symbols.
+            var constituentHash = 0;
+            foreach (var constituent in union.ConstituentTypes)
+                constituentHash = unchecked(constituentHash + GetHashCodeCore(
+                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(union.ConstituentTypes.Length);
+            hash.Add(constituentHash);
+            return hash.ToHashCode();
+        }
+
+        if (obj is IIntersectionTypeSymbol intersection)
+        {
+            // Each branch gets the same recursion ancestry so sibling ordering
+            // cannot change the hash through shared containing symbols.
+            var constituentHash = 0;
+            foreach (var constituent in intersection.ConstituentTypes)
+                constituentHash = unchecked(constituentHash + GetHashCodeCore(
+                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(intersection.ConstituentTypes.Length);
+            hash.Add(constituentHash);
+            return hash.ToHashCode();
         }
 
         if (obj is IArrayTypeSymbol arrayType)

@@ -1,6 +1,8 @@
 (* Raven language EBNF grammar
    This grammar captures the structural form of Raven source code.
    Contextual rules and parsing details are described in the language specification.
+   Unmarked productions describe shared syntax. Target-exclusive alternatives are
+   annotated ".NET only" or "neoCLR only"; parsing does not establish target support.
    NOTE: Non-normative. Context-sensitive parsing and validation live outside this EBNF. *)
 
 CompilationUnit          ::= {ImportDirective} {AliasDirective} {TopLevelItem} EOF ;
@@ -10,6 +12,7 @@ TopLevelItem             ::= Declaration | Statement ;
    attached macro. Freestanding macros use the `Name!` envelope. *)
 
 ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require '.*'; applying '.*' to a type imports its static members and nested types *)
+(* The char predefined-type keyword is .NET only; neoCLR uses System.Character. *)
 AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, or predefined type: bool | byte | char | decimal | double | float | int | long | nint | nuint | object | sbyte | short | string | uint | ulong | unit | ushort | '()' *)
 
 (* ---------- Modifiers ---------- *)
@@ -52,7 +55,9 @@ Declaration              ::= NamespaceDeclaration
                            | InterfaceDeclaration
                            | DelegateDeclaration ;
 
-NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {TopLevelItem} '}' ;
+(* neoCLR native Self contracts use the contextual type name `Self`.
+   Lowercase `self` remains the shared instance receiver. *)
+NamespaceDeclaration     ::= ('namespace' | 'module') QualifiedName ('{' {ImportDirective} {AliasDirective} {TopLevelItem} '}' | {ImportDirective} {AliasDirective} {TopLevelItem}) ;
 
 TopLevelFunctionDeclaration
                           ::= {AttributeList | MacroAttributeList}
@@ -349,7 +354,8 @@ WhereClause              ::= 'where' Identifier ':' TypeParameterConstraintList 
 TypeParameterConstraintList
                          ::= TypeParameterConstraint {',' TypeParameterConstraint} ;
 
-TypeParameterConstraint  ::= 'class'            (* reference type constraint *)
+TypeParameterConstraint  ::= 'func'             (* neoCLR only: structural function category *)
+                           | 'class'            (* reference type constraint *)
                            | 'struct'           (* value type constraint *)
                            | 'notnull'          (* non-null constraint *)
                            | 'unmanaged'        (* unmanaged constraint *)
@@ -825,7 +831,11 @@ Literal                  ::= NumericLiteral
 
 Type                     ::= UnionType ;
 
-UnionType                ::= FunctionType {'|' FunctionType} ;
+UnionType                ::= IntersectionType {'|' IntersectionType} ;
+
+IntersectionType         ::= FunctionType {'&' FunctionType} ;
+(* A & B in generic constraints is shared syntax for ordinary conjunctive bounds.
+   Intersection types in value/signature positions are neoCLR only. *)
 
 ByRefType                ::= '&' Type ;
 PointerType              ::= '*' Type ;
@@ -963,3 +973,9 @@ BinaryDigits             ::= BinaryDigit { BinaryDigit | '_' } ;
 DecimalDigit             ::= '0'..'9' ;
 HexDigit                 ::= DecimalDigit | 'a'..'f' | 'A'..'F' ;
 BinaryDigit              ::= '0' | '1' ;
+
+(* neoCLR uses `module` declarations where .NET code uses `namespace`.
+   The shared parser recognizes both; the keyword does not select the target.
+   `module` also uses the existing file-scoped namespace declaration form.
+   Logical module paths and import directives use the same qualified-name grammar.
+   Module-private visibility and re-export syntax are not introduced. *)

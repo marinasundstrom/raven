@@ -394,6 +394,8 @@
       <Parameter Slot="ConstraintClauses" />
       <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
       <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="FunctionType" Null="true" />
+      <Default Slot="ArgumentsBinding" Null="true" />
       <Default Slot="ReturnType" Null="true" />
       <Default Slot="Body" Null="true" />
       <Default Slot="ExpressionBody" Null="true" />
@@ -409,6 +411,8 @@
       <Parameter Slot="Body" />
       <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
       <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="FunctionType" Null="true" />
+      <Default Slot="ArgumentsBinding" Null="true" />
       <Default Slot="ReturnType" Null="true" />
       <Default Slot="ExpressionBody" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
@@ -423,6 +427,8 @@
       <Parameter Slot="ExpressionBody" />
       <Default Slot="ExplicitInterfaceSpecifier" Null="true" />
       <Default Slot="TypeParameterList" Null="true" />
+      <Default Slot="FunctionType" Null="true" />
+      <Default Slot="ArgumentsBinding" Null="true" />
       <Default Slot="ReturnType" Null="true" />
       <Default Slot="Body" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />

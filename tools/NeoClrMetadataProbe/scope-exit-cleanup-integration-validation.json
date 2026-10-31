@@ -1,0 +1,88 @@
+{
+  "runtimeSha256": "980EA756A50285A5D7A5BF2873DBA36CE17E5751C8EC4A4FA71B32222C3BF003",
+  "coreSha256": "300EC80DEDFE40CA416FDEA2BF195D26E4BD628E8876C701628448AD35EDA7D4",
+  "scenarios": [
+    {
+      "Name": "Return",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_6259125EDCB987DCB1E1D5AC93E1A609D97A006E92C0107A0B1BB1FD286DCD0D: typed-stack/control-flow verification passed (650 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "Return",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    },
+    {
+      "Name": "Goto",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_F5D2F42BC37B451649E17ED67834E6CCA441272BC6C798C552F2D5638DBEAEFA: typed-stack/control-flow verification passed (650 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "Goto",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    },
+    {
+      "Name": "Loop",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_9AD628321F7E7E7D2C472679B743851BAE2FF6D9CDE59FB20B5736B8219EEBE0: typed-stack/control-flow verification passed (650 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "Loop",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    },
+    {
+      "Name": "Value",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_F99619369FCDD6F1FE7EEAC0D0FAB042C505829D6970EA5B963F921F4CCF955C: typed-stack/control-flow verification passed (650 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "Value",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    },
+    {
+      "Name": "None",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_EEFB94FC6C04D122F5CF5FF0421D012C9B183176BA4EAA2CCCD1D933F7443ACD: typed-stack/control-flow verification passed (655 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "None",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    },
+    {
+      "Name": "Error",
+      "command": "verify",
+      "exitCode": 0,
+      "output": "NeoMetadata_907F86812574F074919D0CDF87D911320464C9C2CDC229BFF8DD43106F788D3D: typed-stack/control-flow verification passed (656 IL functions; maximum stack 6; runtime value checks remain)\n"
+    },
+    {
+      "Name": "Error",
+      "command": "run",
+      "exitCode": 42,
+      "output": ""
+    }
+  ],
+  "integration": {
+    "branch": "codex/source-object-metadata-resolution",
+    "parents": [
+      "7221a99ea",
+      "13b52ca56"
+    ],
+    "neoclrRevision": "db5b74f4",
+    "baselineTests": 54,
+    "postMergeTests": 92
+  }
+}

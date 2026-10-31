@@ -1,0 +1,41 @@
+{
+  "bindingProfile": "CompilationOptions.NeoCLR; projected CLI declarations; no host core",
+  "coreSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "librarySha256": "962D456036D98180F121C2DBCC5279A4DDE6FB4AE1AE95A48EF1749FEB21C407",
+  "applicationSha256": "FC374D6E5C74EC89FBA7EF7357F11503BDABA82EC96E3EDBE565D69E170F4BB6",
+  "verified": true,
+  "result": 42,
+  "coverage": [
+    "separate Raven library and application",
+    "external generic signatures with consumer-owned arguments",
+    "method generic forwarding",
+    "discarded nominal result",
+    "external interface arrays",
+    "imported nominal/generic method signatures",
+    "constructed factory/read with consumer-owned payload alias",
+    "unregistered dependency rejection",
+    "missing type rejection",
+    "nominal overload matching",
+    "missing method rejection"
+  ],
+  "scope": "public top-level unconstrained reference signatures; imported constructors/instance members, value types and translated System identity mapping remain unsupported",
+  "testedBranches": {
+    "raven": "codex/metadata-consumer",
+    "neoclr": "codex/extended-cli-metadata"
+  },
+  "sourceBaseRevisions": {
+    "raven": "fa7beb4b3",
+    "neoclr": "82f6c801"
+  },
+  "sourceState": "plus nominal-method import changes committed with this evidence",
+  "metadataTests": "74/74 C# contract groups",
+  "genericLibraryRegression": "verify 0; run 42",
+  "collectionsGate": "PendingOrder Option<Order> remains unsupported; CLI control succeeds",
+  "sourceSha256": {
+    "Raven/src/Raven.CodeAnalysis.NeoClr/Int32Emitter.cs": "0c92d1c4148fe532d5409af1ea699bd1411f5f3ef846c75770af5cc85f51e16f",
+    "Raven/tools/NeoClrMetadataProbe/ExternalSignatureChecks.cs": "6a64ecb23a4ee2e834796f1a831c6858afb9a92e53084b1e68c4c6e7519fb1cb",
+    "neoclr/ImportedSignatureDecoder.cs": "efdf7f2431be12746b37e6a3e57a8979cd228cc21a9361fc8bda8826adc6b76e"
+  },
+  "apiSnapshotCheck": "passed"
+}
