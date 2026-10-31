@@ -208,3 +208,28 @@ Validation on 2026-10-31, SDK `11.0.100-rc.1.26425.128`, macOS ARM64:
 This qualifies focused modern .NET behavior and the native source-core interpreter
 control, not .NET Framework/NanoFramework, native JIT/AOT or a bootstrap release.
 The metadata library and runtime behavior were not changed by this refactoring.
+
+## Integration into main — 2026-10-31
+
+Integrated main's `813dad20c` borrowed nominal constrained-call change before
+merging the three refactoring slices and port-first bootstrap documentation.
+Merge checkpoint `713db0b2a` preserved the lowering implementation unchanged;
+only concurrent changelog additions required conflict resolution.
+
+The combined compiler builds for net10.0 and net11.0. The union of the focused
+composition, array-range and capability/special-type suites documented above
+passed **443 tests**, with no failures/skips on net11.0. This includes current
+main's function inspection and portable-body regressions. Test/probe compiler
+hashes matched the respective rebuilt compiler binaries.
+
+The native adapter and updated source-core probe passed using an isolated metadata
+checkout at neoCLR `7de5ada65`. On the frozen interpreter recorded above,
+`Consumer` and `NominalConstrainedCalls` each exited **42**; uninitialized-read and
+negative-length controls each exited **1**, as expected. The new nominal dispatch
+control covers method/declaring-type parameters, value/reference receivers and
+virtual dispatch. This supersedes the older nominal-dispatch gap recorded during
+consolidation; the inherited-Self conformance-owner limitation remains explicitly
+checked by the updated probe. No native runtime source was changed.
+
+SDK: `11.0.100-rc.1.26425.128`, macOS ARM64. Validation is focused integration
+coverage, not a full release/bootstrap gate or native JIT/AOT qualification.
