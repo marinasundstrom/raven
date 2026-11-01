@@ -4698,3 +4698,19 @@ Focused .NET runtime tests cover immediate loop-variable captures, reads across
 yield, parameter captures and callback mutations. This does not establish native
 neoCLR closure execution or parity for all iterator/callback lifetime combinations.
 The compiler components are still C#; retain this correction when porting them.
+
+
+## Generator interop inference
+
+Conditional inference accepts an abstract common base class when both branches
+convert to it. Generic callback binding repeats ordinary-argument pre-inference
+when callback shape filtering leaves one candidate; it does not merge unrelated
+overload substitutions. Both corrections belong to shared binding.
+
+Collection-builder binding retains its existing expanded factory candidates,
+then considers a single `ReadOnlySpan<T>` parameter without requiring `params`.
+Every element must convert to the target collection element type before packing
+the span. Emission uses the existing bound collection/span path. No Runtime
+Contract defaults, target selection, public semantic API or metadata encoding
+changes. The compiler source is still C# in these areas; preserve the fixes when
+porting it. Focused runtime validation covers modern .NET, not native neoCLR.

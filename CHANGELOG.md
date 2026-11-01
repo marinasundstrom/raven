@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Infer abstract common base classes for conditional branches, supply collection
+  elements as one argument to non-params `ReadOnlySpan<T>` builder factories, and
+  infer callback inputs from ordinary arguments after overload shape filtering.
+  These fixes were exposed by the Raven green-node-generator translation.
+
 - Preserve captured local storage across synchronous iterator resumptions in CLI
   output. Keep nested callable bodies independent of iterator lowering, avoiding
   missing-local emission failures when iterator callbacks capture loop variables.

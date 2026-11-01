@@ -1083,3 +1083,30 @@ library reports 26 warnings, including explicit nullable suppression and ignored
 builder return values; this is not a warning-free build. No native neoCLR runtime
 validation or RavenDoc/website generation was performed. Next dependency slice:
 the green-node emitter, then red nodes and factories.
+
+### PORT-037: Green-node generator inference gaps
+
+The green-node translation exposed three binder defects through Roslyn metadata:
+conditional branches found an abstract common base and then rejected it; a
+collection-builder factory with a non-params ReadOnlySpan parameter received
+individual arguments instead of one span; and callback shape filtering did not
+repeat ordinary-argument pre-inference after leaving one generic overload.
+Four reduced interop cases failed before these corrections; the adjacent
+conditional baseline passed 13 tests. The corrected focused selection passes
+**25 tests**, including source-defined abstract base inference, empty/single/multi
+span-builder execution, incompatible-element rejection and existing immutable
+collection-builder coverage.
+
+These are shared binder corrections, with framework interop validated on modern
+.NET. They do not add native span/runtime capabilities or change .NET as the
+default. The owning compiler components are still C# and must retain the fixes
+when ported. Language-reference sources used by the website and runtime/bridge
+documentation were updated without running RavenDoc or website generation.
+
+The generator migration has two stages: first compile the translated Raven
+implementation and establish output parity; then add full Raven syntax-node,
+factory, visitor and rewriter output while retaining C# output for bootstrapping.
+Existing Raven syntax-kind/fact generation is not full syntax-tree generation.
+
+The broader overload-resolution feature suite also passes **421 tests** after
+these fixes. This validation is separate from generator output parity.

@@ -26,6 +26,12 @@ when both accept `() -> Task<int>`. Specificity is compared across both input
 and result types; conflicting preferences remain ambiguous. Explicit type
 arguments still constrain selection.
 
+When callback shape filtering leaves one generic overload, Raven infers callback
+input types from the ordinary arguments before binding the callback body. For
+example, `numbers.Zip(words, (number, word) => word.Length + number)` infers the
+second parameter from `words`, even though `Zip` also offers overloads without a
+result selector.
+
 ## Optional arguments
 
 When the target has optional parameters, omitted trailing arguments are filled

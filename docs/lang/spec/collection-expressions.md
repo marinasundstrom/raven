@@ -71,6 +71,20 @@ let queue: Queue<int> = [1, 2, 3]
 let list: List<int> = [1, 2, 3]
 ```
 
+## Collection-builder factories
+
+A target collection type marked with the framework `CollectionBuilderAttribute`
+can supply a static factory accepting `ReadOnlySpan<T>`. Raven converts the
+literal elements to `T` and supplies one span argument; the factory parameter
+does not need a `params` annotation. Empty literals supply an empty span.
+Incompatible element types remain errors. This also applies when a method's
+parameter supplies the collection target type.
+
+This framework interop path is validated on .NET. Other targets require the
+corresponding metadata, collection and span contracts; the annotation alone does
+not establish runtime support. Spread support has its own binding paths and is
+not implied by support for a span factory.
+
 ## Spreading existing collections
 
 Prefix an element with `...` to enumerate another collection and insert all of

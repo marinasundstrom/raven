@@ -706,6 +706,13 @@ partial class BlockBinder
             if (lambdaMethods.IsDefaultOrEmpty)
                 return;
 
+            // Lambda shape filtering can leave one generic overload even when
+            // the original method group was ambiguous (for example Zip's tuple
+            // and result-selector overloads). Infer its inputs from the ordinary
+            // arguments before binding the lambda body.
+            var lambdaSubstitutions = lambdaMethods.Length == 1
+                ? TryPreInferTypeArguments(lambdaMethods, arguments, receiver, pipeReceiverType, explicitTypeArguments)
+                : preInferredSubstitutions;
             RecordLambdaTargets(
                 expression,
                 lambdaMethods,
@@ -713,7 +720,7 @@ partial class BlockBinder
                 extensionReceiverImplicit,
                 receiverTypeForLambda,
                 pipeReceiverImplicit,
-                preInferredSubstitutions);
+                lambdaSubstitutions);
         }
 
         static ImmutableArray<ITypeParameterSymbol> CollectDistinctMethodTypeParameters(ImmutableArray<IMethodSymbol> candidates)

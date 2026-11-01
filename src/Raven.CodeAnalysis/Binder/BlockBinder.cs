@@ -6918,7 +6918,7 @@ partial class BlockBinder : Binder
                 return true;
 
             if (type is INamedTypeSymbol named &&
-                (named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter || named.IsAbstract))
+                named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
             {
                 return true;
             }
@@ -15249,6 +15249,32 @@ partial class BlockBinder : Binder
         var method = resolution.Success
             ? resolution.Method!
             : SelectCollectionBuilderMethodFallback(accessibleCandidates, arguments, namedTarget);
+        if (method is null && TryGetCollectionBuilderElementType(namedTarget, out var elementType) &&
+            arguments.All(argument => argument.Type is not null && IsAssignable(elementType, argument.Type, out _)))
+        {
+            // CollectionBuilder factories accept one ReadOnlySpan<T>, which need
+            // not be a params parameter. Package the elements as that one argument
+            // instead of treating each element as a separate method argument.
+            var spanCandidates = accessibleCandidates.Where(candidate =>
+                candidate.Parameters.Length == 1 &&
+                candidate.Parameters[0].Type is INamedTypeSymbol { Name: "ReadOnlySpan" } &&
+                TryGetSpanElementType(candidate.Parameters[0].Type, out var spanElement) &&
+                SymbolEqualityComparer.Default.Equals(spanElement, elementType)).ToImmutableArray();
+            if (!spanCandidates.IsDefaultOrEmpty)
+            {
+                var spanType = spanCandidates[0].Parameters[0].Type;
+                var span = new BoundCollectionExpression(spanType,
+                    arguments.Select(argument => argument.Expression).ToImmutableArray());
+                var spanArguments = new[] { new BoundArgument(span, RefKind.None, null, syntax) };
+                var spanResolution = OverloadResolver.ResolveOverload(spanCandidates, spanArguments,
+                    Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+                if (spanResolution.Success)
+                {
+                    method = spanResolution.Method!;
+                    arguments = spanArguments;
+                }
+            }
+        }
         if (method is null)
             return false;
 

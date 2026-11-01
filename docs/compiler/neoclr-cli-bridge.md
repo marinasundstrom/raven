@@ -18310,3 +18310,16 @@ capability restrictions; this change does not prove native iterator-capture
 support. Native closure environments and state-machine storage integration must
 replace the CLI display-class mechanism. Validation here is .NET-only: loop and
 parameter capture, reads across suspension, and mutation through a callback.
+
+
+### Generator-port binding corrections
+
+Abstract conditional result types and callback input pre-inference after overload
+shape filtering are shared semantic corrections, not CLI bridge rules. A
+collection-builder factory taking `ReadOnlySpan<T>` now receives one packed span
+argument through existing bound collection construction. The CLI path uses its
+current span representation; no new native metadata or span capability is added.
+Native target implementations must retain their own collection/span capability
+checks and use native collection storage when those APIs are available. Validation
+for these corrections uses .NET metadata and execution; it does not establish
+native collection-builder support or change the default target.

@@ -61,8 +61,9 @@ let j = 0       // j : int
 
 Control-flow expressions participate in the same inference. An `if` expression
 whose branches produce different types finds the nearest compatible type for
-those results. Literal branches use or widen from their primitive types as
-needed.
+those results. A shared base class may be abstract: the expression returns an
+existing derived instance rather than constructing the base class. Literal
+branches use or widen from their primitive types as needed.
 
 ### Branch type inference
 

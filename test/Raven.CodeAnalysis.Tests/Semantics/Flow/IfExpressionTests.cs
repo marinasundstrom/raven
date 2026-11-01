@@ -10,6 +10,28 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class IfExpressionTests : DiagnosticTestBase
 {
     [Fact]
+    [Trait("Target", "Shared")]
+    public void SiblingBranchesInferTheirAbstractBaseClass()
+    {
+        var tree = SyntaxTree.ParseText("""
+            abstract class Node { }
+            class Left : Node { }
+            class Right : Node { }
+            class Probe {
+                static func Pick(flag: bool) -> object {
+                    let value = if flag { Left() } else { Right() }
+                    return value
+                }
+            }
+            """);
+        var compilation = Compilation.Create("AbstractBranchBase", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var expression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
+        Assert.Equal("Node", compilation.GetSemanticModel(tree).GetTypeInfo(expression).Type!.Name);
+    }
+
+    [Fact]
     public void IfExpression_WithElse_BindsToBoundIfExpression()
     {
         const string source = """
