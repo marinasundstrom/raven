@@ -4774,3 +4774,19 @@ GreenNode.GetSlot now explicitly returns GreenNode?, its generic constraint perm
 nullable nodes, and raw slot/With arrays explicitly permit null children in both
 source-output implementations and the C# runtime. These annotations describe
 existing absent-child behavior; they do not change runtime array layout or equality.
+
+
+### Reused expression-property accessors
+
+Expression-bodied property rebinding retains the canonical getter symbol and
+refreshes its static, virtual, override, sealed and abstract flags from the resolved
+declaration, matching block-bodied accessor binding. Previously an early lookup
+could create a nonvirtual getter that later acquired an overridden-method link but
+kept stale flags. CLI emission then produced a nonvirtual accessor and loading a
+concrete derived type failed because its abstract property remained unimplemented.
+
+The fix belongs to shared property binding. It changes no public semantic API,
+target default or runtime encoding; native lowering also consumes the corrected
+source flags. The binder has not yet been ported to Raven. Shared C# tests exercise
+both generator implementations, preserving getter identity across early semantic
+queries, checking symbol shape and executing the generated hierarchy on .NET.

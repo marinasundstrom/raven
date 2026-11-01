@@ -1314,3 +1314,33 @@ override binding under .NET and neoCLR selection with host references. These
 semantic-only fixtures do not establish native core admission or native execution.
 Compiler stabilization is committed separately as `5c9de9d5c`; this output slice
 retains the C# driver and leaves production runtime/red/visitor output next.
+
+
+### PORT-045: Stabilize reused expression-property override getters
+
+The fresh pre-visitor baseline exposed an intermittent runtime failure in PORT-044:
+the C# generator suite failed to load SampleSyntax because get_Keyword did not
+implement the inherited abstract getter, while the Raven suite initially passed.
+Repeated isolated runs reproduced the failure, and both suites were subsequently
+observed failing. Inspection showed a nonvirtual emitted getter despite an
+`override` property declaration. Temporary assembly/source capture was removed
+before committing; no emitted-instruction assertions were added.
+
+Expression-bodied property binding reused its canonical getter without refreshing
+modifiers, unlike block-bodied accessor binding. It now refreshes static and
+virtual/override/sealed/abstract flags while retaining identity. The shared generated
+hierarchy test now covers diagnostics-first and derived-property-query-first orders,
+asserts getter identity and virtual/override symbol shape, then executes the tree.
+This is a shared C# binder correction to retain when that component is translated.
+The generator source and generated Raven algorithms remain unchanged.
+
+Validation: targeted compiler build passes; **51 C# / 59 Raven generator tests** and
+**49 adjacent property/override compiler tests** pass on .NET 11. The prior broader
+baseline's delegate-accessibility failure remains separately recorded; this scoped
+fix does not claim a clean full baseline or native neoCLR execution. Visitor output
+remains the next generator dependency; this runtime gap was fixed before extending
+it. No RavenDoc or website generation was invoked for this slice.
+
+The two generated-hierarchy query-order cases also pass in three fresh test-host
+runs per implementation (12 case executions across six processes), addressing the
+intermittent failure observed before the fix.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Refresh virtual/override flags when rebinding a reused expression-bodied
+  property getter. Generated hierarchies no longer intermittently fail to load
+  because an abstract property override was emitted as a nonvirtual method.
+
 - Begin Raven green-node and factory source output in both generator implementations,
   with shared C# tests compiling and executing a generated hierarchy. Preserve C#
   output and explicitly annotate nullable green slots in both output paths.

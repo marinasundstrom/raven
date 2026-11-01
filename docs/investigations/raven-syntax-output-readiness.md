@@ -38,6 +38,12 @@ slots. Both generators and the C# runtime now explicitly annotate raw slots as
 GreenNode?[] and GetSlot as nullable. This preserves existing behavior instead of
 weakening Raven's nullable-to-nonnullable conversion rule.
 
+A subsequent fresh baseline exposed stale flags on reused expression-bodied
+property getters. Binding now refreshes resolved modifiers while retaining the
+canonical accessor identity. The runtime fixture covers diagnostics-first and
+derived-property-query-first orders and checks override/virtual symbol shape before
+emission; PORT-045 records the regression and validation.
+
 ## Target and integration boundaries
 
 Covariant return emission currently requires target metadata containing

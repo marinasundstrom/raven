@@ -18376,3 +18376,13 @@ also check generic/covariant override binding under both .NET and neoCLR target
 selection with host reference symbols; those are not full native compilations. Nullable slot annotations
 preserve existing CLI reference arrays and absent children; native nullable-reference
 storage remains target-owned. No native neoCLR runtime was executed for this slice.
+
+
+### Expression-property override flags after rebinding
+
+Shared property binding now refreshes modifiers on a reused expression-bodied
+getter rather than retaining preliminary nonvirtual flags. This preserves the
+canonical symbol while allowing both CLI and native consumers to identify the
+resolved override. No bridge encoding or native capability is added. CLI runtime
+validation loads and executes generated derived classes; native execution is not
+claimed. Native accessor/override metadata remains the target-owned representation.

@@ -894,6 +894,11 @@ internal partial class TypeMemberBinder : Binder
                 isAbstract: isAbstract,
                 declaredAccessibility: accessorAccessibility);
 
+            // A reused expression getter retains its identity, but declaration
+            // rebinding must also refresh the resolved override/virtual flags.
+            methodSymbol.SetIsStatic(isStatic || isExtensionContainer);
+            methodSymbol.UpdateModifiers(accessorVirtual, accessorOverride, accessorSealed, isAbstract);
+
             if (isExtensionMember)
                 methodSymbol.MarkDeclaredInExtension();
 
