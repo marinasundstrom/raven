@@ -536,13 +536,12 @@ internal static class AssemblyReferenceNormalizer
         {
             var definition = GetInnermostTypeReference(type);
             if (definition.Scope is not AssemblyNameReference currentScope ||
-                currentScope.Name is not ("System.Private.CoreLib" or "System.Runtime") ||
-                !ShouldKeepCoreLibScope(definition.FullName, definition.Namespace ?? string.Empty))
+                currentScope.Name is not ("System.Private.CoreLib" or "System.Runtime"))
                 continue;
 
-            // Collections do not all live in one facade: List<T> is declared in
-            // System.Collections, while IEnumerable<T> is in System.Runtime.
-            // Use the selected semantic declaration, not a namespace-wide guess.
+            // Host core-library types may be declared in different target facades,
+            // including MemoryExtensions and LazyInitializer as well as collections.
+            // Use every available selected declaration, not a namespace whitelist.
             var target = resolveTargetTypeScope(definition.FullName.Replace('/', '+'));
             if (target is null || target.FullName == currentScope.FullName)
                 continue;

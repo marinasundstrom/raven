@@ -1217,3 +1217,16 @@ constructor, not an unconditional host type. If that attribute is absent from th
 selected runtime, synthesis is unavailable; this does not define native metadata.
 C# consumer compilation and reflected default-member discovery cover .NET classes
 and structs, alongside the existing indexer and interface-member regressions.
+
+
+### Framework facade declarations
+
+Final .NET normalization consults the selected framework declaration for every
+core-library type reference currently scoped to `System.Private.CoreLib` or
+`System.Runtime`, not only collections. For example, .NET 11 declares
+`MemoryExtensions` in `System.Memory` and `LazyInitializer` in `System.Threading`.
+Writing their scopes as `System.Runtime` produces runtime type-load failures even
+when binding succeeds. The existing fallback remains when a selected declaration
+cannot be resolved; the explicit target-core retargeting path is unchanged.
+Regression coverage checks metadata scope and executes calls with framework
+reference assemblies, alongside span, generic-call and normalizer tests.

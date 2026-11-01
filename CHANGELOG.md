@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve normalized core-library type scopes from all available selected
+  framework declarations, including `MemoryExtensions` and `LazyInitializer`.
+  This fixes `TypeLoadException` in Raven snapshot edits, writes and lazy lines
+  when executing against .NET reference-assembly builds.
+
 - Emit `DefaultMemberAttribute` for ordinary instance indexers so C# consumers
   can use `[]` on Raven classes and structs. Preserve explicitly authored metadata
   and exclude extension and explicit-interface-only indexers from synthesis.

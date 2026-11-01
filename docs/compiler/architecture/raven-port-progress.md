@@ -94,6 +94,7 @@ as described in the bootstrap procedure.
 | PORT-006 | The faithful snapshot reader uses string range access, which was unsupported. | Shared slicing semantics with target-owned runtime mapping | .NET selects length, range offset/length validation and substring members through an explicit contract. Tests cover stored/direct bounds, inclusivity, from-end offsets, evaluation order, invalid bounds and UTF-16 units. | Implemented in the C# compiler; carry this into the later binder/target-contract port. Native slicing remains a gap. |
 | PORT-007 | An unparenthesized open-ended stored range can consume a following `return` across a newline. | Parser boundary handling; requires reduced syntax regression and clarification against continuation rules | Parenthesized stored ranges are covered by slicing tests; this does not resolve the unparenthesized parser gap. | Open follow-up. |
 | PORT-008 | The snapshot port compiled, but C# `SourceText[index]` failed with CS0021 because emitted indexers lacked default-member metadata. | CLI type metadata emission | Synthesize the ordinary instance indexer's `DefaultMemberAttribute` from the selected compilation's runtime declaration. Two reduced C# consumer cases failed before the fix. | C# backend fixed; carry this into the later emission port. |
+| PORT-009 | Snapshot tests compile but edits/writes and lazy lines throw `TypeLoadException` for `MemoryExtensions` and `LazyInitializer` incorrectly scoped to `System.Runtime`. | .NET final assembly normalization | Consult selected framework declarations for all normalized core-library types, extending PORT-003 beyond its collection whitelist. Both reduced metadata/runtime cases failed before the fix. | C# backend correction; carry it into the emission port. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -231,3 +232,13 @@ The adjacent indexer/interface-member baseline passed 57 tests. Reduced class an
 struct C# consumers then reproduced CS0021. After adding default-member metadata,
 all 59 focused tests pass, including C# compilation and reflection checks. The
 shared snapshot tests remain the end-to-end consumer workload for this correction.
+
+
+## Framework scope checkpoint — 2026-11-01
+
+Two new facade tests failed on emitted assembly scopes while the 11 adjacent
+normalizer/collection tests passed. After extending selected-declaration lookup,
+28 scope, normalizer, collection, span and generic-invocation tests pass. The
+shared snapshot suite now passes 59 tests per implementation on .NET 11, including
+edits, cancellation-aware writes and lazy line materialization. This verifies the
+runtime failures from PORT-009 are resolved for the port workload.
