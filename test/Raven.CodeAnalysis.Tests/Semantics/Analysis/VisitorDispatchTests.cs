@@ -158,6 +158,66 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         Assert.True(rewriter.TokenCount > 0);
     }
 
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void GreenSyntaxRewriter_UnchangedTreeRetainsIdentity()
+    {
+        var tree = SyntaxTree.ParseText("let value = 42");
+        var root = Assert.IsAssignableFrom<GreenSyntaxNode>(tree.GetRoot().Green);
+        Assert.Same(root, new RecordingGreenSyntaxRewriter().Visit(root));
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void GreenSyntaxRewriter_ListUsesConcreteTokenHookAndRetainsIdentity()
+    {
+        var token = new GreenSyntaxToken(SyntaxKind.IdentifierToken, "value");
+        var list = new Syntax.InternalSyntax.SyntaxList([token]);
+        var rewriter = new RecordingGreenSyntaxRewriter();
+        var result = rewriter.VisitList(list);
+        Assert.Equal(1, rewriter.TokenCount);
+        Assert.Same(list, result);
+        Assert.Same(token, result![0]);
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void GreenSyntaxRewriter_ListReplacementAndRemovalRetainAnnotationsAndOrder()
+    {
+        var tree = SyntaxTree.ParseText("let value = 42");
+        var literal = tree.GetRoot().DescendantNodes().OfType<LiteralExpressionSyntax>().Single().Green;
+        var token = new GreenSyntaxToken(SyntaxKind.IdentifierToken, "value");
+        var annotation = new SyntaxAnnotation("rewrite");
+        var diagnostic = Syntax.InternalSyntax.DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, new TextSpan(0, 0));
+        var list = new Syntax.InternalSyntax.SyntaxList([token, literal, token], diagnostics: [diagnostic], annotations: [annotation]);
+        var replacement = new GreenSyntaxToken(SyntaxKind.IdentifierToken, "updated");
+        var rewritten = new ReplacingGreenSyntaxRewriter(replacement).VisitList(list)!;
+        Assert.NotSame(list, rewritten);
+        Assert.Equal(2, rewritten.SlotCount);
+        Assert.Same(replacement, rewritten[0]);
+        Assert.Same(replacement, rewritten[1]);
+        Assert.Same(annotation, Assert.Single(rewritten.GetAnnotations(["rewrite"])));
+        Assert.Same(diagnostic, Assert.Single(rewritten.GetDiagnostics()));
+        Assert.Equal(3, list.SlotCount);
+        Assert.Same(token, list[0]);
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void GreenSyntaxRewriter_UnchangedTriviaAndNestedListRetainIdentity()
+    {
+        var trivia = new Syntax.InternalSyntax.SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ");
+        var inner = new Syntax.InternalSyntax.SyntaxList([trivia]);
+        var outer = new Syntax.InternalSyntax.SyntaxList([inner]);
+        Assert.Same(outer, new RecordingGreenSyntaxRewriter().VisitList(outer));
+    }
+
+    private sealed class ReplacingGreenSyntaxRewriter(GreenSyntaxToken replacement) : GreenSyntaxRewriter
+    {
+        public override GreenSyntaxToken VisitToken(GreenSyntaxToken token) => replacement;
+        public override GreenSyntaxNode? VisitLiteralExpression(Syntax.InternalSyntax.LiteralExpressionSyntax node) => null;
+    }
+
     private sealed class RecordingBoundVisitor : BoundTreeVisitor
     {
         public bool SawLiteralExpression { get; private set; }

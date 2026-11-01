@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve unchanged green syntax lists and dispatch their tokens/trivia through
+  concrete rewrite hooks. Changed lists retain annotations and diagnostics, remove
+  deleted nodes, and preserve item order.
+
 - Emit generic and non-generic Raven syntax visitor partial classes from both
   generator implementations, preserving transitive node dispatch and default
   visitor callbacks. C# output remains available.

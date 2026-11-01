@@ -1405,3 +1405,26 @@ batch and remains in progress; this slice does not claim a green full baseline.
 No RavenDoc/site generation was explicitly invoked. The required build/baseline
 project graph still emits intermediate Raven.Core documentation from its project
 settings despite the existing suppression wrapper.
+
+
+### PORT-049: Preserve green rewriter list behavior
+
+Reviewing the authored runtime for Raven rewriter output found two production
+C# defects: list tokens used the generic result-visitor hook rather than the
+concrete token hook, and every list rewrite allocated a new list. Focused tests
+reproduced both (**10 passed / 2 failed** before the correction).
+
+List rewriting now dispatches nodes, tokens, trivia and nested lists through their
+appropriate hooks, allocates only after a replacement/removal, omits removed nodes,
+and preserves list diagnostics/annotations and order. Default trivia rewriting
+preserves the trivia. Tests cover unchanged tree identity, token-list hook dispatch,
+replacement/removal, metadata retention and nested-list/trivia identity. The
+production authored runtime has not yet been translated; retain these corrections
+when porting it. The generated Raven runtime-contract fixture exercises the same
+identity, replacement and removal principles. These are shared syntax semantics,
+not target runtime changes; .NET defaults remain unchanged.
+
+Validation: the focused runtime tests pass (**14 tests**); the combined visitor,
+syntax-list, annotation and green-diagnostic suite passes **27 tests** on .NET 11.
+The targeted compiler build passes. The broader baseline remains in progress;
+these results do not establish a fully bootstrapped compiler or native execution.

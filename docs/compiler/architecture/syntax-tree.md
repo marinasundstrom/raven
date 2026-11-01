@@ -281,3 +281,19 @@ namespace Raven.CodeAnalysis.Syntax
     }
 }
 ```
+
+
+### Green rewriter list contract
+
+The internal green rewriter dispatches syntax nodes through `Visit`, tokens through
+its concrete `VisitToken`, trivia through `VisitTrivia`, and nested lists through
+`VisitList`. Tokens and trivia are siblings of SyntaxNode, so the generic
+SyntaxVisitor<SyntaxNode?> token hook cannot carry their rewritten result.
+
+A list is reused when every element is unchanged. On the first replacement or
+removal, the rewriter copies the preceding elements, retains subsequent non-null
+results in order, and constructs the replacement with the original list's
+annotations and diagnostics. The default trivia hook preserves the trivia.
+Generated node Update methods can consequently preserve whole-tree identity for
+an unchanged rewrite. These are target-independent compiler syntax semantics;
+.NET remains the default and no native-runtime execution is implied.
