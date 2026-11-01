@@ -28,6 +28,20 @@ Each tree retains its original `SourceText`. Calls to `GetText` and
 `TryGetText` either return the parsed text or lazily reconstruct it from the
 current root when the source was produced from a red tree.【F:src/Raven.CodeAnalysis/Syntax/SyntaxTree.cs†L8-L104】
 
+## Separated syntax lists
+
+`SeparatedSyntaxList<TNode>.Count` counts nodes. `GetWithSeparators()` enumerates
+all alternating node and separator slots; it may end with a trailing separator.
+`SeparatorCount` includes that trailing separator, and `GetSeparator(index)`
+accepts its index. Negative indices and indices beyond the stored separator slots
+throw `IndexOutOfRangeException`, including index zero on an empty/default list.
+
+`IsSoundSeparatedList(expectedSeparatorKind)` validates the complete slot
+sequence: every even slot must contain a `TNode`, and every odd slot must contain
+a token of the requested kind. Empty lists and trailing separators are valid
+representations. This structural check does not imply that every language grammar
+production permits a trailing separator.
+
 ## Navigating nodes and tokens
 
 Red `SyntaxNode` and `SyntaxToken` instances expose parents, spans, and helpers

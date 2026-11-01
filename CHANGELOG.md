@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Validate all node/separator slots in `IsSoundSeparatedList`, accepting valid
+  multi-node lists and trailing separators. `GetSeparator` now retrieves trailing
+  separators while retaining bounds checks for empty lists and invalid indices.
+
 - Port encoded-string literal payloads to Raven and give both compiler codebases
   record value semantics: text, encoding and interpolation state determine equality
   and hashing, including equality of tokens holding independently created payloads.

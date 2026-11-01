@@ -2,35 +2,26 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class SyntaxListHelpers
 {
-
     public static bool IsSoundSeparatedList<TNode>(this SeparatedSyntaxList<TNode> list, SyntaxKind expectedSeparatorKind)
         where TNode : SyntaxNode
     {
-        var items = list.GetWithSeparators().ToArray();
-
-        for (int i = 0; i < list.Count; i++)
+        var expectNode = true;
+        foreach (var item in list.GetWithSeparators())
         {
-            var item = items[i];
-
-            if (i % 2 == 0)
+            if (expectNode)
             {
-                // Expect node
                 if (item.IsToken || item.AsNode() is not TNode)
                     return false;
             }
-            else
+            else if (!item.IsToken || item.AsToken().Kind != expectedSeparatorKind)
             {
-                // Expect separator
-                if (!item.IsToken || item.AsToken().Kind != expectedSeparatorKind)
-                    return false;
+                return false;
             }
+
+            expectNode = !expectNode;
         }
 
-        int nodeCount = (list.Count + 1) / 2;
-        int separatorCount = list.Count / 2;
-
-        return list.SeparatorCount == separatorCount &&
-               list.GetWithSeparators().Count() == list.Count &&
-               list.Count == nodeCount;
+        // Empty lists and a trailing separator are both valid representations.
+        return true;
     }
 }

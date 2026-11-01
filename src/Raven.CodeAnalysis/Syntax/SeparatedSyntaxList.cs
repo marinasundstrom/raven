@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -77,7 +77,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     public SyntaxToken GetSeparator(int index)
     {
-        if (index < 0 || index >= Count - 1)
+        if (index < 0 || index >= (Green?.SlotCount ?? 0) / 2)
             throw new IndexOutOfRangeException($"Invalid separator index: {index}");
 
         var separator = Green![index * 2 + 1] as InternalSyntax.SyntaxToken;

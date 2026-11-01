@@ -1700,3 +1700,28 @@ build exited without diagnostics; its process was confirmed terminal, the record
 compiled independently, and a retry using an immutable copy of the rebuilt seed
 passed with 403 existing warnings and zero errors. No native neoCLR execution,
 RavenDoc/site generation or clean full-baseline claim is made.
+
+## PORT-058 — stabilize separated-list runtime contracts
+
+The dependency review found two local defects before translating the list
+runtime. `IsSoundSeparatedList` used node count as total slot count, rejecting
+valid multi-node and trailing-separator lists. It now checks the complete
+alternating sequence once without allocating a temporary array or enumerating
+again. `GetSeparator` bounded indices by node count minus one, rejecting a stored
+trailing separator; it now bounds against half the underlying slot count,
+retaining constant-time checks and rejecting negative/out-of-range indices.
+
+The list representation already supports trailing separators; this does not
+change the language grammar's permission for them. Focused tests cover empty and
+default lists, one/multiple nodes, trailing separators, invalid initial tokens,
+adjacent nodes/tokens, wrong separator kinds at the end and wrong node types.
+Accessor tests cover retrieval and invalid indices. The API docs explain the
+node-count/slot-count distinction and trailing-separator behavior.
+
+Validation on .NET 11: the adjacent baseline passed **9 tests**; the new soundness
+cases reproduced **4 failures**, and the accessor cases reproduced **2 failures**.
+After both fixes, **18 focused/adjacent tests pass**. The targeted core build,
+whitespace formatting and diff checks pass. This is shared compiler syntax
+behavior, not target policy; native neoCLR was not executed. Neither list helper
+nor separated-list runtime is translated yet: their Raven ports must carry these
+corrections and reuse the new C# tests. No RavenDoc/site generation was run.
