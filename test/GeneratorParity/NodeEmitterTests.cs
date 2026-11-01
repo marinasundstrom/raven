@@ -91,7 +91,9 @@ internal static class NodeEmitterInputs
                 Name = (string)s.Attribute("Name")!,
                 Type = (string)s.Attribute("Type")!,
                 ElementType = (string?)s.Attribute("ElementType"),
-                IsNullable = (bool?)s.Attribute("IsNullable") ?? false
+                IsNullable = (bool?)s.Attribute("IsNullable") ?? false,
+                IsInherited = (bool?)s.Attribute("IsInherited") ?? false,
+                IsAbstract = (bool?)s.Attribute("IsAbstract") ?? false
             }).ToList()
         }).ToList();
     internal static List<NodeKindModel> Kinds() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml"))

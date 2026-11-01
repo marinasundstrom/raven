@@ -28,5 +28,9 @@ Visitors and rewriters also have Raven translations, retaining Roslyn as their
 C# syntax-building dependency. Coverage checks transitive dispatch ordering,
 empty hierarchies, explicit kinds and green/red slot traversal, and compares all
 three visitor/rewriter outputs against C# using the full repository node model.
-Green/red node classes, model loading and command-line orchestration remain in C#
+Green-node classes and factories are also translated. Shared tests inspect
+constructors, slot order, abstract/inherited properties, update behavior shape and
+nullable factory overloads. Cross-implementation coverage compares node and
+factory source for all 256 models (including 26 abstract nodes).
+Red-node generation, model loading and command-line orchestration remain in C#
 for now.

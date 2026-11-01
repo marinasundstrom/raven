@@ -1110,3 +1110,30 @@ Existing Raven syntax-kind/fact generation is not full syntax-tree generation.
 
 The broader overload-resolution feature suite also passes **421 tests** after
 these fixes. This validation is separate from generator output parity.
+
+### PORT-038: Green-node and factory generator
+
+The separate Raven generator library now includes a direct translation of the
+complete GreenNodeGenerator: typed/raw constructors, ordered slot accessors,
+abstract/inherited properties, update and With methods, visitor dispatch,
+red-node creation and factory overloads. Both source versions scope the typed
+constructor local to its branch and declare the factory return nullable because
+abstract models intentionally produce no factory. No generated-language syntax
+changed.
+
+The generator baseline passed **26 C# / 29 Raven tests**. Expanded parity passes
+**29 C# / 33 Raven tests** on .NET 11. It compares exact node and factory output
+for all **256 models**, including **26 abstract nodes**, alongside focused shared
+C# tests for slot ordering, inherited accessors, explicit kinds, visitor hooks,
+update identity and nullable factory overloads. PORT-037 records compiler defects
+found and fixed without generator workarounds. The Raven generator build reports
+27 warnings; its shared-model dependency reports 15. Native execution is not
+claimed.
+
+This completes another C#-output component of the Raven-written generator.
+Red-node generation, model loading and CLI orchestration remain to be translated.
+Full Raven syntax-tree output follows validated translation, while C# generation
+remains available for the bootstrap compiler.
+
+The required generator/compiler build passes. Reference/website source docs were
+updated; RavenDoc and website generation were not run.

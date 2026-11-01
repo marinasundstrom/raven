@@ -1,0 +1,566 @@
+namespace Raven.Generators
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Microsoft.CodeAnalysis.*
+import Microsoft.CodeAnalysis.CSharp.*
+import Microsoft.CodeAnalysis.CSharp.Syntax.*
+import Microsoft.CodeAnalysis.CSharp.SyntaxFactory.*
+import NodesShared.*
+
+public static class GreenNodeGenerator
+{
+    static func GenerateGreenNode(
+        node: SyntaxNodeModel,
+        nodesByName: Dictionary<string, SyntaxNodeModel>) -> string
+    {
+        let name = node.Name + "Syntax"
+        let baseName = MapType(node.Inherits, false)
+        let isAbstract = node.IsAbstract
+
+        let allProperties = if isAbstract { node.Slots.ToList() } else { node.Slots.Where(p => !p.IsAbstract).ToList() }
+
+        var slotIndex = 0
+
+        let ctorFields = allProperties.ToList()
+
+        let members = System.Collections.Generic.List<MemberDeclarationSyntax>()
+
+        if (!isAbstract)
+        {
+            let parameters = ctorFields.Select(p =>
+                Parameter(Identifier(ToCamelCase(p.Name))).WithType(
+                    IdentifierName(MapType(p.FullTypeName, p.IsNullable)))).ToList()
+
+            parameters.Add(Parameter(Identifier("diagnostics"))
+                .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
+                .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
+
+            parameters.Add(Parameter(Identifier("annotations"))
+                .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+                .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
+
+            if (node.HasExplicitKind)
+            {
+                parameters.Insert(0, Parameter(Identifier("kind"))
+                .WithType(IdentifierName("SyntaxKind")))
+            }
+
+            let slotArgs = ctorFields.Select(p =>
+                (ExpressionSyntax)(if p.IsNullable { IdentifierName(ToCamelCase(p.Name)) } else { BinaryExpression(SyntaxKind.CoalesceExpression,
+                        IdentifierName(ToCamelCase(p.Name)),
+                        ThrowExpression(
+                            ObjectCreationExpression(IdentifierName("ArgumentNullException"))
+                            .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                                Argument(InvocationExpression(IdentifierName("nameof"))
+                                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                                        Argument(IdentifierName(p.Name))))))))))) })
+                ).ToArray()
+
+            let ctor = ConstructorDeclaration(name)
+                .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                .WithParameterList(ParameterList(SeparatedList(parameters)))
+                .WithInitializer(ConstructorInitializer(SyntaxKind.BaseConstructorInitializer,
+                    ArgumentList(SeparatedList(
+                    [
+                        Argument(if node.HasExplicitKind { IdentifierName("kind") } else { MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("SyntaxKind"), IdentifierName(node.Name)) }),
+                        Argument(CollectionExpression(
+                            SeparatedList<CollectionElementSyntax>(CreateExpressionElementList(slotArgs)))),
+                        Argument(IdentifierName("diagnostics")),
+                        Argument(IdentifierName("annotations"))
+                    ]))))
+                    .WithBody(Block())
+
+            members.Add(ctor)
+        }
+
+        // Add new constructor taking (SyntaxKind kind, GreenNode[] slots)
+        let rawCtor = ConstructorDeclaration(name)
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
+            .WithParameterList(ParameterList(SeparatedList(
+            [
+                Parameter(Identifier("kind"))
+                    .WithType(IdentifierName("SyntaxKind")),
+                Parameter(Identifier("slots"))
+                    .WithType(ArrayType(IdentifierName("GreenNode"))
+                        .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
+                            SingletonSeparatedList<ExpressionSyntax>(
+                                OmittedArraySizeExpression()))))),
+                Parameter(Identifier("diagnostics"))
+                    .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
+                Parameter(Identifier("annotations"))
+                    .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression)))
+            ])))
+            .WithInitializer(ConstructorInitializer(
+                SyntaxKind.BaseConstructorInitializer,
+                ArgumentList(SeparatedList(
+                [
+                    Argument(IdentifierName("kind")),
+                    Argument(IdentifierName("slots")),
+                    Argument(IdentifierName("diagnostics")),
+                    Argument(IdentifierName("annotations"))
+                ]))))
+            .WithBody(Block())
+
+        members.Add(rawCtor)
+
+        for prop in allProperties
+        {
+            let typeName = IdentifierName(MapType(prop.FullTypeName, prop.IsNullable))
+
+            if (isAbstract && !prop.IsInherited && prop.IsAbstract)
+            {
+                members.Add(PropertyDeclaration(typeName, prop.Name)
+                    .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword))
+                    .WithAccessorList(
+                        AccessorList([
+                            AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+                        ])
+                    ))
+                continue
+            }
+
+            if (isAbstract && !prop.IsInherited)
+            {
+                // Skip body in abstract class for non-abstract fields
+                continue
+            }
+
+            let modifiers = System.Collections.Generic.List<SyntaxToken>([Token(SyntaxKind.PublicKeyword)])
+            if (prop.IsInherited)
+            {
+                modifiers.Add(Token(SyntaxKind.OverrideKeyword))
+            }
+
+            members.Add(PropertyDeclaration(typeName, prop.Name)
+                .WithModifiers(TokenList(modifiers))
+                .WithExpressionBody(ArrowExpressionClause(
+                    InvocationExpression(
+                        GenericName("GetSlot").WithTypeArgumentList(TypeArgumentList(
+                            SingletonSeparatedList<TypeSyntax>(typeName))))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                        Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                            Literal(slotIndex++))))))))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))
+        }
+
+        if (!isAbstract)
+        {
+            // Prepare update parameters and arguments
+            let updateParams = node.Slots.Select(p =>
+                Parameter(Identifier(ToCamelCase(p.Name)))
+                    .WithType(ParseTypeName(MapType(p.FullTypeName, p.IsNullable)))
+            ).ToList()
+
+            let updateArgs = node.Slots.Select(p =>
+                Argument(IdentifierName(ToCamelCase(p.Name)))
+            ).ToList()
+
+            let updateMethod = MethodUpdate(
+                name, // class name with "Syntax" suffix
+                updateParams,
+                updateArgs,
+                node
+            )
+
+            members.AddRange(
+            [
+                GenerateAccept(name, node.Name),
+                GenerateAcceptGeneric(name, node.Name),
+                GenerateCreateRed(name, node.Name),
+                GenerateWith(name),
+                updateMethod
+            ])
+        }
+
+        let classDecl = ClassDeclaration(name)
+            .WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword))
+                .InsertRange(1, if isAbstract { [Token(SyntaxKind.AbstractKeyword)] } else { Array.Empty<SyntaxToken>() }))
+            .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
+                SimpleBaseType(IdentifierName(baseName)))))
+            .AddMembers(members.ToArray())
+
+        let ns = NamespaceDeclaration(ParseName("Raven.CodeAnalysis.Syntax.InternalSyntax"))
+            .AddMembers(classDecl)
+
+        let cu = CompilationUnit()
+            .AddUsings(UsingDirective(ParseName("System")))
+            .AddUsings(UsingDirective(ParseName("System.Collections.Generic")))
+            .AddUsings(UsingDirective(ParseName("Raven.CodeAnalysis.Syntax")))
+            .AddMembers(ns)
+
+        return cu.NormalizeWhitespace().ToFullString()
+    }
+
+    private static func CreateExpressionElementList(slotArgs: ExpressionSyntax[]) -> SyntaxNodeOrToken[]
+    {
+        let result = System.Collections.Generic.List<SyntaxNodeOrToken>()
+        for i in 0..slotArgs.Length
+        {
+            result.Add(ExpressionElement(slotArgs[i]))
+            if (i < slotArgs.Length - 1)
+            {
+                result.Add(Token(SyntaxKind.CommaToken))
+            }
+        }
+
+        return result.ToArray()
+    }
+
+    private static func MapType(rawType: string, nullable: bool) -> string
+    {
+        let type = rawType match
+        {
+            "Node" => "SyntaxNode",
+            "Token" => "SyntaxToken",
+            "TokenList" => "SyntaxList",
+            let t when t.StartsWith("List<") => "SyntaxList",
+            let t when t.StartsWith("SeparatedList<") => "SyntaxList",
+            _ => rawType + "Syntax"
+        }
+        return if nullable { type + "?" } else { type }
+    }
+
+    private static func GenerateAccept(className: string, nodeName: string) -> MethodDeclarationSyntax
+    {
+        return MethodDeclaration(
+                PredefinedType(Token(SyntaxKind.VoidKeyword)),
+                "Accept")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddParameterListParameters(
+                Parameter(Identifier("visitor"))
+                    .WithType(IdentifierName("SyntaxVisitor")))
+            .WithBody(Block(
+                ExpressionStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("visitor"),
+                            IdentifierName("Visit${nodeName}")))
+                    .WithArgumentList(ArgumentList(
+                        SingletonSeparatedList(
+                            Argument(ThisExpression())))))))
+    }
+
+    private static func GenerateAcceptGeneric(className: string, nodeName: string) -> MethodDeclarationSyntax
+    {
+        return MethodDeclaration(
+                IdentifierName("TNode"),
+                "Accept")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddTypeParameterListParameters(TypeParameter("TNode"))
+            .AddParameterListParameters(
+                Parameter(Identifier("visitor"))
+                    .WithType(GenericName("SyntaxVisitor")
+                        .WithTypeArgumentList(TypeArgumentList(
+                            SingletonSeparatedList<TypeSyntax>(IdentifierName("TNode"))))))
+            .WithBody(Block(
+                ReturnStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("visitor"),
+                            IdentifierName("Visit${nodeName}")))
+                    .WithArgumentList(ArgumentList(
+                        SingletonSeparatedList(
+                            Argument(ThisExpression())))))))
+    }
+
+    private static func GenerateCreateRed(className: string, nodeName: string) -> MethodDeclarationSyntax
+    {
+        return MethodDeclaration(
+                QualifiedName(
+                    IdentifierName("Syntax"), IdentifierName("SyntaxNode")),
+                "CreateRed")
+            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddParameterListParameters(
+                Parameter(Identifier("parent"))
+                    .WithType(NullableType(QualifiedName(
+                                IdentifierName("Syntax"), IdentifierName("SyntaxNode")))),
+                Parameter(Identifier("position"))
+                    .WithType(PredefinedType(Token(SyntaxKind.IntKeyword))))
+            .WithBody(Block(
+                ReturnStatement(
+                    ObjectCreationExpression(
+                            QualifiedName(
+                                IdentifierName("Syntax"),
+                                IdentifierName(className)))
+                        .WithArgumentList(ArgumentList(SeparatedList(
+                        [
+                            Argument (ThisExpression()),
+                            Argument (IdentifierName("parent")),
+                            Argument (IdentifierName("position"))
+                        ]))))))
+    }
+
+    private static func GenerateWith(className: string) -> MethodDeclarationSyntax
+    {
+        return MethodDeclaration(IdentifierName(className), "With")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddParameterListParameters(
+                Parameter(Identifier("children"))
+                    .WithType(ArrayType(IdentifierName("GreenNode"))
+                        .WithRankSpecifiers(SingletonList(
+                            ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(
+                                    OmittedArraySizeExpression()))))),
+                Parameter(Identifier("diagnostics"))
+                    .WithType(NullableType(ArrayType(IdentifierName("DiagnosticInfo"))
+                        .WithRankSpecifiers(SingletonList(
+                            ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(
+                                    OmittedArraySizeExpression()))))))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
+                Parameter(Identifier("annotations"))
+                    .WithType(NullableType(ArrayType(IdentifierName("SyntaxAnnotation"))
+                        .WithRankSpecifiers(SingletonList(
+                            ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(
+                                    OmittedArraySizeExpression()))))))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
+            .WithBody(Block(
+                // Declare i
+                LocalDeclarationStatement(
+                    VariableDeclaration(PredefinedType(Token(SyntaxKind.IntKeyword)))
+                    .WithVariables(SingletonSeparatedList(
+                        VariableDeclarator(Identifier("i"))
+                        .WithInitializer(EqualsValueClause(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0))))))),
+                // for (; i < this.SlotCount; i++)
+                ForStatement(
+                    Block(
+                        IfStatement(
+                            BinaryExpression(SyntaxKind.NotEqualsExpression,
+                                InvocationExpression(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("GetSlot")))
+                                .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(IdentifierName("i"))))),
+                                ElementAccessExpression(IdentifierName("children"))
+                                .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(Argument(IdentifierName("i")))))
+                            ),
+                            BreakStatement()
+                        )
+                    ))
+                .WithDeclaration(null) // we declared i earlier
+                .WithCondition(BinaryExpression(SyntaxKind.LessThanExpression,
+                    IdentifierName("i"),
+                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                        ThisExpression(), IdentifierName("SlotCount"))))
+                .WithIncrementors(SingletonSeparatedList<ExpressionSyntax>(
+                    PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                        IdentifierName("i")))),
+                // Check if unchanged
+                IfStatement(
+                    BinaryExpression(SyntaxKind.LogicalAndExpression,
+                        BinaryExpression(SyntaxKind.EqualsExpression,
+                            IdentifierName("i"),
+                            MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                ThisExpression(), IdentifierName("SlotCount"))),
+                        BinaryExpression(SyntaxKind.LogicalAndExpression,
+                            InvocationExpression(IdentifierName("AreEqual"))
+                                .WithArgumentList(ArgumentList(SeparatedList([
+                                Argument(IdentifierName("diagnostics")),
+                                Argument(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("_diagnostics")))
+                                ]))),
+                            InvocationExpression(IdentifierName("AreEqual"))
+                                .WithArgumentList(ArgumentList(SeparatedList([
+                                Argument(IdentifierName("annotations")),
+                                Argument(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("_annotations")))
+                                ])))
+                        )
+                    ),
+                    ReturnStatement(ThisExpression())
+                ),
+                // Return new instance
+                ReturnStatement(
+                    ObjectCreationExpression(IdentifierName(className))
+                    .WithArgumentList(ArgumentList(SeparatedList(
+                    [
+                        Argument(IdentifierName("Kind")),
+                        Argument(IdentifierName("children")),
+                        Argument(IdentifierName("diagnostics")),
+                        Argument(IdentifierName("annotations")),
+                    ])))
+                )
+            ))
+    }
+
+    private static func MethodUpdate(
+        className: string,
+        updateParams: List<ParameterSyntax>,
+        updateArgs: List<ArgumentSyntax>,
+        node: SyntaxNodeModel) -> MethodDeclarationSyntax
+    {
+        let conditions = System.Collections.Generic.List<ExpressionSyntax>()
+        let ctorArgs = System.Collections.Generic.List<ArgumentSyntax>()
+        let finalParams = System.Collections.Generic.List<ParameterSyntax>()
+
+        if (node.HasExplicitKind)
+        {
+            // Inject kind parameter first
+            let kindParam = Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind"))
+            finalParams.Add(kindParam)
+            ctorArgs.Add(Argument(IdentifierName("kind")))
+
+            // Add kind != this.Kind check
+            conditions.Add(BinaryExpression(
+                SyntaxKind.NotEqualsExpression,
+                IdentifierName("Kind"),
+                IdentifierName("kind")))
+        }
+
+        // Add property parameters and constructor args
+        for i in 0..node.Slots.Count
+        {
+            let prop = node.Slots[i]
+            let param = updateParams[i]
+
+            finalParams.Add(param)
+        }
+
+        ctorArgs.AddRange(updateArgs.Select(arg => arg))
+
+        // Property inequality checks
+        if (updateArgs.Count > 0)
+        {
+            conditions.AddRange(updateArgs
+                .Zip(node.Slots, (arg, prop) =>
+                    BinaryExpression(SyntaxKind.NotEqualsExpression, IdentifierName(prop.Name), arg.Expression)))
+        }
+
+        let condition = if conditions.Count == 0 { LiteralExpression(SyntaxKind.FalseLiteralExpression) } else { conditions.Aggregate((a, b) => BinaryExpression(SyntaxKind.LogicalOrExpression, a, b)) }
+
+        return MethodDeclaration(IdentifierName(className), "Update")
+            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .WithParameterList(ParameterList(SeparatedList(finalParams)))
+            .WithBody(Block(
+                IfStatement(
+                    condition,
+                    Block(ReturnStatement(
+                        ObjectCreationExpression(IdentifierName(className))
+                            .WithArgumentList(ArgumentList(SeparatedList(ctorArgs)))))),
+                ReturnStatement(ThisExpression())))
+    }
+
+    static func GenerateFactoryMethod(node: SyntaxNodeModel) -> CompilationUnitSyntax?
+    {
+        if node.IsAbstract {
+            return null // skip abstract nodes
+        }
+
+        let methodName = node.Name
+        let typeName = node.Name + "Syntax"
+        let parameters = System.Collections.Generic.List<ParameterSyntax>()
+        let minimalParameters = System.Collections.Generic.List<ParameterSyntax>()
+        let constructorArguments = System.Collections.Generic.List<ArgumentSyntax>()
+        let invocationArguments = System.Collections.Generic.List<ArgumentSyntax>()
+        var hasNullableSlot = false
+
+        if (node.HasExplicitKind)
+        {
+            let kindParameter = Parameter(Identifier("kind"))
+                .WithType(IdentifierName("SyntaxKind"))
+            parameters.Add(kindParameter)
+            minimalParameters.Add(Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind")))
+
+            let kindArgument = Argument(IdentifierName("kind"))
+            constructorArguments.Add(kindArgument)
+            invocationArguments.Add(kindArgument)
+        }
+
+        for prop in node.Slots
+        {
+            let parameterName = ToCamelCase(prop.Name)
+            let mappedType = MapType(prop.FullTypeName, prop.IsNullable)
+            parameters.Add(
+                Parameter(Identifier(parameterName))
+                    .WithType(IdentifierName(mappedType)))
+
+            constructorArguments.Add(Argument(IdentifierName(parameterName)))
+
+            if (prop.IsNullable)
+            {
+                hasNullableSlot = true
+                invocationArguments.Add(Argument(GetDefaultValueExpression(mappedType)))
+            }
+            else
+            {
+                minimalParameters.Add(
+                    Parameter(Identifier(parameterName))
+                        .WithType(IdentifierName(mappedType)))
+                invocationArguments.Add(Argument(IdentifierName(parameterName)))
+            }
+        }
+
+        let diagnosticsParameter = Parameter(Identifier("diagnostics"))
+            .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
+            .WithDefault(EqualsValueClause(
+                LiteralExpression(SyntaxKind.NullLiteralExpression)))
+        parameters.Add(diagnosticsParameter)
+
+        constructorArguments.Add(Argument(IdentifierName("diagnostics")))
+        invocationArguments.Add(Argument(LiteralExpression(SyntaxKind.NullLiteralExpression)))
+
+        let annotationsParameter = Parameter(Identifier("annotations"))
+            .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+            .WithDefault(EqualsValueClause(
+                LiteralExpression(SyntaxKind.NullLiteralExpression)))
+        parameters.Add(annotationsParameter)
+
+        constructorArguments.Add(Argument(IdentifierName("annotations")))
+        invocationArguments.Add(Argument(LiteralExpression(SyntaxKind.NullLiteralExpression)))
+
+        let method = MethodDeclaration(IdentifierName(typeName), methodName)
+            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+            .WithParameterList(ParameterList(SeparatedList(parameters)))
+            .WithExpressionBody(ArrowExpressionClause(
+                ObjectCreationExpression(IdentifierName(typeName))
+                    .WithArgumentList(ArgumentList(SeparatedList(constructorArguments)))))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+
+        let members = System.Collections.Generic.List<MemberDeclarationSyntax>([method])
+
+        if (hasNullableSlot && minimalParameters.Count < parameters.Count)
+        {
+            let minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
+                .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+                .WithParameterList(ParameterList(SeparatedList(minimalParameters)))
+                .WithExpressionBody(ArrowExpressionClause(
+                    InvocationExpression(IdentifierName(methodName))
+                        .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+
+            members.Insert(0, minimalMethod)
+        }
+
+        let factoryClass = ClassDeclaration("SyntaxFactory")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
+            .AddMembers(members.ToArray())
+
+        return CompilationUnit()
+            .AddUsings(
+                UsingDirective(ParseName("System")),
+                UsingDirective(ParseName("System.Collections.Generic")),
+                UsingDirective(ParseName("Raven.CodeAnalysis.Syntax")))
+            .AddMembers(NamespaceDeclaration(ParseName("Raven.CodeAnalysis.Syntax.InternalSyntax")).AddMembers(factoryClass))
+            .NormalizeWhitespace()
+    }
+
+    private static func GetDefaultValueExpression(mappedType: string) -> ExpressionSyntax
+    {
+        return if mappedType.EndsWith("?") { LiteralExpression(SyntaxKind.NullLiteralExpression) } else { DefaultExpression(ParseTypeName(mappedType)) }
+    }
+
+    private static func ToCamelCase(name: string) -> string
+    {
+        return if string.IsNullOrEmpty(name) || char.IsLower(name[0]) { name } else { char.ToLowerInvariant(name[0]) + name.Substring(1) }
+    }
+}

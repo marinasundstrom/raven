@@ -70,4 +70,38 @@ public class NodeEmitterCrossImplementationTests
             Raven.Generators.VisitorGenerator.GenerateSyntaxRewriterClass(nodes, !green, ns).ToFullString());
     }
 
+    [Fact]
+    public void RepositoryGreenNodesAndFactoriesMatchBothImplementations()
+    {
+        var nodes = NodeEmitterInputs.Nodes();
+        var seedNodes = nodes.Select(n => new SeedModel::NodesShared.SyntaxNodeModel
+        {
+            Name = n.Name,
+            Inherits = n.Inherits,
+            IsAbstract = n.IsAbstract,
+            HasExplicitKind = n.HasExplicitKind,
+            Slots = n.Slots.Select(s => new SeedModel::NodesShared.SlotModel
+            {
+                Name = s.Name,
+                Type = s.Type,
+                ElementType = s.ElementType,
+                IsNullable = s.IsNullable,
+                IsInherited = s.IsInherited,
+                IsAbstract = s.IsAbstract
+            }).ToList()
+        }).ToList();
+        var byName = nodes.ToDictionary(n => n.Name);
+        var seedByName = seedNodes.ToDictionary(n => n.Name);
+        Assert.NotEmpty(nodes);
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.GreenNodeGenerator).Assembly.GetName().Name);
+        foreach (var node in nodes)
+        {
+            var seed = seedByName[node.Name];
+            Assert.Equal(SeedGenerator::Raven.Generators.GreenNodeGenerator.GenerateGreenNode(seed, seedByName),
+                Raven.Generators.GreenNodeGenerator.GenerateGreenNode(node, byName));
+            Assert.Equal(SeedGenerator::Raven.Generators.GreenNodeGenerator.GenerateFactoryMethod(seed)?.ToFullString(),
+                Raven.Generators.GreenNodeGenerator.GenerateFactoryMethod(node)?.ToFullString());
+        }
+    }
+
 }

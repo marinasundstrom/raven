@@ -26,8 +26,6 @@ public static class GreenNodeGenerator
 
         var ctorFields = allProperties.ToList();
 
-        ConstructorDeclarationSyntax? ctor = null;
-
         var members = new List<MemberDeclarationSyntax>();
 
         if (!isAbstract)
@@ -63,7 +61,7 @@ public static class GreenNodeGenerator
                                         Argument(IdentifierName(p.Name))))))))))))
                 ).ToArray();
 
-            ctor = ConstructorDeclaration(name)
+            var ctor = ConstructorDeclaration(name)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .WithParameterList(ParameterList(SeparatedList(parameters)))
                 .WithInitializer(ConstructorInitializer(SyntaxKind.BaseConstructorInitializer,
@@ -458,10 +456,10 @@ public static class GreenNodeGenerator
                 ReturnStatement(ThisExpression())));
     }
 
-    public static CompilationUnitSyntax GenerateFactoryMethod(SyntaxNodeModel node)
+    public static CompilationUnitSyntax? GenerateFactoryMethod(SyntaxNodeModel node)
     {
         if (node.IsAbstract)
-            return null!; // skip abstract nodes
+            return null; // skip abstract nodes
 
         var methodName = node.Name;
         var typeName = node.Name + "Syntax";

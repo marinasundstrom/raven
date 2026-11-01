@@ -14,6 +14,7 @@
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Model.xml" Link="Model.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Tokens.xml" Link="Tokens.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/NodeKinds.xml" Link="NodeKinds.xml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="$(MSBuildThisFileDirectory)GreenNodeGeneratorTests.cs" Link="GreenNodeGeneratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VisitorGeneratorTests.cs" Link="VisitorGeneratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NodeEmitterTests.cs" Link="NodeEmitterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NodeModelTests.cs" Link="NodeModelTests.cs" />

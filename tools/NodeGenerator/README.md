@@ -2,9 +2,10 @@
 
 The maintained C# generator remains the production entry point. The
 [parallel Raven library](../NodeGenerator.Raven/README.md) ports syntax-kind,
-node-facts, token, visitor and rewriter emitters with identical output modes. Run
+node-facts, token, green-node/factory, visitor and rewriter emitters with identical
+output modes. Run
 `scripts/test-generator-parity.sh` from the repository root to validate both
-implementations. Green/red node emitters, model loading and CLI orchestration
+implementations. Red-node emission, model loading and CLI orchestration
 are not yet part of that port.
 
 ## XML format specification
