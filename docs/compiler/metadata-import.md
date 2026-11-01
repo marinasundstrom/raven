@@ -1192,3 +1192,15 @@ their existing roles. A missing configured provider does not fall back to the or
 namespace candidate. The regression covers all three forms and both reference orders.
 
 Experimental native composition source and catalog configuration is documented in [the neoCLR bridge contract](neoclr-cli-bridge.md#source-structural-unions-2026-10-14-experiment).
+
+
+### Nested generic return types
+
+When a constructed method returns a nested type, the nested symbol carries its
+constructed containing type's substitutions into member signatures. For example,
+`ImmutableArray.CreateBuilder<int>()` returns a builder whose `Add` parameter is
+`int` and whose `MoveToImmutable` result is `ImmutableArray<int>`. This applies
+even when the nested type declares no type parameters of its own. Merely assigning
+a constructed `ContainingType` is insufficient: the member substitution map must
+include that owner's arguments. This is shared symbol behavior, with .NET metadata
+and runtime regression coverage; no target default or Runtime Contract changes.

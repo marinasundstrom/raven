@@ -90,6 +90,7 @@ as described in the bootstrap procedure.
 | PORT-002 | The faithful overflow guard's `int.MaxValue` reported RAV0500. Concrete-type lookup must select the public constant, excluding explicit interface implementations. | Existing CLI metadata-import defect; PE method/property/event symbols | Retain constructed generic interface names and include static members when resolving explicit implementations. Five reduced C# tests failed before the fix; the unchanged Raven guard is the retained port workload. | C# import fix implemented; metadata import has not yet been ported, so carry this correction and its regressions when that component is translated. |
 | PORT-003 | A public `List<int>` result from the Raven library caused C# CS0012 requiring `System.Private.CoreLib`. Public APIs must be consumable with the selected framework reference assemblies. | Existing .NET emitted-type-scope defect; final PE normalization | Resolve retained collection/monitor type scopes from selected semantic declarations, distinguishing `System.Collections` owners from `System.Runtime` interfaces. Retain a C# consumer compilation and runtime collection test plus the unchanged `TextUtils` port. | C# backend correction implemented; carry it when the backend is ported. |
 | PORT-004 | `StreamReader(stream, encoding)` tied with a longer overload needing defaults. Equivalent supplied parameters should favor an overload needing no defaults, without overriding better conversions or ranking two candidates that both need defaults. | Shared overload-resolution defect | Added the no-omission tie-breaker in C# and seven reduced runtime/diagnostic tests. Five failed before the fix; the original snapshot draft retains its two-argument call. | C# fix implemented; carry it into the later overload-resolver port. |
+| PORT-005 | `ImmutableArray.CreateBuilder<TextLine>` correctly closes the builder's containing type but leaves member parameters/results using `T`. | Shared nested-symbol substitution defect | Include constructed containing-type substitutions when creating the nested symbol. Symbol regression failed before the correction; emitted immutable-array builder calls now execute correctly. | C# fix implemented; carry the correction and tests when the symbol layer is ported. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -106,8 +107,9 @@ Initial analysis exposed these issues to reduce and address before accepting it:
 
 - `StreamReader(stream, encoding)` overload preference is fixed by PORT-004,
   with the original two-argument call retained in the draft.
-- `ImmutableArray.CreateBuilder<TextLine>` leaves the nested builder's `T`
-  unsubstituted; metadata generic substitution needs a regression.
+- `ImmutableArray.CreateBuilder<TextLine>` nested member substitution is fixed by
+  PORT-005, with symbol and emitted-runtime regressions. The original builder calls
+  remain in the draft.
 - `cache ??= List<int>()` is parsed but reports unsupported `??`; null-coalescing
   assignment remains a reduced compiler gap to fix with correct lazy evaluation
   and storage validation. It is no longer needed by the change-value types after
@@ -196,3 +198,16 @@ The focused main-compiler text/location suite also passed **45 tests**, includin
 existing `SourceTextTests` and `LocationTests`, against the C# changes. The snapshot
 implementation itself remains an unfinished Raven draft; these main-compiler
 results do not claim that the Raven snapshot implementation ran.
+
+
+## Nested member substitution checkpoint — 2026-11-01
+
+The focused pre-change generic-symbol baseline passed 15 tests. A new reduced
+`ImmutableArray.CreateBuilder<int>()` symbol test then failed on its `Add` parameter,
+while confirming that the containing type was already closed. After carrying the
+containing substitutions into the nested symbol, 27 focused substitution and
+nested-type tests pass, including observable emitted builder behavior. The .NET 11
+seed compiler builds successfully, and the shared C# tests pass against both text
+implementations (45 each). Whitespace formatting and `git diff --check` pass.
+This closes PORT-005; snapshot drafts still
+await string range indexing support and are not counted as ported components.

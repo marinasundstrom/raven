@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve enclosing generic arguments in nested member signatures when a generic
+  method returns a nested type. `ImmutableArray.CreateBuilder<int>()` now exposes
+  `Add(int)` and an `ImmutableArray<int>` result through the compiler symbol API
+  and emits runnable calls.
+
 - Give `FileLinePositionSpan`, `TextChange` and `TextChangeRange` record value
   semantics in both compiler codebases, with shared equality, hashing,
   deconstruction and copy coverage. Replace mutable `NoChanges` caches with

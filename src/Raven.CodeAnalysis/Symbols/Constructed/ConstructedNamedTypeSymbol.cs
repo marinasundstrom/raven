@@ -108,6 +108,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         _containingTypeOverride = containingTypeOverride;
 
         _substitutionMap = CreateSubstitutionMap(originalDefinition, typeArguments, inheritedSubstitution);
+        // Re-anchoring a nested type must close its member signatures as well as
+        // its displayed owner, even when it declares no type parameters itself.
+        TypeSubstitution.AddContainingTypeSubstitutions(containingTypeOverride, _substitutionMap);
     }
 
     public ImmutableArray<ITypeSymbol> TypeArguments
