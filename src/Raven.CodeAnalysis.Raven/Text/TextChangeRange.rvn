@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.*
+import System.Collections.Generic.*
+
+public record struct TextChangeRange(NewLength: int, Span: TextSpan) {
+    public val NoChanges: IReadOnlyList<TextChangeRange> => Array.Empty<TextChangeRange>()
+    public override func ToString() -> string => "Span: ${Span}, NewLength: ${NewLength}"
+}

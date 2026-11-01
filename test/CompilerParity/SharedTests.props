@@ -17,5 +17,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextCoordinateContractTests.cs" Link="TextCoordinateContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ImplementationIdentityTests.cs" Link="ImplementationIdentityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextUtilsTests.cs" Link="TextUtilsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextValueRecordTests.cs" Link="TextValueRecordTests.cs" />
   </ItemGroup>
 </Project>

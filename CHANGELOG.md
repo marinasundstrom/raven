@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Give `FileLinePositionSpan`, `TextChange` and `TextChangeRange` record value
+  semantics in both compiler codebases, with shared equality, hashing,
+  deconstruction and copy coverage. Replace mutable `NoChanges` caches with
+  immutable empty collections. Define matching line-span display strings in both
+  implementations; retain custom change display strings and coordinate validation.
+
 - Prefer an applicable overload requiring no omitted arguments when supplied
   parameter types are equivalent and conversions otherwise tie. Preserve genuine
   ambiguity when both candidates need defaults. This fixes ordinary

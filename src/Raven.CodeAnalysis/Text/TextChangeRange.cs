@@ -1,20 +1,8 @@
-using Raven.CodeAnalysis.Syntax;
-
 namespace Raven.CodeAnalysis.Text;
 
-public struct TextChangeRange
+public readonly record struct TextChangeRange(int NewLength, TextSpan Span)
 {
-    private static List<TextChangeRange>? _noChangesRange;
-
-    public int NewLength { get; }
-    public TextSpan Span { get; }
-    public IReadOnlyList<TextChangeRange> NoChanges => _noChangesRange ??= new List<TextChangeRange>();
-
-    public TextChangeRange(int maxLength, TextSpan span)
-    {
-        NewLength = maxLength;
-        Span = span;
-    }
+    public IReadOnlyList<TextChangeRange> NoChanges => Array.Empty<TextChangeRange>();
 
     public override string ToString() => $"Span: {Span}, NewLength: {NewLength}";
 }

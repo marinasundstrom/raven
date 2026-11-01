@@ -142,6 +142,7 @@ public sealed class TextCoordinateContractTests
         var end = new LinePosition(3, 4);
         var span = new LinePositionSpan(start, end);
         var equal = new LinePositionSpan(start, end);
+        Assert.Equal("LinePositionSpan { Start = Line 1, Character 2, End = Line 3, Character 4 }", span.ToString());
         IEquatable<LinePositionSpan> equatable = span;
         Assert.True(equatable.Equals(equal));
         Assert.True(span == equal);
@@ -166,7 +167,7 @@ public sealed class TextCoordinateContractTests
     [Fact]
     public void Coordinates_ExposeReadOnlyPropertiesAndValueTypeContracts()
     {
-        foreach (var type in new[] { typeof(TextSpan), typeof(LinePosition), typeof(FileLinePositionSpan) })
+        foreach (var type in new[] { typeof(TextSpan), typeof(LinePosition) })
         {
             Assert.True(type.IsValueType);
             Assert.All(type.GetProperties(), property => Assert.Null(property.SetMethod));

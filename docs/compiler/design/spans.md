@@ -30,3 +30,12 @@ Its coordinates are init-only, and it supplies value equality, hashing,
 deconstruction and copy/with semantics. Both maintained compiler implementations
 use this contract. Constructor parameter names are `Start` and `End`; positional
 construction is unchanged.
+
+`FileLinePositionSpan`, `TextChange` and `TextChangeRange` likewise use record
+value semantics. File spans compare the path and both coordinates; changes compare
+the span and replacement text; change ranges compare the span and new length.
+Their properties are init-only, and constructor parameter names match property
+names. `TextChangeRange` retains its length-then-span positional constructor order.
+`TextSpan` and `LinePosition` retain their existing explicit value equality,
+hashing, ordering and validation. `NoChanges` on the change types exposes an
+immutable empty collection rather than a mutable shared list.

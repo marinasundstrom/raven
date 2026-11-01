@@ -50,7 +50,8 @@ under `src/Raven.CodeAnalysis/Text/`.
 | `TextSpan` | Existing `Syntax/TextSpanTests.cs`; `Text/TextCoordinateContractTests.cs` |
 | `TextSpanExtensions` | `Text/TextCoordinateContractTests.cs`, including direct C# static and extension calls |
 | `LinePosition` | Existing `Text/LinePositionTests.cs`; `Text/TextCoordinateContractTests.cs` |
-| `LinePositionSpan`, `FileLinePositionSpan` | `Text/TextCoordinateContractTests.cs` |
+| `LinePositionSpan`, `FileLinePositionSpan` | `Text/TextCoordinateContractTests.cs`, `Text/TextValueRecordTests.cs` |
+| `TextChange`, `TextChangeRange` | `Text/TextValueRecordTests.cs` |
 | `TextUtils` | `Text/TextUtilsTests.cs`, including mixed line endings, UTF-16 positions and named tuple access from C# |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -96,20 +97,22 @@ Contract change is needed for the span invariant.
 
 ## In-progress snapshot slice
 
-The five `Text/*.rvn.pending` files are visible translation drafts, intentionally
+The three `Text/*.rvn.pending` files are visible translation drafts, intentionally
 not compiler inputs and not counted as ported components or passing coverage.
 They will become `.rvn` sources as the second slice is made buildable, then link
 `SourceTextTests.cs` into both test projects. No existing test has been excluded.
 
 Initial analysis exposed these issues to reduce and address before accepting it:
 
-- `StreamReader(stream, encoding)` is ambiguous against a longer optional-argument
-  overload; overload preference needs a reduced regression.
+- `StreamReader(stream, encoding)` overload preference is fixed by PORT-004,
+  with the original two-argument call retained in the draft.
 - `ImmutableArray.CreateBuilder<TextLine>` leaves the nested builder's `T`
   unsubstituted; metadata generic substitution needs a regression.
 - `cache ??= List<int>()` is parsed but reports unsupported `??`; null-coalescing
-  assignment needs correct lazy evaluation, storage validation and regression
-  coverage before using it in the port.
+  assignment remains a reduced compiler gap to fix with correct lazy evaluation
+  and storage validation. It is no longer needed by the change-value types after
+  removing their mutable empty-list caches; this is not evidence that the language
+  gap itself is fixed.
 - String range indexing is not implemented (the current range spec describes
   arrays and user indexers); add and test the intended string slicing contract
   rather than silently changing the source algorithm to compensate.
@@ -125,7 +128,7 @@ confusion with `SourceText.Encoding`.
 
 ## Next dependency slice
 
-Port `TextChange` and `TextChangeRange`, then `SourceText`, `TextLine` and
+Continue with `SourceText`, `TextLine` and
 `TextLineCollection`, linking the existing `SourceTextTests.cs`. This adds snapshot
 edits, change ranges, Unicode, encoding, stream, hash, collection, weak-reference
 and lazy-initialization workloads. Keep each failure as a regression at its owning
@@ -168,3 +171,28 @@ The optional-overload correction passed its seven regressions plus nine existing
 resolver tests (**16 total**). The overload-resolution feature suite then passed **421 tests**
 with no failures or skips. The C# seed fix is committed separately from the next
 text-value-record slice.
+
+## Text value records
+
+`FileLinePositionSpan`, `TextChange` and `TextChangeRange` are now positional record
+structs in both implementations. Their equality, hashing, operators and copies
+use their declared value components. `TextSpan` and `LinePosition` already supply
+explicit value equality and hashing; retain their validation and ordering rather
+than discarding them for a shorter declaration. Record constructor parameter names
+match their public properties; `TextChangeRange` keeps length-then-span order.
+
+`NoChanges` remains an instance property returning `IReadOnlyList<T>`, but now
+returns `Array.Empty<T>()`. A caller can no longer mutate the shared empty-list
+cache by casting it to `ICollection<T>`. The existing custom change-value display
+strings are preserved. Both line-span records explicitly define the same display
+format: Raven's generic record display intentionally quotes strings and formats
+nominal nested values differently, so relying on synthesized display would make
+these public compiler types disagree across implementations.
+
+The same **45 C# tests pass against each implementation** on .NET 11, including
+value/boxed equality, hash collections, deconstruction, init-only copy semantics,
+empty-collection immutability and shared display strings. No tests were ported.
+The focused main-compiler text/location suite also passed **45 tests**, including
+existing `SourceTextTests` and `LocationTests`, against the C# changes. The snapshot
+implementation itself remains an unfinished Raven draft; these main-compiler
+results do not claim that the Raven snapshot implementation ran.

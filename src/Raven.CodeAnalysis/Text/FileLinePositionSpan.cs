@@ -1,15 +1,9 @@
 namespace Raven.CodeAnalysis.Text;
 
-public struct FileLinePositionSpan
+public readonly record struct FileLinePositionSpan(
+    string Path,
+    LinePosition StartLinePosition,
+    LinePosition EndLinePosition)
 {
-    public FileLinePositionSpan(string path, LinePosition startLinePosition, LinePosition endLinePosition)
-    {
-        Path = path;
-        StartLinePosition = startLinePosition;
-        EndLinePosition = endLinePosition;
-    }
-
-    public string Path { get; }
-    public LinePosition StartLinePosition { get; }
-    public LinePosition EndLinePosition { get; }
+    public override string ToString() => $"FileLinePositionSpan {{ Path = {Path}, StartLinePosition = {StartLinePosition}, EndLinePosition = {EndLinePosition} }}";
 }

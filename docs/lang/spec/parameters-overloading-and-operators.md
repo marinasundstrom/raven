@@ -228,7 +228,7 @@ operator metadata and conditional evaluation conventions.
 
 ## Optional-argument overload preference
 
-When applicable overloads accept the supplied arguments through equivalent
+When applicable fixed-arity overloads accept the supplied arguments through equivalent
 parameter types, and no better conversion distinguishes them, prefer an overload
 that needs no omitted default arguments over one that needs defaults. This rule
 also applies to constructors and named arguments. It does not prefer fewer
