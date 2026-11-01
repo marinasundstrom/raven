@@ -119,3 +119,14 @@ alter zero-step, unsigned, smaller-integer, floating, decimal or character behav
 Validation includes 46 focused loop/range/async tests on .NET 11, including pending
 awaits at signed limits and an integer comprehension. Native carry is validated
 separately; ordinary .NET evidence does not imply native support.
+
+### String slices (2026-11-01)
+
+String range access uses the same endpoint normalization as array slices and
+stored ranges. On .NET the target contract selects `Range.GetOffsetAndLength`
+and `String.Substring`; the receiver and bounds are evaluated once, left-to-right.
+Offsets count UTF-16 code units. Bounds validation is performed by the selected
+runtime APIs. Native string slicing remains an explicit implementation gap.
+Existing range syntax and TextMate grammar require no changes. Semantic type
+queries see a string result through the compiler-owned bound expression; language
+services do not need their own slicing implementation.

@@ -91,6 +91,8 @@ as described in the bootstrap procedure.
 | PORT-003 | A public `List<int>` result from the Raven library caused C# CS0012 requiring `System.Private.CoreLib`. Public APIs must be consumable with the selected framework reference assemblies. | Existing .NET emitted-type-scope defect; final PE normalization | Resolve retained collection/monitor type scopes from selected semantic declarations, distinguishing `System.Collections` owners from `System.Runtime` interfaces. Retain a C# consumer compilation and runtime collection test plus the unchanged `TextUtils` port. | C# backend correction implemented; carry it when the backend is ported. |
 | PORT-004 | `StreamReader(stream, encoding)` tied with a longer overload needing defaults. Equivalent supplied parameters should favor an overload needing no defaults, without overriding better conversions or ranking two candidates that both need defaults. | Shared overload-resolution defect | Added the no-omission tie-breaker in C# and seven reduced runtime/diagnostic tests. Five failed before the fix; the original snapshot draft retains its two-argument call. | C# fix implemented; carry it into the later overload-resolver port. |
 | PORT-005 | `ImmutableArray.CreateBuilder<TextLine>` correctly closes the builder's containing type but leaves member parameters/results using `T`. | Shared nested-symbol substitution defect | Include constructed containing-type substitutions when creating the nested symbol. Symbol regression failed before the correction; emitted immutable-array builder calls now execute correctly. | C# fix implemented; carry the correction and tests when the symbol layer is ported. |
+| PORT-006 | The faithful snapshot reader uses string range access, which was unsupported. | Shared slicing semantics with target-owned runtime mapping | .NET selects length, range offset/length validation and substring members through an explicit contract. Tests cover stored/direct bounds, inclusivity, from-end offsets, evaluation order, invalid bounds and UTF-16 units. | Implemented in the C# compiler; carry this into the later binder/target-contract port. Native slicing remains a gap. |
+| PORT-007 | An unparenthesized open-ended stored range can consume a following `return` across a newline. | Parser boundary handling; requires reduced syntax regression and clarification against continuation rules | Parenthesized stored ranges are covered by slicing tests; this does not resolve the unparenthesized parser gap. | Open follow-up. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -115,9 +117,9 @@ Initial analysis exposed these issues to reduce and address before accepting it:
   and storage validation. It is no longer needed by the change-value types after
   removing their mutable empty-list caches; this is not evidence that the language
   gap itself is fixed.
-- String range indexing is not implemented (the current range spec describes
-  arrays and user indexers); add and test the intended string slicing contract
-  rather than silently changing the source algorithm to compensate.
+- String range indexing is implemented by PORT-006. The original slicing
+  expressions remain in the snapshot reader; the three drafts now compile in an
+  initial .NET build probe and still need shared snapshot test validation.
 
 Some rejected direct spellings are deliberate language differences, not compiler
 bugs: Raven parameters are immutable and ordinary null checks do not narrow
@@ -211,3 +213,12 @@ seed compiler builds successfully, and the shared C# tests pass against both tex
 implementations (45 each). Whitespace formatting and `git diff --check` pass.
 This closes PORT-005; snapshot drafts still
 await string range indexing support and are not counted as ported components.
+
+
+## String slicing checkpoint — 2026-11-01
+
+The pre-change range baseline passed 52 tests; all 13 initial string-slice cases
+failed before implementation. The final focused suite passes 67 tests, including
+UTF-16 and non-writable-slice coverage. The seed compiler builds on .NET 11, and
+the snapshot drafts compile without changing their string slicing expressions.
+No native runtime validation is claimed. Syntax and TextMate tokens are unchanged.

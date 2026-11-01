@@ -3112,6 +3112,9 @@ partial class BlockBinder
             return new BoundArrayAccessExpression(receiver, argumentExprs, ((IArrayTypeSymbol)receiverType).ElementType);
         }
 
+        if (receiverType.SpecialType == SpecialType.System_String && argumentExprs.Length == 1 && IsRangeType(argumentExprs[0].Type))
+            return BindStringRangeAccess(receiver, argumentExprs[0], syntax);
+
         var indexer = ResolveIndexer(receiverType, argumentExprs, argumentList.Arguments, requireSetter: false, out var convertedArguments);
 
         if (indexer is null)
@@ -3367,6 +3370,34 @@ partial class BlockBinder
         return parameters.Length == 1
             ? parameterTypes.Single()
             : $"({string.Join(", ", parameterTypes)})";
+    }
+
+    private BoundExpression BindStringRangeAccess(BoundExpression receiver, BoundExpression range, SyntaxNode syntax)
+    {
+        var members = Compilation.ResolveStringSliceMembers(range.Type!);
+        if (members is null)
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                FormatIndexableReceiverType(receiver.Type!), syntax.GetLocation());
+            return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
+        }
+
+        var statements = new List<BoundStatement>();
+        BoundExpression Capture(BoundExpression expression)
+        {
+            var local = CreateTempLocal("slice", expression.Type!, syntax);
+            statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, expression)]));
+            return new BoundLocalAccess(local);
+        }
+
+        var text = Capture(receiver);
+        var bounds = Capture(range);
+        var length = new BoundInvocationExpression(members.GetLength, [], text);
+        var offsets = Capture(new BoundInvocationExpression(members.GetOffsetAndLength, [length], bounds));
+        var result = new BoundInvocationExpression(members.Substring,
+            [new BoundFieldAccess(offsets, members.Offset), new BoundFieldAccess(offsets, members.Length)], text);
+        statements.Add(new BoundExpressionStatement(result));
+        return new BoundBlockExpression(statements, result.Type!);
     }
 
     private BoundExpression BindArrayRangeAccess(

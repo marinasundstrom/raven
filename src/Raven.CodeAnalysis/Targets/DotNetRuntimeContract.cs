@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Targets;
 
-internal sealed class DotNetRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
+internal sealed partial class DotNetRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
     protected override string ArraySliceMethodName => "GetSubArray";
 

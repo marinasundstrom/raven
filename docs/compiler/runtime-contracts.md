@@ -158,6 +158,21 @@ encoding, default target or language grammar changes accompany this extraction.
 See the [bootstrap boundary review](architecture/bootstrap-target-boundaries.md#second-slice-array-range-access-policy)
 for validation and the remaining copy/view semantic review.
 
+## String range-access contracts
+
+`Compilation.ResolveStringSliceMembers` delegates runtime API selection to the
+selected target contract. The .NET contract resolves `String.Length`,
+`Range.GetOffsetAndLength(int)`, its integer offset/length result fields, and
+`String.Substring(int, int)` from the current compilation. Missing required API
+shapes produce the existing indexing diagnostic; no host reflection fallback is
+used. Binding captures the receiver and range once, in source order, then applies
+the resolved members through ordinary bound calls. There is no new bound node,
+public API, configuration option, or default-target change.
+
+The neoCLR contract currently declines this operation. This is a native string
+runtime gap, not a permanent language restriction or a new CLI bridge encoding.
+Native support must define its own string slicing contract before claiming parity.
+
 ## Current target composition
 
 `Targets.CompilationTarget` composes the selected runtime contract and semantic

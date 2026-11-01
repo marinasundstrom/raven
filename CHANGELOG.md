@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Support string range slices on .NET, including stored ranges, inclusive and
+  from-end bounds, with single receiver/bound evaluation and UTF-16 offsets.
+  Runtime member selection is owned by the target contract; native string
+  slicing remains an implementation gap.
+
 - Preserve enclosing generic arguments in nested member signatures when a generic
   method returns a nested type. `ImmutableArray.CreateBuilder<int>()` now exposes
   `Add(int)` and an `ImmutableArray<int>` result through the compiler symbol API

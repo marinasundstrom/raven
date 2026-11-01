@@ -99,6 +99,20 @@ On neoCLR, it produces a ref-like `System.Slice<T>` view that borrows the array
 storage. This runtime distinction affects aliasing and lifetime; the slice is
 not an array copy on neoCLR.
 
+Strings also accept a single range and return the selected substring. Bounds count
+UTF-16 code units, just like ordinary string indexing; slicing does not expand or
+validate surrogate pairs. Empty selections return an empty string. Reversed or
+out-of-bounds selections throw `ArgumentOutOfRangeException` on .NET. A slice is a
+value, not writable storage. The receiver is evaluated once before the range.
+
+```raven
+let tail = "compiler"[3..]
+let middle = "compiler"[1..=3]
+```
+
+String slicing is currently implemented on .NET. Native neoCLR string slicing
+remains an implementation gap, not permanent language exclusivity.
+
 Other receivers resolve `[]` through their indexers, so overloads accepting
 `Index` and `Range` can coexist.
 
