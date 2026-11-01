@@ -198,3 +198,12 @@ field symbol when its declared type is unchanged. Earlier references retain that
 identity, while emission observes the fully bound initializer rather than a
 provisional recovery expression from before all member signatures were available.
 Unresolved initializers still contribute diagnostics and prevent successful emit.
+
+
+### Local-function receiver captures
+
+`GetCapturedVariables` includes the enclosing type symbol for a local function
+that accesses the enclosing instance through `self` or an unqualified instance
+member. Binding records an explicit receiver for those accesses so shared
+capture analysis and target backends receive the same dependency. An explicitly
+static function or a static containing method prevents enclosing-instance capture.

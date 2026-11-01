@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Capture the enclosing instance for local-function `self`, unqualified fields,
+  properties and method calls. Preserve static boundaries instead of emitting
+  instance access without a receiver.
+
 - Bind and validate the emitting compilation even when workspace or analyzer
   diagnostics are supplied from another compilation. Preserve those diagnostics
   without duplicating compiler diagnostics, and reject source errors before

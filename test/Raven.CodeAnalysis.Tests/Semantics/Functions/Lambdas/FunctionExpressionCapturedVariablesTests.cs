@@ -7,6 +7,26 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class FunctionExpressionCapturedVariablesTests
 {
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("static", "")]
+    [InlineData("", "static")]
+    public void LocalFunctionCannotCaptureSelfAcrossStaticBoundary(string outerModifier, string localModifier)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            class Probe {
+                field value: int = 42
+                {{outerModifier}} func Run() -> int {
+                    return Local()
+                    {{localModifier}} func Local() -> int => self.value
+                }
+            }
+            """);
+        var compilation = Compilation.Create("StaticCapture", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV2801");
+    }
+
     [Fact]
     public void Lambda_CapturingParameter_ReportsParameterAsCapture()
     {

@@ -907,3 +907,20 @@ regression. The corrected selection passes **61 tests**, covering observable
 .NET execution, source-error rejection, diagnostic preservation and target
 configuration checks. The reduced `rvnc` output also contains the correct
 short-circuit property. These checks do not claim native runtime execution.
+
+
+### PORT-030: Local functions capture the enclosing instance
+
+After PORT-029, lexer parity reached 295 passes with eight failures in multiline
+strings and interpolation. The failures reduced to local functions accessing
+instance state: explicit `self` was rejected, while implicit access could emit
+invalid receiver loads. Local functions now use the enclosing lexical instance
+in binding, as lambdas do, and capture analysis records that receiver. Static
+containing methods and explicitly static local functions remain boundaries.
+
+The baseline passed 24 adjacent tests and failed all four new receiver cases.
+The corrected selection passes **35 tests**, including .NET execution for fields,
+properties, calls and explicit `self`, semantic capture reporting, and static
+boundary diagnostics. This is shared binding behavior; the binder is not yet
+ported, so retain the correction when translating it. Native closure/backend
+coverage remains separate from these .NET runtime checks.

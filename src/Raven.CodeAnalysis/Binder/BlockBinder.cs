@@ -2684,11 +2684,11 @@ partial class BlockBinder : Binder
                 return new BoundParameterAccess(receiver);
             }
 
-            // Lambdas report IsStatic=true until their captures are analyzed, so we
+            // Lambdas and local functions may be represented as static methods, so we
             // can't rely on IsStatic here.  Walk the binder chain for an enclosing
             // instance method — if one exists, self is reachable and will be lifted
             // into the closure during capture analysis.
-            if (method is ILambdaSymbol)
+            if (method is ILambdaSymbol || IsLocalFunctionDeclaration(method))
             {
                 var enclosing = FindEnclosingInstanceMethod();
                 if (enclosing is not null)
@@ -2727,13 +2727,25 @@ partial class BlockBinder : Binder
         return new BoundBaseExpression(baseType);
     }
 
+    private static bool IsLocalFunctionDeclaration(IMethodSymbol method)
+        => method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax
+        {
+            Parent: not GlobalStatementSyntax
+        };
+
     private IMethodSymbol? FindEnclosingInstanceMethod()
     {
         var binder = ParentBinder;
         while (binder is not null)
         {
-            if (binder.ContainingSymbol is IMethodSymbol m && m is not ILambdaSymbol && !m.IsStatic)
-                return m;
+            if (binder.ContainingSymbol is IMethodSymbol m && m is not ILambdaSymbol)
+            {
+                if (!IsLocalFunctionDeclaration(m))
+                    return m.IsStatic ? null : m;
+                if (m.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax function &&
+                    function.Modifiers.Any(token => token.Kind == SyntaxKind.StaticKeyword))
+                    return null;
+            }
             binder = binder.ParentBinder;
         }
         return null;
@@ -9181,8 +9193,16 @@ partial class BlockBinder : Binder
     {
         expr = null!;
 
-        if (_containingSymbol is not IMethodSymbol m || m.IsStatic)
+        if (_containingSymbol is not IMethodSymbol m)
             return false;
+        if (m.IsStatic)
+        {
+            if (m is not ILambdaSymbol && !IsLocalFunctionDeclaration(m))
+                return false;
+            m = FindEnclosingInstanceMethod();
+            if (m is null)
+                return false;
+        }
 
         var type = m.ContainingType;
         if (type is null || type.TypeKind == TypeKind.Error)
@@ -9331,10 +9351,15 @@ partial class BlockBinder : Binder
         if (!methods.Any(static method => RequiresImplicitInstanceReceiver(method)))
             return null;
 
-        if (_containingSymbol is IMethodSymbol method && !method.IsStatic)
+        if (_containingSymbol is IMethodSymbol method)
         {
-            var containingType = method.ContainingType ?? Compilation.ErrorTypeSymbol;
-            return new BoundSelfExpression(containingType);
+            var receiverMethod = !method.IsStatic
+                ? method
+                : method is ILambdaSymbol || IsLocalFunctionDeclaration(method)
+                    ? FindEnclosingInstanceMethod()
+                    : null;
+            if (receiverMethod is not null)
+                return new BoundSelfExpression(receiverMethod.ContainingType ?? Compilation.ErrorTypeSymbol);
         }
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
