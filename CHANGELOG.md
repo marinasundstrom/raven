@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Correct trailing-trivia spans to include leading-trivia width and let
+  `SyntaxNode.FindTrivia` find trailing trivia instead of treating it as token text.
+
 - Resolve qualified type aliases to matching source declarations during early
   declaration binding, even when the bootstrap assembly contains the same type.
   Preserve source assembly ownership independently of source-file order.

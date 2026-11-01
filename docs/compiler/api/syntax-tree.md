@@ -73,6 +73,11 @@ itself.
 
 ## Formatting and trivia
 
+`SyntaxNode.FindTrivia(position)` checks both leading and trailing trivia. A
+position within token text or outside the node returns the default trivia value.
+Token trailing-trivia spans begin after both leading trivia and token text; their
+positions use the same source coordinates as node and token spans.
+
 `SyntaxFactory` creates raw structured nodes. Unless you explicitly attach
 trivia yourself, factory-built nodes generally have minimal whitespace and are
 not intended to be human-formatted out of the box.

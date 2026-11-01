@@ -1757,3 +1757,38 @@ rewriters and tree/diagnostic integration remain dependencies. Passing parser
 checks must not be reported as a working syntax runtime, and bootstrap metadata
 must not silently stand in for missing Raven declarations. The prior 54-test
 node/list/annotation baseline passed before starting this translation.
+
+## PORT-060 — trailing-trivia lookup and positions
+
+Translating node navigation exposed two existing runtime defects. `FindTrivia`
+stopped at the token's full span before checking trailing trivia, and a token's
+trailing-trivia list started after token width without accounting for leading
+trivia. Lookup now excludes only token text; the trailing list starts after both
+leading width and token width. Both corrections are present in C# and the pending
+Raven runtime translation. Public API shape and language syntax are unchanged.
+
+Two focused regressions failed before the corrections. They cover tokens with
+and without leading trivia, every position in trailing whitespace, token text,
+leading trivia and the exclusive end boundary. **56 node/list/annotation tests
+pass on .NET 11 rc1**, including both regressions. The earlier 54-test baseline,
+targeted core build, whitespace formatting and diff checks pass. This is shared
+syntax behavior; no native neoCLR execution or RavenDoc/site generation was run.
+
+Runtime port work remains uncommitted and unvalidated semantically. The node
+navigation methods, source-text writer and red rewriter are now translated too;
+a parser-only check of all authored Raven compiler files reports zero errors.
+The updated-seed full semantic pass exited 1 without printed diagnostics. A
+second project-input pass was stopped after inspection showed that project
+documentation options can schedule output even with `--no-emit`; subsequent
+analysis uses explicit source inputs to avoid documentation generation. No successful
+runtime build or shared-test parity is claimed for these pending files.
+
+The pending `SyntaxReplacer` translation also parses. A reduced conditional-access
+probe (`root?.Child.Width`, with nullable `root` and nonnullable `Child`) reports
+RAV0402 on `Child.Width`: the parser ends conditional access before the following
+member, and nullable conditional binding currently supports only a single access
+or invocation. The existing **10 conditional-access runtime tests pass** but do
+not cover this chain. Fix short-circuit chain ownership in parser/binder and add
+observable null/non-null and evaluation-order coverage before translating this
+case into a workaround. Parentheses must remain an explicit chain boundary;
+carrier access and both target implementations also need review.

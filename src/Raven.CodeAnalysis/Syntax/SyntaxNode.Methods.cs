@@ -93,10 +93,10 @@ public partial class SyntaxNode
                 }
             }
 
-            if (token.FullSpan.Contains(position))
+            if (token.Span.Contains(position))
             {
-                // Could be inside the token
-                return default; // or throw, or define "no trivia here"
+                // Token text contains no trivia; trailing trivia is checked below.
+                return default;
             }
 
             foreach (var trivia in token.TrailingTrivia)
