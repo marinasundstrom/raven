@@ -53,6 +53,7 @@ under `src/Raven.CodeAnalysis/Text/`.
 | `LinePositionSpan`, `FileLinePositionSpan` | `Text/TextCoordinateContractTests.cs`, `Text/TextValueRecordTests.cs` |
 | `TextChange`, `TextChangeRange` | `Text/TextValueRecordTests.cs` |
 | `TextUtils` | `Text/TextUtilsTests.cs`, including mixed line endings, UTF-16 positions and named tuple access from C# |
+| `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, including edits, change chains, surrogate-aware readers, copying, lazy lines, writes and cancellation |
 
 The original tests retain their assertions. Added behavioral tests are shared by
 both implementations and remain in the main compiler test project too. Shared
@@ -100,14 +101,14 @@ No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
 Contract change is needed for the span invariant.
 
-## In-progress snapshot slice
+## Snapshot slice
 
-The three `Text/*.rvn.pending` files are visible translation drafts, intentionally
-not compiler inputs and not counted as ported components or passing coverage.
-They will become `.rvn` sources as the second slice is made buildable, then link
-`SourceTextTests.cs` into both test projects. No existing test has been excluded.
+`SourceText.rvn`, `TextLine.rvn` and `TextLineCollection.rvn` are now compiler
+inputs. Both parity projects link the unchanged `SourceTextTests.cs` assertions,
+and assembly-identity checks include all three types. No existing test is excluded.
+The snapshot slice retains its original algorithms and .NET APIs.
 
-Initial analysis exposed these issues to reduce and address before accepting it:
+The workload exposed these stabilization issues:
 
 - `StreamReader(stream, encoding)` overload preference is fixed by PORT-004,
   with the original two-argument call retained in the draft.
@@ -120,8 +121,9 @@ Initial analysis exposed these issues to reduce and address before accepting it:
   removing their mutable empty-list caches; this is not evidence that the language
   gap itself is fixed.
 - String range indexing is implemented by PORT-006. The original slicing
-  expressions remain in the snapshot reader; the three drafts now compile in an
-  initial .NET build probe and still need shared snapshot test validation.
+  expressions remain in the snapshot reader and pass the shared reader tests.
+- C# indexer consumption and framework scopes are fixed by PORT-008 and PORT-009;
+  all 14 existing snapshot cases now pass against the Raven implementation.
 
 Some rejected direct spellings are deliberate language differences, not compiler
 bugs: Raven parameters are immutable and ordinary null checks do not narrow
@@ -134,11 +136,16 @@ confusion with `SourceText.Encoding`.
 
 ## Next dependency slice
 
-Continue with `SourceText`, `TextLine` and
-`TextLineCollection`, linking the existing `SourceTextTests.cs`. This adds snapshot
-edits, change ranges, Unicode, encoding, stream, hash, collection, weak-reference
-and lazy-initialization workloads. Keep each failure as a regression at its owning
-layer before moving on to lexer/parser components.
+Complete the independent text helpers (`AnsiColor` and `AnsiExtensions`) and
+extend snapshot I/O/hash coverage before moving into lexer/parser dependencies.
+`SourceTextWriter` depends on syntax nodes and follows that dependency group.
+Continue preserving each discovered failure as a regression at its owning layer.
+Open coalescing-assignment and stored-range parser gaps remain stabilization work.
+
+Keep C# tests as the main parity oracle. A bounded Raven translation of text tests
+may be explored in its own project (author direction, 2026-11-01); do not merge it
+into the compiler project or replace the C# coverage. The full test-suite port
+remains a later phase, and compiler porting remains the priority.
 
 ## First component checkpoint — 2026-11-01
 
@@ -242,3 +249,13 @@ normalizer/collection tests passed. After extending selected-declaration lookup,
 shared snapshot suite now passes 59 tests per implementation on .NET 11, including
 edits, cancellation-aware writes and lazy line materialization. This verifies the
 runtime failures from PORT-009 are resolved for the port workload.
+
+
+## Snapshot acceptance checkpoint — 2026-11-01
+
+The three snapshot sources are promoted from drafts without replacing slicing,
+immutable-array builders, span-based edits or lazy initialization with workarounds.
+After the owning compiler fixes, the shared C# suite passes **59 tests against
+C# and 59 against Raven**, with no skipped cases. The original C# implementation
+remains in place. This is a .NET 11 component checkpoint, not compiler self-hosting
+or native target qualification.

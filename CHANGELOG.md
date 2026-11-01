@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Enable the side-by-side Raven `SourceText`, `TextLine` and `TextLineCollection`
+  implementations. Reuse the existing C# snapshot tests against both assemblies,
+  covering edits, change ranges, readers, line collections, writes and cancellation.
+
 - Resolve normalized core-library type scopes from all available selected
   framework declarations, including `MemoryExtensions` and `LazyInitializer`.
   This fixes `TypeLoadException` in Raven snapshot edits, writes and lazy lines

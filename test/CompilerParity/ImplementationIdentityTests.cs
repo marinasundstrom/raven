@@ -17,5 +17,8 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(LinePosition).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(LinePositionSpan).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(FileLinePositionSpan).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(SourceText).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(TextLine).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(TextLineCollection).Assembly);
     }
 }

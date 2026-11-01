@@ -86,7 +86,9 @@ Run the existing tests against the Raven compiler wherever the API and harness
 permit. Keep the tests in C# throughout the compiler port, sharing input fixtures
 and expected results across implementations. Porting the test suite to Raven is
 a follow-up phase after the compiler port is complete (author direction,
-2026-11-01), not a parallel migration that weakens the parity oracle.
+2026-11-01). A small text-test port may be explored in a separate Raven project,
+while retaining the C# parity suite; keep this bounded and secondary to compiler
+porting. Avoid combining compiler sources and tests into a monolithic project.
 
 Where a test cannot run unchanged, adapt its harness while retaining
 its behavioral assertions. Record the original-to-replacement mapping and why
