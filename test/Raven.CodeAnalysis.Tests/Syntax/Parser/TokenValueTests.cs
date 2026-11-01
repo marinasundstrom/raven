@@ -6,6 +6,18 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public sealed class TokenValueTests
 {
     [Fact]
+    public void GraphemePayloadPreservesTextAndValueEquality()
+    {
+        var first = new GraphemeLiteralValue("e\u0301");
+        var same = new GraphemeLiteralValue("e\u0301");
+        Assert.Equal(first, same);
+        Assert.Equal(first.GetHashCode(), same.GetHashCode());
+        Assert.NotEqual(first, new GraphemeLiteralValue("e"));
+        Assert.Equal("e\u0301", first.ToString());
+        Assert.Equal(first.Text, first.ToString());
+    }
+
+    [Fact]
     public void IdentifierToken_InternsTextAndRetainsUtf16Width()
     {
         var text = new string("name_å".ToCharArray());

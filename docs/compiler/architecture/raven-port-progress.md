@@ -65,7 +65,8 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `CompilerDiagnostics` | Shared catalog lookup/cache checks and cross-assembly descriptor-field parity |
 | `SyntaxFacts` | Shared string decoding, identifier escaping and keyword tests; exhaustive cross-assembly kind classification, token text, precedence and UTF-16 identifier classification |
-| `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
+| `SyntaxKind`, `Token`, `GraphemeLiteralValue` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
+| `Lexer`, `LexerFlags`, `ILexer`, `IMacroBodyScanner` | Shared `Syntax/Parser/LexerTests.cs`, including literals, lookahead, diagnostics and conditional checkpoint restoration |
 
 The original tests retain their assertions. Added behavioral tests are shared by
 both implementations and remain in the main compiler test project too. Shared
@@ -149,23 +150,19 @@ confusion with `SourceText.Encoding`.
 
 ## Next dependency slice
 
-The independent text helpers and snapshot I/O/hash coverage are now included.
-`SeekableTextSource`, generated syntax kinds and token values are now ported and
-tested. Diagnostic payload dependencies (`LocalizableString` and its literal
-implementation, `DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`)
-are now translated, including resource-backed localization. Continue with the
-remaining lexer dependencies (parse options and scanner contracts),
-then the lexer itself. The diagnostic catalog is generated from the shared XML. Literal strings
-now have text-based value equality; resource strings have culture-independent
-identity based on their resource configuration. Both corrections are shared by
-C# and Raven. `DiagnosticInfo` retains reference identity and its caller-owned
-argument array rather than introducing deep equality over mutable inputs.
-Keep generated syntax-kind definitions tied to their source model rather than
-maintaining a divergent handwritten copy. `SourceTextWriter`
-depends on syntax nodes and follows that dependency group.
-Continue preserving each discovered failure as a regression at its owning layer.
-The stored-range parser gap remains open; coalescing assignment is corrected by
-PORT-015 below.
+The lexer core now passes the shared C# tests in both implementations. Next,
+port the remaining parse-options dependencies and syntax-node/token/trivia
+infrastructure, preserving generator support for both C# and Raven output.
+The current node generator emits Raven syntax kinds and facts; generated node
+support must be extended before the parser can depend on Raven syntax trees.
+Follow with `ParseContext`, `BaseParseContext`, and parser checkpoints.
+
+Once those foundations pass parity, port coherent parser families in larger
+chunks, keeping the translation close to C# and linking existing parser tests
+against both implementations. Continue reducing and fixing language/compiler
+gaps at their owning layer rather than compensating in translated parser code.
+Syntax additions should follow Raven's existing conventions; the array allocation
+spelling remains open to later review.
 
 Keep C# tests as the main parity oracle. A bounded Raven translation of text tests
 may be explored in its own project (author direction, 2026-11-01); do not merge it
@@ -745,6 +742,31 @@ Focused metadata constructor-delegation, constructed-base and generic-base check
 pass in the separate neoCLR worktree. Both source worktrees retain their own
 branches; no merge or push is performed for this slice.
 
+
+### Lexer core checkpoint — 2026-11-01
+
+The full lexer core, LexerFlags and GraphemeLiteralValue are translated alongside
+the C# implementation. Existing lexer tests are linked into both parity projects.
+The C# ParseOptions constructor remains; a dependency-independent configuration
+constructor allows the core to be ported before that dependency graph. Explicit
+private members, constructor delegation, local functions and record value shapes
+are retained, with normal Raven indentation.
+
+A shared regression reproduced an existing checkpoint defect: scanning past
+`#else` and rewinding restored the character position but left the conditional
+branch inactive. Both lexer sources now remember conditional state when creating
+a checkpoint and restore it on rewind. The regression originally failed with
+DisabledTextTrivia instead of LineFeedToken.
+
+After the compiler corrections recorded in PORT-025 through PORT-030, the full
+parity command passes **298 C# tests and 303 Raven tests**. The latter includes
+five Raven-specific implementation checks. Tests cover ordinary and multiline
+strings, interpolation, numeric/character literals, Unicode, lookahead and
+conditional rewind. GraphemeLiteralValue retains record equality and ToString.
+Validation ran on .NET 11; shared frontend behavior does not establish neoCLR
+runtime execution. The Raven build still reports analyzer warnings (403 in this
+run), so this is behavioral parity, not a warning-free-build claim. No RavenDoc
+or website generation was run.
 
 ### PORT-025: Runtime-length array allocation
 

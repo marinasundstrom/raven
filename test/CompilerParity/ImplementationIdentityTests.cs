@@ -26,6 +26,9 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiColor).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiExtensions).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(SeekableTextSource).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Lexer).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(LexerFlags).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Syntax.GraphemeLiteralValue).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(ILexer).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(IMacroBodyScanner).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Syntax.SyntaxAnnotation).Assembly);

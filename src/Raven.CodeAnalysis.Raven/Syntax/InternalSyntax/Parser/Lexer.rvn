@@ -1,0 +1,1731 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.IO.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Globalization.*
+import System.Text.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.*
+import Raven.CodeAnalysis.Text.*
+
+internal open class Lexer : ILexer, IMacroBodyScanner {
+    private readonly field _textSource: SeekableTextSource
+    private readonly field _stringBuilder: StringBuilder = StringBuilder()
+    private readonly field _lookaheadTokens: List<Token> = List<Token>()
+    private field _lookaheadStart: int
+    private field _currentPosition: int = 0
+    private field _tokenStartPosition: int = 0
+    private readonly field _definedSymbols: HashSet<string>
+    private readonly field _conditionalStack: List<ConditionalFrame> = []
+    private readonly field _conditionalStateSnapshots: Dictionary<int, ConditionalStateSnapshot> = []
+    private field _reportedMissingEndIf: bool
+    private readonly field _enableCharKeyword: bool
+
+    var DiagnosticSink: Action<DiagnosticInfo>? { get; set; }
+
+    init(textReader: TextReader) : self(textReader, 0, true, null) {}
+
+    init(textReader: TextReader, startPosition: int) : self(textReader, startPosition, true, null) {}
+
+    // ParseOptions adapter remains in the C# seed until its dependency graph is ported.
+
+    internal init(textReader: TextReader, startPosition: int, enableCharKeyword: bool, preprocessorSymbolNames: IEnumerable<string>?) {
+        _enableCharKeyword = enableCharKeyword
+        _textSource = SeekableTextSource(textReader, startPosition)
+        _currentPosition = startPosition
+        _tokenStartPosition = startPosition
+        _definedSymbols = HashSet<string>(preprocessorSymbolNames ?? [], StringComparer.Ordinal)
+        RememberConditionalState(startPosition)
+    }
+
+    func ResetToPosition(position: int) {
+        ClearLookahead()
+        _currentPosition = position
+        _tokenStartPosition = position
+        _textSource.ResetPosition(position)
+        RestoreConditionalState(position)
+        PrintDebug("Lexer reset to position ${position}")
+    }
+
+    [Conditional("DEBUG")]
+    private static func PrintDebug(text: string) {
+        if LexerFlags.PrintDebug {
+            Console.WriteLine(text)
+        }
+    }
+
+    private func ReportDiagnostic(diagnostic: DiagnosticInfo) {
+        DiagnosticSink?.Invoke(diagnostic)
+    }
+
+    func CreateCheckpoint() {
+        var position = _textSource.PushPosition()
+        RememberConditionalState(position)
+        PrintDebug("Lexer pushed checkpoint for position ${position}")
+    }
+
+    func RewindToCheckpoint() {
+        var position = _textSource.PopAndRestorePosition()
+        ClearLookahead()
+        _currentPosition = position
+        _tokenStartPosition = position
+        RestoreConditionalState(position)
+        PrintDebug("Lexer rewind to position ${position}")
+    }
+
+    func ClearCheckpoint() {
+        var position = _textSource.PopPosition()
+        PrintDebug("Lexer cleared checkpoint at position ${position}")
+    }
+
+    var MergeCarriageReturnAndLineFeed: bool { get; set; } = true
+
+    val LineFeedTokenKind: SyntaxKind => SyntaxKind.LineFeedToken
+
+    val CarriageReturnLineFeedTokenKind: SyntaxKind => SyntaxKind.CarriageReturnLineFeedToken
+
+    func ReadToken() -> Token {
+        if TryConsumeLookaheadToken(out var token) {
+            PrintDebug("Lexer read token: ${token.Kind} ${token.Text}${((if token.Value is not null { " (${token.Value})" } else { "" }))}, at position ${_tokenStartPosition} (Width: ${token.Length})")
+            return token
+        }
+        token = ReadTokenCore()
+        PrintDebug("Lexer read token: ${token.Kind} ${token.Text}${((if token.Value is not null { " (${token.Value})" } else { "" }))}, at position ${_tokenStartPosition} (Width: ${token.Length})")
+        return token
+    }
+
+    func ReadAndDiscardTokens(count: int) {
+        {
+            var i: int = 0
+            while i < count {
+                ReadToken()
+                i++
+            }
+        }
+    }
+
+    func ReadTokens(count: int) -> IEnumerable<Token> {
+        var tokens = Token[](count);
+        {
+            var i: int = 0
+            while i < count {
+                tokens[i] = ReadToken()
+                i++
+            }
+        }
+        return tokens
+    }
+
+    func PeekToken(index: int = 0) -> Token {
+        while (_lookaheadTokens.Count - _lookaheadStart) <= index {
+            var token = ReadTokenCore()
+            _lookaheadTokens.Add(token)
+        }
+        return _lookaheadTokens[_lookaheadStart + index]
+    }
+
+    func ReadMacroBody(out isTerminated: bool) -> Token {
+        ClearLookahead()
+        _tokenStartPosition = _currentPosition
+        var builder = StringBuilder()
+        var braceDepth = 0
+        while PeekChar(out var current) {
+            if current == '}' && braceDepth == 0 {
+                isTerminated = true
+                return Token(SyntaxKind.MacroBodyToken, builder.ToString())
+            }
+            if current == '{' {
+                ReadChar()
+                builder.Append(current)
+                braceDepth++
+                continue
+            }
+            if current == '}' {
+                ReadChar()
+                builder.Append(current)
+                braceDepth--
+                continue
+            }
+            if current is '"' or '\'' or '`' {
+                ScanQuotedText(builder, current)
+                continue
+            }
+            if current == '/' && _textSource.PeekChar(1, out var commentMarker) {
+                if commentMarker == '/' {
+                    ScanLineComment(builder)
+                    continue
+                }
+                if commentMarker == '*' {
+                    ScanBlockComment(builder)
+                    continue
+                }
+            }
+            ReadChar()
+            builder.Append(current)
+            if current == '\\' && PeekChar(out var escaped) {
+                ReadChar()
+                builder.Append(escaped)
+            }
+        }
+        isTerminated = false
+        return Token(SyntaxKind.MacroBodyToken, builder.ToString())
+    }
+
+    private func ScanQuotedText(builder: StringBuilder, quote: char) {
+        var isTripleQuoted = quote == '"' && _textSource.PeekChar(1, out var secondQuote) && secondQuote == '"' && _textSource.PeekChar(2, out var thirdQuote) && thirdQuote == '"'
+        var delimiterLength = (if isTripleQuoted { 3 } else { 1 })
+        {
+            var i = 0
+            while i < delimiterLength {
+                ReadChar()
+                builder.Append(quote)
+                i++
+            }
+        }
+        while PeekChar(out var current) {
+            if isTripleQuoted && current == quote && _textSource.PeekChar(1, out secondQuote) && secondQuote == quote && _textSource.PeekChar(2, out thirdQuote) && thirdQuote == quote {
+                {
+                    var i = 0
+                    while i < delimiterLength {
+                        ReadChar()
+                        builder.Append(quote)
+                        i++
+                    }
+                }
+                return
+            }
+            ReadChar()
+            builder.Append(current)
+            if !isTripleQuoted && current == '\\' && PeekChar(out var escaped) {
+                ReadChar()
+                builder.Append(escaped)
+                continue
+            }
+            if !isTripleQuoted && current == quote {
+                return
+            }
+        }
+    }
+
+    private func ScanLineComment(builder: StringBuilder) {
+        ReadChar()
+        builder.Append('/')
+        ReadChar()
+        builder.Append('/')
+        while PeekChar(out var current) && !IsEndOfLine(current) {
+            ReadChar()
+            builder.Append(current)
+        }
+    }
+
+    private func ScanBlockComment(builder: StringBuilder) {
+        ReadChar()
+        builder.Append('/')
+        ReadChar()
+        builder.Append('*')
+        while PeekChar(out var current) {
+            ReadChar()
+            builder.Append(current)
+            if current == '*' && PeekChar(out var next) && next == '/' {
+                ReadChar()
+                builder.Append('/')
+                return
+            }
+        }
+    }
+
+    private func TryConsumeLookaheadToken(out token: Token) -> bool {
+        if _lookaheadStart >= _lookaheadTokens.Count {
+            token = default
+            return false
+        }
+        token = _lookaheadTokens[_lookaheadStart++]
+        CompactLookaheadIfNeeded()
+        return true
+    }
+
+    private func ClearLookahead() {
+        _lookaheadTokens.Clear()
+        _lookaheadStart = 0
+    }
+
+    private func CompactLookaheadIfNeeded() {
+        if _lookaheadStart == 0 {
+            return
+        }
+        if _lookaheadStart >= _lookaheadTokens.Count {
+            ClearLookahead()
+            return
+        }
+        if _lookaheadStart < 32 || _lookaheadStart * 2 < _lookaheadTokens.Count {
+            return
+        }
+        _lookaheadTokens.RemoveRange(0, _lookaheadStart)
+        _lookaheadStart = 0
+    }
+
+    private func ReadTokenCore() -> Token {
+        _tokenStartPosition = _currentPosition
+        RememberConditionalState(_currentPosition)
+        if _currentPosition == 0 && PeekChar(out var firstCharacter) && firstCharacter == '#' && _textSource.PeekChar(1, out var secondCharacter) && secondCharacter == '!' {
+            _stringBuilder.Clear()
+            while PeekChar(out var character) && !IsEndOfLine(character) {
+                ReadChar()
+                _stringBuilder.Append(character)
+            }
+            return Token(SyntaxKind.SingleLineCommentTrivia, GetStringBuilderValue())
+        }
+        if !IsCurrentBranchActive && !IsConditionalDirectiveAheadAtLineStart() {
+            var disabledText = ReadDisabledText()
+            if disabledText.Length > 0 {
+                return Token(SyntaxKind.DisabledTextTrivia, disabledText)
+            }
+        }
+        var ch: char = '\0'
+        var ch2: char = '\0'
+        while ReadChar(out ch) {
+            if _stringBuilder.Length > 0 {
+                _stringBuilder.Clear()
+            }
+            if ch == '`' {
+                _stringBuilder.Append(ch)
+                while PeekChar(out ch2) && ch2 != '`' && !IsEndOfLine(ch2) {
+                    ReadChar()
+                    _stringBuilder.Append(ch2)
+                }
+                var valueText = string.Intern(_stringBuilder.ToString(1, _stringBuilder.Length - 1))
+                if PeekChar(out ch2) && ch2 == '`' {
+                    ReadChar()
+                    _stringBuilder.Append(ch2)
+                } else {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected, GetTokenStartPositionSpan(), "`"))
+                }
+                if valueText.Length == 0 {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetTokenStartPositionSpan()))
+                }
+                return Token(SyntaxKind.IdentifierToken, GetStringBuilderValue(), valueText)
+            }
+            if ch == '@' {
+                _stringBuilder.Append(ch)
+                if !PeekChar(out ch2) || !SyntaxFacts.IsIdentifierStartCharacter(ch2) {
+                    return Token(SyntaxKind.IdentifierToken, GetStringBuilderValue())
+                }
+                ReadChar(out ch2)
+                _stringBuilder.Append(ch2)
+                while PeekChar(out ch2) && SyntaxFacts.IsIdentifierPartCharacter(ch2) {
+                    ReadChar()
+                    _stringBuilder.Append(ch2)
+                }
+                var text2 = GetStringBuilderValue()
+                var valueText = string.Intern(text2.Substring(1))
+                return Token(SyntaxKind.IdentifierToken, text2, valueText)
+            }
+            if SyntaxFacts.IsIdentifierStartCharacter(ch) || char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)) {
+                _stringBuilder.Append(ch)
+                if SyntaxFacts.IsIdentifierStartCharacter(ch) {
+                    var syntaxKind: SyntaxKind = SyntaxKind.IdentifierToken
+                    while PeekChar(out ch) && SyntaxFacts.IsIdentifierPartCharacter(ch) {
+                        ReadChar()
+                        _stringBuilder.Append(ch)
+                    }
+                    var text = GetStringBuilderValue()
+                    if !SyntaxFacts.TryParseKeyword(text, out syntaxKind) || syntaxKind == SyntaxKind.CharKeyword && !_enableCharKeyword {
+                        syntaxKind = SyntaxKind.IdentifierToken
+                    }
+                    if text == "_" {
+                        syntaxKind = SyntaxKind.UnderscoreToken
+                    }
+                    while true {
+                        match syntaxKind {
+                            SyntaxKind.TrueKeyword => {
+                                return Token(SyntaxKind.TrueKeyword, text, true, _stringBuilder.Length)
+                            }
+                            SyntaxKind.FalseKeyword => {
+                                return Token(SyntaxKind.FalseKeyword, text, false, _stringBuilder.Length)
+                            }
+                            _ => {}
+                        }
+                        break
+                    }
+                    return Token(syntaxKind, text)
+                } else {
+                    if char.IsDigit(ch) || ch == '.' {
+                        return ParseNumber(ref ch)
+                    }
+                }
+            } else {
+                var chStr: string = string.Intern(ch.ToString())
+                while true {
+                    match ch {
+                        '+' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.PlusEqualsToken, "+=")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '+' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.PlusPlusToken, "++")
+                                }
+                            }
+                            return Token(SyntaxKind.PlusToken, chStr)
+                        }
+                        '-' => {
+                            if PeekChar(out ch2) && ch2 == '>' {
+                                ReadChar()
+                                return Token(SyntaxKind.ArrowToken, "->")
+                            } else {
+                                if PeekChar(out ch2) && (char.IsDigit(ch2) || ch2 == '.') {
+                                    return ParseNumber(ref ch, true)
+                                } else {
+                                    if PeekChar(out ch2) && ch2 == '=' {
+                                        ReadChar()
+                                        return Token(SyntaxKind.MinusEqualsToken, "-=")
+                                    } else {
+                                        if PeekChar(out ch2) && ch2 == '-' {
+                                            ReadChar()
+                                            return Token(SyntaxKind.MinusMinusToken, "--")
+                                        }
+                                    }
+                                }
+                            }
+                            return Token(SyntaxKind.MinusToken, chStr)
+                        }
+                        '/' => {
+                            if PeekChar(out ch2) {
+                                if ch2 == '=' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.SlashEqualsToken, "/=")
+                                }
+                                if ch2 == '/' {
+                                    _stringBuilder.Append('/')
+                                    ReadChar()
+                                    _stringBuilder.Append('/')
+                                    var isDocComment = PeekChar(out var nextAfterSlashes) && nextAfterSlashes == '/'
+                                    while PeekChar(out var c) {
+                                        if IsEndOfLine(c) {
+                                            break
+                                        }
+                                        ReadChar()
+                                        _stringBuilder.Append(c)
+                                    }
+                                    var kind = (if isDocComment { SyntaxKind.DocumentationCommentTrivia } else { SyntaxKind.SingleLineCommentTrivia })
+                                    return Token(kind, GetStringBuilderValue())
+                                }
+                                if ch2 == '*' {
+                                    _stringBuilder.Append('/')
+                                    ReadChar()
+                                    _stringBuilder.Append('*')
+                                    while PeekChar(out var c) {
+                                        ReadChar()
+                                        _stringBuilder.Append(c)
+                                        if c == '*' && PeekChar(out var next) && next == '/' {
+                                            ReadChar()
+                                            _stringBuilder.Append('/')
+                                            return Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue())
+                                        }
+                                    }
+                                    return Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue())
+                                }
+                            }
+                            return Token(SyntaxKind.SlashToken, chStr)
+                        }
+                        '#' => {
+                            if PeekChar(out ch2) && ch2 == '[' {
+                                return Token(SyntaxKind.HashToken, chStr)
+                            }
+                            if !IsDirectiveStart(_currentPosition - 1) || !TryReadDirectiveKeyword(out var directiveKeyword) {
+                                return Token(SyntaxKind.HashToken, chStr)
+                            }
+                            _stringBuilder.Append('#')
+                            while PeekChar(out var c) {
+                                if IsEndOfLine(c) {
+                                    break
+                                }
+                                ReadChar()
+                                _stringBuilder.Append(c)
+                            }
+                            var directiveText = GetStringBuilderValue()
+                            if string.Equals(directiveKeyword, "pragma", StringComparison.Ordinal) {
+                                return Token(SyntaxKind.DirectiveTrivia, directiveText)
+                            }
+                            return ReadConditionalDirective(directiveText, directiveKeyword)
+                        }
+                        '*' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.StarEqualsToken, "*=")
+                            }
+                            return Token(SyntaxKind.StarToken, chStr)
+                        }
+                        '%' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.PercentEqualsToken, "%=")
+                            }
+                            return Token(SyntaxKind.PercentToken, chStr)
+                        }
+                        '.' => {
+                            if PeekChar(out ch2) && ch2 == '.' {
+                                ReadChar()
+                                if PeekChar(out var ch3) && ch3 == '.' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.DotDotDotToken, "...")
+                                }
+                                return Token(SyntaxKind.DotDotToken, "..")
+                            }
+                            return Token(SyntaxKind.DotToken, chStr)
+                        }
+                        ',' => {
+                            return Token(SyntaxKind.CommaToken, chStr)
+                        }
+                        ':' => {
+                            return Token(SyntaxKind.ColonToken, chStr)
+                        }
+                        ';' => {
+                            return Token(SyntaxKind.SemicolonToken, chStr)
+                        }
+                        '(' => {
+                            return Token(SyntaxKind.OpenParenToken, chStr)
+                        }
+                        ')' => {
+                            return Token(SyntaxKind.CloseParenToken, chStr)
+                        }
+                        '{' => {
+                            return Token(SyntaxKind.OpenBraceToken, chStr)
+                        }
+                        '}' => {
+                            return Token(SyntaxKind.CloseBraceToken, chStr)
+                        }
+                        '[' => {
+                            if PeekChar(out ch2) && ch2 == '|' {
+                                ReadChar()
+                                return Token(SyntaxKind.OpenArrayToken, "[|")
+                            }
+                            return Token(SyntaxKind.OpenBracketToken, chStr)
+                        }
+                        ']' => {
+                            return Token(SyntaxKind.CloseBracketToken, chStr)
+                        }
+                        '=' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.EqualsEqualsToken, "==")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '>' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.FatArrowToken, "=>")
+                                }
+                            }
+                            return Token(SyntaxKind.EqualsToken, chStr)
+                        }
+                        '|' => {
+                            if PeekChar(out ch2) && ch2 == ']' {
+                                ReadChar()
+                                return Token(SyntaxKind.CloseArrayToken, "|]")
+                            }
+                            if PeekChar(out ch2) && ch2 == '|' {
+                                ReadChar()
+                                return Token(SyntaxKind.BarBarToken, "||")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '=' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.BarEqualsToken, "|=")
+                                } else {
+                                    if PeekChar(out ch2) && ch2 == '>' {
+                                        ReadChar()
+                                        return Token(SyntaxKind.PipeToken, "|>")
+                                    }
+                                }
+                            }
+                            return Token(SyntaxKind.BarToken, chStr)
+                        }
+                        '!' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.NotEqualsToken, "!=")
+                            }
+                            return Token(SyntaxKind.ExclamationToken, chStr)
+                        }
+                        '?' => {
+                            if PeekChar(out ch2) && ch2 == '?' {
+                                ReadChar()
+                                if PeekChar(out var ch3) && ch3 == '=' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.QuestionQuestionEqualsToken, "??=")
+                                }
+                                return Token(SyntaxKind.QuestionQuestionToken, "??")
+                            }
+                            return Token(SyntaxKind.QuestionToken, chStr)
+                        }
+                        '&' => {
+                            if PeekChar(out ch2) && ch2 == '&' {
+                                ReadChar()
+                                return Token(SyntaxKind.AmpersandAmpersandToken, "&&")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '=' {
+                                    ReadChar()
+                                    return Token(SyntaxKind.AmpersandEqualsToken, "&=")
+                                }
+                            }
+                            return Token(SyntaxKind.AmpersandToken, chStr)
+                        }
+                        '<' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.LessThanOrEqualsToken, "<=")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '<' {
+                                    ReadChar()
+                                    if PeekChar(out var leftShiftNext) && leftShiftNext == '=' {
+                                        ReadChar()
+                                        return Token(SyntaxKind.LessThanLessThanEqualsToken, "<<=")
+                                    }
+                                    return Token(SyntaxKind.LessThanLessThanToken, "<<")
+                                }
+                            }
+                            return Token(SyntaxKind.LessThanToken, chStr)
+                        }
+                        '>' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.GreaterThanOrEqualsToken, ">=")
+                            } else {
+                                if PeekChar(out ch2) && ch2 == '>' {
+                                    ReadChar()
+                                    if PeekChar(out var shiftNext) && shiftNext == '>' {
+                                        ReadChar()
+                                        if PeekChar(out shiftNext) && shiftNext == '=' {
+                                            ReadChar()
+                                            return Token(SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, ">>>=")
+                                        }
+                                        return Token(SyntaxKind.GreaterThanGreaterThanGreaterThanToken, ">>>")
+                                    }
+                                    if shiftNext == '=' {
+                                        ReadChar()
+                                        return Token(SyntaxKind.GreaterThanGreaterThanEqualsToken, ">>=")
+                                    }
+                                    return Token(SyntaxKind.GreaterThanGreaterThanToken, ">>")
+                                }
+                            }
+                            return Token(SyntaxKind.GreaterThanToken, chStr)
+                        }
+                        '^' => {
+                            if PeekChar(out ch2) && ch2 == '=' {
+                                ReadChar()
+                                return Token(SyntaxKind.CaretEqualsToken, "^=")
+                            }
+                            return Token(SyntaxKind.CaretToken, chStr)
+                        }
+                        '~' => {
+                            return Token(SyntaxKind.TildeToken, chStr)
+                        }
+                        ' ' => {
+                            var length: int = 1
+                            while ReadWhile(' ') {
+                                length++
+                            }
+                            return Token(SyntaxKind.Whitespace, string.Intern(string(' ', length)))
+                        }
+                        '\'' => {
+                            {
+                                _stringBuilder.Append(ch)
+                                if !ReadChar(out ch) {
+                                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnterminatedCharacterLiteral, GetTokenStartPositionSpan()))
+                                    return Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue())
+                                }
+                                var characters = System.Text.StringBuilder()
+                                var character = ReadCharacterLiteralValue(ch)
+                                while true {
+                                    if character is null {
+                                        return Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue())
+                                    }
+                                    characters.Append(character!.ToString())
+                                    if !PeekChar(out ch) || ch == '\'' || ch == '\n' || ch == '\r' {
+                                        break
+                                    }
+                                    ReadChar(out ch)
+                                    character = ReadCharacterLiteralValue(ch)
+                                }
+                                if characters.Length > character!.ToString()!.Length {
+                                    character = GraphemeLiteralValue(characters.ToString())
+                                }
+                                if !ReadChar(out ch) || ch != '\'' {
+                                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnterminatedCharacterLiteral, GetTokenStartPositionSpan()))
+                                    return Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue())
+                                }
+                                _stringBuilder.Append(ch)
+                                return Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), character, _stringBuilder.Length)
+                            }
+                        }
+                        '"' => {
+                            _stringBuilder.Append(ch)
+                            if TryConsumeTripleQuoteStart() {
+                                return ParseTripleQuotedStringLiteral()
+                            }
+                            return ParseSingleLineStringLiteral()
+                        }
+                        '\t' => {
+                            return Token(SyntaxKind.TabToken, string.Intern("\t"))
+                        }
+                        '\n' => {
+                            return Token(LineFeedTokenKind, string.Intern("\n"))
+                        }
+                        '\u0085' => {
+                            return Token(LineFeedTokenKind, string.Intern("\u0085"))
+                        }
+                        '\u2028' => {
+                            return Token(LineFeedTokenKind, string.Intern("\u2028"))
+                        }
+                        '\u2029' => {
+                            return Token(LineFeedTokenKind, string.Intern("\u2029"))
+                        }
+                        '\r' => {
+                            if MergeCarriageReturnAndLineFeed && PeekChar(out ch2) && ch2 == '\n' {
+                                ReadChar()
+                                return Token(CarriageReturnLineFeedTokenKind, string.Intern("\r\n"))
+                            }
+                            return Token(SyntaxKind.CarriageReturnToken, string.Intern("\r"))
+                        }
+                        '\0' => {
+                            ReportMissingEndIfIfNeeded()
+                            return Token(SyntaxKind.EndOfFileToken, string.Empty)
+                        }
+                        _ => {}
+                    }
+                    break
+                }
+            }
+            return Token(SyntaxKind.None, ch.ToString())
+        }
+        ReportMissingEndIfIfNeeded()
+        return Token(SyntaxKind.EndOfFileToken, string.Empty)
+    }
+
+    private func ReadCharacterLiteralValue(characterStart: char) -> object? {
+        var ch = characterStart
+        if ch == '\\' {
+            _stringBuilder.Append(ch)
+            if !ReadChar(out ch) {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnterminatedCharacterLiteral, GetTokenStartPositionSpan()))
+                return null
+            }
+            _stringBuilder.Append(ch)
+            match ch {
+                '\'' => {
+                    return '\''
+                }
+                '\"' => {
+                    return '\"'
+                }
+                '\\' => {
+                    return '\\'
+                }
+                '0' => {
+                    return '\0'
+                }
+                'a' => {
+                    return '\a'
+                }
+                'b' => {
+                    return '\b'
+                }
+                'f' => {
+                    return '\f'
+                }
+                'n' => {
+                    return '\n'
+                }
+                'r' => {
+                    return '\r'
+                }
+                't' => {
+                    return '\t'
+                }
+                'v' => {
+                    return '\v'
+                }
+                'u' or 'U' => {
+                    var digits = (if ch == 'u' { 4 } else { 8 })
+                    var codepoint = System.Text.StringBuilder();
+                    {
+                        var index = 0
+                        while index < digits && PeekChar(out var digit) && Uri.IsHexDigit(digit) {
+                            ReadChar(out digit)
+                            _stringBuilder.Append(digit)
+                            codepoint.Append(digit)
+                            index++
+                        }
+                    }
+                    if codepoint.Length != digits || !uint.TryParse(codepoint.ToString(), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var scalar) || scalar > 0x10ffff {
+                        ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()))
+                        return '?'
+                    } else {
+                        return (if scalar <= char.MaxValue { (object)(char)scalar } else { System.Text.Rune((int)scalar) })
+                    }
+
+                }
+                _ => {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()))
+                    return '?'
+                }
+            }
+        } else {
+            _stringBuilder.Append(ch)
+            if char.IsHighSurrogate(ch) && PeekChar(out var low) && char.IsLowSurrogate(low) {
+                ReadChar(out low)
+                _stringBuilder.Append(low)
+                return System.Text.Rune(ch, low)
+            } else {
+                return ch
+            }
+        }
+    }
+
+    private func TryConsumeTripleQuoteStart() -> bool {
+        if !PeekChar(out var next) || next != '"' {
+            return false
+        }
+        var checkpoint = _currentPosition
+        _textSource.PushPosition()
+        if !ReadChar(out var q2) || q2 != '"' {
+            _textSource.PopAndRestorePosition()
+            _currentPosition = checkpoint
+            return false
+        }
+        if !ReadChar(out var q3) || q3 != '"' {
+            _textSource.PopAndRestorePosition()
+            _currentPosition = checkpoint
+            return false
+        }
+        _textSource.PopAndRestorePosition()
+        _currentPosition = checkpoint
+        ReadChar()
+        _stringBuilder.Append('"')
+        ReadChar()
+        _stringBuilder.Append('"')
+        return true
+    }
+
+    private func ParseSingleLineStringLiteral() -> Token {
+        while true {
+            if !PeekChar(out var ch2) {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NewlineInConstant, GetTokenStartPositionSpan()))
+                break
+            }
+            ReadChar()
+            if ch2 == '$' && !IsDollarEscaped(_stringBuilder) && PeekChar(out var next) && ((next is '{' or '`') || SyntaxFacts.IsIdentifierStartCharacter(next)) {
+                _stringBuilder.Append('$')
+                if next == '{' {
+                    ReadChar()
+                    _stringBuilder.Append('{')
+                    ScanInterpolationBodyIntoBuilder()
+                } else {
+                    if next == '`' {
+                        ScanBacktickIdentifierIntoBuilder()
+                    } else {
+                        ReadChar()
+                        _stringBuilder.Append(next)
+                        while PeekChar(out var idch) && SyntaxFacts.IsIdentifierPartCharacter(idch) {
+                            ReadChar()
+                            _stringBuilder.Append(idch)
+                        }
+                    }
+                }
+                continue
+            }
+            if ch2 == '"' {
+                _stringBuilder.Append(ch2)
+                break
+            }
+            if IsEndOfLine(ch2) {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NewlineInConstant, GetTokenStartPositionSpan()))
+                break
+            }
+            if ch2 == '\\' {
+                _stringBuilder.Append(ch2)
+                if !PeekChar(out var escaped2) {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NewlineInConstant, GetTokenStartPositionSpan()))
+                    break
+                }
+                ReadChar()
+                if IsEndOfLine(escaped2) {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NewlineInConstant, GetTokenStartPositionSpan()))
+                    break
+                }
+                _stringBuilder.Append(escaped2)
+                continue
+            }
+            _stringBuilder.Append(ch2)
+        }
+        var rawText = GetStringBuilderValue()
+        var innerText: ReadOnlySpan<char> = (if rawText.Length >= 2 { rawText.AsSpan(1, rawText.Length - 2) } else { ReadOnlySpan<char>.Empty })
+        var decoded = SyntaxFacts.DecodeStringLiteralContent(innerText, out var hadInvalidEscape)
+        if hadInvalidEscape {
+            ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()))
+        }
+        return Token(SyntaxKind.StringLiteralToken, rawText, string.Intern(decoded))
+        func IsDollarEscaped(sb: StringBuilder) -> bool {
+            var count: int = 0
+            {
+                var i: int = sb.Length - 1
+                while i >= 0 && sb[i] == '\\' {
+                    count++
+                    i--
+                }
+            }
+            return (count & 1) == 1
+        }
+        func ScanBacktickIdentifierIntoBuilder() {
+            ReadChar()
+            _stringBuilder.Append('`')
+            while PeekChar(out var c) && !IsEndOfLine(c) {
+                ReadChar()
+                _stringBuilder.Append(c)
+                if c == '`' {
+                    break
+                }
+            }
+        }
+        func ScanInterpolationBodyIntoBuilder() {
+            var braceDepth: int = 1
+            var parenDepth: int = 0
+            var bracketDepth: int = 0
+            while true {
+                if !PeekChar(out var c) {
+                    break
+                }
+                if IsEndOfLine(c) {
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NewlineInConstant, GetTokenStartPositionSpan()))
+                    break
+                }
+                if c == '`' {
+                    ScanBacktickIdentifierIntoBuilder()
+                    continue
+                }
+                if c == '"' {
+                    ReadChar()
+                    _stringBuilder.Append('"')
+                    if PeekChar(out var q2) && q2 == '"' && _textSource.PeekChar(1, out var q3) && q3 == '"' {
+                        ReadChar()
+                        _stringBuilder.Append('"')
+                        ReadChar()
+                        _stringBuilder.Append('"')
+                        ScanRawTripleQuotedStringLiteralIntoBuilder()
+                    } else {
+                        ScanNormalStringLiteralIntoBuilder()
+                    }
+                    continue
+                }
+                if c == '\'' {
+                    ReadChar()
+                    _stringBuilder.Append('\'')
+                    ScanCharacterLiteralIntoBuilder()
+                    continue
+                }
+                if c == '/' && PeekChar(out var next) {
+                    if _textSource.PeekChar(1, out var n2) {
+                        if next == '/' {
+                            ReadChar()
+                            _stringBuilder.Append('/')
+                            ReadChar()
+                            _stringBuilder.Append('/')
+                            ScanSingleLineCommentIntoBuilder()
+                            continue
+                        } else {
+                            if next == '*' {
+                                ReadChar()
+                                _stringBuilder.Append('/')
+                                ReadChar()
+                                _stringBuilder.Append('*')
+                                ScanMultiLineCommentIntoBuilder()
+                                continue
+                            }
+                        }
+                    }
+                }
+                if c == '{' {
+                    ReadChar()
+                    _stringBuilder.Append('{')
+                    braceDepth++
+                    continue
+                }
+                if c == '}' {
+                    if braceDepth == 1 && parenDepth == 0 && bracketDepth == 0 {
+                        ReadChar()
+                        _stringBuilder.Append('}')
+                        break
+                    } else {
+                        ReadChar()
+                        _stringBuilder.Append('}')
+                        if braceDepth > 1 {
+                            braceDepth--
+                        }
+                        continue
+                    }
+                }
+                if c == '(' {
+                    ReadChar()
+                    _stringBuilder.Append('(')
+                    parenDepth++
+                    continue
+                }
+                if c == ')' {
+                    ReadChar()
+                    _stringBuilder.Append(')')
+                    if parenDepth > 0 {
+                        parenDepth--
+                    }
+                    continue
+                }
+                if c == '[' {
+                    ReadChar()
+                    _stringBuilder.Append('[')
+                    bracketDepth++
+                    continue
+                }
+                if c == ']' {
+                    ReadChar()
+                    _stringBuilder.Append(']')
+                    if bracketDepth > 0 {
+                        bracketDepth--
+                    }
+                    continue
+                }
+                ReadChar()
+                _stringBuilder.Append(c)
+            }
+        }
+        func ScanNormalStringLiteralIntoBuilder() {
+            while PeekChar(out var c) {
+                ReadChar()
+                _stringBuilder.Append(c)
+                if c == '\\' {
+                    if PeekChar(out var next) {
+                        ReadChar()
+                        _stringBuilder.Append(next)
+                        continue
+                    } else {
+                        break
+                    }
+                }
+                if c == '"' {
+                    break
+                }
+                if IsEndOfLine(c) {
+                    break
+                }
+            }
+        }
+        func ScanRawTripleQuotedStringLiteralIntoBuilder() {
+            while true {
+                if !PeekChar(out var c) {
+                    break
+                }
+                if c == '"' && _textSource.PeekChar(1, out var q2) && q2 == '"' && _textSource.PeekChar(2, out var q3) && q3 == '"' {
+                    ReadChar()
+                    _stringBuilder.Append('"')
+                    ReadChar()
+                    _stringBuilder.Append('"')
+                    ReadChar()
+                    _stringBuilder.Append('"')
+                    break
+                }
+                if IsEndOfLine(c) {
+                    break
+                }
+                ReadChar()
+                _stringBuilder.Append(c)
+            }
+        }
+        func ScanCharacterLiteralIntoBuilder() {
+            while PeekChar(out var c) {
+                ReadChar()
+                _stringBuilder.Append(c)
+                if c == '\\' {
+                    if PeekChar(out var next) {
+                        ReadChar()
+                        _stringBuilder.Append(next)
+                        continue
+                    } else {
+                        break
+                    }
+                }
+                if c == '\'' {
+                    break
+                }
+                if IsEndOfLine(c) {
+                    break
+                }
+            }
+        }
+        func ScanSingleLineCommentIntoBuilder() {
+            while PeekChar(out var c) {
+                if IsEndOfLine(c) {
+                    break
+                }
+                ReadChar()
+                _stringBuilder.Append(c)
+            }
+        }
+        func ScanMultiLineCommentIntoBuilder() {
+            while PeekChar(out var c) {
+                ReadChar()
+                _stringBuilder.Append(c)
+                if c == '*' && PeekChar(out var next) && next == '/' {
+                    ReadChar()
+                    _stringBuilder.Append('/')
+                    break
+                }
+            }
+        }
+    }
+
+    // The closing delimiter must be the first non-whitespace on its line.
+    private func ParseTripleQuotedStringLiteral() -> Token {
+        var content = StringBuilder()
+        var lineIndent = StringBuilder()
+        var lineHasNonWhitespace: bool = false
+        var firstChar: bool = true
+        var indentBuffered: bool = false
+        while true {
+            if !PeekChar(out var c) {
+                break
+            }
+            if c == '"' && !lineHasNonWhitespace && TryPeekTripleQuote() {
+                var trimIndent = lineIndent.ToString()
+                ReadChar()
+                _stringBuilder.Append('"')
+                ReadChar()
+                _stringBuilder.Append('"')
+                ReadChar()
+                _stringBuilder.Append('"')
+                var rawText = GetStringBuilderValue()
+                var value = TrimTripleQuotedValue(content.ToString(), trimIndent)
+                return Token(SyntaxKind.MultiLineStringLiteralToken, rawText, string.Intern(value))
+            }
+            ReadChar()
+            _stringBuilder.Append(c)
+            if firstChar {
+                firstChar = false
+                if c == '\r' {
+                    if PeekChar(out var lf) && lf == '\n' {
+                        ReadChar()
+                        _stringBuilder.Append(lf)
+                    }
+                    lineIndent.Clear()
+                    lineHasNonWhitespace = false
+                    indentBuffered = false
+                    continue
+                }
+                if c == '\n' || c == '\u0085' || c == '\u2028' || c == '\u2029' {
+                    lineIndent.Clear()
+                    lineHasNonWhitespace = false
+                    indentBuffered = false
+                    continue
+                }
+            }
+            if c == '\r' {
+                content.Append(c)
+                lineIndent.Clear()
+                lineHasNonWhitespace = false
+                indentBuffered = false
+                continue
+            }
+            if c == '\n' || c == '\u0085' || c == '\u2028' || c == '\u2029' {
+                content.Append(c)
+                lineIndent.Clear()
+                lineHasNonWhitespace = false
+                indentBuffered = false
+                continue
+            }
+            if !lineHasNonWhitespace && (c == ' ' || c == '\t') {
+                lineIndent.Append(c)
+                indentBuffered = true
+                continue
+            }
+            if !lineHasNonWhitespace {
+                lineHasNonWhitespace = true
+                if indentBuffered && lineIndent.Length > 0 {
+                    content.Append(lineIndent)
+                }
+                indentBuffered = false
+            }
+            content.Append(c)
+        }
+        var unterminatedRaw = GetStringBuilderValue()
+        return Token(SyntaxKind.MultiLineStringLiteralToken, unterminatedRaw, string.Intern(content.ToString()))
+        func TryPeekTripleQuote() -> bool {
+            var checkpoint = _currentPosition
+            _textSource.PushPosition()
+            if !ReadChar(out var q1) || q1 != '"' {
+                _textSource.PopAndRestorePosition()
+                _currentPosition = checkpoint
+                return false
+            }
+            if !ReadChar(out var q2) || q2 != '"' {
+                _textSource.PopAndRestorePosition()
+                _currentPosition = checkpoint
+                return false
+            }
+            if !ReadChar(out var q3) || q3 != '"' {
+                _textSource.PopAndRestorePosition()
+                _currentPosition = checkpoint
+                return false
+            }
+            _textSource.PopAndRestorePosition()
+            _currentPosition = checkpoint
+            return true
+        }
+        func TrimTripleQuotedValue(value: string, trimIndent: string) -> string {
+            if trimIndent.Length == 0 {
+                return value
+            }
+            var sb = StringBuilder(value.Length)
+            var i: int = 0
+            while i < value.Length {
+                var lineStart: int = i
+                while i < value.Length && value[i] != '\n' && value[i] != '\r' && value[i] != '\u0085' && value[i] != '\u2028' && value[i] != '\u2029' {
+                    i++
+                }
+                var line = value.AsSpan(lineStart, i - lineStart)
+                if line.StartsWith(trimIndent.AsSpan(), StringComparison.Ordinal) {
+                    sb.Append(line[trimIndent.Length..])
+                } else {
+                    sb.Append(line)
+                }
+                if i < value.Length {
+                    if value[i] == '\r' && i + 1 < value.Length && value[i + 1] == '\n' {
+                        sb.Append("\r\n")
+                        i += 2
+                    } else {
+                        sb.Append(value[i])
+                        i++
+                    }
+                }
+            }
+            return sb.ToString()
+        }
+    }
+
+    private func ParseNumber(ref ch: char, negative: bool = false) -> Token {
+        var isFloat: bool = false
+        var isDouble: bool = false
+        var isDecimal: bool = false
+        var isLong: bool = false
+        var isByte: bool = false
+        var hasDecimal: bool = ch == '.'
+        var hasExponent: bool = false
+        if negative {
+            _stringBuilder.Append('-')
+            if ReadChar(out ch) {
+                _stringBuilder.Append(ch)
+                hasDecimal |= ch == '.'
+            } else {
+                ch = '\0'
+            }
+        }
+        if !hasDecimal {
+            if _stringBuilder.Length > 0 && _stringBuilder[_stringBuilder.Length - 1] == '0' && PeekChar(out var basePrefix) && (basePrefix == 'b' || basePrefix == 'B' || basePrefix == 'x' || basePrefix == 'X') {
+                ReadChar()
+                _stringBuilder.Append(basePrefix)
+                var isBinaryPrefix = basePrefix == 'b' || basePrefix == 'B'
+                var sawDigit: bool = false
+                var value: ulong = 0
+                var valueOverflowed: bool = false
+                while PeekChar(out var digitCh) {
+                    if digitCh == '_' {
+                        ReadChar()
+                        _stringBuilder.Append(digitCh)
+                        continue
+                    }
+                    if isBinaryPrefix && (digitCh == '0' || digitCh == '1') {
+                        ReadChar()
+                        _stringBuilder.Append(digitCh)
+                        sawDigit = true
+                        var digitValue = (uint)(digitCh - '0')
+                        if !valueOverflowed {
+                            if value > ((ulong)long.MaxValue - digitValue) / 2 {
+                                valueOverflowed = true
+                            } else {
+                                value = (value << 1) | digitValue
+                            }
+                        }
+                        continue
+                    }
+                    if !isBinaryPrefix && IsHexDigitForNumericLiteral(digitCh) {
+                        ReadChar()
+                        _stringBuilder.Append(digitCh)
+                        sawDigit = true
+                        var digitValue = (uint)GetHexDigitValueForNumericLiteral(digitCh)
+                        if !valueOverflowed {
+                            if value > ((ulong)long.MaxValue - digitValue) / 16 {
+                                valueOverflowed = true
+                            } else {
+                                value = (value << 4) | digitValue
+                            }
+                        }
+                        continue
+                    }
+                    break
+                }
+                if !sawDigit {
+                    var text0 = GetStringBuilderValue()
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text0.Length)))
+                    return Token(SyntaxKind.NumericLiteralToken, text0, 0, text0.Length)
+                }
+                var prefixIsLong: bool = false
+                var prefixIsByte: bool = false
+                if PeekChar(out var suffix) && (suffix == 'l' || suffix == 'L' || (isBinaryPrefix && (suffix == 'b' || suffix == 'B'))) {
+                    ReadChar()
+                    _stringBuilder.Append(suffix)
+                    if suffix == 'l' || suffix == 'L' {
+                        prefixIsLong = true
+                    } else {
+                        prefixIsByte = true
+                    }
+                }
+                var text2 = GetStringBuilderValue()
+                if prefixIsByte {
+                    if !valueOverflowed && value <= byte.MaxValue {
+                        return Token(SyntaxKind.NumericLiteralToken, text2, (byte)value, text2.Length)
+                    }
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text2.Length)))
+                    return Token(SyntaxKind.NumericLiteralToken, text2, (byte)0, text2.Length)
+                }
+                if prefixIsLong {
+                    if !valueOverflowed && value <= (ulong)long.MaxValue {
+                        return Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length)
+                    }
+                    ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text2.Length)))
+                    return Token(SyntaxKind.NumericLiteralToken, text2, 0L, text2.Length)
+                }
+                if !valueOverflowed && value <= int.MaxValue {
+                    return Token(SyntaxKind.NumericLiteralToken, text2, (int)value, text2.Length)
+                }
+                if !valueOverflowed && value <= (ulong)long.MaxValue {
+                    return Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length)
+                }
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text2.Length)))
+                return Token(SyntaxKind.NumericLiteralToken, text2, 0, text2.Length)
+            }
+        }
+        if ch != '.' {
+            while PeekChar(out ch) && (char.IsDigit(ch) || ch == '_') {
+                ReadChar()
+                _stringBuilder.Append(ch)
+            }
+            if PeekChar(out ch) && ch == '.' {
+                var decimalCheckpoint = _currentPosition
+                _textSource.PushPosition()
+                ReadChar()
+                if PeekChar(out ch) && char.IsDigit(ch) {
+                    _textSource.PopPosition()
+                    hasDecimal = true
+                    _stringBuilder.Append('.')
+                    while true {
+                        ReadChar()
+                        _stringBuilder.Append(ch)
+                        if !(PeekChar(out ch) && (char.IsDigit(ch) || ch == '_')) { break }
+                    }
+                } else {
+                    _textSource.PopAndRestorePosition()
+                    _currentPosition = decimalCheckpoint
+                }
+            }
+        } else {
+            while PeekChar(out ch) && (char.IsDigit(ch) || ch == '_') {
+                ReadChar()
+                _stringBuilder.Append(ch)
+            }
+        }
+        if PeekChar(out ch) && (ch == 'e' || ch == 'E') {
+            hasExponent = true
+            ReadChar()
+            _stringBuilder.Append(ch)
+            if PeekChar(out ch) && (ch == '+' || ch == '-') {
+                ReadChar()
+                _stringBuilder.Append(ch)
+            }
+            while PeekChar(out ch) && (char.IsDigit(ch) || ch == '_') {
+                ReadChar()
+                _stringBuilder.Append(ch)
+            }
+        }
+        if PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D' || ch == 'm' || ch == 'M' || ch == 'l' || ch == 'L' || ch == 'b' || ch == 'B') {
+            ReadChar()
+            _stringBuilder.Append(ch)
+            while true {
+                match ch {
+                    'm' or 'M' => {
+                        isDecimal = true
+                        break
+                    }
+                    'f' or 'F' => {
+                        isFloat = true
+                        break
+                    }
+                    'd' or 'D' => {
+                        isDouble = true
+                        break
+                    }
+                    'l' or 'L' => {
+                        isLong = true
+                        break
+                    }
+                    'b' or 'B' => {
+                        isByte = true
+                        break
+                    }
+                    _ => {}
+                }
+                break
+            }
+        }
+        var text = GetStringBuilderValue()
+        if isDecimal || text.EndsWith("m", StringComparison.OrdinalIgnoreCase) {
+            var numericText = text[..^1].Replace("_", string.Empty)
+            if numericText.IndexOf('e') >= 0 || numericText.IndexOf('E') >= 0 {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+                return Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length)
+            }
+            if decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue) {
+                return Token(SyntaxKind.NumericLiteralToken, text, decimalValue, text.Length)
+            } else {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+                return Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length)
+            }
+        }
+        if isFloat || text.EndsWith("f", StringComparison.OrdinalIgnoreCase) {
+            var numericText = (if text.EndsWith("f", StringComparison.OrdinalIgnoreCase) { text[..^1] } else { text })
+            numericText = numericText.Replace("_", string.Empty)
+            if float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue) {
+                return Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length)
+            } else {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+                return Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length)
+            }
+        }
+        if isDouble || hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase) {
+            var numericText = (if text.EndsWith("d", StringComparison.OrdinalIgnoreCase) { text[..^1] } else { text })
+            numericText = numericText.Replace("_", string.Empty)
+            if double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue) {
+                return Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length)
+            } else {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+                return Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length)
+            }
+        }
+        var numericIntText = text.Replace("_", string.Empty)
+        if isByte || numericIntText.EndsWith("b", StringComparison.OrdinalIgnoreCase) {
+            if numericIntText.EndsWith("b", StringComparison.OrdinalIgnoreCase) {
+                numericIntText = numericIntText[..^1]
+            }
+            if byte.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var byteValue) {
+                return Token(SyntaxKind.NumericLiteralToken, text, byteValue, text.Length)
+            }
+            ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+            return Token(SyntaxKind.NumericLiteralToken, text, (byte)0, text.Length)
+        }
+        if isLong || numericIntText.EndsWith("l", StringComparison.OrdinalIgnoreCase) {
+            if numericIntText.EndsWith("l", StringComparison.OrdinalIgnoreCase) {
+                numericIntText = numericIntText[..^1]
+            }
+            if long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue) {
+                return Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length)
+            }
+            ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+            return Token(SyntaxKind.NumericLiteralToken, text, 0L, text.Length)
+        }
+        if int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue) {
+            return Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length)
+        }
+        if long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue2) {
+            return Token(SyntaxKind.NumericLiteralToken, text, longValue2, text.Length)
+        }
+        ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.NumericLiteralOutOfRange, TextSpan(_tokenStartPosition, text.Length)))
+        return Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length)
+    }
+
+    private static func IsHexDigitForNumericLiteral(ch: char) -> bool {
+        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
+    }
+
+    private static func GetHexDigitValueForNumericLiteral(ch: char) -> int {
+        if ch >= '0' && ch <= '9' {
+            return ch - '0'
+        }
+        if ch >= 'a' && ch <= 'f' {
+            return (ch - 'a') + 10
+        }
+        return (ch - 'A') + 10
+    }
+
+    private func IsEndOfLine(ch: char) -> bool {
+        return ch == '\n' || ch == '\r' || ch == '\u0085' || ch == '\u2028' || ch == '\u2029'
+    }
+
+    private func GetStringBuilderValue() -> string => string.Intern(_stringBuilder.ToString())
+
+    private func GetTokenStartPositionSpan() -> TextSpan => TextSpan(_tokenStartPosition, 0)
+
+    private func GetEndPositionSpan(offset: int = 0) -> TextSpan => TextSpan(_currentPosition + offset, 0)
+
+    private func ReadChar() -> char {
+        var value = ReadCore()
+        return (if value == -1 { '\0' } else { (char)value })
+    }
+
+    private func ReadCore() -> int {
+        var ch = _textSource.Read()
+        _currentPosition++
+        return ch
+    }
+
+    private func ReadChar(out ch: char) -> bool {
+        var value = ReadCore()
+        if value == -1 {
+            ch = default
+            return false
+        }
+        ch = (char)value
+        return true
+    }
+
+    private func PeekChar(out ch: char) -> bool {
+        var value = _textSource.Peek()
+        if value == -1 {
+            ch = default
+            return false
+        }
+        ch = (char)value
+        return true
+    }
+
+    private func ReadConditionalDirective(directiveText: string, keyword: string) -> Token {
+        var keywordOffset = directiveText.IndexOf(keyword, StringComparison.Ordinal)
+        var conditionStart = keywordOffset + keyword.Length
+        while conditionStart < directiveText.Length && char.IsWhiteSpace(directiveText[conditionStart]) {
+            conditionStart++
+        }
+        var conditionEnd = directiveText.IndexOf("//", conditionStart, StringComparison.Ordinal)
+        if conditionEnd < 0 {
+            conditionEnd = directiveText.Length
+        }
+        while conditionEnd > conditionStart && char.IsWhiteSpace(directiveText[conditionEnd - 1]) {
+            conditionEnd--
+        }
+        var conditionText = directiveText[conditionStart..conditionEnd]
+        var directiveKind = match keyword {
+            "if" => ConditionalDirectiveKind.If
+            "elif" => ConditionalDirectiveKind.Elif
+            "else" => ConditionalDirectiveKind.Else
+            "endif" => ConditionalDirectiveKind.EndIf
+            _ => throw InvalidOperationException("Unknown conditional directive '${keyword}'.")
+        }
+        var branchTaken = false
+        var branchActive = IsCurrentBranchActive
+        var hasCondition = directiveKind is ConditionalDirectiveKind.If or ConditionalDirectiveKind.Elif
+        var conditionValue = false
+        if hasCondition {
+            if !ConditionalDirectiveParser.TryEvaluate(conditionText, _definedSymbols, out conditionValue, out var errorOffset, out var error) {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidConditionalDirectiveExpression, TextSpan(_tokenStartPosition + conditionStart + Math.Min(errorOffset, conditionText.Length), Math.Max(1, conditionText.Length - Math.Min(errorOffset, conditionText.Length))), error ?? "invalid expression"))
+            }
+        } else {
+            if conditionText.Length > 0 {
+                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidConditionalDirectiveExpression, TextSpan(_tokenStartPosition + conditionStart, conditionText.Length), "unexpected text after '#${keyword}'"))
+            }
+        }
+        while true {
+            match directiveKind {
+                ConditionalDirectiveKind.If => {
+                    {
+                        var parentActive = IsCurrentBranchActive
+                        branchTaken = conditionValue
+                        branchActive = parentActive && conditionValue
+                        _conditionalStack.Add(ConditionalFrame(parentActive, conditionValue, branchActive, ElseSeen: false, _tokenStartPosition))
+                        break
+                    }
+                }
+                ConditionalDirectiveKind.Elif => {
+                    {
+                        if _conditionalStack.Count == 0 {
+                            ReportUnexpectedConditionalDirective(keyword)
+                            break
+                        }
+                        var frame = _conditionalStack[^1]
+                        if frame.ElseSeen {
+                            ReportDirectiveAfterElse(keyword)
+                            frame = frame with { CurrentBranchActive = false }
+                        } else {
+                            branchTaken = !frame.AnyBranchTaken && conditionValue
+                            branchActive = frame.ParentActive && branchTaken
+                            frame = frame with { AnyBranchTaken = frame.AnyBranchTaken || conditionValue, CurrentBranchActive = branchActive }
+                        }
+                        _conditionalStack[^1] = frame
+                        break
+                    }
+                }
+                ConditionalDirectiveKind.Else => {
+                    {
+                        if _conditionalStack.Count == 0 {
+                            ReportUnexpectedConditionalDirective(keyword)
+                            break
+                        }
+                        var frame = _conditionalStack[^1]
+                        if frame.ElseSeen {
+                            ReportDirectiveAfterElse(keyword)
+                            frame = frame with { CurrentBranchActive = false }
+                        } else {
+                            branchTaken = !frame.AnyBranchTaken
+                            branchActive = frame.ParentActive && branchTaken
+                            frame = frame with { AnyBranchTaken = true, CurrentBranchActive = branchActive, ElseSeen = true }
+                        }
+                        _conditionalStack[^1] = frame
+                        break
+                    }
+                }
+                ConditionalDirectiveKind.EndIf => {
+                    if _conditionalStack.Count == 0 {
+                        ReportUnexpectedConditionalDirective(keyword)
+                    } else {
+                        _conditionalStack.RemoveAt(_conditionalStack.Count - 1)
+                        branchActive = IsCurrentBranchActive
+                    }
+                    break
+                }
+                _ => {}
+            }
+            break
+        }
+        var syntaxKind = match directiveKind {
+            ConditionalDirectiveKind.If => SyntaxKind.IfDirectiveTrivia
+            ConditionalDirectiveKind.Elif => SyntaxKind.ElifDirectiveTrivia
+            ConditionalDirectiveKind.Else => SyntaxKind.ElseDirectiveTrivia
+            ConditionalDirectiveKind.EndIf => SyntaxKind.EndIfDirectiveTrivia
+            _ => throw InvalidOperationException()
+        }
+        var info = ConditionalDirectiveInfo(directiveKind, syntaxKind, conditionText, branchActive, branchTaken, keywordOffset, keyword.Length, conditionStart, conditionEnd - conditionStart)
+        return Token(SyntaxKind.DirectiveTrivia, directiveText, info)
+    }
+
+    private val IsCurrentBranchActive: bool => _conditionalStack.Count == 0 || _conditionalStack[^1].CurrentBranchActive
+
+    private func ReadDisabledText() -> string {
+        _stringBuilder.Clear()
+        while PeekChar(out var current) {
+            if IsConditionalDirectiveAheadAtLineStart() {
+                break
+            }
+            ReadChar()
+            _stringBuilder.Append(current)
+        }
+        return GetStringBuilderValue()
+    }
+
+    private func IsConditionalDirectiveAheadAtLineStart() -> bool {
+        if !IsAtStartOfDirectiveLine(_currentPosition) {
+            return false
+        }
+        var offset = 0
+        while _textSource.PeekChar(offset, out var current) && current is ' ' or '\t' {
+            offset++
+        }
+        if !_textSource.PeekChar(offset, out var hash) || hash != '#' {
+            return false
+        }
+        offset++
+        while _textSource.PeekChar(offset, out var current) && current is ' ' or '\t' {
+            offset++
+        }
+        return TryPeekDirectiveKeyword(offset, out var keyword) && IsConditionalDirectiveKeyword(keyword)
+    }
+
+    private func TryReadDirectiveKeyword(out keyword: string) -> bool {
+        var offset = 0
+        while _textSource.PeekChar(offset, out var current) && current is ' ' or '\t' {
+            offset++
+        }
+        return TryPeekDirectiveKeyword(offset, out keyword) && (string.Equals(keyword, "pragma", StringComparison.Ordinal) || IsConditionalDirectiveKeyword(keyword))
+    }
+
+    private func TryPeekDirectiveKeyword(offset: int, out keyword: string) -> bool {
+        var cursor = offset
+        var builder = StringBuilder()
+        while _textSource.PeekChar(cursor, out var current) && SyntaxFacts.IsIdentifierPartCharacter(current) {
+            builder.Append(current)
+            cursor++
+        }
+        keyword = builder.ToString()
+        return keyword.Length > 0
+    }
+
+    private static func IsConditionalDirectiveKeyword(keyword: string) -> bool => keyword is "if" or "elif" or "else" or "endif"
+
+    private func IsDirectiveStart(hashPosition: int) -> bool => IsAtStartOfDirectiveLine(hashPosition)
+
+    private func IsAtStartOfDirectiveLine(position: int) -> bool {
+        {
+            var offset = position - _currentPosition - 1
+            while true {
+                if !_textSource.PeekChar(offset, out var previous) {
+                    return true
+                }
+                if IsEndOfLine(previous) {
+                    return true
+                }
+                if previous is not (' ' or '\t') {
+                    return false
+                }
+                offset--
+            }
+        }
+    }
+
+    private func ReportUnexpectedConditionalDirective(keyword: string) => ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnexpectedConditionalDirective, TextSpan(_tokenStartPosition, Math.Max(1, keyword.Length + 1)), keyword))
+
+    private func ReportDirectiveAfterElse(keyword: string) => ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.ConditionalDirectiveAfterElse, TextSpan(_tokenStartPosition, Math.Max(1, keyword.Length + 1)), keyword))
+
+    private func ReportMissingEndIfIfNeeded() {
+        if _reportedMissingEndIf || _conditionalStack.Count == 0 {
+            return
+        }
+        _reportedMissingEndIf = true
+        for frame in _conditionalStack {
+            ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.MissingEndIfDirective, TextSpan(frame.IfPosition, 3)))
+        }
+    }
+
+    private func RememberConditionalState(position: int) {
+        if _conditionalStateSnapshots.ContainsKey(position) {
+            return
+        }
+        _conditionalStateSnapshots[position] = ConditionalStateSnapshot([..._conditionalStack], _reportedMissingEndIf)
+    }
+
+    private func RestoreConditionalState(position: int) {
+        _conditionalStack.Clear()
+        if _conditionalStateSnapshots.TryGetValue(position, out var snapshot) {
+            _conditionalStack.AddRange(snapshot.Frames)
+            _reportedMissingEndIf = snapshot.ReportedMissingEndIf
+        } else {
+            _reportedMissingEndIf = false
+        }
+    }
+
+    private record struct ConditionalFrame(ParentActive: bool, AnyBranchTaken: bool, CurrentBranchActive: bool, ElseSeen: bool, IfPosition: int) {}
+
+    private record ConditionalStateSnapshot(Frames: ConditionalFrame[], ReportedMissingEndIf: bool) {}
+
+    private func ReadWhile(ch: char) -> bool {
+        if PeekChar(out var next) && next == ch {
+            ReadChar()
+            return true
+        }
+        return false
+    }
+
+    val IsEndOfFile: bool => _textSource.Peek() == -1
+}

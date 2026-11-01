@@ -23,15 +23,22 @@ internal class Lexer : ILexer, IMacroBodyScanner
     private readonly bool _enableCharKeyword;
     public Action<DiagnosticInfo>? DiagnosticSink { get; set; }
 
+    public Lexer(TextReader textReader) : this(textReader, 0, true, null) { }
+
+    public Lexer(TextReader textReader, int startPosition) : this(textReader, startPosition, true, null) { }
+
     public Lexer(TextReader textReader, int startPosition = 0, ParseOptions? options = null)
+        : this(textReader, startPosition, options?.EnableCharKeyword ?? true, options?.PreprocessorSymbolNames)
     {
-        _enableCharKeyword = options?.EnableCharKeyword ?? true;
+    }
+
+    internal Lexer(TextReader textReader, int startPosition, bool enableCharKeyword, IEnumerable<string>? preprocessorSymbolNames)
+    {
+        _enableCharKeyword = enableCharKeyword;
         _textSource = new SeekableTextSource(textReader, startPosition);
         _currentPosition = startPosition;
         _tokenStartPosition = startPosition;
-        _definedSymbols = new HashSet<string>(
-            options?.PreprocessorSymbolNames ?? [],
-            StringComparer.Ordinal);
+        _definedSymbols = new HashSet<string>(preprocessorSymbolNames ?? [], StringComparer.Ordinal);
         RememberConditionalState(startPosition);
     }
 
@@ -43,7 +50,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
         _textSource.ResetPosition(position);
         RestoreConditionalState(position);
 
-        PrintDebug($"Lexer reset ot position {position}");
+        PrintDebug($"Lexer reset to position {position}");
     }
 
     [Conditional("DEBUG")]
@@ -63,6 +70,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
     public void CreateCheckpoint()
     {
         var position = _textSource.PushPosition();
+        RememberConditionalState(position);
 
         PrintDebug($"Lexer pushed checkpoint for position {position}");
     }
@@ -73,6 +81,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
         ClearLookahead();
         _currentPosition = position;
         _tokenStartPosition = position;
+        RestoreConditionalState(position);
 
         PrintDebug($"Lexer rewind to position {position}");
     }
@@ -95,9 +104,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
     public Token ReadToken()
     {
-        Token token;
-
-        if (TryConsumeLookaheadToken(out token))
+        if (TryConsumeLookaheadToken(out var token))
         {
             PrintDebug($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
             return token;
@@ -2263,15 +2270,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
             return false;
 
         var offset = 0;
-        char current;
-        while (_textSource.PeekChar(offset, out current) && current is ' ' or '\t')
+        while (_textSource.PeekChar(offset, out var current) && current is ' ' or '\t')
             offset++;
 
         if (!_textSource.PeekChar(offset, out var hash) || hash != '#')
             return false;
 
         offset++;
-        while (_textSource.PeekChar(offset, out current) && current is ' ' or '\t')
+        while (_textSource.PeekChar(offset, out var current) && current is ' ' or '\t')
             offset++;
 
         return TryPeekDirectiveKeyword(offset, out var keyword) &&
@@ -2291,12 +2297,13 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
     private bool TryPeekDirectiveKeyword(int offset, out string keyword)
     {
+        var cursor = offset;
         var builder = new StringBuilder();
-        while (_textSource.PeekChar(offset, out var current) &&
+        while (_textSource.PeekChar(cursor, out var current) &&
                SyntaxFacts.IsIdentifierPartCharacter(current))
         {
             builder.Append(current);
-            offset++;
+            cursor++;
         }
 
         keyword = builder.ToString();

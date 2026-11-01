@@ -12,6 +12,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
+[Trait("Target", "Shared")]
 public class LexerTests
 {
     [Theory]
@@ -46,6 +47,30 @@ public class LexerTests
             ? CompilerDiagnostics.InvalidEscapeSequence.Id
             : CompilerDiagnostics.UnterminatedCharacterLiteral.Id;
         Assert.Equal(expected, Assert.Single(diagnostics).Descriptor.Id);
+    }
+
+    [Theory]
+    [InlineData(true, SyntaxKind.CharKeyword)]
+    [InlineData(false, SyntaxKind.IdentifierToken)]
+    public void CoreConfigurationControlsCharKeyword(bool enabled, SyntaxKind expected)
+    {
+        var lexer = new Lexer(new StringReader("char"), 0, enabled, null);
+        Assert.Equal(expected, lexer.ReadToken().Kind);
+    }
+
+    [Fact]
+    public void CheckpointRestoresConditionalBranchState()
+    {
+        var lexer = new Lexer(new StringReader("#if DEBUG\nincluded\n#else\nexcluded\n#endif"), 0, true, ["DEBUG"]);
+        Assert.Equal(SyntaxKind.IfDirectiveTrivia, Assert.IsType<ConditionalDirectiveInfo>(lexer.ReadToken().Value).SyntaxKind);
+        lexer.CreateCheckpoint();
+        Assert.Equal(SyntaxKind.LineFeedToken, lexer.ReadToken().Kind);
+        Assert.Equal("included", lexer.ReadToken().Text);
+        Assert.Equal(SyntaxKind.LineFeedToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.ElseDirectiveTrivia, Assert.IsType<ConditionalDirectiveInfo>(lexer.ReadToken().Value).SyntaxKind);
+        lexer.RewindToCheckpoint();
+        Assert.Equal(SyntaxKind.LineFeedToken, lexer.ReadToken().Kind);
+        Assert.Equal("included", lexer.ReadToken().Text);
     }
 
     [Theory]

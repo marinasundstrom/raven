@@ -35,6 +35,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   array-creation operations. .NET remains
   the default target; shared portable lowering also represents the allocation.
 
+- Restore conditional-compilation state when rewinding lexer checkpoints, so
+  rereading an active branch after scanning `#else` does not disable its text.
+
 - Accept nullable reference operands in `as` casts. The shared binder now tests
   reference compatibility independently of nullability; native portable emission
   returns null for null or mismatched references and evaluates the operand once.
