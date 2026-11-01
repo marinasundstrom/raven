@@ -1169,3 +1169,36 @@ adjacent tests pass afterward on modern .NET. Native portable lowering was
 inspected and uses local storage for supported immutable captures rather than
 this CLI display class. No native run or complete retained-callback lifetime
 parity is claimed. Runtime Contract and neoCLR bridge notes record ownership.
+
+### PORT-041: Red-node and factory generator
+
+The Raven generator library now translates RedNodeGenerator alongside the C#
+bootstrap source. It retains red-node constructors, child/list backing storage,
+token wrappers, slot dispatch, abstract closed hierarchies, Update/With methods,
+visitor calls, automatic factory defaults and XML-defined factory overloads.
+Aliases and documentation trivia remain part of the generated C# output.
+Abstract-node factory returns are nullable in both sources.
+
+Imported Roslyn `Attribute` and `List` factory calls need qualification where
+.NET types have the same names; this is the same construction/call distinction
+already recorded for the earlier generator slices. PORT-039 records the shared
+parser correction exposed by a negated conditional in this translation.
+
+Full Raven syntax-tree output remains a later step, after the translated
+C#-output implementation is validated. The production driver and XML loaders
+still use C#. C# generation remains available for bootstrapping.
+
+Follow-up: the combined generator translation takes several minutes to compile.
+A read-only stack sample during this workload found binder import lookup and
+metadata symbol identity hashing; this is a lead for profiling, not a proven
+single cause or a reason to rewrite generator algorithms during translation.
+
+Validation: the initial generator baseline passed **29 C# / 33 Raven tests**.
+Expanded suites pass **33 C# / 40 Raven tests** on .NET 11, including exact output
+comparisons for all **256 node models**, automatic and XML-defined factories,
+closed hierarchies, alias fallback text and XML escaping. Four runtime failures
+in the first compiled translation led to PORT-040; the unchanged loop algorithms
+now pass. The final Raven generator build reports 39 warnings, plus 15 in its
+shared-model dependency. The required generator/compiler build passes with both
+PORT-039 and PORT-040 included. No neoCLR runtime, RavenDoc generation or website
+generation was run.

@@ -32,5 +32,8 @@ Green-node classes and factories are also translated. Shared tests inspect
 constructors, slot order, abstract/inherited properties, update behavior shape and
 nullable factory overloads. Cross-implementation coverage compares node and
 factory source for all 256 models (including 26 abstract nodes).
-Red-node generation, model loading and command-line orchestration remain in C#
-for now.
+Red-node classes, closed hierarchies and factories are translated too. Their
+shared tests cover accessors, updates, visitor dispatch, convenience defaults and
+explicit aliases. Cross-implementation tests compare all repository red nodes and
+both automatic and XML-defined factory overloads, including documentation trivia.
+Model loading and command-line orchestration remain in C# for now.

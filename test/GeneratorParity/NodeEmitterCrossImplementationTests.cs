@@ -104,4 +104,71 @@ public class NodeEmitterCrossImplementationTests
         }
     }
 
+    [Fact]
+    public void RepositoryRedNodesAndFactoriesMatchBothImplementations()
+    {
+        var nodes = NodeEmitterInputs.Nodes();
+        var factories = NodeEmitterInputs.Factories().ToDictionary(f => f.Node);
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RedNodeGenerator).Assembly.GetName().Name);
+        Assert.NotEmpty(factories);
+        foreach (var node in nodes)
+        {
+            var seed = new SeedModel::NodesShared.SyntaxNodeModel
+            {
+                Name = node.Name,
+                Inherits = node.Inherits,
+                IsAbstract = node.IsAbstract,
+                HasExplicitKind = node.HasExplicitKind,
+                AdditionalPermittedTypes = node.AdditionalPermittedTypes.ToList(),
+                Slots = node.Slots.Select(s => new SeedModel::NodesShared.SlotModel
+                {
+                    Name = s.Name,
+                    Type = s.Type,
+                    ElementType = s.ElementType,
+                    DefaultToken = s.DefaultToken,
+                    IsOptionalToken = s.IsOptionalToken,
+                    IsNullable = s.IsNullable,
+                    IsInherited = s.IsInherited,
+                    IsAbstract = s.IsAbstract
+                }).ToList()
+            };
+            var subtypes = nodes.Where(n => n.Inherits == node.Name).Select(n => n.Name + "Syntax")
+                .Concat(node.AdditionalPermittedTypes).ToArray();
+            Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedNode(seed, subtypes).ToFullString(),
+                Raven.Generators.RedNodeGenerator.GenerateRedNode(node, subtypes).ToFullString());
+            Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateClosedHierarchyDeclaration(node.Name + "Syntax", subtypes).ToFullString(),
+                Raven.Generators.RedNodeGenerator.GenerateClosedHierarchyDeclaration(node.Name + "Syntax", subtypes).ToFullString());
+            factories.TryGetValue(node.Name, out var factory);
+            var seedFactory = factory is null ? null : new SeedModel::NodesShared.FactoryDefinitionModel
+            {
+                Node = factory.Node,
+                Overloads = factory.Overloads.Select(o => new SeedModel::NodesShared.FactoryOverloadModel
+                {
+                    Alias = o.Alias,
+                    Summary = o.Summary,
+                    Parameters = o.Parameters.Select(p => new SeedModel::NodesShared.FactoryParameterModel { Slot = p.Slot }).ToList(),
+                    Defaults = o.Defaults.Select(d => new SeedModel::NodesShared.FactoryDefaultModel { Slot = d.Slot, Token = d.Token, Null = d.Null }).ToList()
+                }).ToList()
+            };
+            Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(seed)?.ToFullString(),
+                Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(node)?.ToFullString());
+            Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(seed, seedFactory)?.ToFullString(),
+                Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(node, factory)?.ToFullString());
+        }
+    }
+
+    [Theory]
+    [InlineData("Escapes <angle> & ampersand.")]
+    [InlineData(null)]
+    public void FactoryAliasDocumentationMatchesBothImplementations(string? summary)
+    {
+        var seed = SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(
+            new SeedModel::NodesShared.SyntaxNodeModel { Name = "Empty", Inherits = "Node" },
+            new SeedModel::NodesShared.FactoryDefinitionModel { Node = "Empty", Overloads = [new() { Alias = "Alias", Summary = summary }] });
+        var translated = Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(
+            new NodesShared.SyntaxNodeModel { Name = "Empty", Inherits = "Node" },
+            new NodesShared.FactoryDefinitionModel { Node = "Empty", Overloads = [new() { Alias = "Alias", Summary = summary }] });
+        Assert.Equal(seed!.ToFullString(), translated!.ToFullString());
+    }
+
 }

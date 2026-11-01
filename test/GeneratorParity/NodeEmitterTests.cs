@@ -86,14 +86,34 @@ internal static class NodeEmitterInputs
             IsAbstract = (bool?)n.Attribute("IsAbstract") ?? false,
             Inherits = (string?)n.Attribute("Inherits") ?? "",
             HasExplicitKind = (bool?)n.Attribute("HasExplicitKind") ?? false,
+            AdditionalPermittedTypes = n.Elements("PermittedType").Select(t => (string)t.Attribute("Name")!).ToList(),
             Slots = n.Elements("Slot").Select(s => new SlotModel
             {
                 Name = (string)s.Attribute("Name")!,
                 Type = (string)s.Attribute("Type")!,
                 ElementType = (string?)s.Attribute("ElementType"),
+                DefaultToken = (string?)s.Attribute("DefaultToken"),
+                IsOptionalToken = (bool?)s.Attribute("IsOptionalToken") ?? false,
                 IsNullable = (bool?)s.Attribute("IsNullable") ?? false,
                 IsInherited = (bool?)s.Attribute("IsInherited") ?? false,
                 IsAbstract = (bool?)s.Attribute("IsAbstract") ?? false
+            }).ToList()
+        }).ToList();
+    internal static List<FactoryDefinitionModel> Factories() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Factories.xml"))
+        .Descendants("Factory").Select(f => new FactoryDefinitionModel
+        {
+            Node = (string)f.Attribute("Node")!,
+            Overloads = f.Elements("Overload").Select(o => new FactoryOverloadModel
+            {
+                Alias = (string?)o.Attribute("Alias"),
+                Summary = (string?)o.Attribute("Summary"),
+                Parameters = o.Elements("Parameter").Select(p => new FactoryParameterModel { Slot = (string)p.Attribute("Slot")! }).ToList(),
+                Defaults = o.Elements("Default").Select(d => new FactoryDefaultModel
+                {
+                    Slot = (string)d.Attribute("Slot")!,
+                    Token = (string?)d.Attribute("Token"),
+                    Null = (bool?)d.Attribute("Null") ?? false
+                }).ToList()
             }).ToList()
         }).ToList();
     internal static List<NodeKindModel> Kinds() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml"))

@@ -484,10 +484,10 @@ public static class RedNodeGenerator
                 SwitchExpressionArm(DiscardPattern(), ThrowExpression(ObjectCreationExpression(IdentifierName("Exception"))
                     .WithArgumentList(ArgumentList())))))))));
 
-    public static CompilationUnitSyntax GenerateRedFactoryMethod(SyntaxNodeModel node, FactoryDefinitionModel? factoryDefinition = null)
+    public static CompilationUnitSyntax? GenerateRedFactoryMethod(SyntaxNodeModel node, FactoryDefinitionModel? factoryDefinition = null)
     {
         if (node.IsAbstract)
-            return null!; // skip abstract nodes
+            return null; // skip abstract nodes
 
         var methodName = node.Name;
         var typeName = node.Name + "Syntax";
