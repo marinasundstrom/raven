@@ -1933,7 +1933,10 @@ internal partial class MethodBodyGenerator
         }
 
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.MoveNextMethod))
+        {
             RegisterStateMachineSyntaxMappings(body, iteratorType.IteratorMethod);
+            body = PrepareIteratorMethodClosure(iteratorType, body);
+        }
         DeclareLocals(body);
         EmitMethodBlock(body);
     }

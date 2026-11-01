@@ -18294,3 +18294,19 @@ four parameter shapes. It also applies to any bridge using that CLI emitter, but
 these tests do not claim native neoCLR execution. Native portable closure
 emission owns its environment representation and does not use this CLI parameter
 metadata fix; native function/environment metadata replaces this bridge encoding.
+
+
+### Iterator callbacks and shared capture storage
+
+The shared iterator lowerer keeps nested callables independent and records source
+local storage. CLI emission uses persistent display-class storage for synchronous
+iterator callbacks, shared with the enclosing MoveNext body across `yield`.
+This fixes a missing-local emission failure exposed by the Raven visitor-generator
+port. Native semantics still require callbacks and the iterator to agree on
+capture lifetime and mutation; the CLI closure is a temporary representation,
+not a native language rule. The owning layers are IteratorLowerer and CLI
+MethodBodyGenerator. Native portable function environments retain their existing
+capability restrictions; this change does not prove native iterator-capture
+support. Native closure environments and state-machine storage integration must
+replace the CLI display-class mechanism. Validation here is .NET-only: loop and
+parameter capture, reads across suspension, and mutation through a callback.

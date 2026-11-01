@@ -114,6 +114,7 @@ internal static class IteratorLowerer
         SynthesizedIteratorTypeSymbol stateMachine,
         BoundBlockStatement body)
     {
+        stateMachine.SetOriginalBody(body);
         body = YieldFromLowerer.Rewrite(stateMachine.IteratorMethod, compilation, body);
         body = AwaitForLowerer.Rewrite(stateMachine.IteratorMethod, body);
         var targetMethod = stateMachine.AsyncMoveNextMethod ?? stateMachine.MoveNextMethod;
@@ -877,6 +878,12 @@ internal static class IteratorLowerer
 
             return new BoundBlockStatement(statements);
         }
+
+        // Nested callable bodies are lowered independently, with their own returns
+        // and storage. Their capture lists must continue to refer to source symbols.
+        public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
+
+        public override BoundNode? VisitFunctionStatement(BoundFunctionStatement node) => node;
 
         public override BoundNode? VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
         {
@@ -1821,7 +1828,7 @@ internal static class IteratorLowerer
 
             var type = local.Type ?? _compilation.ErrorTypeSymbol;
             var fieldName = CreateHoistedLocalFieldName();
-            var field = _stateMachine.AddHoistedLocal(fieldName, type);
+            var field = _stateMachine.AddHoistedLocal(fieldName, type, local);
             _hoistedLocals.Add(local, field);
         }
 
@@ -1889,6 +1896,10 @@ internal static class IteratorLowerer
 
         private sealed class HoistableLocalCollector : BoundTreeWalker
         {
+            public override void VisitFunctionExpression(BoundFunctionExpression node) { }
+
+            public override void VisitFunctionStatement(BoundFunctionStatement node) { }
+
             private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
 
             public IEnumerable<ILocalSymbol> Locals => _locals;

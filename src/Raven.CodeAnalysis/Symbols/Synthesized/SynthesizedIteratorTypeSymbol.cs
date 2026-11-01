@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -12,6 +13,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();
 
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
+    private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocalMap = new(SymbolEqualityComparer.Default);
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
     private readonly IParameterSymbol? _enumeratorCancellationParameter;
 
@@ -133,6 +135,8 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 
     public SourceMethodSymbol MoveNextMethod { get; }
 
+    public BoundBlockStatement? OriginalBody { get; private set; }
+
     public BoundBlockStatement? MoveNextBody { get; private set; }
 
     public BoundBlockStatement? CurrentGetterBody { get; private set; }
@@ -171,7 +175,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 
     public SourceMethodSymbol? AsyncGetEnumeratorMethod { get; }
 
-    public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type)
+    public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, ILocalSymbol? local = null)
     {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Field name cannot be null or empty.", nameof(name));
@@ -179,8 +183,21 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             throw new ArgumentNullException(nameof(type));
 
         var field = CreateField(name, type);
+        if (local is not null)
+            _hoistedLocalMap[local] = field;
         _hoistedLocals = _hoistedLocals.Add(field);
         return field;
+    }
+
+    internal bool TryGetHoistedLocalField(ILocalSymbol local, out SourceFieldSymbol field)
+        => _hoistedLocalMap.TryGetValue(local, out field!);
+
+    public void SetOriginalBody(BoundBlockStatement body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        if (OriginalBody is not null && !ReferenceEquals(OriginalBody, body))
+            throw new InvalidOperationException("Original body already assigned.");
+        OriginalBody = body;
     }
 
     public void SetMoveNextBody(BoundBlockStatement body)

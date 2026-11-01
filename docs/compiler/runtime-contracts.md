@@ -4682,3 +4682,19 @@ and the language-level function signature are unchanged. Observable .NET tests
 cover multiple values, an omitted optional parameter, and ref/out updates.
 Native portable code generation owns its own environment and parameter layout;
 this correction does not change that contract.
+
+
+## Iterator callback storage in CLI output
+
+Iterator lowering retains its original body and source-local-to-field mapping.
+Nested lambda/local-function bodies are lowered independently, rather than having
+their returns and locals rewritten as part of the enclosing iterator. During CLI
+MoveNext emission, capture planning reuses the persistent closure mechanism used
+by async methods. Captured iterator-local accesses and callbacks use the same
+closure fields across resumptions, preserving callback mutations and reads after
+`yield`. Source parameters are initialized from iterator parameter storage.
+
+Focused .NET runtime tests cover immediate loop-variable captures, reads across
+yield, parameter captures and callback mutations. This does not establish native
+neoCLR closure execution or parity for all iterator/callback lifetime combinations.
+The compiler components are still C#; retain this correction when porting them.

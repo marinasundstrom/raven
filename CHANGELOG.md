@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve captured local storage across synchronous iterator resumptions in CLI
+  output. Keep nested callable bodies independent of iterator lowering, avoiding
+  missing-local emission failures when iterator callbacks capture loop variables.
+
 - Account for the hidden closure argument when emitting captured local-function
   parameter metadata. Authored values, defaults, `ref` and `out` parameters now
   use their correct argument positions in CLI output.

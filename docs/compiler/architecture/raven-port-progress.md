@@ -1038,3 +1038,17 @@ Raven emitter build reports 16 warnings, including explicit null suppression and
 unused builder return values. No native neoCLR execution is claimed. RavenDoc and
 website generation were not run. This slice establishes more generator support
 for subsequent coherent parser/syntax ports; it does not yet port the parser.
+
+
+### PORT-035: Iterator callback capture storage
+
+The visitor-generator translation exposed a missing-local emission failure when
+an iterator's filtering lambda captured its loop variable. Four reduced .NET
+cases reproduced failures for loop/local/parameter captures and callback mutation.
+The shared iterator lowerer now retains source storage mappings and leaves nested
+callable bodies independent. CLI emission reuses persistent state-machine closure
+planning from async methods, redirecting captured locals to the same storage used
+by callbacks across yields. The focused and adjacent iterator/async selection
+passes **42 tests**. These components remain in C# and must retain the correction
+when ported. Native neoCLR capture environments retain their existing limitations;
+no native execution or complete iterator/callback lifetime parity is claimed.

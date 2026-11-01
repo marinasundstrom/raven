@@ -14,12 +14,38 @@ internal partial class MethodBodyGenerator
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         BoundBlockStatement body)
     {
-        if (_lambdaClosure is not null ||
-            stateMachine.AsyncMethod is not SourceMethodSymbol sourceMethod ||
-            stateMachine.OriginalBody is not { } originalBody)
+        return PrepareStateMachineClosure(stateMachine.AsyncMethod, stateMachine.OriginalBody, body, captured => captured switch
         {
+            ILocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
+            IParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
+            ITypeSymbol => stateMachine.ThisField,
+            IParameterSymbol { Name: "self" } => stateMachine.ThisField,
+            _ => null
+        });
+    }
+
+    private BoundBlockStatement PrepareIteratorMethodClosure(
+        SynthesizedIteratorTypeSymbol stateMachine,
+        BoundBlockStatement body)
+    {
+        return PrepareStateMachineClosure(stateMachine.IteratorMethod, stateMachine.OriginalBody, body, captured => captured switch
+        {
+            ILocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
+            IParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
+            ITypeSymbol => stateMachine.ThisField,
+            IParameterSymbol { Name: "self" } => stateMachine.ThisField,
+            _ => null
+        });
+    }
+
+    private BoundBlockStatement PrepareStateMachineClosure(
+        IMethodSymbol method,
+        BoundBlockStatement? originalBody,
+        BoundBlockStatement body,
+        Func<ISymbol, IFieldSymbol?> getCaptureStorage)
+    {
+        if (_lambdaClosure is not null || method is not SourceMethodSymbol sourceMethod || originalBody is null)
             return body;
-        }
 
         var captures = new HoistedLocalsCollector(sourceMethod);
         captures.Visit(originalBody);
@@ -60,15 +86,9 @@ internal partial class MethodBodyGenerator
             if (captured is ILocalSymbol || !_outerMethodClosure.TryGetField(captured, out var target))
                 continue;
 
-            IFieldSymbol? source = captured switch
-            {
-                IParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
-                ITypeSymbol => stateMachine.ThisField,
-                IParameterSymbol { Name: "self" } => stateMachine.ThisField,
-                _ => null
-            };
+            var source = getCaptureStorage(captured);
             if (source is null)
-                throw new InvalidOperationException($"No async storage for captured symbol '{captured}'.");
+                throw new InvalidOperationException($"No state-machine storage for captured symbol '{captured}'.");
 
             ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
             ILGenerator.Emit(OpCodes.Ldarg_0);
@@ -79,19 +99,19 @@ internal partial class MethodBodyGenerator
         }
         ILGenerator.MarkLabel(initialized);
 
-        // Async lowering selected suspension storage before emission planned the
+        // State-machine lowering selected suspension storage before emission planned the
         // shared closure. Redirect those accesses to the original local symbol so
         // the normal capture emitter uses the same field as every callback.
         var locals = new Dictionary<IFieldSymbol, ILocalSymbol>(SymbolEqualityComparer.Default);
         foreach (var captured in captures.CapturedSymbols)
         {
-            if (captured is ILocalSymbol local && stateMachine.TryGetHoistedLocalField(local, out var field))
+            if (captured is ILocalSymbol local && getCaptureStorage(local) is { } field)
                 locals.Add(field, local);
         }
-        return (BoundBlockStatement)new AsyncCapturedLocalRewriter(locals).VisitBlockStatement(body)!;
+        return (BoundBlockStatement)new StateMachineCapturedLocalRewriter(locals).VisitBlockStatement(body)!;
     }
 
-    private sealed class AsyncCapturedLocalRewriter(Dictionary<IFieldSymbol, ILocalSymbol> locals) : BoundTreeRewriter
+    private sealed class StateMachineCapturedLocalRewriter(Dictionary<IFieldSymbol, ILocalSymbol> locals) : BoundTreeRewriter
     {
         public override BoundExpression? VisitExpression(BoundExpression? node)
             => node is BoundFunctionExpression ? node : base.VisitExpression(node);
