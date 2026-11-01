@@ -1344,3 +1344,21 @@ it. No RavenDoc or website generation was invoked for this slice.
 The two generated-hierarchy query-order cases also pass in three fresh test-host
 runs per implementation (12 case executions across six processes), addressing the
 intermittent failure observed before the fix.
+
+
+### PORT-046: Restore delegate signature diagnostics on member reuse
+
+While validating the visitor-output slice, the previously recorded baseline
+failure was reduced to the early member-reuse return in both delegate declaration
+paths. Existing Invoke/constructor symbols prevented the current declaration
+binder from receiving signature accessibility diagnostics. Reuse now validates
+the existing Invoke signature into that binder's bag without replacing members.
+
+The original public-delegate regression now passes. Four added query-order tests
+cover top-level/nested public delegates, declaration queries before diagnostics,
+repeated diagnostic reads and stable Invoke/constructor identity. The focused
+baseline was **29 passing / 1 failing**; after the correction, **44 accessibility,
+delegate semantic and delegate runtime tests pass** on .NET 11. Shared semantics
+and .NET defaults are unchanged. The unported binder/semantic-model implementations
+must retain this fix. Broader baseline results are recorded separately as they
+complete; the focused result is not a claim that the whole baseline is green.

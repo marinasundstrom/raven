@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Report delegate signature accessibility errors even when declaration completion
+  reuses previously discovered runtime members, preserving their symbol identity.
+
 - Refresh virtual/override flags when rebinding a reused expression-bodied
   property getter. Generated hierarchies no longer intermittently fail to load
   because an abstract property override was emitted as a nonvirtual method.

@@ -4149,8 +4149,11 @@ public partial class SemanticModel
     {
         // Declaration discovery and completion can visit the same delegate.
         // Its runtime members are already owned by the source symbol.
-        if (!delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").IsEmpty)
+        if (delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").OfType<IMethodSymbol>().FirstOrDefault() is { } existingInvoke)
+        {
+            TypeMemberBinder.ValidateDelegateSignatureAccessibility(delegateSymbol, delegateDecl, existingInvoke, binder.Diagnostics);
             return;
+        }
 
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);

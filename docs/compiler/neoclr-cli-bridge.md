@@ -18386,3 +18386,12 @@ canonical symbol while allowing both CLI and native consumers to identify the
 resolved override. No bridge encoding or native capability is added. CLI runtime
 validation loads and executes generated derived classes; native execution is not
 claimed. Native accessor/override metadata remains the target-owned representation.
+
+
+### Delegate signature diagnostic ownership
+
+Reusing a discovered delegate Invoke symbol now rechecks signature accessibility
+in the completing binder. This is shared declaration diagnostics, not a CLI bridge
+encoding or a native capability change. Delegate member identity is preserved;
+existing target delegate/function representation contracts remain unchanged. Tests
+use .NET reference symbols and do not claim native execution.

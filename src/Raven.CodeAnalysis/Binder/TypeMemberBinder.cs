@@ -2591,8 +2591,11 @@ internal partial class TypeMemberBinder : Binder
     {
         // Declaration discovery and completion can visit the same delegate.
         // Its runtime members are already owned by the source symbol.
-        if (!delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").IsEmpty)
+        if (delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").OfType<IMethodSymbol>().FirstOrDefault() is { } existingInvoke)
+        {
+            ValidateDelegateSignatureAccessibility(delegateSymbol, delegateDecl, existingInvoke, _diagnostics);
             return;
+        }
 
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
@@ -4660,6 +4663,28 @@ internal partial class TypeMemberBinder : Binder
             MethodKind.UserDefinedOperator => "operator",
             _ => "method",
         };
+    }
+
+    internal static void ValidateDelegateSignatureAccessibility(
+        INamedTypeSymbol delegateSymbol,
+        DelegateDeclarationSyntax declaration,
+        IMethodSymbol invoke,
+        DiagnosticBag diagnostics)
+    {
+        // Member identity survives declaration discovery; diagnostics belong to
+        // the binder completing this declaration and must be checked there too.
+        var name = delegateSymbol.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
+        ValidateTypeAccessibility(invoke.ReturnType, delegateSymbol.DeclaredAccessibility,
+            delegateSymbol.ContainingType, "delegate", name, "return", diagnostics,
+            declaration.ReturnType?.Type.GetLocation() ?? declaration.Identifier.GetLocation());
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var parameter = invoke.Parameters[i];
+            var syntax = declaration.ParameterList.Parameters[i];
+            ValidateTypeAccessibility(parameter.Type, delegateSymbol.DeclaredAccessibility,
+                delegateSymbol.ContainingType, "delegate", name, $"parameter '{parameter.Name}'", diagnostics,
+                syntax.TypeAnnotation?.Type.GetLocation() ?? syntax.GetLocation());
+        }
     }
 
     internal static void ValidateTypeAccessibility(

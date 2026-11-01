@@ -4790,3 +4790,18 @@ target default or runtime encoding; native lowering also consumes the corrected
 source flags. The binder has not yet been ported to Raven. Shared C# tests exercise
 both generator implementations, preserving getter identity across early semantic
 queries, checking symbol shape and executing the generated hierarchy on .NET.
+
+
+### Delegate accessibility after member discovery
+
+Delegate member reuse no longer skips signature accessibility validation. Both
+namespace-level and nested declaration completion validate the existing Invoke
+return/parameter types into the current binder's diagnostic bag. The constructor
+and Invoke symbols remain canonical; repeated semantic queries do not synthesize
+replacement members or duplicate public diagnostics. Effective containing-type
+accessibility still applies, so an internal container can expose an internal type
+through its locally public delegate.
+
+This restores required RAV0501 diagnostics without changing a public semantic API,
+runtime metadata layout or target policy. The shared binder/semantic-model code is
+not ported yet and must retain this correction in its Raven translation.
