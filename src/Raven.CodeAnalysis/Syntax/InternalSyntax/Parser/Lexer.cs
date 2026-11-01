@@ -799,102 +799,18 @@ internal class Lexer : ILexer, IMacroBodyScanner
                             }
 
                             var characters = new System.Text.StringBuilder();
-                            object character;
+                            var character = ReadCharacterLiteralValue(ch);
                             do
                             {
 
-                                if (ch == '\\')
-                                {
-                                    _stringBuilder.Append(ch); // backslash
-
-                                    if (!ReadChar(out ch))
-                                    {
-                                        ReportDiagnostic(DiagnosticInfo.Create(
-                                            CompilerDiagnostics.UnterminatedCharacterLiteral,
-                                            GetTokenStartPositionSpan()));
-                                        return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
-                                    }
-
-                                    _stringBuilder.Append(ch); // escaped char
-
-                                    switch (ch)
-                                    {
-                                        case '\'':
-                                            character = '\'';
-                                            break;
-                                        case '\"':
-                                            character = '\"';
-                                            break;
-                                        case '\\':
-                                            character = '\\';
-                                            break;
-                                        case '0':
-                                            character = '\0';
-                                            break;
-                                        case 'a':
-                                            character = '\a';
-                                            break;
-                                        case 'b':
-                                            character = '\b';
-                                            break;
-                                        case 'f':
-                                            character = '\f';
-                                            break;
-                                        case 'n':
-                                            character = '\n';
-                                            break;
-                                        case 'r':
-                                            character = '\r';
-                                            break;
-                                        case 't':
-                                            character = '\t';
-                                            break;
-                                        case 'v':
-                                            character = '\v';
-                                            break;
-                                        case 'u':
-                                        case 'U':
-                                            var digits = ch == 'u' ? 4 : 8;
-                                            var codepoint = new System.Text.StringBuilder();
-                                            for (var index = 0; index < digits && PeekChar(out var digit) && Uri.IsHexDigit(digit); index++)
-                                            {
-                                                ReadChar(out digit);
-                                                _stringBuilder.Append(digit);
-                                                codepoint.Append(digit);
-                                            }
-                                            if (codepoint.Length != digits || !uint.TryParse(codepoint.ToString(), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var scalar) || scalar > 0x10ffff)
-                                            {
-                                                ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()));
-                                                character = '?';
-                                            }
-                                            else
-                                                character = scalar <= char.MaxValue ? (object)(char)scalar : new System.Text.Rune((int)scalar);
-                                            break;
-                                        default:
-                                            ReportDiagnostic(DiagnosticInfo.Create(
-                                                CompilerDiagnostics.InvalidEscapeSequence,
-                                                GetTokenStartPositionSpan()));
-                                            character = '?';
-                                            break;
-                                    }
-                                }
-                                else
-                                {
-                                    _stringBuilder.Append(ch);
-                                    if (char.IsHighSurrogate(ch) && PeekChar(out var low) && char.IsLowSurrogate(low))
-                                    {
-                                        ReadChar(out low);
-                                        _stringBuilder.Append(low);
-                                        character = new System.Text.Rune(ch, low);
-                                    }
-                                    else
-                                        character = ch;
-                                }
+                                if (character is null)
+                                    return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
 
                                 characters.Append(character.ToString());
                                 if (!PeekChar(out ch) || ch == '\'' || ch == '\n' || ch == '\r')
                                     break;
                                 ReadChar(out ch);
+                                character = ReadCharacterLiteralValue(ch);
                             } while (true);
                             if (characters.Length > character.ToString()!.Length)
                                 character = new GraphemeLiteralValue(characters.ToString());
@@ -977,6 +893,98 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
         ReportMissingEndIfIfNeeded();
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
+    }
+
+    private object? ReadCharacterLiteralValue(char characterStart)
+    {
+        var ch = characterStart;
+        if (ch == '\\')
+        {
+            _stringBuilder.Append(ch); // backslash
+
+            if (!ReadChar(out ch))
+            {
+                ReportDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.UnterminatedCharacterLiteral,
+                    GetTokenStartPositionSpan()));
+                return null;
+            }
+
+            _stringBuilder.Append(ch); // escaped char
+
+            switch (ch)
+            {
+                case '\'':
+                    return '\'';
+
+                case '\"':
+                    return '\"';
+
+                case '\\':
+                    return '\\';
+
+                case '0':
+                    return '\0';
+
+                case 'a':
+                    return '\a';
+
+                case 'b':
+                    return '\b';
+
+                case 'f':
+                    return '\f';
+
+                case 'n':
+                    return '\n';
+
+                case 'r':
+                    return '\r';
+
+                case 't':
+                    return '\t';
+
+                case 'v':
+                    return '\v';
+
+                case 'u':
+                case 'U':
+                    var digits = ch == 'u' ? 4 : 8;
+                    var codepoint = new System.Text.StringBuilder();
+                    for (var index = 0; index < digits && PeekChar(out var digit) && Uri.IsHexDigit(digit); index++)
+                    {
+                        ReadChar(out digit);
+                        _stringBuilder.Append(digit);
+                        codepoint.Append(digit);
+                    }
+                    if (codepoint.Length != digits || !uint.TryParse(codepoint.ToString(), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var scalar) || scalar > 0x10ffff)
+                    {
+                        ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()));
+                        return '?';
+                    }
+                    else
+                        return scalar <= char.MaxValue ? (object)(char)scalar : new System.Text.Rune((int)scalar);
+
+                default:
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidEscapeSequence,
+                        GetTokenStartPositionSpan()));
+                    return '?';
+
+            }
+        }
+        else
+        {
+            _stringBuilder.Append(ch);
+            if (char.IsHighSurrogate(ch) && PeekChar(out var low) && char.IsLowSurrogate(low))
+            {
+                ReadChar(out low);
+                _stringBuilder.Append(low);
+                return new System.Text.Rune(ch, low);
+            }
+            else
+                return ch;
+        }
     }
 
     private bool TryConsumeTripleQuoteStart()

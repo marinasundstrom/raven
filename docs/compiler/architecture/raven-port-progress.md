@@ -812,3 +812,18 @@ indexer gap and an uninitialized character accumulator.
 Final PORT-026 selection: **240 focused and adjacent tests pass**. The complete
 lexer draft now parses without syntax diagnostics; Raven emission/parity remains
 pending on the remaining porting gaps.
+
+### Lexer character decoding preparation
+
+Character literal decoding now lives in a private helper in the C# lexer and
+its Raven draft. Each loop iteration starts with the decoded character or rune;
+a null result signals an already-diagnosed incomplete escape. This preserves
+the existing payload distinction between `char`, `Rune`, and
+`GraphemeLiteralValue` without an uninitialized accumulator or redundant initial
+boxing. It does not introduce a language rule or target-specific behavior.
+
+The focused C# lexer/literal/directive selection passes 143 tests, including
+nine payload and invalid/incomplete escape regressions. The Raven draft parses
+without syntax diagnostics; full implementation parity remains pending. The
+next compiler gap is implicit from-end indexing on `List<T>` through its
+`Count` property and integer indexer, needed by the conditional-directive stack.

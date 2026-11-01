@@ -15,6 +15,40 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class LexerTests
 {
     [Theory]
+    [InlineData("'a'", "a", typeof(char))]
+    [InlineData("'\\n'", "\n", typeof(char))]
+    [InlineData("'\\u00e9'", "é", typeof(char))]
+    [InlineData("'\\U0001F600'", "😀", typeof(System.Text.Rune))]
+    [InlineData("'😀'", "😀", typeof(System.Text.Rune))]
+    [InlineData("'e\\u0301'", "e\u0301", typeof(GraphemeLiteralValue))]
+    public void CharacterLiteralPreservesDecodedPayload(string source, string expected, Type payloadType)
+    {
+        var diagnostics = new List<DiagnosticInfo>();
+        var lexer = new Lexer(new StringReader(source)) { DiagnosticSink = diagnostics.Add };
+        var token = lexer.ReadToken();
+        Assert.Equal(SyntaxKind.CharacterLiteralToken, token.Kind);
+        Assert.Equal(source, token.Text);
+        Assert.Equal(payloadType, token.Value!.GetType());
+        Assert.Equal(expected, token.Value.ToString());
+        Assert.Empty(diagnostics);
+    }
+
+    [Theory]
+    [InlineData("'\\q'", "InvalidEscapeSequence")]
+    [InlineData("'\\u12'", "InvalidEscapeSequence")]
+    [InlineData("'\\", "UnterminatedCharacterLiteral")]
+    public void CharacterLiteralReportsInvalidOrIncompleteEscape(string source, string diagnostic)
+    {
+        var diagnostics = new List<DiagnosticInfo>();
+        var lexer = new Lexer(new StringReader(source)) { DiagnosticSink = diagnostics.Add };
+        Assert.Equal(SyntaxKind.CharacterLiteralToken, lexer.ReadToken().Kind);
+        var expected = diagnostic == "InvalidEscapeSequence"
+            ? CompilerDiagnostics.InvalidEscapeSequence.Id
+            : CompilerDiagnostics.UnterminatedCharacterLiteral.Id;
+        Assert.Equal(expected, Assert.Single(diagnostics).Descriptor.Id);
+    }
+
+    [Theory]
     [InlineData("\n")]
     [InlineData("\r\n")]
     [InlineData("\r")]
