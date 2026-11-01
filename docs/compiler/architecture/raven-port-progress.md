@@ -827,3 +827,46 @@ nine payload and invalid/incomplete escape regressions. The Raven draft parses
 without syntax diagnostics; full implementation parity remains pending. The
 next compiler gap is implicit from-end indexing on `List<T>` through its
 `Count` property and integer indexer, needed by the conditional-directive stack.
+
+The draft explicitly suppresses nullable access at the two character-accumulator
+uses guarded by the incomplete-escape check. This follows Raven's documented
+static nullable types: an early return after `is null` does not narrow a mutable
+local. Unlike a compiler workaround, this is an intentional source-language
+difference from C# nullable flow analysis (see
+[Handling a nullable value](../../lang/spec/type-system.md#handling-a-nullable-value)).
+
+### PORT-027: Implicit Index access and captured locations
+
+The lexer keeps its directly translated `List<ConditionalFrame>[^1]` reads and
+writes. Ordinary overload resolution retains priority; the shared binder falls
+back to an integer indexer with accessible `Length`/`Count` and Index.GetOffset.
+Bound location captures preserve evaluation order and struct storage while
+retaining semantic-model indexer identity. Mutation lowering uses one offset
+across getter, right operand and setter. No syntax or highlighting change is
+needed. .NET remains the default target.
+
+The pre-change indexer baseline passed 85 tests. The completed indexer/operation
+selection passes **144 tests**, including explicit overload priority, reads,
+simple/compound/increment writes, class and struct receiver state, evaluation
+order, inherited interface Count, Index parameters, public semantic-model facts
+and portable lowering. The full generator/build script passed with documentation
+generation disabled. The lexer draft now compiles with zero errors; full shared
+lexer parity is a separate pending gate. The earlier delegate-accessibility
+baseline failure recorded in PORT-026 remains open.
+
+Portable body lowering now admits compiler-generated managed-reference locals
+under the existing capability, preserving captured storage on both targets.
+neoCLR's experimental metadata writer needed matching local signature admission,
+CLI projection and native-reader support, committed separately as `ed3bcf4c2`
+on `codex/raven-constructor-delegation`. Its focused managed-reference tests pass.
+Both the alias-mutation fixture and Raven's source-core struct-indexer probe
+execute with result `Int32(42)` in the native interpreter. JIT/AOT were not
+validated. The probe supplies a small positive-index System.Index fixture,
+not a production implementation or evidence of a complete native Index API.
+
+The next parity attempt passes 302 C# implementation tests, then fails to compile
+the C# tests against Raven: GraphemeLiteralValue exposes malformed required-member
+metadata (CS9037), and the linked LexerTests file includes two syntax-layer tests
+whose SyntaxTree/SyntaxFactory dependencies are not yet ported. Fix the metadata
+rather than changing the record representation; separate the syntax-layer tests
+from lexer parity coverage. Lexer runtime parity is not yet established.

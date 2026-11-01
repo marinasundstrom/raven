@@ -61,6 +61,14 @@ internal static class NativeSourceCoreChecks
             }
             public struct Int64 { private var m_value: long }
             public struct UInt64 { private var m_value: ulong }
+            public struct Index {
+                private val value: int
+                private val fromEnd: bool
+                init(value: int, fromEnd: bool) { self.value = value; self.fromEnd = fromEnd }
+                static func FromEnd(value: int) -> Index => Index(value, true)
+                static func FromStart(value: int) -> Index => Index(value, false)
+                func GetOffset(length: int) -> int => if fromEnd { length - value } else { value }
+            }
             public class String { private var m_value: string }
             public abstract class Attribute {}
             public abstract class Enum : ValueType {}
@@ -100,7 +108,7 @@ internal static class NativeSourceCoreChecks
         {
             version = 1,
             libraries = new[] { new { assemblyName = name, sources = new[] { "Core.rvn" },
-                types = new[] { "System.RuntimeTypeHandle", "System.Int32", "System.Int64", "System.UInt64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
+                types = new[] { "System.RuntimeTypeHandle", "System.Int32", "System.Int64", "System.UInt64", "System.Index", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
             nativePrimitives = new Dictionary<string, string>
             {
                 ["System.RuntimeTypeHandle"] = name,
@@ -228,6 +236,12 @@ internal static class NativeSourceCoreChecks
                 static func Read(out value: int) -> bool { value = 42; return true }
                 static func Forward(out value: int) -> bool => Read(out value) && value == 42
             }
+            public struct IndexedValue {
+                var Value: int = 40
+                var CountReads: int = 0
+                val Count: int { get { CountReads += 1; return 1 } }
+                var self[index: int]: int { get => Value; set => Value = value }
+            }
             public class Chained {
                 public field Number: int = InitProbe.Next()
                 init() : self(40) { Number += 2 }
@@ -263,6 +277,10 @@ internal static class NativeSourceCoreChecks
                 let references = CopyBase?[](2)
                 if references[0] is not null || references[1] is not null { return -11 }
                 if !InitProbe.Forward(out var forwarded) || forwarded != 42 { return -12 }
+                var indexed = IndexedValue()
+                indexed[^1] += 2
+                if indexed.Value != 42 || indexed.CountReads != 1 { return -14 }
+                if indexed[^1] != 42 || indexed.CountReads != 2 { return -15 }
                 let wide: ulong = 84
                 if wide / 2 != 42 { return -13 }
                 let original: CopyBase = CopyValue(1, 40)

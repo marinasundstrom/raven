@@ -21,6 +21,13 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
     {
+        if (node.Expression is BoundIndexerAssignmentExpression { Left: { } access } indexer && access.Captures.Any())
+        {
+            var target = new BoundIndexerAccessExpression(access.Receiver, access.Arguments, access.Indexer);
+            var indexerAssignment = new BoundIndexerAssignmentExpression(target, indexer.Right, indexer.UnitType);
+            return VisitStatement(new BoundBlockStatement(access.Captures.Append(new BoundAssignmentStatement(indexerAssignment))));
+        }
+
         // A local target has no receiver or index evaluation to preserve before
         // the right-hand side. Keep residual returns outside its assignment.
         if (node.Expression is BoundLocalAssignmentExpression assignment

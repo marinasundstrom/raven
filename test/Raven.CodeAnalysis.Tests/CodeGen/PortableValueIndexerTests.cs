@@ -5,19 +5,23 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class PortableValueIndexerTests
 {
-    [Fact]
-    public void ValueIndexerReadsAndWritesTheReceiver()
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ValueIndexerReadsAndWritesTheReceiver(bool fromEnd)
     {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText($$"""
             public struct Counter {
                 private var value: int
+                public val Count: int => 3
                 public var self[index: int]: int {
                     get => value + index
                     set { self.value = value - index }
                 }
                 public func Run() -> int {
-                    self[2] = 42
-                    return self[0]
+                    self[{{(fromEnd ? "^1" : "2")}}] = 42
+                    return self[{{(fromEnd ? "^3" : "0")}}]
                 }
             }
             """);
@@ -28,7 +32,8 @@ public class PortableValueIndexerTests
         var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
-            allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsManagedReferences: true);
+            allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsManagedReferences: true, allowsExternalValueSignatures: true,
+            allowsExternalValueInstanceCalls: true, allowsExternalInstanceCalls: true, allowsExternalConstructors: true);
         Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         using var image = new MemoryStream();

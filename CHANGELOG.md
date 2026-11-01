@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Support implicit `Index` access through integer indexers with `Length` or
+  `Count`, including `List<T>[^1]`, assignment and compound mutation. Preserve
+  explicit overload priority, single evaluation, value receiver storage and
+  semantic-model indexer identity. Portable lowering now supports captured
+  managed-reference locals under its existing target capability.
+
 - Resolve nested types in containing-type declarations and member signatures.
   Preserve trailing range-expression values in expression blocks, honor unsigned
   constant operand conversions, and retain definite `out` assignment from the

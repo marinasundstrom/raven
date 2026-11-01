@@ -89,6 +89,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 TrySignature(method, out var signature) && signature.ReturnsValue;
         bool TryType(ITypeSymbol type, bool result, out EmissionType value)
         {
+            if (type is IAddressTypeSymbol address)
+            {
+                value = default;
+                if (result || capabilities?.AllowsManagedReferences != true ||
+                    !TryType(address.ReferencedType, false, out var element) || element.IsByReference)
+                    return false;
+                value = element with { IsByReference = true };
+                return true;
+            }
+
             // Fixed lengths constrain source values, not vector storage inside a body.
             // Keep signature admission separate: a backend must preserve public length
             // contracts before accepting fixed-length callable signatures.
@@ -840,7 +850,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
                             TryType(variable.Local.Type, false, out var contractType) && capabilities?.Allows(contractType) == true)
                             localType = contractType;
-                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol or IPointerTypeSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
+                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol or IPointerTypeSymbol or IAddressTypeSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary)) return false;
@@ -1493,6 +1503,22 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool LowerReference(BoundExpression expression)
         {
             if (capabilities?.AllowsManagedReferences != true) return Reject("target does not support managed references", Syntax(expression));
+            if (expression is BoundLocalAccess { Type: IAddressTypeSymbol } referenceLocal &&
+                locals.TryGetValue(referenceLocal.Local, out var referenceSlot))
+            {
+                Add(LinearInstructionKind.LoadLocal, Syntax(expression), referenceSlot);
+                return true;
+            }
+            if (expression is BoundAddressOfExpression { Storage: BoundSelfExpression } && !isStaticBody)
+            {
+                Add(LinearInstructionKind.Receiver, Syntax(expression));
+                return true;
+            }
+            if (expression is BoundAddressOfExpression { Storage: BoundArrayAccessExpression arrayStorage })
+                return ArrayElementAddress(arrayStorage);
+            if (expression is BoundAddressOfExpression { Storage: BoundDereferenceExpression dereferencedStorage })
+                return LowerIndirectAddress(dereferencedStorage.Reference);
+
             var symbol = expression is BoundAddressOfExpression address ? address.Symbol : expression is BoundParameterAccess parameter ? parameter.Parameter : null;
             if (symbol is IFieldSymbol field && expression is BoundAddressOfExpression fieldAddress)
                 return FieldAddress(fieldAddress.Storage is BoundFieldAccess access ? access.Receiver : fieldAddress.Receiver, field, Syntax(expression));

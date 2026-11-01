@@ -7547,7 +7547,7 @@ partial class BlockBinder : Binder
                 return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments, requireGetter: true);
+            var indexer = ResolveIndexerWithImplicitIndex(receiver, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments, requireGetter: true);
 
             if (indexer is null || !HasAccessibleOrdinarySetter(indexer))
             {
@@ -7560,7 +7560,7 @@ partial class BlockBinder : Binder
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
-            var indexerAccess = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
+            var indexerAccess = CreateIndexerAccess(receiver, convertedArguments, indexer, elementAccess);
             return BindIndexerCompoundAssignment(indexerAccess, indexerRightExpression, binaryOperator.Value, rightSyntax);
         }
 
@@ -7778,7 +7778,7 @@ partial class BlockBinder : Binder
         ExpressionSyntax syntax)
     {
         var statements = new List<BoundStatement>();
-        if (access.Indexer.IsExtensionProperty)
+        if (access.Indexer.IsExtensionProperty && !access.Captures.Any())
         {
             // Extension accessors receive their receiver by value. Capture it and
             // the indices before the getter/RHS/setter sequence, exactly once.

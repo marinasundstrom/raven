@@ -3120,7 +3120,7 @@ partial class BlockBinder
             Compilation.ResolveSpanSliceMembers(receiverType, argumentExprs[0].Type!) is { } spanSlice)
             return BindRuntimeRangeAccess(receiver, argumentExprs[0], syntax, spanSlice);
 
-        var indexer = ResolveIndexer(receiverType, argumentExprs, argumentList.Arguments, requireSetter: false, out var convertedArguments);
+        var indexer = ResolveIndexerWithImplicitIndex(receiver, argumentExprs, argumentList.Arguments, requireSetter: false, out var convertedArguments);
 
         if (indexer is null)
         {
@@ -3128,7 +3128,7 @@ partial class BlockBinder
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
-        var access = new BoundIndexerAccessExpression(ConvertExtensionIndexerReceiver(receiver, indexer, syntax), convertedArguments, indexer);
+        var access = CreateIndexerAccess(receiver, convertedArguments, indexer, syntax);
         return TryGetIndexerByRefElementType(indexer, out var elementType)
             ? new BoundDereferenceExpression(access, elementType)
             : access;
@@ -3548,12 +3548,12 @@ partial class BlockBinder
                     arrayRightExpression);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
+            var indexer = ResolveIndexerWithImplicitIndex(receiver, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
             if (indexer is null)
             {
-                indexer = ResolveIndexer(
-                    receiver.Type!,
+                indexer = ResolveIndexerWithImplicitIndex(
+                    receiver,
                     args,
                     elementAccess.ArgumentList.Arguments,
                     requireSetter: false,
@@ -3577,7 +3577,7 @@ partial class BlockBinder
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
-            var access = new BoundIndexerAccessExpression(ConvertExtensionIndexerReceiver(receiver, indexer, elementAccess), convertedArguments, indexer);
+            var access = CreateIndexerAccess(receiver, convertedArguments, indexer, elementAccess);
             if (assignmentTargetType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(indexerRightExpression))
             {

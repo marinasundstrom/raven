@@ -18261,3 +18261,22 @@ UInt64 fixture declaration and executes both behaviors with the interpreter
 there is no new CLI bridge representation or permanent target restriction.
 String-range values in expression blocks were validated on .NET; native string
 slicing remains the separate implementation gap documented above.
+
+
+### Implicit Index access: captured mutable locations
+
+Implicit indexing through `Length`/`Count` uses shared language binding and
+lowering. Native intent matches .NET: preserve the original value-type receiver
+storage and evaluate the receiver, Index and offset once. The bridge encodes
+captured addresses as managed-reference locals, with ordinary CLI BYREF local
+signatures in its projection. Native metadata already has a reference type;
+there is no new CLI-only language rule or replacement instruction to design.
+
+Portable lowering owns the captures and reference load; target capability
+admission remains explicit. neoCLR metadata authoring/reading required the fix
+in `ed3bcf4c2` (`codex/raven-constructor-delegation`). Reference returns and escape
+rules are unchanged. The source-core probe now supplies Index factories and
+GetOffset for positive-index checks and exercises a mutable struct indexer;
+this does not qualify the full native Index runtime API. Native emission and
+interpreter execution pass with `Int32(42)`, using the explicit System seed and
+SourceCore object root. JIT/AOT and .NET Framework/NanoFramework are not claimed.

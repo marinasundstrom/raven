@@ -40,6 +40,10 @@ partial class BlockBinder
                     foreach (var index in array.Indices)
                         Capture(index);
                     break;
+                case BoundIndexerAccessExpression indexer when indexer.Captures.Any():
+                    statements.AddRange(indexer.Captures);
+                    replacements[indexer] = new BoundIndexerAccessExpression(indexer.Receiver, indexer.Arguments, indexer.Indexer);
+                    break;
                 case BoundIndexerAccessExpression indexer:
                     Receiver(indexer.Receiver);
                     foreach (var argument in indexer.Arguments)

@@ -114,7 +114,22 @@ String slicing is currently implemented on .NET. Native neoCLR string slicing
 remains an implementation gap, not permanent language exclusivity.
 
 Other receivers resolve `[]` through their indexers, so overloads accepting
-`Index` and `Range` can coexist.
+`Index` and `Range` can coexist. Applicable ordinary indexer overloads take
+priority. If none accepts a single `Index` argument, a receiver with an accessible
+integer indexer and readable instance `int Length` or `int Count` property can
+use implicit indexing. `Length` takes precedence over `Count`.
+
+```raven
+let last = values[^1]       // also works for List<T>
+values[^1] += 1
+```
+
+The receiver and index are evaluated once, followed by the length getter and
+`Index.GetOffset(length)`. A compound assignment reuses that offset for its
+getter and setter, evaluating the right operand between those calls. Mutable
+value-type receivers retain their original storage. These rules also apply to
+an `Index` value held in a variable or passed as a parameter. They do not add
+implicit range slicing to arbitrary indexers.
 
 Inside a collection expression or `for` source, a numeric range is enumerated
 instead of being stored as a `Range` value. See [Collection

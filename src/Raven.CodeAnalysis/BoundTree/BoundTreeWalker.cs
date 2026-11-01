@@ -328,6 +328,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
     {
+        foreach (var capture in node.Captures)
+            VisitStatement(capture);
         VisitExpression(node.Receiver);
         foreach (var argument in node.Arguments)
             VisitExpression(argument);

@@ -4611,3 +4611,23 @@ Ordinary methods do not receive extension attributes. This enables C# extension
 lookup for the ported `SyntaxFacts.GetSyntaxTokenText` method while retaining its
 static API. Metadata tests validate both automatic and explicit container markers;
 shared C# compiler-port tests exercise static and extension invocation.
+
+### Implicit Index access and captured locations
+
+The shared binder resolves ordinary indexer overloads first. Its fallback uses
+an accessible integer indexer, an instance integer `Length`/`Count` getter and
+`System.Index.GetOffset(int)`. The runtime's existing Index constructor/factories (`FromStart`, `FromEnd`)
+and GetOffset implementation retain responsibility for Index value semantics.
+No new syntax, CLI flag, target default or runtime-contract option is introduced.
+
+Bound indexer accesses retain their property symbol and authored semantic
+operation while carrying compiler-owned location captures. Shared lowering
+places those captures before reads or writes; mutation stabilization reuses
+them across getter/RHS/setter evaluation. Address captures preserve struct
+storage rather than copying it. Portable body lowering admits these internal
+managed-reference locals only when `AllowsManagedReferences` permits them;
+this does not broaden callable-signature admission or allow reference escape.
+
+Editor highlighting needs no grammar change: the existing index and element
+access syntax is reused. Semantic-model regression coverage checks the original
+indexer symbol, element type and argument operation.
