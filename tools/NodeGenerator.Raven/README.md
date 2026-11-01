@@ -17,8 +17,9 @@ are explicitly private, and local generator functions retain closure captures.
 against the C# emitters using the repository XML models. Run
 `scripts/test-generator-parity.sh` from the repository root.
 
-The production NodeGenerator executable still uses C#. This is not yet a port of
-its command-line driver or model loaders. No generated-source
+The production NodeGenerator executable still uses C#. Its XML loading methods
+are extracted into `SyntaxModelLoader` and translated in this library; validation,
+incremental hashing and command-line orchestration remain in C#. No generated
 language syntax was changed by this translation.
 
 The visitor translation retains iterator dispatch grouping, named tuples and
@@ -43,3 +44,21 @@ Red-node output retains lazy child/list accessors, token wrappers, constructors,
 updates, With methods and visitor dispatch. Factory output retains optional-token
 and nullable-slot defaults, explicit overloads, aliases and documentation trivia.
 The abstract-node factory return contract is nullable in both implementations.
+
+The five XML loaders retain required-attribute errors, optional factory files,
+boolean/integer fallback rules, ordering and all node/hierarchy/factory/kind/token
+metadata. Shared C# tests exercise both implementations. Emitter parity fixtures
+use these production loaders, and independent C#/Raven loading of the repository
+XML is compared before generated-output parity. The loader is an internal tool
+component; it does not add a public compiler API.
+
+Both loader implementations use `XName.Get` explicitly, matching the shared XML
+serializer. Raven currently does not refine XName's nullable implicit-conversion
+result using `NotNullIfNotNull`; this explicit API choice preserves the same XML
+names without weakening nullability rules.
+
+Begin Raven syntax-tree output component by component once the corresponding
+translated emitter is validated. Pair the first generated node hierarchy with
+its authored Raven runtime foundations so the emitted source can be compiled
+and exercised by shared C# tests. Completing the entire command-line port is not
+a prerequisite for this output work; preserve the C# output mode throughout.

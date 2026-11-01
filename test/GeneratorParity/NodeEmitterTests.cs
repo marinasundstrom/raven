@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+using Raven.Generators;
 
 using NodesShared;
 
@@ -79,54 +79,10 @@ public class NodeEmitterTests
 
 internal static class NodeEmitterInputs
 {
-    internal static List<SyntaxNodeModel> Nodes() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Model.xml"))
-        .Descendants("Node").Select(n => new SyntaxNodeModel
-        {
-            Name = (string)n.Attribute("Name")!,
-            IsAbstract = (bool?)n.Attribute("IsAbstract") ?? false,
-            Inherits = (string?)n.Attribute("Inherits") ?? "",
-            HasExplicitKind = (bool?)n.Attribute("HasExplicitKind") ?? false,
-            AdditionalPermittedTypes = n.Elements("PermittedType").Select(t => (string)t.Attribute("Name")!).ToList(),
-            Slots = n.Elements("Slot").Select(s => new SlotModel
-            {
-                Name = (string)s.Attribute("Name")!,
-                Type = (string)s.Attribute("Type")!,
-                ElementType = (string?)s.Attribute("ElementType"),
-                DefaultToken = (string?)s.Attribute("DefaultToken"),
-                IsOptionalToken = (bool?)s.Attribute("IsOptionalToken") ?? false,
-                IsNullable = (bool?)s.Attribute("IsNullable") ?? false,
-                IsInherited = (bool?)s.Attribute("IsInherited") ?? false,
-                IsAbstract = (bool?)s.Attribute("IsAbstract") ?? false
-            }).ToList()
-        }).ToList();
-    internal static List<FactoryDefinitionModel> Factories() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Factories.xml"))
-        .Descendants("Factory").Select(f => new FactoryDefinitionModel
-        {
-            Node = (string)f.Attribute("Node")!,
-            Overloads = f.Elements("Overload").Select(o => new FactoryOverloadModel
-            {
-                Alias = (string?)o.Attribute("Alias"),
-                Summary = (string?)o.Attribute("Summary"),
-                Parameters = o.Elements("Parameter").Select(p => new FactoryParameterModel { Slot = (string)p.Attribute("Slot")! }).ToList(),
-                Defaults = o.Elements("Default").Select(d => new FactoryDefaultModel
-                {
-                    Slot = (string)d.Attribute("Slot")!,
-                    Token = (string?)d.Attribute("Token"),
-                    Null = (bool?)d.Attribute("Null") ?? false
-                }).ToList()
-            }).ToList()
-        }).ToList();
-    internal static List<NodeKindModel> Kinds() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml"))
-        .Descendants("NodeKind").Select(n => new NodeKindModel((string)n.Attribute("Name")!, (string)n.Attribute("Type")!)).ToList();
-    internal static List<TokenKindModel> Tokens() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Tokens.xml"))
-        .Descendants("TokenKind").Select(n => new TokenKindModel((string)n.Attribute("Name")!)
-        {
-            Text = (string?)n.Attribute("Text"),
-            Value = (string?)n.Attribute("Value"),
-            IsReservedWord = (bool?)n.Attribute("IsReservedWord") ?? false,
-            IsTrivia = (bool?)n.Attribute("IsTrivia") ?? false,
-            IsUnaryOperator = (bool?)n.Attribute("IsUnaryOperator") ?? false,
-            IsBinaryOperator = (bool?)n.Attribute("IsBinaryOperator") ?? false,
-            Precedence = (int?)n.Attribute("Precedence")
-        }).ToList();
+    internal static List<SyntaxNodeModel> Nodes() => SyntaxModelLoader.LoadSyntaxNodesFromXml(Input("Model.xml"));
+    internal static List<SyntaxHierarchyModel> Hierarchies() => SyntaxModelLoader.LoadSyntaxHierarchiesFromXml(Input("Model.xml"));
+    internal static List<FactoryDefinitionModel> Factories() => SyntaxModelLoader.LoadFactoriesFromXml(Input("Factories.xml"));
+    internal static List<NodeKindModel> Kinds() => SyntaxModelLoader.LoadNodeKindsFromXml(Input("NodeKinds.xml"));
+    internal static List<TokenKindModel> Tokens() => SyntaxModelLoader.LoadTokenKindsFromXml(Input("Tokens.xml"));
+    private static string Input(string name) => Path.Combine(AppContext.BaseDirectory, name);
 }

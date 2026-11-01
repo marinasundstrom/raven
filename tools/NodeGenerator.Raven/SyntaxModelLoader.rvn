@@ -1,0 +1,139 @@
+namespace Raven.Generators
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Linq.*
+import System.Xml.Linq.*
+import NodesShared.*
+
+internal static class SyntaxModelLoader
+{
+    static func LoadSyntaxNodesFromXml(path: string) -> List<SyntaxNodeModel>
+    {
+        let doc = XDocument.Load(path)
+        let result = List<SyntaxNodeModel>()
+
+        for nodeElement in doc.Descendants(XName.Get("Node"))
+        {
+            let node = SyntaxNodeModel() {
+                Name = nodeElement.Attribute(XName.Get("Name"))?.Value ?? throw Exception("Node missing Name"),
+                Inherits = nodeElement.Attribute(XName.Get("Inherits"))?.Value ?? "",
+                IsAbstract = ParseBool(nodeElement.Attribute(XName.Get("IsAbstract"))),
+                HasExplicitKind = ParseBool(nodeElement.Attribute(XName.Get("HasExplicitKind"))),
+                AdditionalPermittedTypes = nodeElement.Elements(XName.Get("PermittedType"))
+                    .Select(element => element.Attribute(XName.Get("Name"))?.Value ??
+                        throw Exception("PermittedType missing Name"))
+                    .ToList(),
+                Slots = nodeElement.Elements(XName.Get("Slot")).Select(slotEl => SlotModel() {
+                    Name = slotEl.Attribute(XName.Get("Name"))?.Value ?? throw Exception("Slot missing Name"),
+                    Type = slotEl.Attribute(XName.Get("Type"))?.Value ?? throw Exception("Slot missing Type"),
+                    ElementType = slotEl.Attribute(XName.Get("ElementType"))?.Value,
+                    DefaultToken = slotEl.Attribute(XName.Get("DefaultToken"))?.Value,
+                    IsOptionalToken = ParseBool(slotEl.Attribute(XName.Get("IsOptionalToken"))),
+                    IsNullable = ParseBool(slotEl.Attribute(XName.Get("IsNullable"))),
+                    IsInherited = ParseBool(slotEl.Attribute(XName.Get("IsInherited"))),
+                    IsAbstract = ParseBool(slotEl.Attribute(XName.Get("IsAbstract")))
+                }).ToList()
+            }
+
+            result.Add(node)
+        }
+
+        return result
+    }
+
+    static func LoadSyntaxHierarchiesFromXml(path: string) -> List<SyntaxHierarchyModel>
+    {
+        let doc = XDocument.Load(path)
+
+        return doc.Descendants(XName.Get("Hierarchy"))
+            .Select(hierarchyElement => SyntaxHierarchyModel() {
+                Name = hierarchyElement.Attribute(XName.Get("Name"))?.Value ??
+                    throw Exception("Hierarchy missing Name"),
+                ModelBase = hierarchyElement.Attribute(XName.Get("ModelBase"))?.Value,
+                AdditionalPermittedTypes = hierarchyElement.Elements(XName.Get("PermittedType"))
+                    .Select(element => element.Attribute(XName.Get("Name"))?.Value ??
+                        throw Exception("PermittedType missing Name"))
+                    .ToList()
+            })
+            .ToList()
+    }
+
+    static func LoadFactoriesFromXml(path: string) -> List<FactoryDefinitionModel>
+    {
+        if !File.Exists(path) {
+            return []
+        }
+
+        let doc = XDocument.Load(path)
+        let result = List<FactoryDefinitionModel>()
+
+        for factoryElement in doc.Descendants(XName.Get("Factory"))
+        {
+            let factory = FactoryDefinitionModel() {
+                Node = factoryElement.Attribute(XName.Get("Node"))?.Value ?? throw Exception("Factory missing Node"),
+                Overloads = factoryElement.Elements(XName.Get("Overload")).Select(overloadElement => FactoryOverloadModel() {
+                    Alias = overloadElement.Attribute(XName.Get("Alias"))?.Value,
+                    Summary = overloadElement.Attribute(XName.Get("Summary"))?.Value,
+                    Parameters = overloadElement.Elements(XName.Get("Parameter")).Select(parameterElement => FactoryParameterModel() {
+                        Slot = parameterElement.Attribute(XName.Get("Slot"))?.Value ?? throw Exception("Factory parameter missing Slot")
+                    }).ToList(),
+                    Defaults = overloadElement.Elements(XName.Get("Default")).Select(defaultElement => FactoryDefaultModel() {
+                        Slot = defaultElement.Attribute(XName.Get("Slot"))?.Value ?? throw Exception("Factory default missing Slot"),
+                        Token = defaultElement.Attribute(XName.Get("Token"))?.Value,
+                        Null = ParseBool(defaultElement.Attribute(XName.Get("Null")))
+                    }).ToList()
+                }).ToList()
+            }
+
+            result.Add(factory)
+        }
+
+        return result
+    }
+
+    static func LoadTokenKindsFromXml(path: string) -> List<TokenKindModel>
+    {
+        let doc = XDocument.Load(path)
+        let result = List<TokenKindModel>()
+
+        for tokenElement in doc.Descendants(XName.Get("TokenKind"))
+        {
+            let token = TokenKindModel(tokenElement.Attribute(XName.Get("Name"))?.Value ?? throw Exception("TokenKind missing Name")) {
+                Text = tokenElement.Attribute(XName.Get("Text"))?.Value,
+                Value = tokenElement.Attribute(XName.Get("Value"))?.Value,
+                IsReservedWord = ParseBool(tokenElement.Attribute(XName.Get("IsReservedWord"))),
+                IsTrivia = ParseBool(tokenElement.Attribute(XName.Get("IsTrivia"))),
+                IsUnaryOperator = ParseBool(tokenElement.Attribute(XName.Get("IsUnaryOperator"))),
+                IsBinaryOperator = ParseBool(tokenElement.Attribute(XName.Get("IsBinaryOperator"))),
+                Precedence = if int.TryParse(tokenElement.Attribute(XName.Get("Precedence"))?.Value, out var prec) { prec } else { null }
+            }
+
+            result.Add(token)
+        }
+
+        return result
+    }
+
+    private static func ParseBool(attr: XAttribute?, defaultValue: bool = false) -> bool
+    {
+        return if attr is not null && bool.TryParse(attr!.Value, out var result) { result } else { defaultValue }
+    }
+
+    static func LoadNodeKindsFromXml(path: string) -> List<NodeKindModel>
+    {
+        let doc = XDocument.Load(path)
+        let result = List<NodeKindModel>()
+
+        for nodeKindElement in doc.Descendants(XName.Get("NodeKind"))
+        {
+            let nk = NodeKindModel(
+                nodeKindElement.Attribute(XName.Get("Name"))?.Value ?? throw Exception("NodeKind missing Name"),
+                nodeKindElement.Attribute(XName.Get("Type"))?.Value ?? throw Exception("NodeKind missing Type"))
+            result.Add(nk)
+        }
+
+        return result
+    }
+}

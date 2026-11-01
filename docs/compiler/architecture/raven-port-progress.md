@@ -1220,3 +1220,47 @@ lowering consumes the corrected shared bound tree and retains existing nullable
 capability restrictions; no native execution is claimed. The unported binder
 must carry this correction when translated. Language-reference/website source,
 Runtime Contract and neoCLR bridge documentation record the behavior and scope.
+
+### PORT-043: NodeGenerator XML input loaders
+
+The five production XML loader functions are extracted from the C# top-level
+driver into an internal SyntaxModelLoader, then translated directly beside it in
+NodeGenerator.Raven. The C# driver imports those same methods. This removes
+fixture-only duplicate parsing: shared C# emitter tests now exercise each
+implementation's production loaders. An independent cross-implementation check
+compares complete loaded node, hierarchy, factory, token and kind data from the
+repository XML, rather than copying one implementation's inputs into the other.
+
+The translation retains order, duplicates, required-attribute exceptions,
+optional factory files, nullable metadata, explicit factory defaults and tolerant
+boolean/precedence parsing. The private boolean helper remains explicitly private
+in Raven. Mutable model identity and existing record kind equality are unchanged.
+No language rule, target capability or generated-source format changes.
+
+The production driver, validation and incremental-generation orchestration remain
+in C#. Full Raven syntax-tree output follows validation of the translated tools;
+C# output remains available for the bootstrap compiler.
+
+The initial Raven compile rediscovered the documented XML nullability boundary
+from the shared-model serializer slice: string-to-XName implicit conversion has a nullable result refined
+by NotNullIfNotNull in C#, which Raven does not currently apply. Both loader
+implementations now use XName.Get explicitly, as the serializer already does.
+This is an aligned .NET API choice in both sources, not a new nullable-conversion
+rule or a claim that flow-attribute refinement has been implemented.
+
+Author direction: commence Raven syntax-tree output when its dependencies are
+ready. Validated emitters can gain Raven output before the entire CLI has been
+ported. Start with a compilable node hierarchy and its authored Raven runtime
+foundations, then validate generated behavior with shared C# tests. Do not count
+text emission alone as a working Raven syntax-tree implementation, and preserve
+C# output for the bootstrap codebase.
+
+Validation: baseline **33 C# / 40 Raven tests**; final **48 C# / 56 Raven tests**
+on .NET 11. The loader suite covers metadata/defaults, ordering, missing files,
+required-attribute errors and precedence parsing. Independent repository-model
+comparison and all existing 256-node/factory output comparisons pass. The first
+runtime run exposed PORT-042; the translated loader algorithm is retained after
+the shared binder correction. An isolated loader build and its 15 shared tests
+also pass. The full Raven generator reports 40 warnings, plus 15 in NodesShared;
+the required generator/compiler build passes with the fix included. No native
+neoCLR execution, RavenDoc generation or website generation was performed.

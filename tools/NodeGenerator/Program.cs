@@ -8,6 +8,8 @@ using NodesShared;
 
 using Raven.Generators;
 
+using static Raven.Generators.SyntaxModelLoader;
+
 var repoRoot = Path.GetFullPath(Path.Combine("..", "..", ".."));
 var lockPath = Path.GetFullPath(Path.Combine("..", "obj", "NodeGenerator.lock"));
 using var generationLock = AcquireGenerationLock(lockPath);
@@ -386,141 +388,6 @@ static async Task<GenerationStats> GenerateCode(
     }
 
     return stats;
-}
-
-List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
-{
-    var doc = XDocument.Load(path);
-    var result = new List<SyntaxNodeModel>();
-
-    foreach (var nodeElement in doc.Descendants("Node"))
-    {
-        var node = new SyntaxNodeModel
-        {
-            Name = nodeElement.Attribute("Name")?.Value ?? throw new Exception("Node missing Name"),
-            Inherits = nodeElement.Attribute("Inherits")?.Value ?? "",
-            IsAbstract = ParseBool(nodeElement.Attribute("IsAbstract")),
-            HasExplicitKind = ParseBool(nodeElement.Attribute("HasExplicitKind")),
-            AdditionalPermittedTypes = nodeElement.Elements("PermittedType")
-                .Select(element => element.Attribute("Name")?.Value ??
-                    throw new Exception("PermittedType missing Name"))
-                .ToList(),
-            Slots = nodeElement.Elements("Slot").Select(slotEl => new SlotModel
-            {
-                Name = slotEl.Attribute("Name")?.Value ?? throw new Exception("Slot missing Name"),
-                Type = slotEl.Attribute("Type")?.Value ?? throw new Exception("Slot missing Type"),
-                ElementType = slotEl.Attribute("ElementType")?.Value,
-                DefaultToken = slotEl.Attribute("DefaultToken")?.Value,
-                IsOptionalToken = ParseBool(slotEl.Attribute("IsOptionalToken")),
-                IsNullable = ParseBool(slotEl.Attribute("IsNullable")),
-                IsInherited = ParseBool(slotEl.Attribute("IsInherited")),
-                IsAbstract = ParseBool(slotEl.Attribute("IsAbstract"))
-            }).ToList()
-        };
-
-        result.Add(node);
-    }
-
-    return result;
-}
-
-List<SyntaxHierarchyModel> LoadSyntaxHierarchiesFromXml(string path)
-{
-    var doc = XDocument.Load(path);
-
-    return doc.Descendants("Hierarchy")
-        .Select(hierarchyElement => new SyntaxHierarchyModel
-        {
-            Name = hierarchyElement.Attribute("Name")?.Value ??
-                throw new Exception("Hierarchy missing Name"),
-            ModelBase = hierarchyElement.Attribute("ModelBase")?.Value,
-            AdditionalPermittedTypes = hierarchyElement.Elements("PermittedType")
-                .Select(element => element.Attribute("Name")?.Value ??
-                    throw new Exception("PermittedType missing Name"))
-                .ToList()
-        })
-        .ToList();
-}
-
-List<FactoryDefinitionModel> LoadFactoriesFromXml(string path)
-{
-    if (!File.Exists(path))
-        return [];
-
-    var doc = XDocument.Load(path);
-    var result = new List<FactoryDefinitionModel>();
-
-    foreach (var factoryElement in doc.Descendants("Factory"))
-    {
-        var factory = new FactoryDefinitionModel
-        {
-            Node = factoryElement.Attribute("Node")?.Value ?? throw new Exception("Factory missing Node"),
-            Overloads = factoryElement.Elements("Overload").Select(overloadElement => new FactoryOverloadModel
-            {
-                Alias = overloadElement.Attribute("Alias")?.Value,
-                Summary = overloadElement.Attribute("Summary")?.Value,
-                Parameters = overloadElement.Elements("Parameter").Select(parameterElement => new FactoryParameterModel
-                {
-                    Slot = parameterElement.Attribute("Slot")?.Value ?? throw new Exception("Factory parameter missing Slot")
-                }).ToList(),
-                Defaults = overloadElement.Elements("Default").Select(defaultElement => new FactoryDefaultModel
-                {
-                    Slot = defaultElement.Attribute("Slot")?.Value ?? throw new Exception("Factory default missing Slot"),
-                    Token = defaultElement.Attribute("Token")?.Value,
-                    Null = ParseBool(defaultElement.Attribute("Null"))
-                }).ToList()
-            }).ToList()
-        };
-
-        result.Add(factory);
-    }
-
-    return result;
-}
-
-List<TokenKindModel> LoadTokenKindsFromXml(string path)
-{
-    var doc = XDocument.Load(path);
-    var result = new List<TokenKindModel>();
-
-    foreach (var tokenElement in doc.Descendants("TokenKind"))
-    {
-        var token = new TokenKindModel(tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"))
-        {
-            Text = tokenElement.Attribute("Text")?.Value,
-            Value = tokenElement.Attribute("Value")?.Value,
-            IsReservedWord = ParseBool(tokenElement.Attribute("IsReservedWord")),
-            IsTrivia = ParseBool(tokenElement.Attribute("IsTrivia")),
-            IsUnaryOperator = ParseBool(tokenElement.Attribute("IsUnaryOperator")),
-            IsBinaryOperator = ParseBool(tokenElement.Attribute("IsBinaryOperator")),
-            Precedence = int.TryParse(tokenElement.Attribute("Precedence")?.Value, out var prec) ? prec : null
-        };
-
-        result.Add(token);
-    }
-
-    return result;
-}
-
-bool ParseBool(XAttribute? attr, bool defaultValue = false)
-{
-    return attr != null && bool.TryParse(attr.Value, out var result) ? result : defaultValue;
-}
-
-List<NodeKindModel> LoadNodeKindsFromXml(string path)
-{
-    var doc = XDocument.Load(path);
-    var result = new List<NodeKindModel>();
-
-    foreach (var nodeKindElement in doc.Descendants("NodeKind"))
-    {
-        var nk = new NodeKindModel(
-            nodeKindElement.Attribute("Name")?.Value ?? throw new Exception("NodeKind missing Name"),
-            nodeKindElement.Attribute("Type")?.Value ?? throw new Exception("NodeKind missing Type"));
-        result.Add(nk);
-    }
-
-    return result;
 }
 
 void ValidateModel(List<SyntaxNodeModel> model)

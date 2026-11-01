@@ -36,4 +36,8 @@ Red-node classes, closed hierarchies and factories are translated too. Their
 shared tests cover accessors, updates, visitor dispatch, convenience defaults and
 explicit aliases. Cross-implementation tests compare all repository red nodes and
 both automatic and XML-defined factory overloads, including documentation trivia.
-Model loading and command-line orchestration remain in C# for now.
+The five XML model loaders are extracted from the production C# driver and
+translated too. Fixtures now call those production loaders. Shared tests cover
+required attributes, defaults, optional factory input, ordering and flags; an
+independent comparison checks all repository model data against the C# loader.
+Model validation and command-line orchestration remain in C# for now.

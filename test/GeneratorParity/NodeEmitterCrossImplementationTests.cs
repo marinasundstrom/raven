@@ -171,4 +171,23 @@ public class NodeEmitterCrossImplementationTests
         Assert.Equal(seed!.ToFullString(), translated!.ToFullString());
     }
 
+    [Fact]
+    public void RepositoryLoadersPreserveAllModelDataInBothImplementations()
+    {
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.SyntaxModelLoader).Assembly.GetName().Name);
+        var modelPath = Path.Combine(AppContext.BaseDirectory, "Model.xml");
+        EqualModel(SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadSyntaxNodesFromXml(modelPath), NodeEmitterInputs.Nodes());
+        EqualModel(SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadSyntaxHierarchiesFromXml(modelPath), NodeEmitterInputs.Hierarchies());
+        EqualModel(SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadFactoriesFromXml(Path.Combine(AppContext.BaseDirectory, "Factories.xml")), NodeEmitterInputs.Factories());
+        EqualModel(SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadTokenKindsFromXml(Path.Combine(AppContext.BaseDirectory, "Tokens.xml")), NodeEmitterInputs.Tokens());
+        EqualModel(SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadNodeKindsFromXml(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml")), NodeEmitterInputs.Kinds());
+    }
+
+    private static void EqualModel<TSeed, TTranslated>(TSeed seed, TTranslated translated)
+    {
+        var expected = System.Text.Json.JsonSerializer.SerializeToNode(seed);
+        var actual = System.Text.Json.JsonSerializer.SerializeToNode(translated);
+        Assert.True(System.Text.Json.Nodes.JsonNode.DeepEquals(expected, actual), $"Expected: {expected}\nActual: {actual}");
+    }
+
 }
