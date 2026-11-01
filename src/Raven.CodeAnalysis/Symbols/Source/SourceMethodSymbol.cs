@@ -197,6 +197,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public BoundObjectCreationExpression? ConstructorInitializer { get; private set; }
 
     public bool HasConstructorInitializerSyntax { get; private set; }
+
+    internal bool DelegatesToSameTypeConstructor => ConstructorInitializer is { } initializer &&
+        SymbolEqualityComparer.Default.Equals(initializer.Constructor.ContainingType, ContainingType);
     public bool SetsRequiredMembers { get => _setsRequiredMembers; set => _setsRequiredMembers = value; }
 
     internal void MarkConstructorInitializerSyntax() => HasConstructorInitializerSyntax = true;

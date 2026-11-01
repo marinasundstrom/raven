@@ -29,9 +29,9 @@ public sealed class SyntaxAnnotation : IEquatable<SyntaxAnnotation>
         => Equals(obj as SyntaxAnnotation);
 
     public bool Equals(SyntaxAnnotation? other)
-        => other is not null &&
-           Kind == other.Kind &&
-           Data == other.Data;
+        => other is SyntaxAnnotation value &&
+           Kind == value.Kind &&
+           Data == value.Data;
 
     public override int GetHashCode()
     {

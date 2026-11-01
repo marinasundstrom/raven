@@ -25,7 +25,12 @@ interpreter/JIT/AOT ownership are described in neoCLR's
 `docs/validation/native-core-removal/validate-source-core-storage.py`.
 `RecordCopy.dll` must return 42: it copies a derived record through a base-typed
 reference, retains derived state, and leaves the original unchanged. The probe
-also checks that native metadata contains the generated clone operation.
+also checks that native metadata contains the generated clone operation. The
+consumer tests nullable reference `as` casts for null, incompatible and matching
+values, including single evaluation of a side-effecting operand. It also checks
+class, struct and generic `: self(...)` constructor delegation and single
+execution of field initializers. This requires the native metadata-builder
+constructor-delegation correction (neoCLR `012474be0` or later).
 Compiler-only success does not establish execution or production-core coverage.
 
 ## Historical first integration

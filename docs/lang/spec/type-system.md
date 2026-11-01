@@ -512,7 +512,9 @@ let text = value as string
 `(T)expression` performs the requested conversion and throws
 `InvalidCastException` when a runtime reference conversion fails. `expression
 as T` attempts a reference or nullable conversion and produces `null` when it
-fails.
+fails. A nullable reference operand is valid: a null operand produces null, and
+the result remains nullable even when the written target type is non-nullable.
+The operand is evaluated once.
 
 ## Overload resolution
 

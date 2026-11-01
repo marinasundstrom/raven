@@ -1,0 +1,40 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Diagnostics.*
+
+/// Represents metadata attached to syntax nodes, tokens or trivia.
+/// Annotations do not participate in tree-structure equality or hashing.
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public class SyntaxAnnotation : IEquatable<SyntaxAnnotation> {
+    static readonly field ElasticAnnotation: SyntaxAnnotation = SyntaxAnnotation("Elastic")
+
+    val Kind: string
+    val Data: string?
+
+    init(kind: string) : self(kind, null) {}
+
+    init(kind: string, data: string?) {
+        Kind = kind ?? throw ArgumentNullException(nameof(kind))
+        Data = data
+    }
+
+    override func Equals(obj: object?) -> bool => Equals(obj as SyntaxAnnotation)
+
+    func Equals(other: SyntaxAnnotation?) -> bool {
+        return other is SyntaxAnnotation value && Kind == value.Kind && Data == value.Data
+    }
+
+    override func GetHashCode() -> int {
+        unchecked {
+            return (Kind.GetHashCode() * 397) ^ (Data?.GetHashCode() ?? 0)
+        }
+    }
+
+    static func ==(left: SyntaxAnnotation?, right: SyntaxAnnotation?) -> bool => object.Equals(left, right)
+    static func !=(left: SyntaxAnnotation?, right: SyntaxAnnotation?) -> bool => !object.Equals(left, right)
+
+    private func GetDebuggerDisplay() -> string {
+        return if Data is null { Kind } else { "${Kind}: ${Data}" }
+    }
+}

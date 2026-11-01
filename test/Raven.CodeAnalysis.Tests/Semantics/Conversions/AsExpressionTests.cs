@@ -12,6 +12,21 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class AsExpressionTests : CompilationTestBase
 {
     [Fact]
+    [Trait("Target", "DotNet")]
+    public void DotNet_NullableReferenceAsCastPreservesNullableResult()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            public class Probe {
+                static func Cast(value: object?) -> string? => value as string
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<AsExpressionSyntax>().Single();
+        var type = Assert.IsType<NullableTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(syntax).Type);
+        Assert.Equal(SpecialType.System_String, type.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
     public void AsCast_ReferenceType_ProducesNullableType()
     {
         var code = """

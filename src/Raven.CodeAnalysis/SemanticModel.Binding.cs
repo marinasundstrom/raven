@@ -3494,6 +3494,24 @@ public partial class SemanticModel
             foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
                 parent.Diagnostics.Report(diagnostic);
         }
+        foreach (var constructor in type.GetMembers().OfType<SourceMethodSymbol>())
+        {
+            if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree != SyntaxTree ||
+                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ConstructorDeclarationSyntax { Initializer: SelfConstructorInitializerSyntax syntax })
+                continue;
+            var visited = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            SourceMethodSymbol? current = constructor;
+            while (current is { DelegatesToSameTypeConstructor: true } && visited.Add(current))
+            {
+                var target = current.ConstructorInitializer!.Constructor.OriginalDefinition;
+                if (SymbolEqualityComparer.Default.Equals(target, constructor))
+                {
+                    parent.Diagnostics.ReportConstructorDelegationCycle(syntax.GetLocation());
+                    break;
+                }
+                current = target as SourceMethodSymbol;
+            }
+        }
         foreach (var nested in type.GetTypeMembers())
             BindClassConstructorInitializers(nested, new TypeMemberBinder(parent, nested));
     }

@@ -1276,9 +1276,12 @@ internal partial class MethodBodyGenerator
                     EmitConstructorInitializer();
                 }
 
-                EmitFieldInitializers(MethodSymbol.IsStatic);
-                EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
-                EmitPrimaryInitializerBlocks(semanticModel);
+                if (MethodSymbol is not SourceMethodSymbol { DelegatesToSameTypeConstructor: true })
+                {
+                    EmitFieldInitializers(MethodSymbol.IsStatic);
+                    EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);
+                    EmitPrimaryInitializerBlocks(semanticModel);
+                }
 
                 if (boundBody != null)
                     EmitMethodBlock(boundBody, includeImplicitReturn: false);

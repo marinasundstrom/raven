@@ -666,3 +666,81 @@ and [the target evidence](../neoclr-cli-bridge.md).
 
 No RavenDoc/site generation was run. The published language source now describes
 runtime-type-preserving copies and .NET C# consumer support.
+
+## Syntax annotations and lexer contracts — 2026-11-01
+
+Translate `SyntaxAnnotation`, `ILexer` and `IMacroBodyScanner` into Raven. These
+are real dependencies of syntax trees and the lexer, not substitutes for their
+unported implementations. The lexer still depends on `ParseOptions`, whose
+`Diagnostic`/`Location`/syntax-tree/symbol graph is not yet ported.
+
+Keep annotations as sealed reference objects with explicit value equality,
+`IEquatable<T>`, null-safe equality operators and consistent hash codes. Their
+existing immutability and equality contract already meet the porting directive;
+a record conversion is unnecessary. Retain the public readonly elastic marker,
+private debugger helper, constructor null validation and unchecked hash arithmetic.
+The lexer contracts retain their callback property, token return types, optional
+lookahead index and `out bool` macro-termination parameter.
+
+### PORT-023: same-type constructor delegation (implemented in seed)
+
+The direct annotation translation exposed the missing `: self(...)` form.
+Implement it rather than consolidating the constructor overloads. Both annotation
+implementations retain their original one- and two-argument signatures.
+
+A distinct `SelfConstructorInitializerSyntax` preserves API/syntax identity.
+Resolve overloads after declarations, diagnose cyclic delegation and reject
+instance access in initializer arguments. Both emission paths call the selected
+constructor on the existing receiver; only the terminal constructor executes
+instance initializers. Value-type receivers require their address on .NET.
+`GetSymbolInfo` resolves initializer targets through the semantic model.
+The existing generators retain both C# and Raven outputs from the shared models.
+
+The target audit found no separate annotation or lexer-interface implementation
+in the native backend/target contracts. Both targets use these shared compiler
+objects; the native constructor/cast paths are validated separately below. Tests run
+on .NET and do not establish neoCLR execution of the Raven-ported component.
+
+### PORT-024: nullable reference `as` and native emission (fixed in seed)
+
+The annotation's `Equals(object?)` exposed an incorrect rejection of nullable
+reference operands in `as`. A reduced .NET semantic regression reproduced the failure; the native
+source-core integration probe covers the actual neoCLR configuration. Compare underlying reference types when
+binding the test, while retaining its nullable result. Keep the cast in the port.
+
+The native audit also found no portable lowering for `BoundAsExpression`.
+Add the missing type-test/conditional-reference-conversion path, retaining the
+operand once and producing null when it is null or incompatible. The source-core
+probe exercises null, mismatched and matching reference cases alongside record
+copying. The .NET backend already emits its runtime safe type test.
+
+Raven's documented default nullability policy does not narrow original storage
+through `is not null && ...`; use the equivalent typed pattern binding in both
+annotation implementations. This is a documented Raven distinction, not the
+nullable-cast defect. No language rule or grammar change is introduced.
+
+The native metadata builder also needed an integration correction: it admitted
+only direct-base constructor calls. neoCLR commit `012474be0` on
+`codex/raven-constructor-delegation` adds same-type class/struct/generic authoring
+and retains exactly-once flow validation and invalid-owner rejection. The existing
+local runtime already supports this chaining. The native source-core consumer
+returns 42 on the interpreter, including class, struct and generic delegation,
+initializer side effects, record copies and nullable safe casts. Native JIT/AOT
+was not executed.
+
+The annotation/lexer slice's shared gate passes **199 C# tests per implementation**
+and five Raven cross-assembly checks (**204 Raven tests total**). Syntax ownership
+baseline: 26 passed. Constructor/initializer baseline: 300 passed. The combined
+post-change selection passed 368 of 370 initially; the two analyzer failures used
+stale syntax-kind constants in an unrecompiled analyzer assembly. The follow-up
+analyzer result and final build are recorded below. TextMate already classifies
+`self`; grammar and website language-source docs now describe constructor delegation.
+No RavenDoc/site generation is performed; the required generator/build script is
+run with documentation MSBuild properties disabled.
+
+Final verification: all seven constructor-naming analyzer/code-fix checks pass
+after rebuilding `Raven.Analyzers`; the two initial failures are resolved.
+`scripts/codex-build.sh` completes successfully with documentation disabled.
+Focused metadata constructor-delegation, constructed-base and generic-base checks
+pass in the separate neoCLR worktree. Both source worktrees retain their own
+branches; no merge or push is performed for this slice.

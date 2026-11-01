@@ -219,11 +219,49 @@ internal static class NativeSourceCoreChecks
         const string copySource = """
             public open record CopyBase(Value: int)
             public record CopyValue(Value: int, Extra: int) : CopyBase(Value)
+            public static class InitProbe {
+                static field Count: int
+                static func Next() -> int { Count += 1; return Count }
+            }
+            public class Chained {
+                public field Number: int = InitProbe.Next()
+                init() : self(40) { Number += 2 }
+                init(number: int) { Number += number }
+            }
+            public struct ChainedValue {
+                public field Number: int = InitProbe.Next()
+                init() : self(40) { Number += 2 }
+                init(number: int) { Number += number }
+            }
+            public class ChainedGeneric<T> {
+                val Value: T
+                init(value: T) : self(value, true) {}
+                init(value: T, marker: bool) { Value = value }
+            }
+            public static class CastProbe {
+                static field Count: int
+                static func Read(value: CopyBase?) -> CopyBase? {
+                    Count += 1
+                    return value
+                }
+            }
             func Main() -> int {
+                if Chained().Number != 43 || InitProbe.Count != 1 { return -6 }
+                InitProbe.Count = 0
+                if ChainedValue().Number != 43 || InitProbe.Count != 1 { return -7 }
+                if ChainedGeneric<int>(42).Value != 42 { return -8 }
                 let original: CopyBase = CopyValue(1, 40)
                 let changed = original with { Value = 2 }
                 if original.Value != 1 { return -1 }
-                if changed is CopyValue value { return value.Value + value.Extra }
+                let missing: CopyBase? = null
+                let different: CopyBase? = CopyBase(0)
+                if (missing as CopyValue) is not null { return -3 }
+                if (different as CopyValue) is not null { return -4 }
+                let nullable: CopyBase? = changed
+                if (CastProbe.Read(nullable) as CopyValue) is CopyValue value {
+                    if CastProbe.Count != 1 { return -5 }
+                    return value.Value + value.Extra
+                }
                 return -2
             }
             """;

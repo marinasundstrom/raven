@@ -4486,7 +4486,9 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
         }
 
-        var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
+        // A reference `as` test accepts null and returns null; input annotations
+        // must not require an unsafe nullable-to-nonnullable conversion.
+        var conversion = Compilation.ClassifyConversion(expression.Type!.GetNonNullableType(), targetType.GetNonNullableType());
         if (!conversion.Exists || conversion.IsNumeric || conversion.IsUserDefined)
         {
             ReportCannotConvertFromTypeToType(

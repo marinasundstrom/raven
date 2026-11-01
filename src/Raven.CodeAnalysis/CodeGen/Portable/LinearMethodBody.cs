@@ -153,6 +153,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var success = body is not null ? LowerBaseInitializer() && LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         bool LowerBaseInitializer()
         {
+            if (source is SourceMethodSymbol { DelegatesToSameTypeConstructor: true, ConstructorInitializer: { } selfInitializer })
+            {
+                Add(LinearInstructionKind.Receiver, bodySyntax);
+                var selfArguments = selfInitializer.Arguments.ToArray();
+                for (int i = 0; i < selfArguments.Length; i++)
+                    if (!LowerValue(selfArguments[i], selfInitializer.Constructor.Parameters[i].Type)) return false;
+                Add(LinearInstructionKind.DirectInstanceCall, bodySyntax, method: selfInitializer.Constructor);
+                return true;
+            }
             if (source.MethodKind != MethodKind.Constructor || source.ContainingType is not { IsReferenceType: true, BaseType: { } parent } || parent.SpecialType == SpecialType.System_Object && !SourceTypePlan.IsSourceObjectRoot(parent) &&
                 !(SourceTypePlan.TryCreate(source.ContainingType, out var ownerPlan, capabilities) && ownerPlan!.HasImportedObjectBase)) return true;
             if (capabilities?.AllowsLocalClassInheritance != true) return Reject("class base initialization", bodySyntax);
@@ -1890,6 +1899,26 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
                     Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
+                case BoundAsExpression safeCast when
+                    capabilities?.Allows(LinearInstructionKind.TypeTest) == true &&
+                    capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
+                    UsesReferenceStorage(safeCast.Expression.Type) &&
+                    TryType(safeCast.Type, false, out var safeCastType) && capabilities.Allows(safeCastType):
+                    // Retain the single evaluated operand across the test. A failed
+                    // test (including null) produces the nullable default, not a throw.
+                    if (!LowerValue(safeCast.Expression, atStatementBoundary: atStatementBoundary)) return false;
+                    var castAccepted = nextLabel++;
+                    var castComplete = nextLabel++;
+                    Add(LinearInstructionKind.Duplicate, Syntax(expression));
+                    instructions.Add(new(LinearInstructionKind.TypeTest, Syntax(expression), Type: safeCast.Type.GetNonNullableType()));
+                    Add(LinearInstructionKind.BranchTrue, Syntax(expression), castAccepted);
+                    Add(LinearInstructionKind.Pop, Syntax(expression));
+                    instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: safeCast.Type));
+                    Add(LinearInstructionKind.Branch, Syntax(expression), castComplete);
+                    Add(LinearInstructionKind.Label, Syntax(expression), castAccepted);
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: safeCast.Type));
+                    Add(LinearInstructionKind.Label, Syntax(expression), castComplete);
+                    return true;
                 case BoundIsPatternExpression { Pattern: BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested } typeTest when
                     capabilities?.Allows(LinearInstructionKind.TypeTest) == true && UsesReferenceStorage(typeTest.Expression.Type) &&
                     TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType):

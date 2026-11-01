@@ -270,7 +270,7 @@ FinallyDeclaration       ::= MemberModifiers?
                              'finally'
                              Block ;
 
-ConstructorInitializer   ::= ':' 'base' ArgumentList ;
+ConstructorInitializer   ::= ':' ('base' | 'self') ArgumentList ;
 
 MethodDeclaration        ::= MemberModifiers?
                              'func'

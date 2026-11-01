@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Accept nullable reference operands in `as` casts. The shared binder now tests
+  reference compatibility independently of nullability; native portable emission
+  returns null for null or mismatched references and evaluates the operand once.
+
+- Support `init(...) : self(...)` constructor delegation, with ordinary overload
+  resolution, cycle diagnostics and single execution of instance initializers.
+  Preserve the annotation constructor overloads in the Raven port. Semantic
+  symbol queries resolve both `self` and `base` initializer targets.
+- Port syntax annotations and lexer interfaces to Raven with shared C# contract
+  tests, preserving constructor signatures, equality and metadata shape.
+
 - Port conditional-directive expression evaluation, directive metadata and kind
   to Raven, retaining the same C# tests against both implementations.
 - Preserve a record class's runtime type when copying through a base-typed `with`

@@ -581,6 +581,11 @@
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="ArgumentList" Type="ArgumentList" IsInherited="true" />
   </Node>
+  <Node Name="SelfConstructorInitializer" Inherits="ConstructorInitializer">
+    <Slot Name="ColonToken" Type="Token" IsInherited="true" DefaultToken="ColonToken" />
+    <Slot Name="Keyword" Type="Token" IsInherited="true" />
+    <Slot Name="ArgumentList" Type="ArgumentList" IsInherited="true" />
+  </Node>
   <Node Name="ReturnStatement" Inherits="Statement">
     <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword" />
     <Slot Name="Expression" Type="Expression" IsNullable="true" />

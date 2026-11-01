@@ -513,8 +513,8 @@
     Message="Partial event '{name}' implementation must provide at least one accessor body"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0312" Identifier="ConstructorInitializerNotAllowedOnStaticConstructor"
-    Title="Static constructors cannot specify a base initializer"
-    Message="Static constructors cannot specify a base constructor initializer" Category="compiler"
+    Title="Static constructors cannot specify an initializer"
+    Message="Static constructors cannot specify a constructor initializer" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0313" Identifier="ExplicitInterfaceSpecifierMustBeInterface"
     Title="Explicit interface specifier must name an interface"
@@ -1382,6 +1382,14 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0374" Identifier="ConstantArithmeticOverflow"
     Title="Constant arithmetic overflow" Message="The constant operation overflows its result type. Use an explicit unchecked context if wrapping is intended."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0377" Identifier="ConstructorInitializerCannotAccessInstance"
+    Title="Instance is unavailable in constructor initializer"
+    Message="Constructor initializer arguments cannot access the instance being initialized"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0376" Identifier="ConstructorDelegationCycle"
+    Title="Constructor delegation cycle"
+    Message="Constructor delegation through 'self' must not form a cycle"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0375" Identifier="ConstantDivisionByZero"
     Title="Constant division by zero" Message="Division or remainder by constant zero is not valid for this type."

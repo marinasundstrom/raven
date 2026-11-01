@@ -8,6 +8,9 @@ internal static class FieldInitializationPlan
 {
     internal static IEnumerable<BoundAssignmentStatement> Create(Compilation compilation, IMethodSymbol method)
     {
+        if (method is SourceMethodSymbol { DelegatesToSameTypeConstructor: true })
+            yield break;
+
         foreach (var field in method.ContainingType!.GetMembers().OfType<SourceFieldSymbol>())
         {
             if (field.IsStatic != method.IsStatic || field.Initializer is null) continue;

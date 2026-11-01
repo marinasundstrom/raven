@@ -1,5 +1,36 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Same-type constructor delegation (2026-11-01)
+
+`: self(...)` selects another constructor on the existing receiver. Shared
+binding owns overload selection and cycle/instance-access diagnostics. CLI
+emission uses a direct constructor call, with an address for value-type receivers.
+Native portable planning uses its direct-instance-call operation rather than
+allocating another object. Both paths skip instance field initialization in a
+delegating constructor; the terminal constructor owns that initialization.
+This is shared language behavior, not a CLI-only restriction or temporary bridge
+encoding. Native signature and declaration capability limits still apply.
+
+The native source-core probe checks class and struct delegation, initializer
+side effects, body order, nullable reference casts and record copying. The port
+ledger records the actual runtime evidence; no native JIT/AOT claim is implied.
+
+## Nullable reference `as` casts (2026-11-01)
+
+Shared semantics: a safe reference cast evaluates its operand once and returns
+null when the reference is null or has an incompatible runtime type. Binding
+compares underlying reference types rather than requiring a nullable operand to
+convert to a non-nullable target. The expression result remains nullable.
+
+CLI emission already uses its safe runtime type test. The native portable planner
+now explicitly handles the bound safe-cast expression using a type test, a guarded
+reference conversion and a null default. This uses native metadata/codegen
+operations directly; it does not require a new CLI encoding or bridge policy.
+Existing bounded signature/type eligibility still applies. Nullable value-type
+casts and boxed-value extraction are outside this reference-only correction.
+The native source-core probe's record-copy artifact checks null, mismatched and
+matching nullable references. Runtime evidence is recorded in the port ledger.
+
 ## Record-class copy contract (2026-11-01)
 
 Native semantic intent is a shallow, nonmutating copy preserving the runtime

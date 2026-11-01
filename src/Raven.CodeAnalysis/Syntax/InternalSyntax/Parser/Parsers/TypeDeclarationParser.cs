@@ -808,9 +808,17 @@ internal class TypeDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.ColonToken))
         {
             var colonToken = ReadToken();
-            ConsumeTokenOrMissing(SyntaxKind.BaseKeyword, out var baseKeyword);
-            var argumentList = new ExpressionSyntaxParser(this).ParseArgumentListSyntax();
-            initializer = BaseConstructorInitializer(colonToken, baseKeyword, argumentList);
+            if (ConsumeToken(SyntaxKind.SelfKeyword, out var selfKeyword))
+            {
+                var argumentList = new ExpressionSyntaxParser(this).ParseArgumentListSyntax();
+                initializer = SelfConstructorInitializer(colonToken, selfKeyword, argumentList);
+            }
+            else
+            {
+                ConsumeTokenOrMissing(SyntaxKind.BaseKeyword, out var baseKeyword);
+                var argumentList = new ExpressionSyntaxParser(this).ParseArgumentListSyntax();
+                initializer = BaseConstructorInitializer(colonToken, baseKeyword, argumentList);
+            }
         }
 
         var token = PeekToken();

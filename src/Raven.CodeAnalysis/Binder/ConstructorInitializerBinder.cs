@@ -22,6 +22,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         return initializerSyntax switch
         {
             BaseConstructorInitializerSyntax baseInitializer => BindBaseInitializer(baseInitializer.ArgumentList),
+            SelfConstructorInitializerSyntax selfInitializer => BindInitializer(selfInitializer.ArgumentList, _constructor.ContainingType),
             _ => null
         };
     }
@@ -34,9 +35,11 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         => BindBaseInitializer(argumentList);
 
     private BoundObjectCreationExpression? BindBaseInitializer(ArgumentListSyntax argumentList)
+        => BindInitializer(argumentList, _constructor.ContainingType?.BaseType);
+
+    private BoundObjectCreationExpression? BindInitializer(ArgumentListSyntax argumentList, INamedTypeSymbol? targetType)
     {
-        var baseType = _constructor.ContainingType?.BaseType;
-        if (baseType is null)
+        if (targetType is null)
             return null;
 
         var boundArguments = new List<BoundArgument>();
@@ -47,6 +50,13 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             var boundArgument = BindExpression(argument.Expression);
             if (boundArgument is BoundErrorExpression)
                 hasErrors = true;
+            var instanceUse = new InstanceUseWalker();
+            instanceUse.Visit(boundArgument);
+            if (instanceUse.Found)
+            {
+                _diagnostics.ReportConstructorInitializerCannotAccessInstance(argument.GetLocation());
+                hasErrors = true;
+            }
 
             var name = argument.NameColon?.Name.Identifier.ValueText;
             if (string.IsNullOrEmpty(name))
@@ -58,7 +68,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         if (hasErrors)
             return null;
 
-        var constructors = baseType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
+        var constructors = targetType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
         var argumentArray = boundArguments.ToArray();
         var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation, binder: this, callSyntax: argumentList);
 
@@ -66,7 +76,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         {
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(baseType.Name, resolution.AmbiguousCandidates, argumentList.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(targetType.Name, resolution.AmbiguousCandidates, argumentList.GetLocation());
                 return null;
             }
 
@@ -81,12 +91,12 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
                     return null;
             }
 
-            _diagnostics.ReportNoOverloadForMethod("constructor for type", baseType.Name, boundArguments.Count, argumentList.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("constructor for type", targetType.Name, boundArguments.Count, argumentList.GetLocation());
             return null;
         }
 
         var constructor = resolution.Method!;
-        constructor = EnsureConstructedConstructor(constructor, baseType);
+        constructor = EnsureConstructedConstructor(constructor, targetType);
         var convertedArguments = ConvertArguments(constructor.Parameters, argumentArray);
         if (convertedArguments.Any(static argument => argument is BoundErrorExpression))
             return null;
@@ -94,5 +104,26 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         var receiver = new BoundSelfExpression(_constructor.ContainingType!);
 
         return new BoundObjectCreationExpression(constructor, convertedArguments, receiver);
+    }
+
+    private sealed class InstanceUseWalker : BoundTreeWalker
+    {
+        internal bool Found { get; private set; }
+        public override void VisitSelfExpression(BoundSelfExpression self) => Found = true;
+        public override void VisitBaseExpression(BoundBaseExpression node) => Found = true;
+        public override void VisitPropertyAccess(BoundPropertyAccess node)
+        {
+            if (!node.Property.IsStatic) Found = true;
+        }
+        public override void VisitFieldAccess(BoundFieldAccess node)
+        {
+            if (!node.Field.IsStatic && node.Receiver is null) Found = true;
+            base.VisitFieldAccess(node);
+        }
+        public override void VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            if (!node.Method.IsStatic && node.Receiver is null) Found = true;
+            base.VisitInvocationExpression(node);
+        }
     }
 }

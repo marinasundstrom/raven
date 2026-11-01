@@ -4929,7 +4929,8 @@ internal partial class ExpressionGenerator : Generator
 
         if (objectCreationExpression.Receiver is not null)
         {
-            EmitExpression(objectCreationExpression.Receiver);
+            EmitExpression(objectCreationExpression.Receiver,
+                constructorSymbol.ContainingType?.IsValueType == true ? EmitContext.Address : EmitContext.Value);
         }
 
         if (omittedImplicitUnitArgument)

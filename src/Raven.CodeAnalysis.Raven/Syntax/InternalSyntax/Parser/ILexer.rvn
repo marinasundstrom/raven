@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.*
+
+internal interface ILexer {
+    var DiagnosticSink: Action<DiagnosticInfo>? { get; set; }
+    val IsEndOfFile: bool { get; }
+    func ReadToken() -> Token
+    func ReadTokens(count: int) -> IEnumerable<Token>
+    func ReadAndDiscardTokens(count: int)
+    func PeekToken(index: int = 0) -> Token
+    func ResetToPosition(length: int)
+    func CreateCheckpoint()
+    func RewindToCheckpoint()
+    func ClearCheckpoint()
+}
+
+internal interface IMacroBodyScanner {
+    func ReadMacroBody(out isTerminated: bool) -> Token
+}

@@ -325,7 +325,25 @@ class Widget {
 }
 ```
 
-An instance constructor in a class without an explicit base initializer calls
+A constructor can delegate to another constructor in the same type using
+`: self(...)`. Arguments use ordinary constructor overload resolution, including
+named and optional arguments. The selected constructor runs before the delegating
+constructor's body. Instance field and lifecycle initializers run once, in the
+constructor that does not delegate through `self`.
+
+```raven
+class Label {
+    val Text: string
+    init() : self("untitled") {}
+    init(text: string) { Text = text }
+}
+```
+
+Delegation must not form a cycle (`RAV0376`). Static constructors cannot specify
+an initializer (`RAV0312`). Initializer arguments cannot use the instance being
+initialized (`RAV0377`). The same rules apply to class and struct delegation.
+
+An instance constructor in a class without an explicit constructor initializer calls
 the base type's parameterless constructor. This also applies to a primary
 constructor without a base argument list and to a synthesized default
 constructor. If the base type has no parameterless constructor, compilation

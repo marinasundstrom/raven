@@ -206,6 +206,7 @@ internal sealed record SourceCallablePlan(
     // An explicit base() can use that policy only after binding proves the same contract.
     private static bool HasRootInitialization(IMethodSymbol symbol, ConstructorDeclarationSyntax syntax)
         => syntax.Initializer is null ||
+           symbol is SourceMethodSymbol { DelegatesToSameTypeConstructor: true } ||
            syntax.Initializer.Keyword.IsKind(SyntaxKind.BaseKeyword) &&
            syntax.Initializer.ArgumentList.Arguments.Count == 0 &&
            symbol is SourceMethodSymbol { ConstructorInitializer: { } initializer } &&

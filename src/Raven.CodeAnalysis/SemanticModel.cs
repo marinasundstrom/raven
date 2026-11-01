@@ -2366,6 +2366,14 @@ public partial class SemanticModel
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
+        if (node is ConstructorInitializerSyntax { Parent: ConstructorDeclarationSyntax declaration })
+        {
+            EnsureDeclarations();
+            return GetDeclaredSymbol(declaration) is SourceMethodSymbol { ConstructorInitializer: { } initializer }
+                ? new SymbolInfo(initializer.Constructor)
+                : SymbolInfo.None;
+        }
+
         var macroExpression = node as FreestandingMacroExpressionSyntax
             ?? node.Ancestors()
                 .OfType<FreestandingMacroExpressionSyntax>()
