@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind and validate the emitting compilation even when workspace or analyzer
+  diagnostics are supplied from another compilation. Preserve those diagnostics
+  without duplicating compiler diagnostics, and reject source errors before
+  entering either target backend.
+
 - Emit the declaring-type required-member marker alongside required properties
   and fields, avoiding malformed required-member metadata in C# consumers.
   Imported constructors recognize only the actual `SetsRequiredMembers`

@@ -890,3 +890,20 @@ SyntaxTree/SyntaxFactory moved to IdentifierConstructionTests in the main test
 project, retaining their coverage without pulling unported syntax APIs into
 lexer parity. The shared C# parity project passes 298 tests; Raven runtime parity
 remains pending until its rebuilt implementation is exercised.
+
+### PORT-029: Emission owns body binding and validation
+
+Lexer parity exposed a computed property that returned false after workspace
+analysis, disabling ordinary source text. A reduced `List<Frame>` short-circuit
+property reproduced the failure through `rvnc` and a workspace test. Workspace
+diagnostics came from a separate analysis compilation; passing them to Emit
+skipped binding and validation of the emitting compilation itself.
+
+Emit now collects its own diagnostics before any backend, merges supplied
+analyzer diagnostics without duplicates, and rejects source errors before
+writing output. This is a shared compiler boundary, with no new target policy.
+The focused baseline passed 42 tests and failed the new computed-property
+regression. The corrected selection passes **61 tests**, covering observable
+.NET execution, source-error rejection, diagnostic preservation and target
+configuration checks. The reduced `rvnc` output also contains the correct
+short-circuit property. These checks do not claim native runtime execution.

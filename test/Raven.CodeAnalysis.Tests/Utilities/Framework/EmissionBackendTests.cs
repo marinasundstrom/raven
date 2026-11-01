@@ -63,6 +63,36 @@ public class EmissionBackendTests
     }
 
     [Fact]
+    [Trait("Target", "Shared")]
+    public void SuppliedDiagnosticsCannotBypassSourceErrors()
+    {
+        var compilation = Create("class Broken { static func Value() -> int => missing }");
+        var backend = new RecordingBackend();
+        var warning = Diagnostic.Create(DiagnosticDescriptor.Create(
+            "TEST001", "Analyzer warning", "", "", "Analyzer warning", "test", DiagnosticSeverity.Warning, true), Location.None);
+        using var output = new MemoryStream();
+        output.WriteByte(17);
+        var result = compilation.Emit(output, null, [warning], new EmitOptions().WithBackend(backend));
+        Assert.False(result.Success);
+        Assert.Contains(warning, result.Diagnostics);
+        Assert.Contains(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(0, backend.Calls);
+        Assert.Equal(new byte[] { 17 }, output.ToArray());
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void SuppliedCompilerDiagnosticsAreNotDuplicated()
+    {
+        var compilation = Create("class Broken { static func Value() -> int => missing }");
+        var diagnostics = compilation.GetDiagnostics();
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output, null, diagnostics);
+        Assert.False(result.Success);
+        Assert.Equal(diagnostics.ToArray(), result.Diagnostics.ToArray());
+    }
+
+    [Fact]
     public void OptionCopiesPreserveBackendAndRemovingItRestoresDotNetEmission()
     {
         var backend = new RecordingBackend();

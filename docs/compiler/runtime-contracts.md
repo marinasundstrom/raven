@@ -115,6 +115,16 @@ members are still checked using loaded symbols. Named import/core matching retai
 its existing policy. Direct semantic queries have not acquired a new configuration
 validation API; this early boundary applies to diagnostic collection and emission.
 
+## Emission and precomputed diagnostics
+
+`Compilation.Emit` binds and validates its own compilation before entering a
+backend, including when internal callers supply precomputed diagnostics.
+Workspace diagnostics can originate from a separate analysis compilation and do
+not establish that the emitting compilation's bodies have been bound. Supplied
+analyzer diagnostics are preserved and duplicate compiler diagnostics are removed.
+Source errors prevent backend invocation and leave output streams untouched.
+This boundary is shared by .NET, neoCLR and explicitly supplied emission backends.
+
 ## Binding capabilities and special-type ownership
 
 Target contracts expose internal availability decisions for function-type methods,

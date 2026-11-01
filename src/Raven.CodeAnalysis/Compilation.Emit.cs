@@ -35,7 +35,12 @@ public partial class Compilation
         }
         EnsureSourceDeclarationsComplete();
 
-        var effectiveDiagnostics = diagnostics ?? GetDiagnostics();
+        // Workspace diagnostics can come from a separate analysis compilation.
+        // Bind and validate this compilation before any backend consumes its bodies.
+        var compilationDiagnostics = GetDiagnostics();
+        var effectiveDiagnostics = diagnostics is { } suppliedDiagnostics
+            ? suppliedDiagnostics.Concat(compilationDiagnostics).Distinct().ToImmutableArray()
+            : compilationDiagnostics;
 
         if (effectiveDiagnostics.Any(x => x.Severity == DiagnosticSeverity.Error))
         {

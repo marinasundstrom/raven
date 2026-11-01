@@ -137,13 +137,46 @@ public class ImplicitIndexIndexerTests
             """, 42);
     }
 
-    private static void AssertRuns(string source, int expected)
+    [Theory]
+    [InlineData("private val Active: bool => frames.Count == 0 || frames[^1].Active", "probe.Active")]
+    [InlineData("private func Active() -> bool => frames.Count == 0 || frames[^1].Active", "probe.Active()")]
+    public void NestedRecordIndexerInShortCircuitMember(string member, string access)
+    {
+        AssertRuns($$"""
+            import System.Collections.Generic.*
+            class Probe {
+                private readonly field frames: List<Frame> = []
+                {{member}}
+                private record struct Frame(Active: bool) {}
+                static func Run() -> int {
+                    let probe = Probe()
+                    if {{access}} { return 42 }
+                    return -1
+                }
+            }
+            """, 42, workspaceDiagnostics: true);
+    }
+
+    private static void AssertRuns(string source, int expected, bool workspaceDiagnostics = false)
     {
         var references = TestMetadataReferences.Default;
-        var compilation = Compilation.Create("ImplicitIndexIndexer", [SyntaxTree.ParseText(source)], references,
+        var compilation = Compilation.Create("ImplicitIndexIndexer", [SyntaxTree.ParseText(source, path: "IndexProbe.rvn")], references,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        System.Collections.Immutable.ImmutableArray<Diagnostic>? diagnostics = null;
+        if (workspaceDiagnostics)
+        {
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.AddProject("ImplicitIndexIndexer", compilationOptions: compilation.Options);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            foreach (var reference in references)
+                project = project.AddMetadataReference(reference);
+            project = project.AddDocument("IndexProbe.rvn", Raven.CodeAnalysis.Text.SourceText.From(source)).Project;
+            Assert.True(workspace.TryApplyChanges(project.Solution));
+            compilation = workspace.GetCompilation(projectId);
+            diagnostics = workspace.GetDiagnostics(projectId);
+        }
         using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
+        var result = compilation.Emit(stream, null, diagnostics);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
         Assert.Equal(expected, loaded.Assembly.GetType("Probe", true)!.GetMethod("Run")!.Invoke(null, null));
