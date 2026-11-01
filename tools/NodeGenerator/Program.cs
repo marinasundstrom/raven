@@ -52,6 +52,29 @@ if (ravenFactsOption >= 0)
     return;
 }
 
+var ravenTreeOption = Array.IndexOf(args, "--raven-syntax-tree");
+if (ravenTreeOption >= 0)
+{
+    if (ravenTreeOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-syntax-tree requires an output directory.");
+    var outputDirectory = Path.GetFullPath(args[ravenTreeOption + 1]);
+    var files = RavenSyntaxTreeGenerator.Generate(model, hierarchies, factories, tokens, nodeKinds);
+    // Only the Raven-generated subdirectories are owned by this mode. Authored
+    // runtime files, C# output and the C# incremental stamp remain untouched.
+    foreach (var relativeDirectory in new[] { "generated", "InternalSyntax/generated" })
+    {
+        var directory = Path.Combine(outputDirectory, relativeDirectory);
+        Directory.CreateDirectory(directory);
+        foreach (var path in Directory.EnumerateFiles(directory, "*.g.rvn"))
+            if (!files.ContainsKey(relativeDirectory + "/" + Path.GetFileName(path)))
+                File.Delete(path);
+    }
+    foreach (var file in files)
+        await File.WriteAllTextAsync(Path.Combine(outputDirectory, file.Key), file.Value);
+    Console.WriteLine($"Generated Raven syntax tree: {files.Count} files in {outputDirectory}");
+    return;
+}
+
 string hash = await GetHashAsync(
     model,
     hierarchies,

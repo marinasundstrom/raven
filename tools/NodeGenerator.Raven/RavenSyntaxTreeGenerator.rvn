@@ -1,0 +1,43 @@
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import NodesShared.*
+import Raven.Generators.*
+
+internal static class RavenSyntaxTreeGenerator
+{
+    static func Generate(nodes: List<SyntaxNodeModel>, hierarchies: List<SyntaxHierarchyModel>, factories: List<FactoryDefinitionModel>, tokens: List<TokenKindModel>, kinds: List<NodeKindModel>) -> Dictionary<string, string>
+    {
+        let files = Dictionary<string, string>(StringComparer.Ordinal)
+        let definitions = factories.ToDictionary(f => f.Node, StringComparer.Ordinal)
+        for node in nodes
+        {
+            let subtypes = nodes.Where(n => n.Inherits == node.Name).Select(n => n.Name + "Syntax").Concat(node.AdditionalPermittedTypes).ToArray()
+            files.Add("generated/" + node.Name + "Syntax.g.rvn", RavenRedNodeGenerator.GenerateNode(node, subtypes))
+            files.Add("InternalSyntax/generated/" + node.Name + "Syntax.g.rvn", RavenGreenNodeGenerator.GenerateNode(node))
+            definitions.TryGetValue(node.Name, out var definition)
+            let redFactory = RavenRedNodeGenerator.GenerateFactory(node, definition)
+            if redFactory is string source { files.Add("generated/" + node.Name + "Syntax.SyntaxFactory.g.rvn", source) }
+            let greenFactory = RavenGreenNodeGenerator.GenerateFactory(node)
+            if greenFactory is string source { files.Add("InternalSyntax/generated/" + node.Name + "Syntax.SyntaxFactory.g.rvn", source) }
+        }
+        for hierarchy in hierarchies
+        {
+            let types = nodes.Where(n => n.Inherits == hierarchy.ModelBase).Select(n => n.Name + "Syntax").Concat(hierarchy.AdditionalPermittedTypes).Select(t => "typeof(" + t + ")")
+            files.Add("generated/" + hierarchy.Name + ".ClosedHierarchy.g.rvn", "namespace Raven.CodeAnalysis.Syntax\n[System.Runtime.CompilerServices.ClosedHierarchy(" + string.Join(", ", types) + ")]\npublic abstract partial class " + hierarchy.Name + " { }\n")
+        }
+        files.Add("generated/SyntaxKind.g.rvn", SyntaxKindGenerator.Generate(nodes, kinds, tokens, true))
+        files.Add("generated/SyntaxFacts.Nodes.g.rvn", NodeFactsGenerator.GenerateSyntaxFacts(nodes, kinds, true))
+        files.Add("generated/SyntaxFacts.Tokens.g.rvn", TokenGenerator.GenerateRavenSyntaxFacts(tokens))
+        for green in [false, true]
+        {
+            let directory = if green { "InternalSyntax/generated/" } else { "generated/" }
+            let ns = "Raven.CodeAnalysis.Syntax" + (if green { ".InternalSyntax" } else { "" })
+            files.Add(directory + "SyntaxFactory.Tokens.g.rvn", TokenGenerator.GenerateRavenFactory(tokens, green))
+            files.Add(directory + "SyntaxVisitor.g.rvn", RavenVisitorGenerator.GenerateVisitor(nodes, false, !green, ns))
+            files.Add(directory + "SyntaxVisitor`1.g.rvn", RavenVisitorGenerator.GenerateVisitor(nodes, true, !green, ns))
+            files.Add(directory + "SyntaxRewriter.g.rvn", RavenRewriterGenerator.GenerateRewriter(nodes, !green, ns))
+        }
+        return files
+    }
+}

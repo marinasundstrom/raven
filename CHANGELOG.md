@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add explicit `--raven-syntax-tree <directory>` generator output, assembling Raven
+  nodes, factories, hierarchies, kinds/facts, visitors and rewriters in both tool
+  codebases. C# output remains the default. Escape dollar signs in generated Raven
+  token literals so token factories and facts preserve text instead of interpolating it.
+
 - Generate Raven red syntax factories in both node-generator implementations,
   preserving automatic defaults and XML-defined overloads, aliases and summaries.
   Shared C# tests execute generated factories on .NET; production output remains C#.

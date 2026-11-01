@@ -112,4 +112,10 @@ convenience overloads in the focused runtime fixture. The direct Raven translati
 explicitly unwraps nullable factory definitions after checking them, consistent
 with Raven's default strict nullability rules.
 
-The production runtime port and CLI output selection remain subsequent slices. No C# output mode has been replaced.
+`RavenSyntaxTreeGenerator.Generate` now assembles the complete generated Raven
+source set in both implementations. It includes green/red token factories and
+closed hierarchy declarations as well as nodes, factories, kinds/facts and
+visitors/rewriters. Token literals escape Raven interpolation markers in both
+factory and facts output. The C# driver exposes `--raven-syntax-tree <directory>`;
+see [usage and output ownership](../NodeGenerator/README.md#raven-syntax-tree-output).
+The authored production runtime remains unported; C# stays the default output.

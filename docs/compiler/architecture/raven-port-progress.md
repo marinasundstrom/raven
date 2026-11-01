@@ -1632,3 +1632,39 @@ build script, full Raven generator build, whitespace formatting and diff checks
 pass. The Raven generator build retains warning diagnostics (46 warnings, zero
 errors). No RavenDoc/site generation or native neoCLR execution was performed.
 The broad baseline caveat recorded in PORT-054 remains unchanged.
+
+## PORT-056 — complete Raven syntax output and driver selection
+
+The runtime dependency audit found that the production source set could not yet
+be assembled from the driver, and token factories still lacked Raven output.
+Both generator codebases now have a pure source-set assembler which retains all
+node/factory models, additional permitted hierarchy types and visitor/rewriter
+variants. It produces 985 files for the repository models. C# filesystem/CLI
+orchestration calls that assembler through `--raven-syntax-tree <directory>`;
+validation and CLI porting remain separate work. C# stays the default output.
+
+The explicit mode owns only `*.g.rvn` in `generated` and
+`InternalSyntax/generated` beneath its destination. It cleans stale generated
+Raven files and preserves authored files, C# output and the C# generation stamp.
+A two-run CLI probe verifies deterministic contents and those ownership boundaries.
+
+Runtime coverage found and corrected missing namespace qualification in green
+token output. Literal review also found that Raven factory/facts text must escape
+`$` to avoid interpolation; both emitters now preserve dollar signs, quotes,
+backslashes and control characters. This fixes generator output, not a language
+rule. Shared tests execute the generated token factory/facts code on .NET and
+parse the entire source set. Cross-implementation tests compare all paths and
+contents. The production runtime dependency closure remains the next porting work;
+these tests do not claim that all generated nodes compile against a production
+Raven syntax runtime yet. No target policy changed.
+
+Validation on .NET 11: **69 C# / 78 Raven generator tests pass** (the two new C#
+output tests were rerun after extending keyword-lookup coverage). Adjacent
+syntax-facts/lexer coverage passes **143 C# / 146 Raven compiler tests** after
+regenerating and rebuilding the Raven compiler port. The required build script,
+full Raven tool build, formatting and diff checks pass. Raven builds retain
+warning diagnostics: 50 in the generator, 403 in the existing compiler port,
+zero errors. A final CLI probe verifies 985 stable files across two runs,
+stale cleanup, missing-argument failure and preservation of authored/C# files
+and the C# stamp. No RavenDoc/site generation or native neoCLR execution was
+performed; the broad baseline caveat in PORT-054 is unchanged.

@@ -7,6 +7,21 @@ namespace Raven.GeneratorParity.Tests;
 public class NodeEmitterCrossImplementationTests
 {
     [Fact]
+    public void CompleteRavenSourceSetMatchesBothImplementations()
+    {
+        var model = Path.Combine(AppContext.BaseDirectory, "Model.xml");
+        var expected = SeedGenerator::RavenSyntaxTreeGenerator.Generate(
+            SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadSyntaxNodesFromXml(model),
+            SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadSyntaxHierarchiesFromXml(model),
+            SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadFactoriesFromXml(Path.Combine(AppContext.BaseDirectory, "Factories.xml")),
+            SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadTokenKindsFromXml(Path.Combine(AppContext.BaseDirectory, "Tokens.xml")),
+            SeedGenerator::Raven.Generators.SyntaxModelLoader.LoadNodeKindsFromXml(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml")));
+        var actual = RavenSyntaxTreeGenerator.Generate(NodeEmitterInputs.Nodes(), NodeEmitterInputs.Hierarchies(),
+            NodeEmitterInputs.Factories(), NodeEmitterInputs.Tokens(), NodeEmitterInputs.Kinds());
+        Assert.Equal(expected.OrderBy(p => p.Key), actual.OrderBy(p => p.Key));
+    }
+
+    [Fact]
     public void RealRepositoryInputsProduceIdenticalSourcesInBothImplementations()
     {
         var nodes = NodeEmitterInputs.Nodes();
@@ -37,6 +52,8 @@ public class NodeEmitterCrossImplementationTests
         }
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateInternalFactory(seedTokens), TokenGenerator.GenerateInternalFactory(tokens));
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateRedFactory(seedTokens), TokenGenerator.GenerateRedFactory(tokens));
+        foreach (var green in new[] { false, true })
+            Assert.Equal(SeedGenerator::TokenGenerator.GenerateRavenFactory(seedTokens, green), TokenGenerator.GenerateRavenFactory(tokens, green));
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateSyntaxFacts(seedTokens), TokenGenerator.GenerateSyntaxFacts(tokens));
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateRavenSyntaxFacts(seedTokens), TokenGenerator.GenerateRavenSyntaxFacts(tokens));
     }

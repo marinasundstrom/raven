@@ -1,12 +1,32 @@
 # Node generator
 
 The maintained C# generator remains the production entry point. The
-[parallel Raven library](../NodeGenerator.Raven/README.md) ports syntax-kind,
-node-facts, token, green-node/factory, visitor and rewriter emitters with identical
-output modes. Run
-`scripts/test-generator-parity.sh` from the repository root to validate both
-implementations. Red-node emission, model loading and CLI orchestration
-are not yet part of that port.
+[parallel Raven library](../NodeGenerator.Raven/README.md) ports model loading,
+syntax-kind/facts, token, green/red node/factory, visitor and rewriter emitters.
+Run `scripts/test-generator-parity.sh` from the repository root to validate both
+implementations. Validation and filesystem/CLI orchestration remain C#.
+
+## Raven syntax-tree output
+
+From `src/Raven.CodeAnalysis/Syntax`, run:
+
+```sh
+dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-tree /path/to/output/Syntax
+```
+
+This explicit mode writes Raven output beneath `generated` and
+`InternalSyntax/generated`: node declarations, factories, closed hierarchies,
+syntax kinds/facts, token factories, visitors and rewriters. It removes stale
+`*.g.rvn` files in those two directories. Use a destination dedicated to this
+syntax output; authored files and C# generated files are preserved. The C#
+generation stamp is neither read nor updated by this mode. Without this option,
+the existing production C# generation remains the default.
+
+Both implementations share a pure source-set assembler and produce identical
+relative paths and contents. Generated output still requires the authored syntax
+runtime; this option does not claim that the production Raven compiler can yet
+compile the entire tree. The existing syntax-kind/facts-only modes remain usable
+by the incremental compiler port.
 
 ## XML format specification
 

@@ -51,4 +51,7 @@ attributes and optional token/separated-list output are currently source-level
 coverage only. Automatic and XML-defined Raven factories are parsed and compared
 for every model. Runtime checks execute full/convenience overloads, aliases,
 default tokens, nullable children and explicit kinds in both query orders.
-Production runtime translation and CLI selection remain later slices.
+Complete source-set tests check every generated path, parse the repository output,
+compare exact contents across implementations, and execute token factories/facts
+with literal dollar signs and control characters. The C# driver now provides an
+explicit Raven source-tree mode; production runtime translation remains later work.

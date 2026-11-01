@@ -18,6 +18,7 @@
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Factories.xml" Link="Factories.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)Fixtures/RedOutputRuntime.rvn" Link="RedOutputRuntime.rvn" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)Fixtures/GreenOutputRuntime.rvn" Link="GreenOutputRuntime.rvn" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="$(MSBuildThisFileDirectory)RavenSyntaxTreeOutputTests.cs" Link="RavenSyntaxTreeOutputTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RavenRedOutputTests.cs" Link="RavenRedOutputTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RavenGreenOutputTests.cs" Link="RavenGreenOutputTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SyntaxModelLoaderTests.cs" Link="SyntaxModelLoaderTests.cs" />

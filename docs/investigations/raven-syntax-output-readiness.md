@@ -7,9 +7,9 @@ hierarchy against a small runtime-contract fixture. The fixture covers abstract
 and concrete nodes, optional children, constructors, slots, update/With identity,
 diagnostics, visitors and red-node creation.
 
-This starts syntax-tree source output. The production driver still generates C#;
-the authored production syntax runtime and CLI selection remain subsequent slices. The fixture is not a claim that the whole
-compiler syntax runtime has been ported.
+The driver generates C# by default and offers explicit Raven tree output.
+The authored production syntax runtime remains a subsequent slice. The fixture
+is not a claim that the whole compiler syntax runtime has been ported.
 
 ## Visitor output
 
@@ -122,3 +122,21 @@ also have a focused source assertion. This validates generated factories against
 the small authored fixture on .NET, not the production syntax runtime or native
 neoCLR. No language rule changed; nullable definition access in the Raven emitter
 uses an explicit unwrap within its null guard, as required by default nullability.
+
+## Complete output assembly and driver
+
+`RavenSyntaxTreeGenerator` assembles all generated source in both codebases. The
+C# driver exposes `--raven-syntax-tree <directory>` without changing the default
+C# output or its incremental stamp. The repository model produces 985 files,
+including separate closed-hierarchy declarations and green/red token factories.
+The mode owns `*.g.rvn` files in its two generated subdirectories and removes stale
+files there, leaving authored files and C# artifacts intact. The complete set is
+parsed and compared between implementations; generated token factory/facts output
+also executes with interpolation markers and control characters preserved.
+
+The next production dependency is the authored runtime closure: GreenNode,
+green tokens/trivia/lists, red nodes/tokens/lists, visitors and tree ownership.
+GreenNode references red creation and generated compilation units; red nodes
+reference SyntaxTree and child wrappers. These dependencies must be translated
+or explicitly separated before integrating the generated tree into the Raven
+compiler project. The driver deliberately does not enable that integration yet.

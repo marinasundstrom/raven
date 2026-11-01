@@ -13,6 +13,8 @@ internal static class TokenGenerator
             .Replace("\t", "\\t");
     }
 
+    private static string EscapeRaven(string text) => Escape(text).Replace("$", "\\$");
+
     public static string GenerateInternalFactory(IEnumerable<TokenKindModel> tokens)
     {
         var sb = new StringBuilder();
@@ -40,6 +42,27 @@ internal static class TokenGenerator
         foreach (var t in tokens.Where(t => t.Text != null && !t.IsTrivia))
         {
             sb.AppendLine($"    public static SyntaxToken {t.Name} => Token(SyntaxKind.{t.Name});");
+        }
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    public static string GenerateRavenFactory(IEnumerable<TokenKindModel> tokens, bool green)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("namespace Raven.CodeAnalysis.Syntax" + (green ? ".InternalSyntax" : ""));
+        if (green)
+            sb.AppendLine("alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind");
+        sb.AppendLine((green ? "internal" : "public") + " static partial class SyntaxFactory {");
+        foreach (var token in tokens.Where(t => t.Text != null && !t.IsTrivia))
+        {
+            if (green)
+            {
+                var literal = token.Text!.Length == 0 ? "string.Empty" : "\"" + EscapeRaven(token.Text!) + "\"";
+                sb.AppendLine("    static val " + token.Name + ": SyntaxToken = SyntaxToken(SyntaxKind." + token.Name + ", " + literal + ")");
+            }
+            else
+                sb.AppendLine("    static val " + token.Name + ": SyntaxToken => Token(SyntaxKind." + token.Name + ")");
         }
         sb.AppendLine("}");
         return sb.ToString();
@@ -139,7 +162,7 @@ internal static class TokenGenerator
             sb.AppendLine($"    private static func Create{method}Lookup() -> IDictionary<string, SyntaxKind> {{");
             sb.AppendLine("        let result = Dictionary<string, SyntaxKind>()");
             foreach (var token in kinds)
-                sb.AppendLine($"        result.Add(\"{Escape(token.Text!)}\", SyntaxKind.{token.Name})");
+                sb.AppendLine($"        result.Add(\"{EscapeRaven(token.Text!)}\", SyntaxKind.{token.Name})");
             sb.AppendLine("        return result");
             sb.AppendLine("    }");
             sb.AppendLine($"    static func Is{method}Kind(kind: SyntaxKind) -> bool => _{prefix}Kinds.Contains(kind)");
@@ -163,7 +186,7 @@ internal static class TokenGenerator
         sb.AppendLine("    [ExtensionAttribute]");
         sb.AppendLine("    static func GetSyntaxTokenText(kind: SyntaxKind) -> string? => kind match {");
         foreach (var token in items.Where(t => t.Text != null))
-            sb.AppendLine($"        SyntaxKind.{token.Name} => \"{Escape(token.Text!)}\"");
+            sb.AppendLine($"        SyntaxKind.{token.Name} => \"{EscapeRaven(token.Text!)}\"");
         sb.AppendLine("        _ => null");
         sb.AppendLine("    }");
         sb.AppendLine("}");
