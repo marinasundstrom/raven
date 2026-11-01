@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Prefer an applicable overload requiring no omitted arguments when supplied
+  parameter types are equivalent and conversions otherwise tie. Preserve genuine
+  ambiguity when both candidates need defaults. This fixes ordinary
+  `StreamReader(stream, encoding)` construction encountered in the Raven port.
+
 - Make `LinePositionSpan` a positional record struct in both maintained compiler
   codebases, with value equality, deconstruction and init-only coordinate
   properties. C# uses `readonly record struct` to preserve value-object intent.

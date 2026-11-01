@@ -88,6 +88,7 @@ as described in the bootstrap procedure.
 | PORT-001 | `new TextSpan(int.MaxValue, 1)` wrapped `End` negative. A valid span must have nonnegative coordinates and an `End` representable by `int`. | Shared existing API defect; `TextSpan` constructor | Reject `length > int.MaxValue - start` in both C# and Raven. Shared tests reject three overflowing inputs and accept maximum valid ends. Both implementations failed the three new rejection cases before the fix. | Fixed in both sources; parity validation recorded below. |
 | PORT-002 | The faithful overflow guard's `int.MaxValue` reported RAV0500. Concrete-type lookup must select the public constant, excluding explicit interface implementations. | Existing CLI metadata-import defect; PE method/property/event symbols | Retain constructed generic interface names and include static members when resolving explicit implementations. Five reduced C# tests failed before the fix; the unchanged Raven guard is the retained port workload. | C# import fix implemented; metadata import has not yet been ported, so carry this correction and its regressions when that component is translated. |
 | PORT-003 | A public `List<int>` result from the Raven library caused C# CS0012 requiring `System.Private.CoreLib`. Public APIs must be consumable with the selected framework reference assemblies. | Existing .NET emitted-type-scope defect; final PE normalization | Resolve retained collection/monitor type scopes from selected semantic declarations, distinguishing `System.Collections` owners from `System.Runtime` interfaces. Retain a C# consumer compilation and runtime collection test plus the unchanged `TextUtils` port. | C# backend correction implemented; carry it when the backend is ported. |
+| PORT-004 | `StreamReader(stream, encoding)` tied with a longer overload needing defaults. Equivalent supplied parameters should favor an overload needing no defaults, without overriding better conversions or ranking two candidates that both need defaults. | Shared overload-resolution defect | Added the no-omission tie-breaker in C# and seven reduced runtime/diagnostic tests. Five failed before the fix; the original snapshot draft retains its two-argument call. | C# fix implemented; carry it into the later overload-resolver port. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -155,3 +156,15 @@ binary used by that run was preserved while focused post-change tests used a
 separate output directory. This baseline failure needs separate investigation;
 the focused results are not a completed broad baseline or self-hosting gate.
 No tests have been ported to Raven and no C# compiler component has been removed.
+
+## Separate-worktree validation
+
+The new `Raven-compiler-port` worktree uses SDK `11.0.100-rc.1.26425.128` from
+`/usr/local/share/dotnet` (the original checkout used the separately installed
+rc.3 SDK). Its required fresh-workspace `scripts/codex-build.sh` completed,
+building the compiler for .NET 10 and .NET 11, Core and Macros. The original
+41-case-per-implementation parity checkpoint also passed in this worktree.
+The optional-overload correction passed its seven regressions plus nine existing
+resolver tests (**16 total**). The overload-resolution feature suite then passed **421 tests**
+with no failures or skips. The C# seed fix is committed separately from the next
+text-value-record slice.

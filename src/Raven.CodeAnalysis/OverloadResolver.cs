@@ -2178,6 +2178,30 @@ internal sealed class OverloadResolver
             return !candidate.IsGenericMethod;
         }
 
+        // When supplied arguments have equivalent parameter types, prefer the
+        // overload that needs no default arguments. Two overloads that both
+        // require defaults remain ambiguous; fewer omitted arguments is not a
+        // general ranking rule. Better conversions above still take precedence.
+        if (!better && !candidateHasParams && !currentHasParams)
+        {
+            var equivalentSuppliedTypes = !candidateIsExtension ||
+                SymbolEqualityComparer.IgnoringNullability.Equals(candParams[0].Type, currentParams[0].Type);
+            for (var i = 0; equivalentSuppliedTypes && i < arguments.Length; i++)
+            {
+                equivalentSuppliedTypes = candidateMap[i] >= 0 && currentMap[i] >= 0 &&
+                    SymbolEqualityComparer.IgnoringNullability.Equals(
+                        candParams[candidateMap[i]].Type, currentParams[currentMap[i]].Type);
+            }
+
+            if (equivalentSuppliedTypes)
+            {
+                var candidateUsesDefaults = candidateMapped.Skip(candidateIsExtension ? 1 : 0).Any(argument => argument is null);
+                var currentUsesDefaults = currentMapped.Skip(currentIsExtension ? 1 : 0).Any(argument => argument is null);
+                if (candidateUsesDefaults != currentUsesDefaults)
+                    return !candidateUsesDefaults;
+            }
+        }
+
         return better;
     }
 
