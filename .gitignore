@@ -435,3 +435,6 @@ samples/.raven-debug
 .raven
 
 logs
+
+# Generated Raven compiler port syntax model
+src/Raven.CodeAnalysis.Raven/Syntax/generated/

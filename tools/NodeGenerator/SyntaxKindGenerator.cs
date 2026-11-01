@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+
 using NodesShared;
 
 internal static class SyntaxKindGenerator
@@ -7,7 +8,8 @@ internal static class SyntaxKindGenerator
     public static string Generate(
         IEnumerable<SyntaxNodeModel> nodes,
         IEnumerable<NodeKindModel> nodeKinds,
-        IEnumerable<TokenKindModel> tokens)
+        IEnumerable<TokenKindModel> tokens,
+        bool raven = false)
     {
         var names = new SortedSet<string>(StringComparer.Ordinal)
         {
@@ -24,7 +26,7 @@ internal static class SyntaxKindGenerator
             names.Add(t.Name);
 
         var sb = new StringBuilder();
-        sb.AppendLine("namespace Raven.CodeAnalysis.Syntax;");
+        sb.AppendLine(raven ? "namespace Raven.CodeAnalysis.Syntax" : "namespace Raven.CodeAnalysis.Syntax;");
         sb.AppendLine();
         sb.AppendLine("public enum SyntaxKind");
         sb.AppendLine("{");

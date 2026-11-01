@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Syntax.*
+
+internal struct Token {
+    init(kind: SyntaxKind, text: string) {
+        Kind = kind
+        Text = string.Intern(text)
+        Length = text.Length
+    }
+
+    init(kind: SyntaxKind, text: string, value: object?) {
+        Kind = kind
+        Text = string.Intern(text)
+        Value = value
+        Length = text.Length
+    }
+
+    init(kind: SyntaxKind, text: string, value: object?, length: int) {
+        Kind = kind
+        Text = string.Intern(text)
+        Value = value
+        Length = length
+    }
+
+    val Kind: SyntaxKind
+    val Text: string
+    val Value: object?
+    val Length: int
+}

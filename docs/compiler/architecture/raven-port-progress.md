@@ -62,6 +62,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, plus `Text/SourceTextIOTests.cs` for encoding/disposal, checksums and generic/non-generic enumeration |
 | `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
+| `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
 both implementations and remain in the main compiler test project too. Shared
@@ -106,6 +107,7 @@ as described in the bootstrap procedure.
 | PORT-009 | Snapshot tests compile but edits/writes and lazy lines throw `TypeLoadException` for `MemoryExtensions` and `LazyInitializer` incorrectly scoped to `System.Runtime`. | .NET final assembly normalization | Consult selected framework declarations for all normalized core-library types, extending PORT-003 beyond its collection whitelist. Both reduced metadata/runtime cases failed before the fix. | C# backend correction; carry it into the emission port. |
 | PORT-010 | A field-shaped declaration in the ANSI extension crashed diagnostics because an accessor-less synthesized property had no type. Duplicate incomplete properties reproduced the same failure. | Shared source symbol recovery | Retain the declared property/indexer type as a fallback until accessors exist. Both reduced cases failed before the fix. Extension storage remains invalid by design; the regex cache lives in a separate internal helper in Raven. | C# symbol/binder correction; carry it into those later ports. |
 | PORT-011 | With a small buffer, lexer input trimming can drain the reader and discard unread characters or live checkpoints. | Shared `SeekableTextSource` buffer retention | Recompute the required relative offset as the buffer moves; trim only consumed history older than every saved position, releasing pinned history when checkpoints are popped. Three original regressions failed in both implementations before correction. | Corrected in both C# and Raven; shared buffering tests retain the workload. |
+| PORT-012 | The port emitted its own `SyntaxKind` but token signatures referred to the C# seed's enum. | Shared import binding during source declarations | Resolve indexed source declarations before provisional metadata fallback and retain source-owned lookup results. The reduced source/reference collision failed before the fix; both file orders now preserve semantic and emitted identity. | C# binder corrected; carry into the binder port. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -147,10 +149,11 @@ confusion with `SourceText.Encoding`.
 ## Next dependency slice
 
 The independent text helpers and snapshot I/O/hash coverage are now included.
-`SeekableTextSource` is now ported and tested. Next establish the tokenization
-dependency boundary: syntax kinds, token values and diagnostic payloads before
-porting the lexer. Keep generated syntax-kind definitions tied to their source
-model rather than maintaining a divergent handwritten copy. `SourceTextWriter`
+`SeekableTextSource`, generated syntax kinds and token values are now ported and
+tested. Next port the diagnostic payload dependencies (`LocalizableString`,
+`DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`) before the lexer.
+Keep generated syntax-kind definitions tied to their source model rather than
+maintaining a divergent handwritten copy. `SourceTextWriter`
 depends on syntax nodes and follows that dependency group.
 Continue preserving each discovered failure as a regression at its owning layer.
 Open coalescing-assignment and stored-range parser gaps remain stabilization work.
@@ -307,3 +310,51 @@ the ported reader remains non-abstract, non-inheritable and has no public fields
 Internal test access uses narrowly named friend assemblies in each codebase; the
 reader has not been made public for testing. The Raven member-accessibility
 cleanup is covered by the same C# consumer suite.
+
+
+## Generated tokenization boundary
+
+The C# node generator has an explicit `--raven-syntax-kind <output>` mode that
+emits the Raven enum from the same sorted model/node-kind/token definitions as
+C#. This mode does not regenerate C# nodes or update their stamp. The Raven
+project owns its generated file and regenerates it before compilation, including
+on a clean checkout. Generated output is ignored; model and generator inputs stay
+versioned. Enum numeric identities follow the existing C# generation order and
+are not promised stable across model revisions.
+
+A C# test in the Raven parity project references the seed assembly through an
+explicit alias and compares every emitted enum name, value and underlying type.
+This additional cross-assembly test does not substitute C# types into the Raven
+implementation. The lexer `Token` definition is separated from `ILexer.cs`, and
+shared C# tests cover its constructors, interned text, UTF-16/source widths,
+payload values and equality. Access modifiers follow the public-by-default Raven
+convention; private state remains explicit.
+
+The node generator itself remains C# for now. Its eventual Raven translation is
+a separate tool project, with output parity and clean-regeneration qualification
+required before replacement.
+
+
+## Source/import identity checkpoint — 2026-11-01
+
+The existing import/namespace selection passed 67 tests before the correction.
+A reduced source enum colliding with the referenced compiler's enum then failed
+its symbol-identity assertion. After the correction, those cases and both file
+orders pass **69 tests**. The unchanged Raven token source is the retained port
+workload; no signature or naming workaround was introduced.
+
+
+## Syntax-kind and token checkpoint — 2026-11-01
+
+The pre-change syntax-facts/lexer baseline passed 117 tests. The full
+`scripts/codex-build.sh` generator/build workflow passes. The C# generated enum's
+SHA-256 is unchanged, and the Raven project's first build generated its initially
+missing enum file. Subsequent builds reuse that output without rerunning its
+generator. The shared C# corpus passes **85 tests against each implementation**;
+the Raven test project also passes its **one additional** full enum/assembly
+identity check (86 total). `Token` retains its existing constructors and struct
+value semantics; a record/factory redesign would affect many callers and is not
+part of this slice (author direction, 2026-11-01).
+
+A fresh broad baseline is being run for the build and parity-harness changes.
+Its result is separate from these focused checks; no full-baseline pass is claimed.

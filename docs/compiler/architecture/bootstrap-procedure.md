@@ -115,6 +115,16 @@ needed. Use the [test impact map](../../testing/test-impact-map.md) for daily ch
 stage acceptance. Samples, Core, macros, SDK tooling and external consumers
 remain compatibility workloads, not just compiler self-build inputs.
 
+### Port generator tools as dependencies become available
+
+The node generator belongs in the eventual Raven toolchain port (author direction,
+2026-11-01). During the initial compiler translation, the retained C# generator
+may emit both languages from the same syntax model. Do not fork the model or
+maintain handwritten syntax-kind tables. Translate the generator into its own
+Raven project when its dependencies are available, compare its generated output
+against the C# tool, and qualify clean regeneration before changing the build's
+generator implementation. Retain the original tool with the C# bootstrap seed.
+
 ## 4. Establish parity and reliable self-hosting
 
 Build the Raven compiler with an exact known C# compiler artifact, then use the

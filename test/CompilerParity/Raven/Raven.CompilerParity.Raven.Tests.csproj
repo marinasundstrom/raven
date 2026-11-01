@@ -3,5 +3,7 @@
   <ItemGroup>
     <AssemblyMetadata Include="CompilerImplementationAssembly" Value="Raven.CodeAnalysis.Raven" />
     <ProjectReference Include="../../../src/Raven.CodeAnalysis.Raven/Raven.CodeAnalysis.Raven.rvnproj" />
+    <ProjectReference Include="../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
+    <Compile Include="../GeneratedSyntaxKindParityTests.cs" Link="GeneratedSyntaxKindParityTests.cs" />
   </ItemGroup>
 </Project>

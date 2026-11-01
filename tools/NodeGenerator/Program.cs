@@ -20,6 +20,21 @@ var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
 ValidateModel(model);
 ValidateSyntaxHierarchies(model, hierarchies);
 ValidateFactoryDefinitions(model, factories);
+// The bootstrap port consumes the same ordered kind definitions without running
+// the C# node/factory emitters or changing their incremental-generation stamp.
+var ravenKindOption = Array.IndexOf(args, "--raven-syntax-kind");
+if (ravenKindOption >= 0)
+{
+    if (ravenKindOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-syntax-kind requires an output path.");
+    var outputPath = Path.GetFullPath(args[ravenKindOption + 1]);
+    Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+    var output = SyntaxKindGenerator.Generate(model, nodeKinds, tokens, raven: true);
+    await File.WriteAllTextAsync(outputPath, output);
+    Console.WriteLine($"Generated Raven syntax kinds: {outputPath}");
+    return;
+}
+
 string hash = await GetHashAsync(
     model,
     hierarchies,

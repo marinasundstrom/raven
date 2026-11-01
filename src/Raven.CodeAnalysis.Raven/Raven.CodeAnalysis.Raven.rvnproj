@@ -7,4 +7,20 @@
     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <ItemGroup>
+    <PortSyntaxKindInput Include="../Raven.CodeAnalysis/Syntax/*.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
+                         Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
+  </ItemGroup>
+  <Target Name="GeneratePortSyntaxKind"
+          Inputs="$(MSBuildProjectFullPath);@(PortSyntaxKindInput)"
+          Outputs="Syntax/generated/SyntaxKind.g.rvn">
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-kind &quot;$(MSBuildProjectDirectory)/Syntax/generated/SyntaxKind.g.rvn&quot;"
+          WorkingDirectory="../Raven.CodeAnalysis/Syntax" />
+  </Target>
+  <Target Name="IncludePortSyntaxKind" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSyntaxKind">
+    <ItemGroup>
+      <Compile Remove="Syntax/generated/SyntaxKind.g.rvn" />
+      <Compile Include="Syntax/generated/SyntaxKind.g.rvn" />
+    </ItemGroup>
+  </Target>
 </Project>

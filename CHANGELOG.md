@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve source type identity during import binding when referenced assemblies
+  expose the same namespace and metadata name. Declaration-time lookup uses source
+  declarations instead of replacing them with provisional metadata symbols.
+
+- Generate the Raven compiler port's `SyntaxKind` enum from the shared syntax
+  model using the retained C# node generator, with cross-assembly name/value checks.
+  Port the lexer token value type and reuse C# tests for its constructor and value
+  contracts. The production C# syntax-kind output and token API are unchanged.
+
 - Port the lexer input boundary, `SeekableTextSource`, to Raven and fix bounded
   buffering in both implementations: preserve unread lookahead and live checkpoints
   while trimming consumed history. Validate constructor inputs and reuse C# tests.
