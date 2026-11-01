@@ -51,14 +51,28 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
     internal class SyntaxToken : GreenNode {
         init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind) : base(kind, 0) { }
     }
-    internal class SyntaxVisitor {
-        var Last: GreenNode? { get; set; } = null
-        func VisitSample(node: SampleSyntax) { Last = node }
+    internal abstract partial class SyntaxVisitor {
+        virtual func DefaultVisit(node: SyntaxNode) { }
     }
-    internal class SyntaxVisitor<T> {
-        private field _result: T
-        init(result: T) { _result = result }
-        func VisitSample(node: SampleSyntax) -> T => _result
+    internal abstract partial class SyntaxVisitor<TResult> {
+        virtual func DefaultVisit(node: SyntaxNode) -> TResult { throw InvalidOperationException("default visitor") }
+    }
+    internal class RecordingVisitor : SyntaxVisitor {
+        var Last: SyntaxNode? { get; set; } = null
+        var Samples: int { get; set; } = 0
+        override func DefaultVisit(node: SyntaxNode) { Last = node }
+        override func VisitSample(node: SampleSyntax) { Samples += 1; Last = node }
+    }
+    internal class ResultVisitor : SyntaxVisitor<int> {
+        override func DefaultVisit(node: SyntaxNode) -> int => -1
+        override func VisitSample(node: SampleSyntax) -> int => 42
+    }
+    internal class DefaultResultVisitor : SyntaxVisitor<int> {
+        override func DefaultVisit(node: SyntaxNode) -> int => 7
+    }
+    internal class UnknownSyntax : ExpressionSyntax {
+        init(token: SyntaxToken) : base(Raven.CodeAnalysis.Syntax.SyntaxKind.Sample, [token]) { }
+        override val Keyword: SyntaxToken => GetSlot<SyntaxToken>(0)
     }
     public static class Probe {
         static func Run() -> int {
@@ -72,11 +86,20 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
             let diagnostics = [| DiagnosticInfo() |]
             let annotated = node.With([token, node], diagnostics, null)
             if !ReferenceEquals(annotated, annotated.With([token, node], diagnostics, null)) { throw InvalidOperationException("with identity") }
-            let visitor = SyntaxVisitor()
+            let visitor = RecordingVisitor()
             node.Accept(visitor)
             if !ReferenceEquals(visitor.Last, node) { throw InvalidOperationException("visitor") }
             if node.CreateRed(null, 17).Position != 17 { throw InvalidOperationException("red") }
-            return node.Accept<int>(SyntaxVisitor<int>(42))
+            visitor.VisitExpression(node)
+            visitor.VisitPrimaryExpression(node)
+            if visitor.Samples != 3 { throw InvalidOperationException("abstract visitor dispatch") }
+            let unknown = UnknownSyntax(token)
+            visitor.VisitExpression(unknown)
+            if !ReferenceEquals(visitor.Last, unknown) || visitor.Samples != 3 { throw InvalidOperationException("visitor fallback") }
+            if node.Accept<int>(DefaultResultVisitor()) != 7 { throw InvalidOperationException("concrete default visit") }
+            let result = ResultVisitor()
+            if result.VisitExpression(node) != 42 || result.VisitPrimaryExpression(node) != 42 || result.VisitExpression(unknown) != -1 { throw InvalidOperationException("generic dispatch") }
+            return node.Accept<int>(result)
         }
     }
 }

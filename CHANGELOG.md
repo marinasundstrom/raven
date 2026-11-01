@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit generic and non-generic Raven syntax visitor partial classes from both
+  generator implementations, preserving transitive node dispatch and default
+  visitor callbacks. C# output remains available.
+
 - Report delegate signature accessibility errors even when declaration completion
   reuses previously discovered runtime members, preserving their symbol identity.
 

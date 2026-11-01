@@ -1373,3 +1373,35 @@ empty type attribute list. The assertion now excludes the constructor marker
 specifically, while retaining exact constructor marker/value and diagnostic checks.
 No compiler or language behavior changed. All **24 AttributeBindingTests pass**
 on .NET 11. This is targeted coverage cleanup, not a full-baseline success claim.
+
+
+### PORT-048: Generate Raven visitor partial declarations
+
+Both NodeGenerator implementations now provide RavenVisitorGenerator for generic
+and non-generic visitor source in red/public or green/internal namespaces. The
+translation keeps the existing C# emitter's ordinal transitive-descendant dispatch
+and omits abstract roots without concrete descendants. Authored runtime partials
+own DefaultVisit, traversal entry points and token/list handling. Production CLI
+selection and existing C# output remain unchanged.
+
+Shared C# tests parse repository-wide output in both namespaces, compare exact
+output from both emitter implementations, and exercise a three-level generated
+green hierarchy. Runtime checks cover direct Accept, abstract root/intermediate
+dispatch, unknown-node fallback and inherited concrete DefaultVisit behavior in
+both diagnostics-first and declaration-query-first orders. Red visitor validation
+is parse/parity only; the production syntax runtime and red-node/rewriter Raven
+output remain future slices. No new language rule or target-specific encoding is
+introduced, and no native neoCLR execution is claimed.
+
+Validation: **57 C# / 65 Raven generator tests pass** on .NET 11, including generated
+visitor execution. The required `scripts/codex-build.sh` succeeds. The first full
+translated-generator build exited without diagnostics; a confirmed terminal retry
+using an immutable compiler-host snapshot succeeded (42 warnings, zero errors).
+No warning identifies the new visitor emitter. The cause of the first exit is not
+established. Whitespace formatting and diff checks completed.
+
+The broader baseline rerun has passed the formerly failing constructor-attribute
+batch and remains in progress; this slice does not claim a green full baseline.
+No RavenDoc/site generation was explicitly invoked. The required build/baseline
+project graph still emits intermediate Raven.Core documentation from its project
+settings despite the existing suppression wrapper.

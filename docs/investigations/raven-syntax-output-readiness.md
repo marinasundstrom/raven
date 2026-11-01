@@ -8,9 +8,23 @@ and concrete nodes, optional children, constructors, slots, update/With identity
 diagnostics, visitors and red-node creation.
 
 This starts syntax-tree source output. The production driver still generates C#;
-the authored production syntax runtime, Raven red-node/visitor/rewriter output and
+the authored production syntax runtime, Raven red-node/rewriter output and
 CLI selection remain subsequent slices. The fixture is not a claim that the whole
 compiler syntax runtime has been ported.
+
+## Visitor output
+
+Both generator implementations now emit generic and non-generic Raven visitor
+partial classes. They retain the existing ordinal dispatch order, follow transitive
+inheritance and delegate unhandled nodes to the authored `DefaultVisit`. Empty
+abstract roots produce no dispatch method. The authored runtime still owns traversal
+entry points and list/token handling.
+
+Shared C# tests parse and compare output for all repository models in both red and
+green namespaces. The generated green hierarchy executes direct Accept dispatch,
+abstract root/intermediate dispatch, unknown-node fallback and inherited concrete
+fallback in both semantic query orders. Red visitor output is covered by parsing
+and parity, not a production red-runtime execution claim.
 
 ## Gaps fixed during the first compile/run probe
 

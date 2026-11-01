@@ -78,5 +78,13 @@ compiler gaps in override matching/dispatch, nominal nullable-reference constrai
 and constructor-initializer target typing. Both output paths now explicitly mark
 raw green slots nullable. See
 [the output readiness investigation](../../docs/investigations/raven-syntax-output-readiness.md).
-Red-node, visitor and rewriter Raven output and the production runtime port remain
+`RavenVisitorGenerator.GenerateVisitor` now emits generic and non-generic Raven
+visitor partial declarations for either the public red or internal green namespace.
+Abstract-root dispatch includes transitive concrete descendants in ordinal order;
+unknown nodes and unoverridden concrete methods call the authored `DefaultVisit`.
+The runtime owns traversal entry points, token/list handling and default behavior.
+Shared C# tests compare both emitters, parse both namespaces, and execute generated
+green visitor dispatch through two abstract levels and fallback paths.
+
+Red-node and rewriter Raven output and the production runtime port remain
 subsequent slices. No C# output mode has been replaced.

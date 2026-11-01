@@ -1,0 +1,63 @@
+namespace Raven.Generators
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import NodesShared.*
+
+public static class RavenVisitorGenerator
+{
+    static func GenerateVisitor(nodes: List<SyntaxNodeModel>, generic: bool = false,
+        isPublic: bool = true, namespaceName: string = "Raven.CodeAnalysis.Syntax") -> string
+    {
+        let builder = StringBuilder()
+        Line(builder, "namespace " + namespaceName)
+        Line(builder, "")
+        let accessibility = if isPublic { "public" } else { "internal" }
+        let parameters = if generic { "<TResult>" } else { "" }
+        let result = if generic { " -> TResult" } else { "" }
+        Line(builder, "${accessibility} abstract partial class SyntaxVisitor${parameters} {")
+        let byName = nodes.ToDictionary(n => n.Name, StringComparer.Ordinal)
+        for root in nodes.Where(n => n.IsAbstract)
+        {
+            let cases = nodes.Where(n => !n.IsAbstract && IsDerivedFrom(n, root.Name, byName))
+                .OrderBy(n => n.Name, StringComparer.Ordinal).ToList()
+            if cases.Count == 0 { continue }
+            let name = root.Name
+            Line(builder, "    virtual func Visit${name}(node: ${name}Syntax)${result} {")
+            let prefix = if generic { "return " } else { "" }
+            Line(builder, "        ${prefix}node match {")
+            for item in cases
+            {
+                let caseName = item.Name
+                Line(builder, "            ${caseName}Syntax n => Visit${caseName}(n),")
+            }
+            Line(builder, "            _ => DefaultVisit(node),")
+            Line(builder, "        }")
+            Line(builder, "    }")
+        }
+        for node in nodes.Where(n => !n.IsAbstract)
+        {
+            let name = node.Name
+            Line(builder, "    virtual func Visit${name}(node: ${name}Syntax)${result} => DefaultVisit(node)")
+        }
+        Line(builder, "}")
+        return builder.ToString()
+    }
+
+    private static func IsDerivedFrom(candidate: SyntaxNodeModel, rootName: string,
+        byName: IReadOnlyDictionary<string, SyntaxNodeModel>) -> bool
+    {
+        var current = candidate
+        while !string.IsNullOrEmpty(current.Inherits)
+        {
+            if string.Equals(current.Inherits, rootName, StringComparison.Ordinal) { return true }
+            if !byName.TryGetValue(current.Inherits, out var parent) { break }
+            current = parent
+        }
+        return false
+    }
+
+    private static func Line(builder: StringBuilder, line: string) { _ = builder.AppendLine(line) }
+}

@@ -29,6 +29,54 @@ public class RavenGreenOutputTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void RepositoryVisitorsParseForBothRuntimeNamespaces(bool generic)
+    {
+        var nodes = NodeEmitterInputs.Nodes();
+        AssertParses(RavenVisitorGenerator.GenerateVisitor(nodes, generic), "red visitor");
+        AssertParses(RavenVisitorGenerator.GenerateVisitor(nodes, generic, false, "Raven.CodeAnalysis.Syntax.InternalSyntax"), "green visitor");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VisitorRootDispatchIncludesTransitiveCasesInOrdinalOrder(bool generic)
+    {
+        var source = RavenVisitorGenerator.GenerateVisitor([
+            new() { Name = "Root", IsAbstract = true },
+            new() { Name = "Middle", Inherits = "Root", IsAbstract = true },
+            new() { Name = "Zed", Inherits = "Middle" },
+            new() { Name = "Alpha", Inherits = "Root" },
+            new() { Name = "Other", Inherits = "Missing" }
+        ], generic);
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
+        var root = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "VisitRoot").ToFullString();
+        Assert.Contains("AlphaSyntax", root);
+        Assert.Contains("ZedSyntax", root);
+        Assert.True(root.IndexOf("AlphaSyntax", StringComparison.Ordinal) < root.IndexOf("ZedSyntax", StringComparison.Ordinal));
+        Assert.DoesNotContain("OtherSyntax", root);
+        Assert.Contains("DefaultVisit(node)", root);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VisitorsOmitEmptyAbstractDispatchGroups(bool generic)
+    {
+        var source = RavenVisitorGenerator.GenerateVisitor([
+            new() { Name = "Empty", IsAbstract = true },
+            new() { Name = "Leaf", Inherits = "Missing" }
+        ], generic);
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
+        var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+        Assert.Equal(["VisitLeaf"], methods.Select(method => method.Identifier.ValueText));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GeneratedHierarchyCompilesAndRunsConstructorsSlotsUpdatesFactoriesAndVisitors(bool queryDerivedFirst)
     {
         var expression = new SyntaxNodeModel
@@ -38,17 +86,20 @@ public class RavenGreenOutputTests
             IsAbstract = true,
             Slots = [new() { Name = "Keyword", Type = "Token", IsAbstract = true }]
         };
+        var primary = new SyntaxNodeModel { Name = "PrimaryExpression", Inherits = "Expression", IsAbstract = true };
         var sample = new SyntaxNodeModel
         {
             Name = "Sample",
-            Inherits = "Expression",
+            Inherits = "PrimaryExpression",
             HasExplicitKind = true,
             Slots = [new() { Name = "Keyword", Type = "Token", IsInherited = true },
                 new() { Name = "Child", Type = "Node", IsNullable = true }]
         };
         var sources = new[] { File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "GreenOutputRuntime.rvn")),
             RavenGreenNodeGenerator.GenerateNode(expression), RavenGreenNodeGenerator.GenerateNode(sample),
-            RavenGreenNodeGenerator.GenerateFactory(sample)! };
+            RavenGreenNodeGenerator.GenerateFactory(sample)!, RavenGreenNodeGenerator.GenerateNode(primary),
+            RavenVisitorGenerator.GenerateVisitor([expression, primary, sample], false, false, "Raven.CodeAnalysis.Syntax.InternalSyntax"),
+            RavenVisitorGenerator.GenerateVisitor([expression, primary, sample], true, false, "Raven.CodeAnalysis.Syntax.InternalSyntax") };
         var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         var references = new[] { typeof(object).Assembly.Location, typeof(Enumerable).Assembly.Location,
             Path.Combine(runtimeDirectory, "System.Runtime.dll"), Path.Combine(runtimeDirectory, "System.Collections.dll") }

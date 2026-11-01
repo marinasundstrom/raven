@@ -62,6 +62,10 @@ public class NodeEmitterCrossImplementationTests
         }).ToList();
         var ns = green ? "Raven.CodeAnalysis.Syntax.InternalSyntax" : "Raven.CodeAnalysis.Syntax";
         Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.VisitorGenerator).Assembly.GetName().Name);
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RavenVisitorGenerator).Assembly.GetName().Name);
+        foreach (var generic in new[] { false, true })
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenVisitorGenerator.GenerateVisitor(seedNodes, generic, !green, ns),
+                Raven.Generators.RavenVisitorGenerator.GenerateVisitor(nodes, generic, !green, ns));
         Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateVisitorClass(seedNodes, !green, ns).ToFullString(),
             Raven.Generators.VisitorGenerator.GenerateVisitorClass(nodes, !green, ns).ToFullString());
         Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateGenericVisitorClass(seedNodes, !green, ns).ToFullString(),
