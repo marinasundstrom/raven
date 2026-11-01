@@ -11,6 +11,78 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ExtensionMemberLookupApiTests : CompilationTestBase
 {
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "Item")]
+    [InlineData(false, "It")]
+    public void LookupSourceIndexerAfterAddingImportTree(bool diagnosticsFirst, string? name)
+    {
+        var (original, _) = CreateCompilation("""
+            namespace Relationships {
+                class Derived { }
+                extension Extras for Derived {
+                    func Extra() -> int => 4
+                    val ExtraValue: int => 7
+                    val self[index: int]: int => index
+                }
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(original.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var receiver = original.GetTypeByMetadataName("Relationships.Derived")!;
+        var imports = SyntaxTree.ParseText("import Relationships.*");
+        var compilation = original.AddSyntaxTrees(imports);
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var result = compilation.GetSemanticModel(imports).LookupApplicableExtensionMembers(receiver, name: name, includePartialMatches: name == "It");
+        if (name is null)
+        {
+            Assert.Contains(result.InstanceMethods, method => method.Name == "Extra");
+            Assert.Contains(result.InstanceProperties, property => property.Name == "ExtraValue");
+        }
+        var indexer = Assert.Single(result.InstanceProperties, property => property.IsIndexer);
+        Assert.Equal("Item", indexer.Name);
+        Assert.Single(indexer.Parameters);
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void LookupIncludesAnonymousExtensionInOtherwiseEmptyNamespace()
+    {
+        var (original, _) = CreateCompilation("""
+            namespace Anonymous {
+                extension for string {
+                    val self[index: int]: int => index
+                }
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(original.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var imports = SyntaxTree.ParseText("import Anonymous.*");
+        var compilation = original.AddSyntaxTrees(imports);
+        var result = compilation.GetSemanticModel(imports).LookupApplicableExtensionMembers(compilation.GetSpecialType(SpecialType.System_String));
+        Assert.Single(result.InstanceProperties, property => property.IsIndexer);
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void ColdLookupIncludesAttributedSourceExtensionMethod()
+    {
+        var (original, _) = CreateCompilation("""
+            namespace Legacy {
+                static class Methods {
+                    [System.Runtime.CompilerServices.ExtensionAttribute]
+                    static func Extra(value: string) -> int => 1
+                }
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(original.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var imports = SyntaxTree.ParseText("import Legacy.*");
+        var compilation = original.AddSyntaxTrees(imports);
+        var result = compilation.GetSemanticModel(imports).LookupApplicableExtensionMembers(compilation.GetSpecialType(SpecialType.System_String));
+        Assert.Contains(result.InstanceMethods, method => method.Name == "Extra");
+    }
+
     [Fact]
     public void LookupApplicableExtensionMembers_ReturnsAllExtensionMemberKinds()
     {

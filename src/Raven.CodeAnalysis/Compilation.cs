@@ -1402,6 +1402,18 @@ public partial class Compilation
             GetOrCreateNamespaceSymbol(metadataName);
     }
 
+    internal void EnsureSourceExtensionScopeDeclared(INamespaceSymbol namespaceSymbol)
+    {
+        // Extension lookup enumerates candidates, so type shells alone are not
+        // enough. Declare signatures in files with extension candidates in this namespace
+        // without forcing compilation-wide completion or executable body binding.
+        foreach (var tree in SourceDeclarationIndex.GetNamespaceExtensionDeclarationTrees(GetNamespaceMetadataName(namespaceSymbol)))
+        {
+            if (TryGetSemanticModelForDeclarationBinding(tree, out var model))
+                model.EnsureMemberSignaturesDeclared();
+        }
+    }
+
     internal bool TryDeclareIndexedSourceType(
         INamespaceSymbol? namespaceSymbol,
         string name,

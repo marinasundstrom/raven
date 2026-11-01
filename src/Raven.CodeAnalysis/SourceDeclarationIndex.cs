@@ -11,6 +11,7 @@ internal sealed class SourceDeclarationIndex
     private readonly HashSet<string> _namespaces = new(StringComparer.Ordinal);
     private readonly Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>> _namespaceFunctions;
     private readonly Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>> _namespaceTypes;
+    private readonly Dictionary<string, ImmutableArray<SyntaxTree>> _namespaceExtensionDeclarationTrees = new(StringComparer.Ordinal);
 
     public SourceDeclarationIndex(Compilation compilation, IEnumerable<SyntaxTree> syntaxTrees)
     {
@@ -58,6 +59,9 @@ internal sealed class SourceDeclarationIndex
             ? types
             : ImmutableArray<SyntaxNode>.Empty;
     }
+
+    public ImmutableArray<SyntaxTree> GetNamespaceExtensionDeclarationTrees(string namespaceMetadataName)
+        => _namespaceExtensionDeclarationTrees.TryGetValue(namespaceMetadataName, out var trees) ? trees : [];
 
     private void IndexContainer(
         SyntaxNode containerNode,
@@ -122,12 +126,21 @@ internal sealed class SourceDeclarationIndex
         }
     }
 
-    private static void AddType(
+    private void AddType(
         Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>.Builder> namespaceTypes,
         string namespaceMetadataName,
         string name,
         SyntaxNode declaration)
     {
+        // Include anonymous extensions and conservatively include attributed
+        // source members, which can declare CLI-style extension methods.
+        if (MayDeclareExtensionMembers(declaration))
+        {
+            var trees = GetNamespaceExtensionDeclarationTrees(namespaceMetadataName);
+            if (declaration.SyntaxTree is { } tree && !trees.Contains(tree))
+                _namespaceExtensionDeclarationTrees[namespaceMetadataName] = trees.Add(tree);
+        }
+
         if (string.IsNullOrEmpty(name))
             return;
 
@@ -140,6 +153,14 @@ internal sealed class SourceDeclarationIndex
 
         types.Add(declaration);
     }
+
+    private static bool MayDeclareExtensionMembers(SyntaxNode declaration) => declaration switch
+    {
+        ExtensionDeclarationSyntax => true,
+        TypeDeclarationSyntax type => type.AttributeLists.Count > 0 || type.Members.Any(MayDeclareExtensionMembers),
+        MethodDeclarationSyntax method => method.AttributeLists.Count > 0,
+        _ => false,
+    };
 
     private static void AddNamespaceFunction(
         Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>.Builder> namespaceFunctions,

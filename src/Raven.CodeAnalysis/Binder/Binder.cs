@@ -1169,6 +1169,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
+            Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 var extensionContainers = Compilation.SymbolLookup.GetExtensionContainers(
@@ -1229,6 +1230,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
+            Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
@@ -1290,6 +1292,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
+            Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
@@ -1348,6 +1351,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
+            Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(

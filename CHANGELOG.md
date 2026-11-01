@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Discover source extension methods, properties and indexers on cold semantic
+  queries after adding import trees, including anonymous and attributed extension
+  declarations. Lookup completes candidate files without requiring full diagnostics
+  or declaring unrelated ordinary types.
+
 - Add Raven red-node declaration output to both node-generator implementations,
   retaining typed constructors, cached children/lists, positions, updates and
   visitor dispatch. Production generation continues to emit C#.

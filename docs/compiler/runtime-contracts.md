@@ -4876,3 +4876,23 @@ declaration diagnostic bag, rather than a replaceable class binder. Invalid
 initializers remain errors on repeated diagnostic and emit requests. Ownership is
 isolated in SemanticModel.ConstructorInitializers.cs; no public cache-specific API
 is added.
+
+
+### Cold source extension discovery
+
+SemanticModel.LookupApplicableExtensionMembers and binder extension lookup discover
+source candidates through a per-namespace index of contributing syntax trees.
+The index includes named/anonymous extension declarations and conservatively
+includes attributed types/methods that may declare CLI-style extensions. Lookup
+ensures member signatures for those candidate files before enumerating members;
+it does not require callers to run GetDiagnostics or force compilation-wide
+declaration completion. Ordinary unrelated type files are not candidates.
+
+This restores methods, properties and indexers after adding an import tree to a
+compilation, before diagnostics have populated the cloned source declarations.
+Exact and prefix filters retain their existing semantics. The index is internal
+to each compilation, and the public semantic API is unchanged. Source declarations
+and lookup are shared across targets, with .NET remaining the default. These
+components are not yet ported and their Raven translations must preserve the fix.
+Modern .NET tests validate semantic results, indexer execution and incremental
+binding limits; they do not establish native execution.

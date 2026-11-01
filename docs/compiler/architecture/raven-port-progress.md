@@ -1570,3 +1570,35 @@ completed compiler bootstrap is claimed.
 Raven red factories, production syntax-runtime translation and CLI output-mode
 selection remain subsequent slices. This fixture is deliberately not presented as
 the production syntax runtime port.
+
+
+## PORT-054 — cold source extension discovery
+
+The broad baseline's RavenDoc source-indexer link failure was reduced to a compiler
+API regression without running documentation generation: after adding an import
+tree, LookupApplicableExtensionMembers returned no source extensions until full
+diagnostics ran. The reduced baseline was **5 passing / 1 failing tests**.
+
+Extension lookup now discovers candidate source files from a per-namespace syntax
+index and ensures their member signatures before enumeration. Anonymous extensions
+are indexed even without a declared type name; an explicit regression caught that
+omission. Attributed source types/methods are conservatively included for CLI-style
+extension declarations. Plain unrelated type files are excluded: the incremental
+regression suite caught an initial over-broad implementation that declared 31 files
+where the existing limit was two. The final index preserves demand-driven binding.
+
+Tests cover cold/warm queries after AddSyntaxTrees, exact/prefix filters, methods,
+properties, indexers, anonymous extensions and attributed source methods. The
+original RavenDoc generation test has not been rerun; validation uses compiler API
+and runtime tests, so a clean full baseline is not claimed. No documentation/site
+generation is required for this follow-up.
+
+This is shared compiler behavior, not target policy or new syntax. The C# binder,
+compilation and source index are not yet translated; carry the fix into their Raven
+ports. .NET remains the default; no native runtime validation is claimed.
+
+Final validation: **456 compiler tests pass**, combining constructor delegation,
+qualified/canonical lookup, incremental binder/compilation reuse, extension lookup,
+source/metadata extension semantics and indexer runtime behavior. Both generator
+suites were revalidated against this compiler: **64 C# / 72 Raven tests pass**.
+Targeted builds, whitespace formatting and diff checks pass on .NET 11.
