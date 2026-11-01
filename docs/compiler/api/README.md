@@ -19,6 +19,9 @@ integration boundary.
 
 For restricted target reference sets, see [explicit-only metadata import](../metadata-import.md).
 
+See [Diagnostic value contracts](diagnostics.md) for descriptor identity and
+localizable string equality, hashing, and resource lookup.
+
 ## Syntax Analysis
 
 This section covers the basics of syntax analysis, including parsing source code, transforming syntax trees, and visualizing syntax hierarchies. For a structured tour of the public surface, see the [Syntax Tree API](syntax-tree.md).

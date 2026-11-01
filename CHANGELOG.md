@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port resource-backed localizable strings and implement current-UI-culture
+  resource lookup in both compiler codebases. Give literal and resource-backed
+  strings explicit, culture-stable equality and hashing; retain reference identity
+  by default for custom localizable-string implementations.
+
 - Emit parameter-array metadata for array collectors so C# consumers can use
   omitted or expanded arguments on Raven methods, constructors and delegates.
   Preserve collector flags on delegate signatures and avoid duplicate runtime

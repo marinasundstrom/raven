@@ -31,6 +31,7 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticInfo).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(LocalizableString).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(LocalizableStringImpl).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(LocalizableResourceString).Assembly);
         Assert.True(typeof(LocalizableString).IsAbstract);
         Assert.False(typeof(LocalizableStringImpl).IsSealed);
         Assert.False(typeof(DiagnosticDescriptor).IsSealed);

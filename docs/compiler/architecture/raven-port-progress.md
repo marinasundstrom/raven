@@ -62,7 +62,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, plus `Text/SourceTextIOTests.cs` for encoding/disposal, checksums and generic/non-generic enumeration |
 | `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
-| `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal implementation, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
+| `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -153,12 +153,11 @@ The independent text helpers and snapshot I/O/hash coverage are now included.
 `SeekableTextSource`, generated syntax kinds and token values are now ported and
 tested. Diagnostic payload dependencies (`LocalizableString` and its literal
 implementation, `DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`)
-are now translated. Continue with resource-backed localization and the diagnostic
-catalog needed by the lexer, then the lexer itself. `LocalizableResourceString`
-is not yet ported: its C# implementation currently lacks resource lookup and needs
-focused characterization and a correction in both sources. Review literal-string
-value equality alongside that localization slice; this slice retains its existing
-wrapper identity. `DiagnosticInfo` retains reference identity and its caller-owned
+are now translated, including resource-backed localization. Continue with the
+diagnostic catalog needed by the lexer, then the lexer itself. Literal strings
+now have text-based value equality; resource strings have culture-independent
+identity based on their resource configuration. Both corrections are shared by
+C# and Raven. `DiagnosticInfo` retains reference identity and its caller-owned
 argument array rather than introducing deep equality over mutable inputs.
 Keep generated syntax-kind definitions tied to their source model rather than
 maintaining a divergent handwritten copy. `SourceTextWriter`
@@ -407,3 +406,33 @@ A website build started before the author prohibited RavenDoc generation complet
 future porting slices update documentation/website sources without generation.
 Grammar is unchanged: the collector syntax already exists. Language-service
 consumers receive the corrected delegate symbols through existing compiler APIs.
+
+## Localization checkpoint — 2026-11-01
+
+### PORT-014: resource lookup and localizable-string equality
+
+The C# resource-backed implementation previously inherited `object.ToString()`
+and never looked up the resource. New shared tests reproduced that failure and
+literal wrappers' reference equality (two failures; 92 other cases passed).
+Both source implementations now resolve text with `CurrentUICulture`, return an
+empty string for a missing key, and preserve resource-manager exceptions.
+
+Literal wrappers compare text and exact runtime type. Resource wrappers compare
+resource key, source type, manager identity and exact runtime type. Equality and
+hashes remain stable across display-culture changes. The base class explicitly
+retains reference identity for custom implementations that do not override it.
+Typed equality and null-safe operators delegate to the same object-equality
+contract. Classes and existing constructors remain intact; a record hierarchy
+rewrite would not add stabilization value here. See
+[Diagnostic value contracts](../api/diagnostics.md).
+
+Shared tests cover literal equality, nulls, hashing, inherited type boundaries,
+custom implementation identity, resource configuration and culture changes.
+The port now includes `LocalizableResourceString`; implementation-identity checks
+ensure that the Raven tests use its Raven-produced type. No language rules or
+highlighting grammar change, and no RavenDoc generation is run for this slice.
+
+Validation: **95 shared C# tests pass against each implementation**, plus the
+Raven project's one additional enum/assembly check (96 total). These runs execute
+on .NET 11. The earlier broad baseline continues separately against its original
+main-test binaries and is not claimed as validation of this new slice.

@@ -1,6 +1,23 @@
 namespace Raven.CodeAnalysis
 
-public abstract class LocalizableString {
+import System.*
+import System.Globalization.*
+import System.Resources.*
+import System.Runtime.CompilerServices.*
+
+public abstract class LocalizableString : IEquatable<LocalizableString> {
+    func Equals(other: LocalizableString?) -> bool => Equals((object?)other)
+
+    override func Equals(obj: object?) -> bool => object.ReferenceEquals(self, obj)
+
+    override func GetHashCode() -> int => RuntimeHelpers.GetHashCode(self)
+
+    static func ==(left: LocalizableString?, right: LocalizableString?) -> bool {
+        return object.ReferenceEquals(left, right) || (left is LocalizableString value && value.Equals(right))
+    }
+
+    static func !=(left: LocalizableString?, right: LocalizableString?) -> bool => !(left == right)
+
     static func implicit(value: string) -> LocalizableString {
         return LocalizableStringImpl(value)
     }
@@ -18,4 +35,36 @@ public open class LocalizableStringImpl : LocalizableString {
     }
 
     override func ToString() -> string => _value
+
+    override func Equals(obj: object?) -> bool {
+        return obj is LocalizableStringImpl other && GetType() == other.GetType() && _value == other._value
+    }
+
+    override func GetHashCode() -> int => HashCode.Combine(GetType(), _value)
+}
+
+public open class LocalizableResourceString : LocalizableString {
+    private readonly field _nameOfLocalizableResource: string
+    private readonly field _resourceManager: ResourceManager
+    private readonly field _resourceSource: Type
+
+    init(nameOfLocalizableResource: string, resourceManager: ResourceManager, resourceSource: Type) {
+        _nameOfLocalizableResource = nameOfLocalizableResource
+        _resourceManager = resourceManager
+        _resourceSource = resourceSource
+    }
+
+    override func ToString() -> string {
+        return _resourceManager.GetString(_nameOfLocalizableResource, CultureInfo.CurrentUICulture) ?? string.Empty
+    }
+
+    override func Equals(obj: object?) -> bool {
+        return obj is LocalizableResourceString other && GetType() == other.GetType() &&
+            _nameOfLocalizableResource == other._nameOfLocalizableResource &&
+            object.ReferenceEquals(_resourceManager, other._resourceManager) && _resourceSource == other._resourceSource
+    }
+
+    override func GetHashCode() -> int {
+        return HashCode.Combine(GetType(), _nameOfLocalizableResource, RuntimeHelpers.GetHashCode(_resourceManager), _resourceSource)
+    }
 }
