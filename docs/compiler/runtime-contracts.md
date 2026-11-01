@@ -4657,3 +4657,16 @@ source-symbol implementation does not invent an attribute when a runtime omits
 it. Native neoCLR imports currently report no SetsRequiredMembers contract;
 round-tripping native required-member obligations is a separate existing gap,
 not a permanent difference in the intended initialization semantics.
+
+
+## Private runtime implementation scopes in .NET emission
+
+Reflection-based emission can initially reference a host implementation assembly
+such as `System.Private.Xml` or `System.Private.Xml.Linq`. Final metadata scope
+normalization resolves these types through the compilation's selected framework
+declarations, just as it already does for core-library facade types. Public
+`XmlWriter`, `XmlReader` and `XDocument` signatures must be consumable with .NET
+reference assemblies without adding private runtime assemblies to the consumer.
+Types with no selected declaration retain their existing scope. This correction
+belongs to .NET CLI emission; it does not add XML APIs or change native neoCLR
+metadata semantics.

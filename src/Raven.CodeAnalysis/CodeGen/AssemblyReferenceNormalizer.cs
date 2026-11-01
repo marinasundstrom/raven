@@ -59,7 +59,7 @@ internal static class AssemblyReferenceNormalizer
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
         RetargetKeptCoreLibraryTypeScopes(module, targetReferences);
-        RetargetCoreLibraryTypesToDeclaredScopes(module, resolveTargetTypeScope);
+        RetargetRuntimeTypesToDeclaredScopes(module, resolveTargetTypeScope);
         var coreLibRefs = module.AssemblyReferences
             .Where(reference => string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -522,7 +522,7 @@ internal static class AssemblyReferenceNormalizer
         }
     }
 
-    private static void RetargetCoreLibraryTypesToDeclaredScopes(
+    private static void RetargetRuntimeTypesToDeclaredScopes(
         ModuleDefinition module,
         Func<string, AssemblyNameReference?>? resolveTargetTypeScope)
     {
@@ -536,12 +536,13 @@ internal static class AssemblyReferenceNormalizer
         {
             var definition = GetInnermostTypeReference(type);
             if (definition.Scope is not AssemblyNameReference currentScope ||
-                currentScope.Name is not ("System.Private.CoreLib" or "System.Runtime"))
+                (currentScope.Name != "System.Runtime" &&
+                 !currentScope.Name.StartsWith("System.Private.", StringComparison.Ordinal)))
                 continue;
 
-            // Host core-library types may be declared in different target facades,
-            // including MemoryExtensions and LazyInitializer as well as collections.
-            // Use every available selected declaration, not a namespace whitelist.
+            // Host implementation types can live behind target reference facades,
+            // including XML as well as core-library types. Use the selected semantic
+            // declaration rather than leaking a private runtime assembly into metadata.
             var target = resolveTargetTypeScope(definition.FullName.Replace('/', '+'));
             if (target is null || target.FullName == currentScope.FullName)
                 continue;

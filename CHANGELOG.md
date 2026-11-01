@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit public XML signatures against selected framework reference assemblies,
+  avoiding leaked `System.Private.Xml`/`System.Private.Xml.Linq` dependencies in
+  C# consumers of Raven libraries.
+
 - Capture the enclosing instance for local-function `self`, unqualified fields,
   properties and method calls. Preserve static boundaries instead of emitting
   instance access without a receiver.

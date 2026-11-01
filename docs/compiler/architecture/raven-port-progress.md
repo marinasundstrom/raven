@@ -946,3 +946,15 @@ properties, calls and explicit `self`, semantic capture reporting, and static
 boundary diagnostics. This is shared binding behavior; the binder is not yet
 ported, so retain the correction when translating it. Native closure/backend
 coverage remains separate from these .NET runtime checks.
+
+### PORT-031: Public XML framework scopes
+
+The generator serializer's Raven translation compiled, but its C# consumer
+reported CS0012 for the public XmlWriter parameter because emitted metadata
+referenced System.Private.Xml. Reduced XmlWriter, XmlReader and XDocument
+consumer tests all failed before the correction; two existing facade tests
+passed. Final .NET metadata normalization now resolves private runtime scopes
+through selected framework declarations. The focused and adjacent metadata,
+collection interop, core-selection and required-member selection passes **32
+tests**. This is a .NET emission correction; no native XML API support is claimed.
+Carry this fix when the metadata normalization component is ported.
