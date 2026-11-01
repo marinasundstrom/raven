@@ -238,7 +238,8 @@ class ConstructorMarkerAttribute : Attribute
             .Single(static type => type.Identifier.ValueText == "Person");
         var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
 
-        Assert.Empty(type.GetAttributes());
+        Assert.DoesNotContain(type.GetAttributes(),
+            static attribute => attribute.AttributeClass?.Name == "ConstructorMarkerAttribute");
         var constructor = Assert.Single(
             type.Constructors,
             static constructor => !constructor.IsStatic &&

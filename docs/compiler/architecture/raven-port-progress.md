@@ -1362,3 +1362,14 @@ delegate semantic and delegate runtime tests pass** on .NET 11. Shared semantics
 and .NET defaults are unchanged. The unported binder/semantic-model implementations
 must retain this fix. Broader baseline results are recorded separately as they
 complete; the focused result is not a claim that the whole baseline is green.
+
+
+### PORT-047: Align primary-constructor attribute coverage with required metadata
+
+The broader baseline passed its first four batches (354 tests), then stopped on
+one record case in a 102-test batch. The type correctly carried synthesized
+RequiredMemberAttribute, but the constructor-target test asserted an entirely
+empty type attribute list. The assertion now excludes the constructor marker
+specifically, while retaining exact constructor marker/value and diagnostic checks.
+No compiler or language behavior changed. All **24 AttributeBindingTests pass**
+on .NET 11. This is targeted coverage cleanup, not a full-baseline success claim.
