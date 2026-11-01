@@ -997,3 +997,19 @@ The broad baseline was rerun and remains at **73 passing tests and the known
 PublicDelegateWithInternalSignatureTypes_ReportsRAV0501 failure**. That unrelated
 accessibility defect is still open. Source documentation was updated without
 running RavenDoc or website generation.
+
+
+### PORT-033: Captured local-function parameter positions
+
+The direct node-emitter translation exposed ArrayTypeMismatchException in local
+helpers that capture a StringBuilder and accept string arguments. CLI method
+signatures included the hidden closure argument but parameter metadata still
+started at the original position. Four reduced cases failed before the correction:
+value/optional arguments raised runtime errors and ref/out updates targeted the
+wrong storage. The emitter now defines the hidden parameter before authored
+parameter metadata. No generator-source workaround was introduced.
+
+The focused baseline passed 28 existing cases and failed all four regressions.
+The corrected closure/receiver/semantic-capture selection passes **39 tests**.
+This validates .NET execution, not native neoCLR; the portable backend owns its
+own parameter layout. Carry this correction when MethodGenerator is ported.

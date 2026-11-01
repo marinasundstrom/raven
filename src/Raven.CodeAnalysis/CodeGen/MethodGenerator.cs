@@ -294,6 +294,12 @@ internal class MethodGenerator
         }
 
         int i = 1;
+        if (_lambdaClosure is not null && MethodSymbol.IsStatic && MethodBase is MethodBuilder closureMethod)
+        {
+            // Static captured local functions carry their environment as the first
+            // argument. Parameter metadata and all argument accesses must share that offset.
+            closureMethod.DefineParameter(i++, ParameterAttributes.None, "<closure>");
+        }
 
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {

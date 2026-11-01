@@ -18280,3 +18280,17 @@ GetOffset for positive-index checks and exercises a mutable struct indexer;
 this does not qualify the full native Index runtime API. Native emission and
 interpreter execution pass with `Int32(42)`, using the explicit System seed and
 SourceCore object root. JIT/AOT and .NET Framework/NanoFramework are not claimed.
+
+
+### Captured local-function CLI parameter positions
+
+The semantic requirement is unchanged: captured local functions receive their
+lexical environment and preserve authored value, optional, ref and out arguments.
+CLI emission through `MethodGenerator` encodes a static captured function's
+environment as a leading hidden parameter. Its metadata slot must precede authored
+parameters; otherwise loads/stores can address the environment instead of the
+source argument. The corrected indexing is covered by .NET runtime tests for all
+four parameter shapes. It also applies to any bridge using that CLI emitter, but
+these tests do not claim native neoCLR execution. Native portable closure
+emission owns its environment representation and does not use this CLI parameter
+metadata fix; native function/environment metadata replaces this bridge encoding.

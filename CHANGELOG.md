@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Account for the hidden closure argument when emitting captured local-function
+  parameter metadata. Authored values, defaults, `ref` and `out` parameters now
+  use their correct argument positions in CLI output.
+
 - Emit public XML signatures against selected framework reference assemblies,
   avoiding leaked `System.Private.Xml`/`System.Private.Xml.Linq` dependencies in
   C# consumers of Raven libraries.

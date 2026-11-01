@@ -4670,3 +4670,15 @@ reference assemblies without adding private runtime assemblies to the consumer.
 Types with no selected declaration retain their existing scope. This correction
 belongs to .NET CLI emission; it does not add XML APIs or change native neoCLR
 metadata semantics.
+
+
+## Captured local-function parameters in CLI output
+
+A static local function with captures has a leading hidden closure parameter in
+its emitted CLI signature. `MethodGenerator` defines that metadata slot before
+user-authored parameters, so parameter names, optional/default values, ref/out
+attributes and argument loads/stores agree on their positions. Capture analysis
+and the language-level function signature are unchanged. Observable .NET tests
+cover multiple values, an omitted optional parameter, and ref/out updates.
+Native portable code generation owns its own environment and parameter layout;
+this correction does not change that contract.
