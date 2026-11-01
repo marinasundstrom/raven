@@ -1264,3 +1264,53 @@ the shared binder correction. An isolated loader build and its 15 shared tests
 also pass. The full Raven generator reports 40 warnings, plus 15 in NodesShared;
 the required generator/compiler build passes with the fix included. No native
 neoCLR execution, RavenDoc generation or website generation was performed.
+
+
+### PORT-044: Raven green-node output and compiler stabilization
+
+Add matching RavenGreenNodeGenerator APIs to the C# and Raven generator codebases.
+They emit green nodes and factories from the existing models without replacing the
+production C# generator path. Output retains typed/raw constructors, ordered slots,
+abstract/inherited properties, visitor dispatch, red creation and identity checks.
+Helpers are explicitly private in Raven. Explicit parent-type aliases avoid
+collisions between red and green node names.
+
+Shared C# tests parse emitted Raven for all 256 repository models, compare exact
+Raven node/factory output and compile/run a generated hierarchy against a focused
+runtime-contract fixture. The production runtime port, Raven red/visitor/rewriter
+output and CLI output selection remain subsequent slices.
+
+The compile/run probe drove fixes in generic override matching, overridden method
+candidate suppression, covariant-return binding/emission, nominal nullable-reference
+constraints and constructor-initializer target typing. Focused tests protect each
+behavior. Existing absent-slot behavior is now explicit in both generator output
+paths and the C# runtime through nullable slot-array/GetSlot annotations. The binder
+and emitter have not been ported yet; their translations must carry the fixes.
+See [the readiness investigation](../../investigations/raven-syntax-output-readiness.md).
+
+Pre-change baselines: **48 C# / 56 Raven generator tests**, **14 override tests**,
+**41 constraint tests**, and **23 constructor-initializer tests**. Modern .NET is the
+execution target. Native neoCLR covariance remains an explicit capability/metadata
+gap rather than a permanent language exclusion. Reference/website source docs,
+Runtime Contract and CLI bridge documentation are updated.
+
+
+Compiler validation: **34 focused constructor/override checks** and **169 adjacent
+semantic, generic, constraint and green-node checks** pass on .NET 11. The required
+generator/compiler build passes. The full baseline stops in its first 74-test batch
+with the previously recorded
+AccessibilityDiagnosticsTests.PublicDelegateWithInternalSignatureTypes_ReportsRAV0501
+failure (missing delegate-signature accessibility diagnostics); 73 tests in that
+batch pass. This is not a claim of a clean full baseline. RavenDoc/site generation
+was not invoked; project builds did emit intermediate Raven.Core documentation
+through the compiler's project settings despite documentation-suppression properties.
+
+
+Final generator validation: **50 C# / 58 Raven tests** pass, including exact output
+parity for all repository models and compiling/executing each emitter's generated
+hierarchy. The translated tool builds with 42 warnings, plus 15 in NodesShared.
+An additional **17 target-capability/target-typing tests** pass, including shared
+override binding under .NET and neoCLR selection with host references. These
+semantic-only fixtures do not establish native core admission or native execution.
+Compiler stabilization is committed separately as `5c9de9d5c`; this output slice
+retains the C# driver and leaves production runtime/red/visitor output next.

@@ -19,8 +19,7 @@ against the C# emitters using the repository XML models. Run
 
 The production NodeGenerator executable still uses C#. Its XML loading methods
 are extracted into `SyntaxModelLoader` and translated in this library; validation,
-incremental hashing and command-line orchestration remain in C#. No generated
-language syntax was changed by this translation.
+incremental hashing and command-line orchestration remain in C#. The C# output path remains available; nullable slot annotations are aligned in both output paths.
 
 The visitor translation retains iterator dispatch grouping, named tuples and
 Roslyn syntax-factory calls. Its mutable argument list uses the fully qualified
@@ -62,3 +61,22 @@ translated emitter is validated. Pair the first generated node hierarchy with
 its authored Raven runtime foundations so the emitted source can be compiled
 and exercised by shared C# tests. Completing the entire command-line port is not
 a prerequisite for this output work; preserve the C# output mode throughout.
+
+
+`RavenGreenNodeGenerator.GenerateNode` and `GenerateFactory` now provide the first
+experimental Raven green-node output in both implementations. They emit node
+inheritance, typed/raw constructors, ordered slot properties, visitor dispatch,
+red-node creation, identity-preserving updates and factories. Abstract nodes do
+not have factories. Explicit aliases for SyntaxKind and SyntaxAnnotation avoid
+importing conflicting red-node names into the green-node namespace.
+
+The shared C# tests parse output for all repository models, compare exact Raven
+output between the C# and Raven emitters, and compile/run a generated hierarchy
+against a focused runtime-contract fixture. The production CLI still generates
+C# nodes; the fixture is not the full production runtime port. This work fixed
+compiler gaps in override matching/dispatch, nominal nullable-reference constraints
+and constructor-initializer target typing. Both output paths now explicitly mark
+raw green slots nullable. See
+[the output readiness investigation](../../docs/investigations/raven-syntax-output-readiness.md).
+Red-node, visitor and rewriter Raven output and the production runtime port remain
+subsequent slices. No C# output mode has been replaced.

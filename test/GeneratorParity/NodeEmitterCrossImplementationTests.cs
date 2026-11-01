@@ -94,9 +94,14 @@ public class NodeEmitterCrossImplementationTests
         var seedByName = seedNodes.ToDictionary(n => n.Name);
         Assert.NotEmpty(nodes);
         Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.GreenNodeGenerator).Assembly.GetName().Name);
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RavenGreenNodeGenerator).Assembly.GetName().Name);
         foreach (var node in nodes)
         {
             var seed = seedByName[node.Name];
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenGreenNodeGenerator.GenerateNode(seed),
+                Raven.Generators.RavenGreenNodeGenerator.GenerateNode(node));
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenGreenNodeGenerator.GenerateFactory(seed),
+                Raven.Generators.RavenGreenNodeGenerator.GenerateFactory(node));
             Assert.Equal(SeedGenerator::Raven.Generators.GreenNodeGenerator.GenerateGreenNode(seed, seedByName),
                 Raven.Generators.GreenNodeGenerator.GenerateGreenNode(node, byName));
             Assert.Equal(SeedGenerator::Raven.Generators.GreenNodeGenerator.GenerateFactoryMethod(seed)?.ToFullString(),

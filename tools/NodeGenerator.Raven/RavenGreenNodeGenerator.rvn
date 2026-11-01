@@ -1,0 +1,161 @@
+namespace Raven.Generators
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import NodesShared.*
+
+public static class RavenGreenNodeGenerator
+{
+    static func GenerateNode(node: SyntaxNodeModel) -> string
+    {
+        let sb = Header()
+        let name = node.Name + "Syntax"
+        let baseName = MapType(node.Inherits, false)
+        let mode = if node.IsAbstract { "abstract" } else { "open" }
+        Line(sb, "internal ${mode} partial class ${name} : ${baseName} {")
+        let slots = if node.IsAbstract { node.Slots.ToList() } else { node.Slots.Where(s => !s.IsAbstract).ToList() }
+        if (!node.IsAbstract)
+        {
+            let parameters = Parameters(node, slots)
+            parameters.Add("diagnostics: IEnumerable<DiagnosticInfo>? = null")
+            parameters.Add("annotations: IEnumerable<SyntaxAnnotation>? = null")
+            let parameterText = string.Join(", ", parameters)
+            let kind = if node.HasExplicitKind { "kind" } else { "SyntaxKind." + node.Name }
+            let values = slots.Select(s => if s.IsNullable { Camel(s.Name) } else { Camel(s.Name) + " ?? throw ArgumentNullException(nameof(" + s.Name + "))" })
+            let slotText = string.Join(", ", values)
+            Line(sb, "    init(${parameterText}) : base(${kind}, [${slotText}], diagnostics, annotations) { }")
+        }
+        Line(sb, "    protected init(kind: SyntaxKind, slots: GreenNode?[], diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null) : base(kind, slots, diagnostics, annotations) { }")
+        var index = 0
+        for slot in slots
+        {
+            let type = MapType(slot.FullTypeName, slot.IsNullable)
+            let property = slot.Name
+            if (node.IsAbstract && !slot.IsInherited && slot.IsAbstract)
+            {
+                Line(sb, "    abstract val ${property}: ${type} { get; }")
+                continue
+            }
+            if (node.IsAbstract && !slot.IsInherited) {
+                continue
+            }
+            let modifier = if slot.IsInherited { "override " } else { "" }
+            Line(sb, "    ${modifier}val ${property}: ${type} => GetSlot<${type}>(${index})")
+            index++
+        }
+        if (!node.IsAbstract)
+        {
+            let visit = "Visit" + node.Name
+            Line(sb, "    internal override func Accept(visitor: SyntaxVisitor) { visitor.${visit}(self) }")
+            Line(sb, "    internal override func Accept<TNode>(visitor: SyntaxVisitor<TNode>) -> TNode { return visitor.${visit}(self) }")
+            Line(sb, "    override func CreateRed(parent: Raven.CodeAnalysis.Syntax.SyntaxNode?, position: int) -> Raven.CodeAnalysis.Syntax.SyntaxNode { return Raven.CodeAnalysis.Syntax.${name}(self, parent, position) }")
+            Line(sb, "    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> ${name} {")
+            Line(sb, "        var i = 0")
+            Line(sb, "        while i < SlotCount {")
+            Line(sb, "            if !ReferenceEquals(GetSlot(i), children[i]) { break }")
+            Line(sb, "            i++")
+            Line(sb, "        }")
+            Line(sb, "        if i == SlotCount && AreEqual(diagnostics, _diagnostics) && AreEqual(annotations, _annotations) { return self }")
+            Line(sb, "        return ${name}(Kind, children, diagnostics, annotations)")
+            Line(sb, "    }")
+            let updateParameters = string.Join(", ", Parameters(node, node.Slots))
+            let arguments = Arguments(node, node.Slots)
+            let updateArguments = string.Join(", ", arguments)
+            let conditions = node.Slots.Select(s => "!ReferenceEquals(" + s.Name + ", " + Camel(s.Name) + ")").ToList()
+            if (node.HasExplicitKind) {
+                conditions.Insert(0, "Kind != kind")
+            }
+            let condition = if conditions.Count == 0 { "false" } else { string.Join(" || ", conditions) }
+            Line(sb, "    func Update(${updateParameters}) -> ${name} {")
+            Line(sb, "        if ${condition} { return ${name}(${updateArguments}) }")
+            Line(sb, "        return self")
+            Line(sb, "    }")
+        }
+        Line(sb, "}")
+        return sb.ToString()
+    }
+
+    static func GenerateFactory(node: SyntaxNodeModel) -> string?
+    {
+        if (node.IsAbstract) {
+            return null
+        }
+        let sb = Header()
+        let name = node.Name
+        let type = name + "Syntax"
+        let parameters = Parameters(node, node.Slots)
+        parameters.Add("diagnostics: IEnumerable<DiagnosticInfo>? = null")
+        parameters.Add("annotations: IEnumerable<SyntaxAnnotation>? = null")
+        let arguments = Arguments(node, node.Slots)
+        arguments.Add("diagnostics")
+        arguments.Add("annotations")
+        let parameterText = string.Join(", ", parameters)
+        let argumentText = string.Join(", ", arguments)
+        Line(sb, "internal static partial class SyntaxFactory {")
+        if (node.Slots.Any(s => s.IsNullable))
+        {
+            let minimalParameters = string.Join(", ", Parameters(node, node.Slots.Where(s => !s.IsNullable).ToList()))
+            let minimalArguments = List<string>()
+            if (node.HasExplicitKind) {
+                minimalArguments.Add("kind")
+            }
+            minimalArguments.AddRange(node.Slots.Select(s => if s.IsNullable { "null" } else { Camel(s.Name) }))
+            minimalArguments.Add("null")
+            minimalArguments.Add("null")
+            let minimalArgumentText = string.Join(", ", minimalArguments)
+            Line(sb, "    static func ${name}(${minimalParameters}) -> ${type} => ${name}(${minimalArgumentText})")
+        }
+        Line(sb, "    static func ${name}(${parameterText}) -> ${type} => ${type}(${argumentText})")
+        Line(sb, "}")
+        return sb.ToString()
+    }
+
+    private static func Header() -> StringBuilder
+    {
+        let sb = StringBuilder()
+        Line(sb, "namespace Raven.CodeAnalysis.Syntax.InternalSyntax")
+        Line(sb, "")
+        Line(sb, "import System.*")
+        Line(sb, "import System.Collections.Generic.*")
+        Line(sb, "alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind")
+        Line(sb, "alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation")
+        Line(sb, "")
+        return sb
+    }
+
+    private static func Parameters(node: SyntaxNodeModel, slots: List<SlotModel>) -> List<string>
+    {
+        let result = slots.Select(s => Camel(s.Name) + ": " + MapType(s.FullTypeName, s.IsNullable)).ToList()
+        if (node.HasExplicitKind) {
+            result.Insert(0, "kind: SyntaxKind")
+        }
+        return result
+    }
+
+    private static func Arguments(node: SyntaxNodeModel, slots: List<SlotModel>) -> List<string>
+    {
+        let result = slots.Select(s => Camel(s.Name)).ToList()
+        if (node.HasExplicitKind) {
+            result.Insert(0, "kind")
+        }
+        return result
+    }
+
+    private static func MapType(rawType: string, nullable: bool) -> string
+    {
+        let type = rawType match
+        {
+            "Node" => "SyntaxNode",
+            "Token" => "SyntaxToken",
+            "TokenList" => "SyntaxList",
+            let value when value.StartsWith("List<") || value.StartsWith("SeparatedList<") => "SyntaxList",
+            _ => rawType + "Syntax"
+        }
+        return if nullable { type + "?" } else { type }
+    }
+
+    private static func Camel(name: string) -> string => if string.IsNullOrEmpty(name) || char.IsLower(name[0]) { name } else { char.ToLowerInvariant(name[0]) + name.Substring(1) }
+    private static func Line(builder: StringBuilder, line: string) => builder.AppendLine(line)
+}

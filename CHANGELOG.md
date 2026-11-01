@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Begin Raven green-node and factory source output in both generator implementations,
+  with shared C# tests compiling and executing a generated hierarchy. Preserve C#
+  output and explicitly annotate nullable green slots in both output paths.
 - Fix generic override matching and direct-call candidate suppression, support
   covariant reference-return dispatch on capable CLI targets, preserve nullable
   reference membership in nominal constraints, and target-type constructor

@@ -1,0 +1,82 @@
+// Output-contract fixture; production syntax runtime is ported separately.
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+namespace Raven.CodeAnalysis.Syntax {
+    enum SyntaxKind { None, Token, Sample, Alternate }
+    internal class SyntaxAnnotation { }
+    internal open class SyntaxNode {
+        val Position: int
+        init(position: int) { Position = position }
+    }
+    internal class SampleSyntax : SyntaxNode {
+        val Green: InternalSyntax.SampleSyntax
+        val Parent: SyntaxNode?
+        init(green: InternalSyntax.SampleSyntax, parent: SyntaxNode?, position: int) : base(position) {
+            Green = green
+            Parent = parent
+        }
+    }
+}
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
+    internal class DiagnosticInfo { }
+    internal open class GreenNode {
+        internal field _diagnostics: DiagnosticInfo[]?
+        internal field _annotations: Raven.CodeAnalysis.Syntax.SyntaxAnnotation[]?
+        val Kind: Raven.CodeAnalysis.Syntax.SyntaxKind
+        val SlotCount: int
+        init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind, count: int, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<Raven.CodeAnalysis.Syntax.SyntaxAnnotation>? = null) {
+            Kind = kind
+            SlotCount = count
+            _diagnostics = diagnostics?.ToArray()
+            _annotations = annotations?.ToArray()
+        }
+        virtual func GetSlot(index: int) -> GreenNode? { throw InvalidOperationException() }
+        func GetSlot<T>(index: int) -> T where T: GreenNode? { return (T)GetSlot(index) }
+        internal virtual func Accept(visitor: SyntaxVisitor) { throw InvalidOperationException() }
+        internal virtual func Accept<T>(visitor: SyntaxVisitor<T>) -> T { throw InvalidOperationException() }
+        virtual func CreateRed(parent: Raven.CodeAnalysis.Syntax.SyntaxNode?, position: int) -> Raven.CodeAnalysis.Syntax.SyntaxNode { throw InvalidOperationException() }
+        internal virtual func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: Raven.CodeAnalysis.Syntax.SyntaxAnnotation[]? = null) -> GreenNode { throw InvalidOperationException() }
+        protected static func AreEqual<T>(a: T[]?, b: T[]?) -> bool {
+            if ReferenceEquals(a, b) { return true }
+            if a is null || b is null { return false }
+            return a!.SequenceEqual(b!)
+        }
+    }
+    internal abstract class SyntaxNode : GreenNode {
+        private field _slots: GreenNode?[]
+        init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind, slots: GreenNode?[], diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<Raven.CodeAnalysis.Syntax.SyntaxAnnotation>? = null) : base(kind, slots.Length, diagnostics, annotations) { _slots = slots }
+        override func GetSlot(index: int) -> GreenNode? => _slots[index]
+    }
+    internal class SyntaxToken : GreenNode {
+        init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind) : base(kind, 0) { }
+    }
+    internal class SyntaxVisitor {
+        var Last: GreenNode? { get; set; } = null
+        func VisitSample(node: SampleSyntax) { Last = node }
+    }
+    internal class SyntaxVisitor<T> {
+        private field _result: T
+        init(result: T) { _result = result }
+        func VisitSample(node: SampleSyntax) -> T => _result
+    }
+    public static class Probe {
+        static func Run() -> int {
+            let kind = Raven.CodeAnalysis.Syntax.SyntaxKind.Sample
+            let token = SyntaxToken(Raven.CodeAnalysis.Syntax.SyntaxKind.Token)
+            let node = SyntaxFactory.Sample(kind, token)
+            if node.Kind != kind || node.SlotCount != 2 || !ReferenceEquals(node.Keyword, token) || node.Child is not null { throw InvalidOperationException("slots") }
+            if !ReferenceEquals(node, node.Update(kind, token, null)) { throw InvalidOperationException("update identity") }
+            let changed = node.Update(Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate, token, node)
+            if ReferenceEquals(node, changed) || changed.Kind != Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate || !ReferenceEquals(changed.Child, node) { throw InvalidOperationException("update change") }
+            let diagnostics = [| DiagnosticInfo() |]
+            let annotated = node.With([token, node], diagnostics, null)
+            if !ReferenceEquals(annotated, annotated.With([token, node], diagnostics, null)) { throw InvalidOperationException("with identity") }
+            let visitor = SyntaxVisitor()
+            node.Accept(visitor)
+            if !ReferenceEquals(visitor.Last, node) { throw InvalidOperationException("visitor") }
+            if node.CreateRed(null, 17).Position != 17 { throw InvalidOperationException("red") }
+            return node.Accept<int>(SyntaxVisitor<int>(42))
+        }
+    }
+}
