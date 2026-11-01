@@ -2746,6 +2746,20 @@ partial class BlockBinder : Binder
         SyntaxKind binaryOperatorKind,
         ExpressionSyntax rightSyntax)
     {
+        if (binaryOperatorKind == SyntaxKind.QuestionQuestionToken)
+        {
+            if (!targetType.IsReferenceType && targetType is not NullableTypeSymbol)
+            {
+                _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
+                    "??=", targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), rightSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+
+            // The enclosing assignment supplies the null guard. Keep the RHS
+            // inside that branch so neither it nor a setter runs for a value.
+            return PrepareRightForAssignment(rightValue, targetType, rightSyntax);
+        }
+
         if (IsCheckedContext(rightSyntax.Parent) && targetType is NullableTypeSymbol or IPointerTypeSymbol)
         {
             _diagnostics.ReportCheckedExpressionOperationNotSupported("compound assignment", rightSyntax.GetLocation());
@@ -7450,6 +7464,9 @@ partial class BlockBinder : Binder
         SyntaxKind operatorTokenKind)
     {
         var result = BindCompoundAssignmentCore(leftSyntax, rightSyntax, node, operatorTokenKind);
+        if (operatorTokenKind == SyntaxKind.QuestionQuestionEqualsToken)
+            return GuardNullCoalescingAssignment(result, leftSyntax);
+
         var target = result switch
         {
             BoundFieldAssignmentExpression field => new BoundFieldAccess(field.Receiver, field.Field),

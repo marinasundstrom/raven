@@ -9071,6 +9071,8 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
                 else if (resultLocal is not null)
                     ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+                else if (block.Type.SpecialType == SpecialType.System_Unit)
+                    EmitUnitValue();
             }
         }
         finally

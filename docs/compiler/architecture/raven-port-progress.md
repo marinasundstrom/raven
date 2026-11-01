@@ -128,11 +128,9 @@ The workload exposed these stabilization issues:
 - `ImmutableArray.CreateBuilder<TextLine>` nested member substitution is fixed by
   PORT-005, with symbol and emitted-runtime regressions. The original builder calls
   remain in the draft.
-- `cache ??= List<int>()` is parsed but reports unsupported `??`; null-coalescing
-  assignment remains a reduced compiler gap to fix with correct lazy evaluation
-  and storage validation. It is no longer needed by the change-value types after
-  removing their mutable empty-list caches; this is not evidence that the language
-  gap itself is fixed.
+- `cache ??= List<int>()` originally reported unsupported `??`. PORT-015 fixes
+  lazy evaluation and storage validation. Removing the change-value types'
+  mutable empty-list caches was a separate cleanup, not the language correction.
 - String range indexing is implemented by PORT-006. The original slicing
   expressions remain in the snapshot reader and pass the shared reader tests.
 - C# indexer consumption and framework scopes are fixed by PORT-008 and PORT-009;
@@ -163,7 +161,8 @@ Keep generated syntax-kind definitions tied to their source model rather than
 maintaining a divergent handwritten copy. `SourceTextWriter`
 depends on syntax nodes and follows that dependency group.
 Continue preserving each discovered failure as a regression at its owning layer.
-Open coalescing-assignment and stored-range parser gaps remain stabilization work.
+The stored-range parser gap remains open; coalescing assignment is corrected by
+PORT-015 below.
 
 Keep C# tests as the main parity oracle. A bounded Raven translation of text tests
 may be explored in its own project (author direction, 2026-11-01); do not merge it
@@ -363,8 +362,9 @@ identity check (86 total). `Token` retains its existing constructors and struct
 value semantics; a record/factory redesign would affect many callers and is not
 part of this slice (author direction, 2026-11-01).
 
-A fresh broad baseline is being run for the build and parity-harness changes.
-Its result is separate from these focused checks; no full-baseline pass is claimed.
+The broad baseline for the build/parity changes terminated with the known
+RavenDoc enrichment failure recorded under PORT-015; no full-baseline pass is
+claimed.
 
 ## Diagnostic dependency checkpoint — 2026-11-01
 
@@ -436,3 +436,36 @@ Validation: **95 shared C# tests pass against each implementation**, plus the
 Raven project's one additional enum/assembly check (96 total). These runs execute
 on .NET 11. The earlier broad baseline continues separately against its original
 main-test binaries and is not claimed as validation of this new slice.
+
+## PORT-015: coalescing assignment needed by the diagnostic catalog
+
+The generated C# catalog uses lazy `??=` getters. Raven parsed the operator but
+sent it through ordinary binary-operator binding, reporting unsupported `??`.
+A reduced runtime selection reproduced the failure. Binding now validates the
+original writable location and conversion, then guards the write with a null
+pattern. Receiver/index capture is shared with mutation stabilization; arbitrary
+user RHS expressions are not rewritten. Null patterns avoid overloaded equality.
+
+Property/indexer coverage also exposed nested statement-only block emission that
+stored a nonexistent `unit` value. Value-position blocks now emit `unit` when no
+result expression supplies one. Coverage uses observable behavior rather than
+emitted-instruction assertions. The binder and emitter have not yet been ported;
+these corrections must be retained in their Raven translations.
+
+Assignment remains unit-valued in Raven, so generated lazy getters will use a
+`??=` statement followed by an explicit return. That is the documented language
+translation, not an assignment-valued C# expression copied into Raven. The
+language specification is also the website source; both are updated without
+running RavenDoc. Existing grammar already recognizes `??=`.
+
+The pre-change adjacent compound/coalescing baseline passed 50 tests. The earlier
+broad baseline has now terminated with the previously recorded RavenDoc
+`TypeRelationshipsAndEnrichmentUseSemanticContracts` failure (missing
+`../Extras/indexer_Item.html`); it is not a full-baseline pass and is not rerun
+as part of porting documentation generation.
+
+Validation: 66 focused/adjacent assignment, null-coalescing, block and unit tests
+pass on .NET 11. The retained C# tests remain authoritative runtime regressions;
+no emitted-opcode assertions were added. The existing compiler-port parity corpus
+passes 95 shared cases against each implementation, plus the Raven project's
+one additional enum/assembly check (96 total).

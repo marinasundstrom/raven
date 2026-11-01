@@ -162,3 +162,18 @@ completion reuses the delegate's existing runtime members instead of registering
 duplicate `Invoke` members. Public member queries and emitted signatures therefore
 observe one owned delegate signature. `ParamsMetadataTests` covers both declaration
 paths together with their exported array-collector metadata.
+
+### Null-coalescing assignment
+
+`??=` uses ordinary writable-location validation and assignment conversions,
+then binds a guarded mutation with a null pattern. It preserves assignment's
+`unit` type. The guard does not bind overloaded equality, and mutation-location
+capture evaluates reference receivers and indices once. User RHS expressions
+remain inside the guarded write, including property and indexer setters.
+Conditional receiver assignments retain their outer receiver-null guard.
+
+The emitter produces a `unit` value when a statement-only block is consumed as an
+expression, including nested guarded mutation blocks. Runtime regressions cover
+nullable reference/value locals, static fields, ref storage, arrays, properties,
+indexers, conditional receivers, overloaded equality, and rejected storage/value
+combinations. These are .NET execution checks, not native runtime qualification.

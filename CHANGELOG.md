@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind null-coalescing assignment (`??=`) with lazy right-hand-side evaluation,
+  skipped setters for existing values, and single evaluation of receiver/index
+  locations. Preserve assignment's `unit` result, including nested statement-only
+  blocks consumed as expressions.
+
 - Port resource-backed localizable strings and implement current-UI-culture
   resource lookup in both compiler codebases. Give literal and resource-backed
   strings explicit, culture-stable equality and hashing; retain reference identity

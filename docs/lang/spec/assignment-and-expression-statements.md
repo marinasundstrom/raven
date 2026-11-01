@@ -49,6 +49,24 @@ Pattern assignments can update several existing locations at once. Their forms
 and extraction rules are described under [Matching and
 deconstruction](pattern-matching.md#matching-and-deconstruction).
 
+### Null-coalescing assignment
+
+`location ??= value` assigns only when the current value is `null`. The location
+must be writable and have a reference or nullable value type. The right-hand side
+must be assignable to that storage type. As with other assignments, the result is
+`unit`, not the stored value.
+
+```raven
+var cached: string? = null
+cached ??= CreateText()
+```
+
+The receiver and index arguments are evaluated once, before reading the location.
+If the read produces a non-null value, neither the right-hand side nor a property
+or indexer setter runs. The null test uses null identity or nullable presence,
+not an overloaded equality operator. Read-only storage remains invalid even when
+its current value is non-null.
+
 ## Expression statements
 
 Most expressions can be used as statements when their value is not needed:
