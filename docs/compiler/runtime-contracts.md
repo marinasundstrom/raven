@@ -4847,3 +4847,32 @@ non-reference-classified type parameter is a constructed Nullable<T>. Concrete
 nullable-value and union null tests retain their existing paths. Focused runtime
 coverage checks is-null and is-not-null with references, values, nullable values
 and nullable reference constraints; generated red-node caching exposed the gap.
+
+
+### Qualified source types during declaration binding
+
+Qualified-expression lookup uses indexed source declarations when canonical
+metadata-name lookup cannot answer during reentrant declaration binding. The
+fallback stays within the named namespace and checks generic arity. It retains
+canonical metadata/target-provider selection and completes only the requested
+source declaration rather than forcing compilation-wide binding.
+
+This fixes missing constructor delegation in generated multi-file syntax trees:
+an initializer argument constructing a qualified source type could previously
+be cached as an error while signatures were being declared. No constructor
+syntax, runtime encoding or target default changes. This is shared binding and
+therefore also applies to neoCLR; validation executes on modern .NET. The binder
+is not yet translated and its Raven port must preserve this behavior.
+
+Explicit constructor initializers bind once per semantic model after declaration
+binders are available, rather than during reentrant member-signature registration.
+Document diagnostics trigger this step before collecting body diagnostics;
+constructor-initializer symbol queries first complete source declaration binding.
+This preserves the existing lazy body-binding boundary while avoiding provisional
+initializer errors against incomplete base hierarchies.
+
+Initializer and delegation-cycle diagnostics belong to the semantic model's
+declaration diagnostic bag, rather than a replaceable class binder. Invalid
+initializers remain errors on repeated diagnostic and emit requests. Ownership is
+isolated in SemanticModel.ConstructorInitializers.cs; no public cache-specific API
+is added.

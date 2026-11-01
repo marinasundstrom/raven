@@ -1505,3 +1505,38 @@ must retain these fixes. The nominal relationship change is shared across target
 neoCLR's native generic null-test representation remains target-owned. The CLI
 bridge documentation records the boxed encoding and its replacement intent. No
 native execution or completed bootstrap is claimed.
+
+
+## PORT-052 — qualified source lookup and constructor-initializer ownership
+
+The Raven red-node probe exposed a missing `: self(...)` call. Qualified source
+types could appear absent during reentrant declaration lookup because canonical
+metadata lookup intentionally omits source types at that point. Qualified
+expression lookup now falls back to the indexed source declaration in the same
+namespace, preserving arity and canonical metadata/target-provider selection.
+
+Retaining diagnostics also exposed provisional initializer errors against
+incomplete class hierarchies. Explicit constructor initializers now bind once per
+semantic model after declaration binders are ready. Their diagnostics and cycle
+errors belong to the model's declaration bag, not a replaceable class binder.
+The implementation is isolated in SemanticModel.ConstructorInitializers.cs.
+Constructor-initializer symbol queries complete declarations without eagerly
+binding ordinary method bodies. No syntax or target-default changes are involved.
+
+The reduced negative baseline had **182 passing / 2 failing tests**: invalid
+qualified constructor calls lost their diagnostics in both compilation and document
+queries. Focused tests now cover cross-file declaration order, unrelated global
+names, persistent invalid-initializer diagnostics, emission rejection and existing
+self/base delegation behavior. The generated red runtime probe now passes.
+
+These components are not yet translated. Their Raven ports must retain the shared
+lookup and initializer behavior; the neoCLR target consumes the same binder.
+Validation executes on modern .NET, not a native runtime. The broad baseline
+started before this slice stopped at RavenDocGenerationTests' source-only
+extension-indexer link assertion; this is not a clean full-baseline claim.
+
+Final focused validation: **303 adjacent compiler tests** and **63 C# generator
+tests pass** on .NET 11, including the generated red-node runtime probe. Targeted
+compiler builds, required generator/build script, whitespace formatting and diff
+checks pass. The red emitter and its shared fixture are committed in the following
+slice after validating the translated generator.

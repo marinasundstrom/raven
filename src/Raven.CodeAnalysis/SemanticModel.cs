@@ -746,6 +746,7 @@ public partial class SemanticModel
                     ? GetRootBinderForCompleteDiagnostics(root)
                     : GetBinderForIncrementalSemanticQuery(root);
                 diagnosticInstrumentation.RecordBinderSelectionTicks(Stopwatch.GetTimestamp() - phaseStart);
+                EnsureConstructorInitializersBound();
 
                 var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
                 if (!requireCompleteDeclarations &&
@@ -2368,7 +2369,9 @@ public partial class SemanticModel
 
         if (node is ConstructorInitializerSyntax { Parent: ConstructorDeclarationSyntax declaration })
         {
+            Compilation.EnsureSourceDeclarationsComplete();
             EnsureDeclarations();
+            EnsureConstructorInitializersBound();
             return GetDeclaredSymbol(declaration) is SourceMethodSymbol { ConstructorInitializer: { } initializer }
                 ? new SymbolInfo(initializer.Constructor)
                 : SymbolInfo.None;

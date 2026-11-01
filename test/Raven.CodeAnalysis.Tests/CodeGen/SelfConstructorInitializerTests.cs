@@ -7,6 +7,53 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class SelfConstructorInitializerTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void QualifiedConstructorInDelegationResolvesAcrossSyntaxTrees(bool reverse)
+    {
+        var sources = new[] {
+            """
+            namespace Public {
+                class Value {
+                    val Number: int
+                    init(number: int) : self(Internal.Value(number)) { }
+                    init(value: Internal.Value) { Number = value.Number }
+                }
+            }
+            class Probe { static func Run() -> int => Public.Value(42).Number }
+            """,
+            """
+            namespace Public.Internal {
+                class Value {
+                    val Number: int
+                    init(number: int) { Number = number }
+                }
+            }
+            """
+        };
+        if (reverse) Array.Reverse(sources);
+        var compilation = Compilation.Create("QualifiedDelegation" + Guid.NewGuid().ToString("N"),
+            sources.Select(source => SyntaxTree.ParseText(source)).ToArray(), TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Equal(42, Execute(compilation));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingQualifiedConstructorInDelegationReportsDiagnostic(bool documentDiagnostics)
+    {
+        var tree = SyntaxTree.ParseText("namespace Public { class Value { init() : self(Internal.Missing()) {}; init(value: int) {} } }");
+        var compilation = Compilation.Create("MissingDelegation", [tree,
+            SyntaxTree.ParseText("namespace Public.Internal { class Present {} }; class Missing {}")],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = documentDiagnostics ? compilation.GetSemanticModel(tree).GetDiagnostics() : compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV0234");
+        using var image = new MemoryStream();
+        Assert.False(compilation.Emit(image).Success);
+    }
+
+    [Theory]
     [InlineData("class")]
     [InlineData("struct")]
     public void DelegationRunsFieldInitializerOnceAndBodiesInOrder(string kind)
@@ -180,7 +227,11 @@ public sealed class SelfConstructorInitializerTests
 
     private static int Execute(string source)
     {
-        var compilation = Create(source);
+        return Execute(Create(source));
+    }
+
+    private static int Execute(Compilation compilation)
+    {
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         using var image = new MemoryStream();
         var result = compilation.Emit(image);

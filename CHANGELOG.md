@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve qualified source types during lazy declaration binding instead of
+  treating their temporary absence from metadata lookup as a missing type. This
+  preserves constructor delegation in generated, multi-file syntax hierarchies.
+  Bind explicit initializers after declaration binders are ready and retain their
+  declaration diagnostics across rebinding.
+
 - Emit generic null patterns correctly for reference, value and nullable-value
   type arguments, including nullable reference bounds. Generic `is null` and
   `is not null` no longer attempt to use Nullable<T> members on a type parameter.

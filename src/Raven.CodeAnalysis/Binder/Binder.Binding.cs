@@ -18,6 +18,10 @@ internal abstract partial class Binder
         if (arity > 0)
             metadataName += "`" + arity;
         var exact = Compilation.GetTypeByMetadataName(metadataName);
+        // Metadata-name lookup omits source types during reentrant declaration binding.
+        // Complete only the indexed type in this namespace before reporting it missing.
+        if (exact is null && Compilation.TryDeclareIndexedSourceType(owner, name, out var sourceType) && sourceType.Arity == arity)
+            exact = sourceType;
         if (exact is not null || arity != 0)
             return exact;
 
