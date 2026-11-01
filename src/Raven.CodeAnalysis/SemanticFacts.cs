@@ -309,8 +309,16 @@ public static class SemanticFacts
         if (!visited.Add(typeParameter))
             return false;
 
-        foreach (var constraint in typeParameter.ConstraintTypes)
+        if (potentialBase is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableBase)
+            potentialBase = nullableBase.UnderlyingType;
+
+        foreach (var declaredConstraint in typeParameter.ConstraintTypes)
         {
+            // Reference annotations do not remove nominal base/interface bounds.
+            // Nullable value types retain their distinct runtime identity.
+            var constraint = declaredConstraint is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullable
+                ? nullable.UnderlyingType
+                : declaredConstraint;
             if (constraint.MetadataIdentityEquals(potentialBase))
                 return true;
 
@@ -336,8 +344,13 @@ public static class SemanticFacts
         if (!visited.Add(typeParameter))
             return false;
 
-        foreach (var constraint in typeParameter.ConstraintTypes)
+        foreach (var declaredConstraint in typeParameter.ConstraintTypes)
         {
+            // Reference annotations do not remove nominal base/interface bounds.
+            // Nullable value types retain their distinct runtime identity.
+            var constraint = declaredConstraint is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullable
+                ? nullable.UnderlyingType
+                : declaredConstraint;
             if (constraint is INamedTypeSymbol namedConstraint)
             {
                 if (namedConstraint.MetadataIdentityEquals(interfaceType))

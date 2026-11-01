@@ -2045,6 +2045,16 @@ internal partial class ExpressionGenerator
 
     private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
     {
+        if (scrutineeType is ITypeParameterSymbol)
+        {
+            // A generic argument can be a reference, value or Nullable<T>.
+            // CLI boxing gives all three their ordinary null-test semantics.
+            ILGenerator.Emit(OpCodes.Box, scrutineeClr);
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Ceq);
+            return;
+        }
+
         if (scrutineeType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Struct } &&
             scrutineeType is INamedTypeSymbol scrutineeNamedType)
         {

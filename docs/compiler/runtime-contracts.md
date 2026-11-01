@@ -4820,3 +4820,30 @@ This is shared binding for both targets, with unchanged .NET defaults and unchan
 CLI/native override representation contracts. The generated Raven hierarchy executes
 on modern .NET, and query-order/override tests cover partial generic bases. The
 unported binder must retain this correction when translated.
+
+
+### Nullable reference bounds in nominal relationship queries
+
+SemanticFacts base/interface queries for type parameters unwrap nullable reference
+annotations on their declared constraints. A bound such as `T : Node?` still
+establishes the Node relationship needed for an explicit Node-to-T cast; a nullable
+interface bound still establishes interface membership. Nullable value-type bounds
+retain their distinct identity, and unrelated casts remain invalid. This extends
+the nominal constraint-membership correction to relationship queries rather than
+weakening assignment nullability or notnull constraints.
+
+The correction is shared by .NET and neoCLR semantic analysis, with no new target
+policy, runtime encoding or public API. The unported SemanticFacts implementation
+must retain it when translated. Generated Raven red-node code exposed the gap in
+its constrained generic child-cache helper; native runtime execution is not claimed.
+
+
+### Generic null patterns in CLI emission
+
+Null tests on a generic type parameter use the CLI boxed representation before
+comparison with null. References preserve their identity, ordinary values are
+non-null, and an empty Nullable<T> boxes to null. This avoids assuming that every
+non-reference-classified type parameter is a constructed Nullable<T>. Concrete
+nullable-value and union null tests retain their existing paths. Focused runtime
+coverage checks is-null and is-not-null with references, values, nullable values
+and nullable reference constraints; generated red-node caching exposed the gap.

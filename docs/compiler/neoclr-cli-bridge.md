@@ -18404,3 +18404,16 @@ validation, including later partial declarations. This prevents premature invali
 override flags from reaching either backend. It adds no CLI bridge encoding or
 native capability and does not alter target-owned covariance support. Validation
 executes generated hierarchies on modern .NET; native execution is not claimed.
+
+
+### Generic null-test intent and CLI representation
+
+Generic null patterns distinguish an absent reference/nullable value from a present
+value. Shared CLI emission now boxes the generic value for the null comparison,
+so empty Nullable<T> and reference null have the expected result while ordinary
+values remain non-null. This temporary CLI representation is not a requirement
+that native neoCLR box null tests: native codegen must use its target-owned generic
+value representation to preserve the same observable semantics. Validation executes
+reference, value, nullable-value and constrained-reference cases on modern .NET;
+no native-runtime execution is claimed. Nullable reference constraint relationship
+queries are shared semantic logic and do not introduce a bridge encoding.

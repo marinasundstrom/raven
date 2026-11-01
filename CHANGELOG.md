@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit generic null patterns correctly for reference, value and nullable-value
+  type arguments, including nullable reference bounds. Generic `is null` and
+  `is not null` no longer attempt to use Nullable<T> members on a type parameter.
+
+- Preserve nominal base and interface relationships through nullable reference
+  generic bounds. Explicit casts to `T` constrained by `Base?` and interface
+  membership queries on `T : IMarker?` now retain their underlying relationships.
+
 - Declare matching source-base signatures before override validation, including
   methods in later partial declarations. Valid derived overrides no longer depend
   on whether another semantic query has already discovered the base method.

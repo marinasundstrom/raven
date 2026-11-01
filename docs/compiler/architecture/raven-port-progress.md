@@ -1475,3 +1475,33 @@ the fixture prerequisite: **all 20 MetadataReferenceResolutionTests pass** witho
 RavenDoc/site generation. No compiler/test expectation was weakened. A fresh full
 baseline on the completed slice remains required; prior mixed-worktree batches are
 not a final all-green baseline claim.
+
+
+### PORT-051: Stabilize nullable generic bounds and generic null patterns
+
+The red-node output probe exposed two compiler gaps. A constrained child-cache
+cast from SyntaxNode to T failed for `where T: SyntaxNode?`, and generic null
+patterns attempted to use Nullable<T>.HasValue on a generic parameter builder.
+
+Nominal base/interface queries now unwrap nullable reference annotations on bounds
+(and the queried base), retaining nullable value-type identity and unrelated-cast
+rejection. The initial reduced baseline was **11 passing / 2 failing tests**.
+The test matrix also covers nullable source casts to prevent regressing the green
+slot helper. CLI generic null tests now box the generic value before comparing
+with null; concrete nullable/union paths remain unchanged. The new runtime test
+failed before correction and covers references, values, nullable values and
+nullable reference bounds, for both is-null and is-not-null.
+
+Validation: **55 semantic tests** and **14 focused/adjacent runtime tests pass** on
+.NET 11. Targeted compiler builds, whitespace formatting and diff checks pass.
+The generated red probe now emits successfully, but still fails at runtime with
+a NullReferenceException in its generic ref child-cache helper; that separate
+issue remains under investigation before committing the red emitter. The generator
+suite at this point has **62 passing / 1 failing tests**, so no complete red-output
+validation is claimed.
+
+SemanticFacts and the CLI emitter are not yet ported; their future translations
+must retain these fixes. The nominal relationship change is shared across targets;
+neoCLR's native generic null-test representation remains target-owned. The CLI
+bridge documentation records the boxed encoding and its replacement intent. No
+native execution or completed bootstrap is claimed.
