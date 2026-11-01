@@ -80,7 +80,20 @@ public class NodeEmitterTests
 internal static class NodeEmitterInputs
 {
     internal static List<SyntaxNodeModel> Nodes() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Model.xml"))
-        .Descendants("Node").Select(n => new SyntaxNodeModel { Name = (string)n.Attribute("Name")!, IsAbstract = (bool?)n.Attribute("IsAbstract") ?? false }).ToList();
+        .Descendants("Node").Select(n => new SyntaxNodeModel
+        {
+            Name = (string)n.Attribute("Name")!,
+            IsAbstract = (bool?)n.Attribute("IsAbstract") ?? false,
+            Inherits = (string?)n.Attribute("Inherits") ?? "",
+            HasExplicitKind = (bool?)n.Attribute("HasExplicitKind") ?? false,
+            Slots = n.Elements("Slot").Select(s => new SlotModel
+            {
+                Name = (string)s.Attribute("Name")!,
+                Type = (string)s.Attribute("Type")!,
+                ElementType = (string?)s.Attribute("ElementType"),
+                IsNullable = (bool?)s.Attribute("IsNullable") ?? false
+            }).ToList()
+        }).ToList();
     internal static List<NodeKindModel> Kinds() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NodeKinds.xml"))
         .Descendants("NodeKind").Select(n => new NodeKindModel((string)n.Attribute("Name")!, (string)n.Attribute("Type")!)).ToList();
     internal static List<TokenKindModel> Tokens() => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Tokens.xml"))

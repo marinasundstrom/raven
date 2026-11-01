@@ -1052,3 +1052,34 @@ by callbacks across yields. The focused and adjacent iterator/async selection
 passes **42 tests**. These components remain in C# and must retain the correction
 when ported. Native neoCLR capture environments retain their existing limitations;
 no native execution or complete iterator/callback lifetime parity is claimed.
+
+### PORT-036: Visitor and rewriter generator
+
+`VisitorGenerator` now has a direct Raven translation in the separate generator
+library, retaining Roslyn syntax construction, iterator dispatch grouping, named
+tuples, inheritance traversal and private helpers. It emits the existing C#
+visitor, generic visitor and rewriter forms for green and red syntax nodes. The
+production generator remains C#; structural node emitters and orchestration are
+still outstanding.
+
+Shared C# tests cover transitive dispatch ordering, empty abstract groups,
+explicit kind arguments, nullable child slots and token/list traversal. The
+cross-implementation test compares all six outputs against C# on the repository
+XML model, including its inheritance and slot information. PORT-035 records the
+iterator-capture defect found through this translation.
+
+A second mismatch was a constructor/import collision: `List<ArgumentSyntax>()`
+selected the imported Roslyn `SyntaxFactory.List<T>()`, yielding an immutable
+syntax list whose ignored Add results lost the generated arguments. The Raven
+translation explicitly constructs `System.Collections.Generic.List<ArgumentSyntax>()`.
+C#'s `new` syntax distinguishes these targets; Raven uses ordinary call syntax,
+so this qualification is required without changing generator logic. The parity
+cases catch the difference. No new language syntax or lookup rule was introduced.
+
+The pre-change generator baseline passed **21 C# / 22 Raven tests**. Final parity
+passes **26 C# / 29 Raven tests** on .NET 11, including exact generated-source
+comparisons. The required generator/compiler build passes. The Raven generator
+library reports 26 warnings, including explicit nullable suppression and ignored
+builder return values; this is not a warning-free build. No native neoCLR runtime
+validation or RavenDoc/website generation was performed. Next dependency slice:
+the green-node emitter, then red nodes and factories.

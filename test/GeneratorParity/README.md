@@ -24,5 +24,9 @@ Coverage includes mutable model defaults and identity, slot type names, XML
 metadata and escaping, every collection slot in the repository syntax model,
 and changes that must affect generator input hashing. Syntax-kind, node-facts and
 token emitters are also ported, preserving their C# and Raven output modes.
-Green/red node classes, visitors, rewriters, model loading and the command-line
-orchestration remain in C# for now.
+Visitors and rewriters also have Raven translations, retaining Roslyn as their
+C# syntax-building dependency. Coverage checks transitive dispatch ordering,
+empty hierarchies, explicit kinds and green/red slot traversal, and compares all
+three visitor/rewriter outputs against C# using the full repository node model.
+Green/red node classes, model loading and command-line orchestration remain in C#
+for now.

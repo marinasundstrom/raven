@@ -40,4 +40,34 @@ public class NodeEmitterCrossImplementationTests
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateSyntaxFacts(seedTokens), TokenGenerator.GenerateSyntaxFacts(tokens));
         Assert.Equal(SeedGenerator::TokenGenerator.GenerateRavenSyntaxFacts(seedTokens), TokenGenerator.GenerateRavenSyntaxFacts(tokens));
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepositoryVisitorsAndRewritersMatchBothImplementations(bool green)
+    {
+        var nodes = NodeEmitterInputs.Nodes();
+        var seedNodes = nodes.Select(n => new SeedModel::NodesShared.SyntaxNodeModel
+        {
+            Name = n.Name,
+            Inherits = n.Inherits,
+            IsAbstract = n.IsAbstract,
+            HasExplicitKind = n.HasExplicitKind,
+            Slots = n.Slots.Select(s => new SeedModel::NodesShared.SlotModel
+            {
+                Name = s.Name,
+                Type = s.Type,
+                ElementType = s.ElementType,
+                IsNullable = s.IsNullable
+            }).ToList()
+        }).ToList();
+        var ns = green ? "Raven.CodeAnalysis.Syntax.InternalSyntax" : "Raven.CodeAnalysis.Syntax";
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.VisitorGenerator).Assembly.GetName().Name);
+        Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateVisitorClass(seedNodes, !green, ns).ToFullString(),
+            Raven.Generators.VisitorGenerator.GenerateVisitorClass(nodes, !green, ns).ToFullString());
+        Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateGenericVisitorClass(seedNodes, !green, ns).ToFullString(),
+            Raven.Generators.VisitorGenerator.GenerateGenericVisitorClass(nodes, !green, ns).ToFullString());
+        Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateSyntaxRewriterClass(seedNodes, !green, ns).ToFullString(),
+            Raven.Generators.VisitorGenerator.GenerateSyntaxRewriterClass(nodes, !green, ns).ToFullString());
+    }
+
 }

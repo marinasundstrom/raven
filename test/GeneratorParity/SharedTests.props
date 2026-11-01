@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="xunit" Version="2.4.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
@@ -13,6 +14,7 @@
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Model.xml" Link="Model.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Tokens.xml" Link="Tokens.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/NodeKinds.xml" Link="NodeKinds.xml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="$(MSBuildThisFileDirectory)VisitorGeneratorTests.cs" Link="VisitorGeneratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NodeEmitterTests.cs" Link="NodeEmitterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NodeModelTests.cs" Link="NodeModelTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NodeSerializationTests.cs" Link="NodeSerializationTests.cs" />
