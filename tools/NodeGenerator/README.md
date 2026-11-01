@@ -61,3 +61,19 @@ The supported kinds of tokens and their characteristics. Used when generating fa
 > Defined in NodeKinds.xml
 
 These are node kinds that don't have their own syntax nodes. The kind is instead explicitly passed into the node type specified as attribute `Type`.
+
+### Raven syntax facts during compiler porting
+
+From `src/Raven.CodeAnalysis/Syntax`, run:
+
+```sh
+dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-facts <output-directory>
+```
+
+This writes `SyntaxFacts.Tokens.g.rvn` and `SyntaxFacts.Nodes.g.rvn` from the same
+XML inputs used for C#. It preserves keyword and reserved-word lookup, token text,
+operator precedence and node classification. The Raven compiler project tracks
+these inputs and includes the generated files on a first build as well as on
+incremental builds. This mode does not overwrite C# outputs or their stamp.
+Retain the ordinary C# generation mode and validate both outputs when changing
+shared models or emitters. The generator itself remains a C# bootstrap tool.

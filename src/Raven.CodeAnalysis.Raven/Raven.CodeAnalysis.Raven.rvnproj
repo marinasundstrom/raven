@@ -25,6 +25,18 @@
       <Compile Include="Syntax/generated/SyntaxKind.g.rvn" />
     </ItemGroup>
   </Target>
+  <Target Name="GeneratePortSyntaxFacts"
+          Inputs="$(MSBuildProjectFullPath);@(PortSyntaxKindInput)"
+          Outputs="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn">
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-facts &quot;$(MSBuildProjectDirectory)/Syntax/generated&quot;"
+          WorkingDirectory="../Raven.CodeAnalysis/Syntax" />
+  </Target>
+  <Target Name="IncludePortSyntaxFacts" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSyntaxFacts">
+    <ItemGroup>
+      <Compile Remove="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn" />
+      <Compile Include="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn" />
+    </ItemGroup>
+  </Target>
   <Target Name="GeneratePortDiagnostics"
           Inputs="$(MSBuildProjectFullPath);@(PortDiagnosticInput)"
           Outputs="Diagnostics/generated/CompilerDiagnostics.g.rvn">

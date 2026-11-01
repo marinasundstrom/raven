@@ -64,7 +64,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
 | `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `CompilerDiagnostics` | Shared catalog lookup/cache checks and cross-assembly descriptor-field parity |
-| `SyntaxFacts` string-decoding helpers | Shared escape decoding, Unicode scalar/consumed-width and hexadecimal validation tests |
+| `SyntaxFacts` | Shared string decoding, identifier escaping and keyword tests; exhaustive cross-assembly kind classification, token text, precedence and UTF-16 identifier classification |
 | `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -154,7 +154,7 @@ The independent text helpers and snapshot I/O/hash coverage are now included.
 tested. Diagnostic payload dependencies (`LocalizableString` and its literal
 implementation, `DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`)
 are now translated, including resource-backed localization. Continue with the
-remaining lexer dependencies (`SyntaxFacts`, parse options and scanner contracts),
+remaining lexer dependencies (parse options and scanner contracts),
 then the lexer itself. The diagnostic catalog is generated from the shared XML. Literal strings
 now have text-based value equality; resource strings have culture-independent
 identity based on their resource configuration. Both corrections are shared by
@@ -543,3 +543,89 @@ Validation: the seed builds; 185 focused/adjacent compiler tests pass.
 (123 total in the Raven test project including the two cross-assembly checks).
 Execution is .NET 11 only. The previously recorded broad-baseline RavenDoc
 failure is unchanged; no full-baseline success is claimed.
+
+## Generated and handwritten syntax facts — 2026-11-01
+
+The retained NodeGenerator now supports `--raven-syntax-facts <directory>`, emitting
+token and node facts from the same XML model and classification rules used for
+C#. The C# output mode remains intact. The Raven project tracks generator/model
+inputs and explicitly includes outputs even when absent at project evaluation.
+
+Port `SyntaxFacts.Identifier` and `SyntaxFacts.Operators` with the existing
+character-category rules, keyword escaping, overloadable-token set and split
+greater-than counts. Private state remains private and readonly. The generated
+lookup tables retain dictionaries and hash sets; private construction helpers
+replace C# dictionary initializers without changing lookup semantics. The token
+text method retains its static `SyntaxFacts` API and .NET extension metadata.
+
+The original C# `SyntaxFactsTests` now run against both implementations, with
+additional escaping, split-token and extension-call coverage. Cross-assembly
+checks compare every syntax kind's classifications/text/precedence, every token
+spelling's keyword/reserved lookup, and both identifier predicates for every
+UTF-16 code unit. The C# assembly is an oracle only; production port code uses
+its own generated tables and helpers. No language-rule change or RavenDoc
+generation is part of this slice.
+
+### PORT-019: output discards (fixed in seed; retain when binding is ported)
+
+The direct identifier-escaping translation uses `TryParseKeyword(..., out _)`.
+The seed rejected `_` as an ordinary value. Output discards now remain untyped
+binding placeholders until overload selection, then become separate temporary
+storage with the selected parameter's type. They do not contribute generic
+inference or conversion preference. Input-reference discards remain errors.
+The Raven helper retains the direct call instead of introducing a dummy local.
+
+Focused runtime tests cover metadata calls, generic inference from other inputs,
+overloads selected by inputs and distinct storage for multiple discards. Negative
+tests cover ambiguous output-only overloads and `ref`/`in` discards. The binding
+placeholder is eliminated before lowering; target backends receive ordinary
+address expressions. The language reference (also website source) is updated;
+existing grammar already covers `out` and `_`, with no RavenDoc generation.
+
+### PORT-020: explicit extension container metadata (fixed in seed)
+
+C# callers could invoke the ported token-text method statically but could not use
+extension syntax: explicit method attributes did not mark the containing type.
+The CLI type emitter now adds the container marker for extension methods across
+partial declarations, without duplicating an explicitly written attribute or
+marking unrelated methods. The same path continues to mark extension declarations.
+Retain this correction when the emitter is ported. Focused metadata tests cover
+both container forms, ordinary-method exclusion and execution; the shared parity
+suite compiles C# extension calls against the Raven implementation.
+
+### PORT-021: canonical field initializer completion (fixed in seed)
+
+Runtime parity found that generated keyword dictionaries initialized by factory
+calls were emitted as null. A reduced static-field test showed that declaration
+order itself was intact: an early binding had stored an error-recovery expression,
+and full binding constructed a duplicate field that the type's member table
+ignored. Typed field rebinding now completes the existing canonical symbol's
+initializer, retaining references and declaration position. This is a compiler
+gap, not a Raven language divergence; the generated factories remain direct.
+
+Regression tests exercise the forward factory call with and without earlier
+semantic queries and verify that an unresolved initializer still prevents emit.
+Retain this change when the member binder is translated. Shared C#/.NET behavior
+remains the default; intentional Raven-specific differences are distinguished
+from compiler gaps, and unresolved language-design choices are raised with the
+author rather than hidden in port adaptations.
+
+Validation for this syntax-facts slice: the original syntax/identifier baseline
+passed 30 tests; its expanded selection passes 48. The by-reference baseline
+passed 47 tests. The combined syntax, discard, by-reference and extension-metadata
+selection passes 117 tests, with 14 additional initializer/adjacent cases passing
+after canonical initializer completion. Another 49 declaration-isolation, constant
+binding and uninitialized-field analyzer cases pass. The overload-resolution feature suite
+passes 421 tests. `scripts/codex-build.sh` passed for the generator changes, and
+targeted seed builds passed after the compiler corrections. C# generated token
+and node facts remain byte-for-byte unchanged; an unchanged-input Raven generation
+target preserves both output timestamps. Runtime validation is .NET 11 only.
+The previously recorded broad-baseline RavenDoc failure remains outstanding.
+
+Final parity: **166 shared C# tests pass against each implementation**, plus five
+cross-assembly checks in the Raven project (**171 total**). These checks compare
+all syntax kinds and token spellings and all 65,536 UTF-16 code units, as well as
+the existing syntax-kind and diagnostic catalog parity checks. Removing both
+new generated files before project evaluation regenerates identical content and
+includes each file exactly once. No C# semantic divergence was needed for these
+fixes. The complete compiler port and native neoCLR validation remain unfinished.

@@ -1368,10 +1368,6 @@ internal class TypeGenerator
         ApplyTypeCustomAttributes();
         ApplyCompilerGeneratedAttributeIfClosureFrame();
 
-        var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
-        if (extensionAttribute is not null)
-            TypeBuilder!.SetCustomAttribute(extensionAttribute);
-
         EnsureExtensionGroupingType();
     }
 
@@ -1380,6 +1376,22 @@ internal class TypeGenerator
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
         CodeGen.ApplyNullableContextAttribute(TypeBuilder!.SetCustomAttribute);
         ApplyDefaultIndexerMemberAttribute();
+        ApplyExtensionContainerAttribute();
+    }
+
+    private void ApplyExtensionContainerAttribute()
+    {
+        const string attributeName = "System.Runtime.CompilerServices.ExtensionAttribute";
+        if (TypeSymbol.GetAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToFullyQualifiedMetadataName() == attributeName))
+            return;
+
+        if (TypeSymbol is not SourceNamedTypeSymbol { IsExtensionDeclaration: true } &&
+            !TypeSymbol.GetMembers().OfType<IMethodSymbol>().Any(method => method.IsExtensionMethod))
+            return;
+
+        if (CodeGen.CreateExtensionAttributeBuilder() is { } attribute)
+            TypeBuilder!.SetCustomAttribute(attribute);
     }
 
     private void ApplyDefaultIndexerMemberAttribute()

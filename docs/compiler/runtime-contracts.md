@@ -4600,3 +4600,14 @@ Development 2026-10-29: the default terminal namespace function is now Panic,
 matching neoCLR System.Panic. Migrate explicit failure function names from Fail
 and rebuild matched bundles. This changes naming and recognition only; runtime
 unwinding and thread/task semantics are unchanged.
+
+### Explicit extension method container metadata (.NET only)
+
+The CLI emitter marks containers of explicitly attributed extension methods with
+`System.Runtime.CompilerServices.ExtensionAttribute`, as it does extension
+declarations. The decision examines the complete type's members, including
+partial declarations, and does not duplicate a source container attribute.
+Ordinary methods do not receive extension attributes. This enables C# extension
+lookup for the ported `SyntaxFacts.GetSyntaxTokenText` method while retaining its
+static API. Metadata tests validate both automatic and explicit container markers;
+shared C# compiler-port tests exercise static and extension invocation.

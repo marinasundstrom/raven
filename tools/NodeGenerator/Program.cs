@@ -35,6 +35,21 @@ if (ravenKindOption >= 0)
     return;
 }
 
+var ravenFactsOption = Array.IndexOf(args, "--raven-syntax-facts");
+if (ravenFactsOption >= 0)
+{
+    if (ravenFactsOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-syntax-facts requires an output directory.");
+    var outputDirectory = Path.GetFullPath(args[ravenFactsOption + 1]);
+    Directory.CreateDirectory(outputDirectory);
+    await File.WriteAllTextAsync(Path.Combine(outputDirectory, "SyntaxFacts.Tokens.g.rvn"),
+        TokenGenerator.GenerateRavenSyntaxFacts(tokens));
+    await File.WriteAllTextAsync(Path.Combine(outputDirectory, "SyntaxFacts.Nodes.g.rvn"),
+        NodeFactsGenerator.GenerateSyntaxFacts(model, nodeKinds, raven: true));
+    Console.WriteLine($"Generated Raven syntax facts: {outputDirectory}");
+    return;
+}
+
 string hash = await GetHashAsync(
     model,
     hierarchies,

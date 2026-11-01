@@ -33,6 +33,17 @@ types stay plain: use `ref value: int`, not `ref value: &int`. Explicit
 `&Type` parameters remain available when the by-reference type itself is the
 intended type annotation.
 
+Use `out _` to ignore an output without introducing a local name:
+
+```raven
+let valid = TryParse("42", out _)
+```
+
+Each output discard receives separate temporary storage of the selected
+parameter's type. A discard supplies no type for generic inference and does not
+choose between overloads that differ only in output type. `ref _` and `in _`
+remain invalid because they require an existing input storage location.
+
 ```raven
 func Increment(ref value: int) -> () {
     value = value + 1

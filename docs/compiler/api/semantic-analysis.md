@@ -187,3 +187,14 @@ can retain the receiver and unscoped arguments. Stack allocations, local referen
 and scoped values therefore remain restricted through slices and aliases.
 Non-ref-like call results do not inherit these lifetime restrictions. The runtime
 contract selects slice members; shared flow analysis owns escape diagnostics.
+
+Output-discard arguments (`out _`) have no input type during overload resolution.
+They neither infer method type parameters nor favor a candidate's output type.
+After selection, binding supplies a distinct hidden storage location of each
+output parameter's element type. No source local named `_` is introduced.
+
+Field declaration rebinding completes the initializer on the existing canonical
+field symbol when its declared type is unchanged. Earlier references retain that
+identity, while emission observes the fully bound initializer rather than a
+provisional recovery expression from before all member signatures were available.
+Unresolved initializers still contribute diagnostics and prevent successful emit.

@@ -1,10 +1,11 @@
 using System.Text;
 using System.Linq;
+
 using NodesShared;
 
 internal static class NodeFactsGenerator
 {
-    public static string GenerateSyntaxFacts(IEnumerable<SyntaxNodeModel> nodes, IEnumerable<NodeKindModel> nodeKinds)
+    public static string GenerateSyntaxFacts(IEnumerable<SyntaxNodeModel> nodes, IEnumerable<NodeKindModel> nodeKinds, bool raven = false)
     {
         var concrete = new HashSet<string>(nodes.Where(n => !n.IsAbstract).Select(n => n.Name));
         foreach (var nk in nodeKinds)
@@ -44,19 +45,21 @@ internal static class NodeFactsGenerator
         var typeKinds = sorted.Where(IsTypeSyntaxKind).ToList();
 
         var sb = new StringBuilder();
-        sb.AppendLine("namespace Raven.CodeAnalysis.Syntax;");
+        sb.AppendLine(raven ? "namespace Raven.CodeAnalysis.Syntax" : "namespace Raven.CodeAnalysis.Syntax;");
         sb.AppendLine();
         sb.AppendLine("public static partial class SyntaxFacts");
         sb.AppendLine("{");
 
         void AppendMethod(string methodName, IEnumerable<string> kinds)
         {
-            sb.AppendLine($"    public static bool {methodName}(SyntaxKind kind) => kind switch");
+            sb.AppendLine(raven
+                ? $"    static func {methodName}(kind: SyntaxKind) -> bool => kind match"
+                : $"    public static bool {methodName}(SyntaxKind kind) => kind switch");
             sb.AppendLine("    {");
             foreach (var k in kinds)
-                sb.AppendLine($"        SyntaxKind.{k} => true,");
-            sb.AppendLine("        _ => false,");
-            sb.AppendLine("    };");
+                sb.AppendLine($"        SyntaxKind.{k} => true{(raven ? "" : ",")}");
+            sb.AppendLine(raven ? "        _ => false" : "        _ => false,");
+            sb.AppendLine(raven ? "    }" : "    };");
             sb.AppendLine();
         }
 

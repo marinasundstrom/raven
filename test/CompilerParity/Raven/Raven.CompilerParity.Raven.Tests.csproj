@@ -6,5 +6,6 @@
     <ProjectReference Include="../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
     <Compile Include="../GeneratedDiagnosticCatalogParityTests.cs" Link="GeneratedDiagnosticCatalogParityTests.cs" />
     <Compile Include="../GeneratedSyntaxKindParityTests.cs" Link="GeneratedSyntaxKindParityTests.cs" />
+    <Compile Include="../GeneratedSyntaxFactsParityTests.cs" Link="GeneratedSyntaxFactsParityTests.cs" />
   </ItemGroup>
 </Project>

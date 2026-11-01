@@ -1,0 +1,79 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Globalization.*
+
+public static partial class SyntaxFacts
+{
+    internal static func RequiresBacktickEscaping(identifier: string) -> bool
+    {
+        if identifier.Length == 0 { return false }
+
+        if identifier == "_" || !IsIdentifierStartCharacter(identifier[0]) { return true }
+
+        var i = 1
+        while i < identifier.Length {
+            if !IsIdentifierPartCharacter(identifier[i]) { return true }
+            i++
+        }
+
+        return false
+    }
+
+    internal static func EscapeIdentifier(identifier: string) -> string
+    {
+        if RequiresBacktickEscaping(identifier) { return "`" + identifier + "`" }
+        if TryParseKeyword(identifier, out _) { return "@" + identifier }
+        return identifier
+    }
+
+    static func CanBeIdentifier(kind: SyntaxKind) -> bool
+    {
+        return kind == SyntaxKind.IdentifierToken ||
+               (IsKeywordKind(kind) && !IsReservedWordKind(kind))
+    }
+
+    static func IsIdentifierStartCharacter(ch: char) -> bool
+    {
+        if (ch == '_' || ch == '$')
+        {
+            return true
+        }
+
+        if (ch <= 0x7F)
+        {
+            return (ch >= 'A' && ch <= 'Z') ||
+                   (ch >= 'a' && ch <= 'z')
+        }
+
+        let category = CharUnicodeInfo.GetUnicodeCategory(ch)
+
+        return category == UnicodeCategory.UppercaseLetter ||
+               category == UnicodeCategory.LowercaseLetter ||
+               category == UnicodeCategory.TitlecaseLetter ||
+               category == UnicodeCategory.ModifierLetter ||
+               category == UnicodeCategory.OtherLetter ||
+               category == UnicodeCategory.LetterNumber
+    }
+
+    static func IsIdentifierPartCharacter(ch: char) -> bool
+    {
+        if (IsIdentifierStartCharacter(ch))
+        {
+            return true
+        }
+
+        if (ch <= 0x7F)
+        {
+            return ch >= '0' && ch <= '9'
+        }
+
+        let category = CharUnicodeInfo.GetUnicodeCategory(ch)
+
+        return category == UnicodeCategory.DecimalDigitNumber ||
+               category == UnicodeCategory.ConnectorPunctuation ||
+               category == UnicodeCategory.NonSpacingMark ||
+               category == UnicodeCategory.SpacingCombiningMark ||
+               category == UnicodeCategory.Format
+    }
+}

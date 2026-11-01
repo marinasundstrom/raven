@@ -4,6 +4,22 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Complete field initializers on their canonical symbols when full binding
+  revisits declarations, preserving calls to later-declared factory methods
+  instead of emitting stale recovery defaults.
+
+- Emit the .NET extension-container attribute for explicitly attributed extension
+  methods, including partial types, so C# consumers discover them. Avoid duplicate
+  attributes when the container is explicitly marked.
+
+- Support `out _` arguments with separate temporary storage after overload
+  selection. Output discards do not contribute generic inference or prefer an
+  output type; `ref _` and `in _` remain invalid.
+
+- Port identifier and operator syntax facts to Raven. Extend the retained node
+  generator with Raven keyword, token-text, precedence and node-classification
+  output from the shared models, preserving the C# output mode.
+
 - Port string-literal decoding helpers to Raven and fix `\0` decoding in both
   implementations. Add shared escape, Unicode scalar and consumed-width tests.
 - Support range slicing of .NET `Span<T>` and `ReadOnlySpan<T>` through the target

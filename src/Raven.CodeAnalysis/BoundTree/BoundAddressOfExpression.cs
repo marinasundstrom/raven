@@ -6,12 +6,13 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundAddressOfExpression : BoundExpression
 {
-    public BoundAddressOfExpression(ISymbol? symbol, ITypeSymbol valueType, BoundExpression? receiver = null, BoundExpression? storage = null)
+    public BoundAddressOfExpression(ISymbol? symbol, ITypeSymbol valueType, BoundExpression? receiver = null, BoundExpression? storage = null, bool isOutDiscard = false)
         : base(new AddressTypeSymbol(valueType ?? throw new ArgumentNullException(nameof(valueType))), symbol)
     {
         ValueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
         Receiver = receiver;
         Storage = storage;
+        IsOutDiscard = isOutDiscard;
     }
 
     public BoundAddressOfExpression(BoundExpression storage)
@@ -22,6 +23,9 @@ internal sealed partial class BoundAddressOfExpression : BoundExpression
             storage)
     {
     }
+
+    // Binding-only placeholder; selected out parameters supply concrete storage.
+    public bool IsOutDiscard { get; }
 
     public BoundExpression? Receiver { get; }
 

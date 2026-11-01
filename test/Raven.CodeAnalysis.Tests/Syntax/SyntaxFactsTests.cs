@@ -72,4 +72,41 @@ public class SyntaxFactsTests
         kind.ShouldBe(SyntaxKind.AndToken);
         SyntaxFacts.TryParseReservedWord("unit", out _).ShouldBeFalse();
     }
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("hello", "hello")]
+    [InlineData("λ2", "λ2")]
+    [InlineData("$value", "$value")]
+    [InlineData("_", "`_`")]
+    [InlineData("two words", "`two words`")]
+    [InlineData("1value", "`1value`")]
+    [InlineData("class", "@class")]
+    [InlineData("unit", "@unit")]
+    [InlineData("Class", "Class")]
+    public void EscapeIdentifierPreservesSpelling(string input, string expected)
+    {
+        Assert.Equal(expected, SyntaxFacts.EscapeIdentifier(input));
+    }
+
+    [Theory]
+    [InlineData(SyntaxKind.GreaterThanToken, 1)]
+    [InlineData(SyntaxKind.GreaterThanOrEqualsToken, 1)]
+    [InlineData(SyntaxKind.GreaterThanGreaterThanToken, 2)]
+    [InlineData(SyntaxKind.GreaterThanGreaterThanEqualsToken, 2)]
+    [InlineData(SyntaxKind.GreaterThanGreaterThanGreaterThanToken, 3)]
+    [InlineData(SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken, 3)]
+    [InlineData(SyntaxKind.LessThanToken, 0)]
+    public void LeadingGreaterThanCountPreservesSplittableTokens(SyntaxKind kind, int expected)
+    {
+        Assert.Equal(expected, SyntaxFacts.LeadingGreaterThanCount(kind));
+    }
+
+    [Fact]
+    public void TokenTextIsAvailableThroughStaticAndExtensionCalls()
+    {
+        Assert.Equal("+", SyntaxFacts.GetSyntaxTokenText(SyntaxKind.PlusToken));
+        Assert.Equal("+", SyntaxKind.PlusToken.GetSyntaxTokenText());
+        Assert.Null(SyntaxKind.IdentifierToken.GetSyntaxTokenText());
+    }
+
 }

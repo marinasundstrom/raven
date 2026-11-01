@@ -3835,6 +3835,9 @@ partial class BlockBinder : Binder
 
     protected BoundExpression BindInvocationArgumentExpression(ArgumentSyntax syntax, ITypeSymbol? targetType, RefKind refKind)
     {
+        if (refKind == RefKind.Out && syntax.Expression is DiscardExpressionSyntax)
+            return new BoundAddressOfExpression(null, Compilation.ErrorTypeSymbol, isOutDiscard: true);
+
         if (syntax.BindingKeyword.Kind != SyntaxKind.None)
             return BindDeclaredOutArgument(syntax, targetType, refKind);
 
@@ -12040,6 +12043,9 @@ partial class BlockBinder : Binder
 
     private static bool HasExpressionErrors(BoundExpression expression)
     {
+        if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+            return false;
+
         if (IsErrorExpression(expression))
             return true;
 
@@ -13665,6 +13671,13 @@ partial class BlockBinder : Binder
                 SyntaxNode node => node,
                 _ => null
             };
+
+            if (parameter.RefKind == RefKind.Out && expression is BoundAddressOfExpression { IsOutDiscard: true })
+            {
+                var local = CreateTempLocal("outDiscard", parameter.GetByRefElementType(), syntaxNode ?? callSyntax!);
+                converted[i] = new BoundAddressOfExpression(new BoundLocalAccess(local));
+                continue;
+            }
 
             ReportNullableArgumentIfNeeded(parameter, expression, syntaxNode);
 

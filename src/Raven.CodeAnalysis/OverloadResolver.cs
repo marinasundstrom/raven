@@ -691,6 +691,8 @@ internal sealed class OverloadResolver
                 continue;
 
             var expression = mapped.Value.Expression;
+            if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+                continue;
 
             if (expression is BoundFunctionExpression lambda)
             {
@@ -802,6 +804,8 @@ internal sealed class OverloadResolver
                 continue;
 
             var expression = mapped.Value.Expression;
+            if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+                continue;
 
             if (expression is BoundFunctionExpression lambda)
             {
@@ -2035,6 +2039,9 @@ internal sealed class OverloadResolver
             if (candidateParameterIndex < 0 || currentParameterIndex < 0)
                 continue;
 
+            if (arguments[i].Expression is BoundAddressOfExpression { IsOutDiscard: true })
+                continue;
+
             var argType = arguments[i].Expression.Type;
             if (argType is null)
                 continue;
@@ -2770,6 +2777,12 @@ internal sealed class OverloadResolver
             {
                 LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.RefKindMismatch, "argument ref kind does not match parameter ref kind");
                 return false;
+            }
+
+            if (parameter.RefKind == RefKind.Out && argument is BoundAddressOfExpression { IsOutDiscard: true })
+            {
+                LogComparison(comparisonLog, parameter, parameter.GetByRefElementType(), OverloadArgumentComparisonResult.Success, "discard accepts the out parameter type");
+                return true;
             }
 
             if (argType is null)

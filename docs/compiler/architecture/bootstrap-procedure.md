@@ -91,6 +91,15 @@ post-port style cleanup (author direction, 2026-11-01).
 
 ### Cleanup and stabilization are part of porting
 
+Raven is a .NET language foremost. Use foundational C#/.NET semantics as the
+baseline for shared behavior; diverge for intentional Raven-specific features.
+The same foundational behavior applies to neoCLR unless that runtime deliberately
+specifies different semantics; implementation differences alone do not authorize
+language differences.
+When a discovered language quirk cannot be aligned with C# behavior, inform the
+author and identify the language-design decision instead of silently adapting the
+port around it (author direction, 2026-11-01).
+
 Author direction, 2026-11-01: make bounded cleanup and modernization changes
 when they suit both C# and Raven syntax and semantics. The translation remains
 primarily direct, without introducing Raven-specific idioms. Apply applicable

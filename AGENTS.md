@@ -176,6 +176,12 @@ No external type-union analyzer project is part of this repository.
 - Improve unclear expressions and small performance issues encountered during
   porting when there is concrete value. Keep the impact local to a class or
   function; this does not authorize broad redesign or Raven-specific restyling.
+- Use foundational C#/.NET semantics as the baseline for shared behavior. Raven
+  remains a .NET language foremost; divergences must be intentional Raven-specific
+  features. Apply the same foundational behavior to neoCLR unless that target
+  deliberately specifies different semantics. Inform the author when a discovered
+  language quirk cannot be aligned
+  with C# behavior and needs a language-design decision.
 - When a translation or cleanup exposes missing or incorrect language support,
   decide whether it is a compiler gap, reduce it, implement the correction and
   retain focused regressions plus adjacent coverage. Treat porting as compiler

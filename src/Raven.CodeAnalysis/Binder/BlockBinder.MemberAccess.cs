@@ -1376,8 +1376,9 @@ partial class BlockBinder
         {
             var arg = arguments[i];
 
-            // Skip lambda arguments — they consume the inferred types, not the other way around.
-            if (arg.Expression is FunctionExpressionSyntax)
+            // Lambdas consume inferred types; output discards have no input type.
+            if (arg.Expression is FunctionExpressionSyntax ||
+                (arg.RefKindKeyword.Kind == SyntaxKind.OutKeyword && arg.Expression is DiscardExpressionSyntax))
                 continue;
 
             int parameterIndex;

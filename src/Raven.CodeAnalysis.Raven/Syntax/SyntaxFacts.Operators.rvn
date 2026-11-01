@@ -1,0 +1,54 @@
+namespace Raven.CodeAnalysis.Syntax
+import System.Collections.Generic.*
+
+public static partial class SyntaxFacts {
+    private static readonly field s_overloadableOperatorTokens: HashSet<SyntaxKind> = HashSet<SyntaxKind>([
+        SyntaxKind.PlusEqualsToken,
+        SyntaxKind.MinusEqualsToken,
+        SyntaxKind.StarEqualsToken,
+        SyntaxKind.SlashEqualsToken,
+        SyntaxKind.PercentEqualsToken,
+        SyntaxKind.LessThanLessThanEqualsToken,
+        SyntaxKind.GreaterThanGreaterThanEqualsToken,
+        SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
+        SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
+        SyntaxKind.AmpersandEqualsToken,
+        SyntaxKind.BarEqualsToken,
+        SyntaxKind.CaretEqualsToken,
+        SyntaxKind.PlusToken,
+        SyntaxKind.PlusPlusToken,
+        SyntaxKind.MinusToken,
+        SyntaxKind.MinusMinusToken,
+        SyntaxKind.StarToken,
+        SyntaxKind.SlashToken,
+        SyntaxKind.PercentToken,
+        SyntaxKind.CaretToken,
+        SyntaxKind.AmpersandToken,
+        SyntaxKind.AmpersandAmpersandToken,
+        SyntaxKind.BarToken,
+        SyntaxKind.BarBarToken,
+        SyntaxKind.LessThanLessThanToken,
+        SyntaxKind.GreaterThanGreaterThanToken,
+        SyntaxKind.AndToken,
+        SyntaxKind.OrToken,
+        SyntaxKind.EqualsEqualsToken,
+        SyntaxKind.NotEqualsToken,
+        SyntaxKind.LessThanToken,
+        SyntaxKind.LessThanOrEqualsToken,
+        SyntaxKind.GreaterThanToken,
+        SyntaxKind.GreaterThanOrEqualsToken,
+        SyntaxKind.ExclamationToken,
+        SyntaxKind.TildeToken,
+        SyntaxKind.TrueKeyword,
+        SyntaxKind.FalseKeyword,
+    ])
+
+    internal static func LeadingGreaterThanCount(kind: SyntaxKind) -> int => kind match {
+        SyntaxKind.GreaterThanToken or SyntaxKind.GreaterThanOrEqualsToken => 1
+        SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanEqualsToken => 2
+        SyntaxKind.GreaterThanGreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken => 3
+        _ => 0
+    }
+
+    static func IsOverloadableOperatorToken(kind: SyntaxKind) -> bool => s_overloadableOperatorTokens.Contains(kind)
+}

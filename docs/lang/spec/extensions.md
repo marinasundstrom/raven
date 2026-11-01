@@ -274,3 +274,13 @@ value type, keeping `Index` and `Range` overloads distinct. Runtime Contract
 configuration and ordinary .NET target selection are unchanged. Modern .NET
 source/import execution is covered by `ExtensionIndexerCodeGenTests`; this does
 not establish .NET Framework, NanoFramework, or neoCLR native execution support.
+
+### Explicit .NET extension attributes (.NET only)
+
+A static method with a receiver parameter and
+`System.Runtime.CompilerServices.ExtensionAttribute` is also recognized as an
+extension method. When emitted, its containing type receives the extension
+attribute required by C# consumers, including when the method is in another
+partial declaration. An explicitly supplied container attribute is preserved
+without adding a duplicate. Ordinary methods in the same container remain
+ordinary static methods.

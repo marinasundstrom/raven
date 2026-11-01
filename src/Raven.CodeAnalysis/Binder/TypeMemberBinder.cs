@@ -667,6 +667,20 @@ internal partial class TypeMemberBinder : Binder
                 ReportMemberHidingIfNeeded(hiddenMember, decl.Identifier.ValueText, hasNewModifier, decl.Identifier.GetLocation());
             }
 
+            // Full binding may revisit a field after later member signatures become
+            // available. Keep its canonical symbol and complete its initializer;
+            // constructing a duplicate would leave earlier bound references stale.
+            var existingField = !isConstDeclaration
+                ? _containingType.GetMembers(decl.Identifier.ValueText).OfType<SourceFieldSymbol>()
+                    .FirstOrDefault(field => SymbolDeclarationUtilities.HasDeclaringSpan(field, decl) &&
+                        SymbolEqualityComparer.Default.Equals(field.Type, fieldType))
+                : null;
+            if (existingField is not null)
+            {
+                existingField.SetInitializer(initializerForSymbol);
+                return;
+            }
+
             var f = new SourceFieldSymbol(
                 decl.Identifier.ValueText,
                 fieldType,
