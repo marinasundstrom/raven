@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -19,11 +19,11 @@ internal class SyntaxList : GreenNode
         CalculateWidths();
     }
 
-    public override GreenNode GetSlot(int index) => _items[index];
+    public override GreenNode? GetSlot(int index) => _items[index];
 
     public GreenNode this[int index] => _items[index];
 
-    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
+    internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         return new SyntaxList(children, diagnostics ?? _diagnostics, annotations ?? _annotations);
     }

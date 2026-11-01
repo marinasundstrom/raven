@@ -233,6 +233,13 @@ public static class SemanticFacts
         if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
             return true;
 
+        // Reference nullability does not change nominal CLR type membership.
+        // Keep nullable value types intact: they have distinct runtime storage.
+        if (typeArgument is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableArgument)
+            typeArgument = nullableArgument.UnderlyingType;
+        if (constraintType is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableConstraint)
+            constraintType = nullableConstraint.UnderlyingType;
+
         if (typeArgument.MetadataIdentityEquals(constraintType))
             return true;
 

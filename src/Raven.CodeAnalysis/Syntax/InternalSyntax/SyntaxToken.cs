@@ -77,7 +77,7 @@ internal class SyntaxToken : GreenNode
 
     public int RawKind => _rawKind;
 
-    public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxToken has no children.");
+    public override GreenNode? GetSlot(int index) => throw new InvalidOperationException("SyntaxToken has no children.");
 
     public override object? GetValue() => _value;
 
@@ -124,7 +124,7 @@ internal class SyntaxToken : GreenNode
         return new Syntax.SyntaxToken(token, null!);
     }
 
-    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
+    internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         if (diagnostics is null && annotations is null)
         {

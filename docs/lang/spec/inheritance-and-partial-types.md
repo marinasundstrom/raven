@@ -328,6 +328,27 @@ events do not allow an auto/field-like implementation part; the implementing dec
 An override may strengthen a nullable reference return to the same underlying nonnullable
 reference type (for example `ToString() -> string` overriding `string?`). It retains the
 same CLR signature and inherited slot. Weakening the return promise remains rejected;
-nullable value-type storage is not erased. This is a bounded nullability adjustment, not
-general covariant-return support. It follows the substitutability direction described in
+nullable value-type storage is not erased. This nullability adjustment retains the existing ABI. It follows the substitutability direction described in
 [the C# method override specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/classes#1565-override-methods).
+
+
+### Generic and covariant method overrides
+
+Generic overrides match method type parameters by position, including occurrences
+inside constructed parameter and return types. The parameter names may differ
+between the base method and override. Calls through either the base or derived
+type select the overriding implementation; the base declaration is not a second
+overload candidate. Generic arity and parameter/ref-kind matching still apply.
+
+A method override may return a more derived reference type when that type has an
+implicit reference conversion to the inherited return type. This does not permit
+boxing, numeric or user-defined conversions, or weakening a nonnullable return
+to a nullable return.
+
+The current CLI implementation requires the target reference assemblies to expose
+`RuntimeFeature.CovariantReturnsOfClasses` and the parameterless
+`PreserveBaseOverridesAttribute` constructor. It emits an explicit override mapping
+and preserves dispatch through further overrides. This is a runtime capability
+gate, not a permanent neoCLR language exclusion. Native metadata/codegen support
+still requires separate validation; older CLI targets without the capability
+retain the unsupported-override diagnostic.

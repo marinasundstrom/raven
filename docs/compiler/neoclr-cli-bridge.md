@@ -18351,3 +18351,28 @@ types and retains its existing nullable capability checks. No duplicated native
 policy change is required, and .NET runtime regressions do not claim native
 execution. Native nullable metadata/storage remains the replacement for any CLI
 Nullable<T> encoding; contextual target preservation is shared language behavior.
+
+
+### Overrides and nullable slots exposed by Raven syntax-tree output
+
+Generic method override matching, overridden-candidate suppression, nominal
+reference constraint membership and constructor-initializer target typing are
+shared binder semantics. Native lowering receives the corrected symbols and bound
+arguments; no duplicated target-specific binding fix is introduced. Existing
+native generic-method and collection capability checks remain authoritative.
+
+Covariant return intent is shared reference substitutability with virtual dispatch.
+The current CLI encoding uses a new virtual method, MethodImpl mapping to the base
+slot and PreserveBaseOverridesAttribute to retain transitive overriding. The
+CliRuntimeContract capability gate inspects target metadata for the runtime feature
+and attribute constructor. A native target lacking that CLI metadata remains gated;
+this is an experimental implementation limitation, not neoCLR-only or .NET-only
+language syntax. Native covariant slot/override metadata and dispatch support must
+replace the CLI mapping/attribute requirement. No native admission is claimed.
+
+Validation includes modern .NET runtime dispatch through three inheritance levels
+and generic calls through both base and derived receivers. Semantic-only fixtures
+also check generic/covariant override binding under both .NET and neoCLR target
+selection with host reference symbols; those are not full native compilations. Nullable slot annotations
+preserve existing CLI reference arrays and absent children; native nullable-reference
+storage remains target-owned. No native neoCLR runtime was executed for this slice.

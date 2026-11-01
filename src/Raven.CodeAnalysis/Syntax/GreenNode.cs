@@ -60,9 +60,9 @@ public abstract class GreenNode
 
     public virtual bool IsMissing { get; }
 
-    public abstract GreenNode GetSlot(int index);
+    public abstract GreenNode? GetSlot(int index);
 
-    public T GetSlot<T>(int index) where T : GreenNode => (T)GetSlot(index);
+    public T GetSlot<T>(int index) where T : GreenNode? => (T)GetSlot(index);
 
     internal IEnumerable<GreenNode> GetChildren()
     {
@@ -278,7 +278,7 @@ public abstract class GreenNode
         return new SyntaxList(newNodes.ToArray());
     }
 
-    internal abstract GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null);
+    internal abstract GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null);
 
     internal IEnumerable<DiagnosticInfo> GetDiagnostics()
     {

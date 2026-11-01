@@ -4,6 +4,12 @@ internal abstract partial class CliRuntimeContract
 {
     // Language availability is separate from runtime representation. Defaults
     // preserve .NET; concrete targets opt into exclusive language capabilities.
+    internal virtual bool SupportsCovariantMethodReturns(Compilation compilation)
+        => compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeFeature")?
+            .GetMembers("CovariantReturnsOfClasses").Any() == true &&
+           compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.PreserveBaseOverridesAttribute")?
+               .Constructors.Any(method => !method.IsStatic && method.Parameters.IsEmpty) == true;
+
     internal virtual bool SupportsFunctionTypeMethods => false;
     internal virtual bool SupportsFunctionReturnTypeProjection => false;
     internal virtual bool SupportsIntersectionTypes => false;

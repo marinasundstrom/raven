@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics;
 using System.Formats.Asn1;
 using System.Linq;
@@ -33,7 +33,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return (SyntaxTriviaList)With(n.ToArray());
     }
 
-    public override GreenNode GetSlot(int index)
+    public override GreenNode? GetSlot(int index)
     {
         if (index < 0 || index >= SlotCount)
             throw new IndexOutOfRangeException($"Invalid slot index: {index}");
@@ -93,7 +93,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return GetEnumerator();
     }
 
-    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
+    internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         return new SyntaxTriviaList(children.Cast<SyntaxTrivia>().ToArray(), diagnostics ?? _diagnostics, annotations ?? _annotations);
     }

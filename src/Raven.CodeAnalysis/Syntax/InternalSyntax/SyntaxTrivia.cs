@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -39,7 +39,7 @@ internal class SyntaxTrivia : GreenNode
 
     public SyntaxNode? GetStructuredTrivia() => _structuredTrivia;
 
-    public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxTrivia has no children.");
+    public override GreenNode? GetSlot(int index) => throw new InvalidOperationException("SyntaxTrivia has no children.");
 
     public static explicit operator Syntax.SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia)
     {
@@ -67,7 +67,7 @@ internal class SyntaxTrivia : GreenNode
         return new SyntaxTrivia(_structuredTrivia, diagnostics, _annotations);
     }
 
-    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
+    internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         if (diagnostics is null && annotations is null)
         {

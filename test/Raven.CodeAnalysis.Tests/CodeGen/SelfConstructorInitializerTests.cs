@@ -145,6 +145,35 @@ public sealed class SelfConstructorInitializerTests
         Assert.Equal(source, tree.GetRoot().ToFullString());
     }
 
+    [Theory]
+    [InlineData("base")]
+    [InlineData("self")]
+    public void InitializerCollectionArgumentsUseConstructorParameterType(string initializer)
+    {
+        var declaration = initializer == "base"
+            ? "class Value : Storage { init(left: Left, right: Right?) : base([left, right]) {} }"
+            : "class Value : Storage { init(items: Node?[]) : base(items) {}; init(left: Left, right: Right?) : self([left, right]) {} }";
+        var source = $$"""
+            open class Node { }
+            class Left : Node { }
+            class Right : Node { }
+            open class Storage {
+                val Items: Node?[]
+                init(items: Node?[]) { Items = items }
+            }
+            {{declaration}}
+            static class Probe {
+                static func Run() -> int {
+                    let left = Left()
+                    let value = Value(left, null)
+                    if !System.Object.ReferenceEquals(value.Items[0], left) || value.Items[1] is not null { return -1 }
+                    return value.Items.Length
+                }
+            }
+            """;
+        Assert.Equal(2, Execute(source));
+    }
+
     private static Compilation Create(string source) => Compilation.Create(
         "SelfConstructor" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)],
         TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));

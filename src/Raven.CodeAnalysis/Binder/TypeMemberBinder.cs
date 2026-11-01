@@ -1121,7 +1121,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceType is null && isOverride)
         {
-            var candidate = FindOverrideCandidate(name, returnType, signatureArray);
+            var candidate = FindOverrideCandidate(name, returnType, signatureArray, methodSymbol.TypeParameters);
 
             var name2 = CreateSignature(name, returnType, signatureArray);
 
@@ -4298,14 +4298,23 @@ internal partial class TypeMemberBinder : Binder
     private IMethodSymbol? FindOverrideCandidate(
         string name,
         ITypeSymbol returnType,
-        (ITypeSymbol type, RefKind refKind)[] parameters)
+        (ITypeSymbol type, RefKind refKind)[] parameters,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
     {
         for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
             foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
             {
-                if (OverrideReturnTypesMatch(method.ReturnType, returnType) &&
-                    SignaturesMatch(method, parameters))
+                if (method.Arity != typeParameters.Length)
+                    continue;
+
+                // Compare generic signatures in the overriding method's type-parameter
+                // context. Names and declaring-method identities need not match.
+                var signature = method.Arity == 0
+                    ? method
+                    : method.Construct(typeParameters.Cast<ITypeSymbol>().ToArray());
+                if (OverrideReturnTypesMatch(signature.ReturnType, returnType) &&
+                    SignaturesMatch(signature, parameters))
                     return method;
             }
         }
@@ -4313,9 +4322,13 @@ internal partial class TypeMemberBinder : Binder
         return null;
     }
 
-    private static bool OverrideReturnTypesMatch(ITypeSymbol overriddenReturnType, ITypeSymbol overridingReturnType)
+    private bool OverrideReturnTypesMatch(ITypeSymbol overriddenReturnType, ITypeSymbol overridingReturnType)
     {
         if (overriddenReturnType.TypeKind == TypeKind.Error || overridingReturnType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (Compilation.SupportsCovariantMethodReturns &&
+            Compilation.IsCovariantMethodReturn(overriddenReturnType, overridingReturnType))
             return true;
 
         // A stronger reference-return guarantee preserves the inherited CLR signature.

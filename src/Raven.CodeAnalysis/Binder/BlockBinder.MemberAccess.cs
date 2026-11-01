@@ -507,7 +507,7 @@ partial class BlockBinder
         return builder.Count > 0 ? builder.ToImmutable() : methods;
     }
 
-    private BoundArgument[] BindInvocationArgumentsWithCandidateTargetTypes(
+    protected BoundArgument[] BindInvocationArgumentsWithCandidateTargetTypes(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         out bool hasErrors,

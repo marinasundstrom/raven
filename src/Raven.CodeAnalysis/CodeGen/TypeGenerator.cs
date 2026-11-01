@@ -2592,13 +2592,18 @@ internal class TypeGenerator
             if (!TryGetMethodInfo(sourceMethod.OverriddenMethod, out var baseMethodInfo))
                 continue;
 
-            // TypeBuilder.DefineMethodOverride should only be used for interface implementations.
-            // Virtual overrides are emitted by setting the correct MethodAttributes when the
-            // MethodBuilder is created, so there is no need to define an explicit override
-            // mapping for base class methods. Skipping this avoids Reflection.Emit throwing
-            // when the overridden method belongs to a base type rather than an interface.
-            if (baseMethodInfo.DeclaringType?.IsInterface == true)
+            var covariantReturn = Compilation.IsCovariantMethodReturn(
+                sourceMethod.OverriddenMethod.ReturnType, sourceMethod.ReturnType);
+            if (baseMethodInfo.DeclaringType?.IsInterface == true || covariantReturn)
                 TypeBuilder.DefineMethodOverride(methodBuilder, baseMethodInfo);
+
+            if (covariantReturn)
+            {
+                var attribute = Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.PreserveBaseOverridesAttribute");
+                var constructor = attribute!.Constructors.Single(method => !method.IsStatic && method.Parameters.IsEmpty);
+                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(
+                    CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructor), []));
+            }
         }
     }
 

@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
+    internal bool SupportsCovariantMethodReturns => _target.RuntimeContract.SupportsCovariantMethodReturns(this);
+
     internal bool SupportsFunctionTypeMethods => _target.RuntimeContract.SupportsFunctionTypeMethods;
     internal bool SupportsFunctionReturnTypeProjection => _target.RuntimeContract.SupportsFunctionReturnTypeProjection;
     internal bool SupportsIntersectionTypes => _target.RuntimeContract.SupportsIntersectionTypes;

@@ -4747,3 +4747,30 @@ CLI-only conversion policy. The binder is not yet ported to Raven and its future
 translation must carry the correction. Validation includes modern .NET execution
 of nullable returns, locals, property initializers and TryParse/out-variable
 branches; it does not establish native nullable-value support.
+
+
+### Syntax-output stabilization: overrides, constraints and initializer arguments
+
+Shared override lookup substitutes base-method type parameters into the overriding
+method's context before comparing signatures. Explicit member lookup suppresses
+overridden source definitions even when type-parameter names differ. Shared nominal
+constraint checks erase reference-nullability annotations only, leaving nullable
+value storage and explicit notnull checks intact. Constructor initializers now use
+the ordinary candidate-aware argument binder, including collection target types,
+while retaining the instance-access prohibition. These binder components are not
+yet ported; their Raven translations must carry the fixes.
+
+Covariant reference returns use the target-owned SupportsCovariantMethodReturns
+contract. CLI capability discovery checks target reference metadata for
+RuntimeFeature.CovariantReturnsOfClasses and a parameterless
+PreserveBaseOverridesAttribute constructor. Shared conversion rules require an
+implicit reference conversion and preserve return nullability guarantees. CLI
+emission uses a new virtual slot with an explicit MethodImpl mapping and
+PreserveBaseOverridesAttribute so later overrides dispatch through all inherited
+slots. .NET Framework/NanoFramework/native execution is not established by the
+modern .NET tests. Targets lacking the capability retain the override diagnostic.
+
+GreenNode.GetSlot now explicitly returns GreenNode?, its generic constraint permits
+nullable nodes, and raw slot/With arrays explicitly permit null children in both
+source-output implementations and the C# runtime. These annotations describe
+existing absent-child behavior; they do not change runtime array layout or equality.

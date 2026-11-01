@@ -76,7 +76,7 @@ public static class GreenNodeGenerator
             members.Add(ctor)
         }
 
-        // Add new constructor taking (SyntaxKind kind, GreenNode[] slots)
+        // Add new constructor taking (SyntaxKind kind, GreenNode?[] slots)
         let rawCtor = ConstructorDeclaration(name)
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
             .WithParameterList(ParameterList(SeparatedList(
@@ -84,7 +84,7 @@ public static class GreenNodeGenerator
                 Parameter(Identifier("kind"))
                     .WithType(IdentifierName("SyntaxKind")),
                 Parameter(Identifier("slots"))
-                    .WithType(ArrayType(IdentifierName("GreenNode"))
+                    .WithType(ArrayType(NullableType(IdentifierName("GreenNode")))
                         .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
                             SingletonSeparatedList<ExpressionSyntax>(
                                 OmittedArraySizeExpression()))))),
@@ -304,7 +304,7 @@ public static class GreenNodeGenerator
             .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
             .AddParameterListParameters(
                 Parameter(Identifier("children"))
-                    .WithType(ArrayType(IdentifierName("GreenNode"))
+                    .WithType(ArrayType(NullableType(IdentifierName("GreenNode")))
                         .WithRankSpecifiers(SingletonList(
                             ArrayRankSpecifier(
                                 SingletonSeparatedList<ExpressionSyntax>(

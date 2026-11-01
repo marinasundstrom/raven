@@ -1,14 +1,14 @@
-﻿using System;
+using System;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal abstract class SyntaxNode : GreenNode
 {
-    private readonly GreenNode[] _slots;
+    private readonly GreenNode?[] _slots;
 
     public SyntaxNode(
         SyntaxKind kind,
-        GreenNode[] slots,
+        GreenNode?[] slots,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
         : base(kind, slots?.Length ?? 0, diagnostics, annotations)
@@ -20,7 +20,7 @@ internal abstract class SyntaxNode : GreenNode
 
     public override bool IsMissing => Width == 0;
 
-    public override GreenNode GetSlot(int index)
+    public override GreenNode? GetSlot(int index)
     {
         if (index < 0 || index >= SlotCount)
             return null;
@@ -44,7 +44,7 @@ internal abstract class SyntaxNode : GreenNode
         return offset;
     }
 
-    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
+    internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         throw new NotImplementedException("Override method");
     }

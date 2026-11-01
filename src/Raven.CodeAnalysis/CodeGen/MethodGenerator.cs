@@ -115,6 +115,10 @@ internal class MethodGenerator
                             attributes |= MethodAttributes.NewSlot;
                     }
 
+                    if (MethodSymbol is SourceMethodSymbol { OverriddenMethod: { } overridden } &&
+                        TypeGenerator.Compilation.IsCovariantMethodReturn(overridden.ReturnType, MethodSymbol.ReturnType))
+                        attributes |= MethodAttributes.NewSlot;
+
                     if (MethodSymbol.IsOverride && MethodSymbol.IsFinal)
                         attributes |= MethodAttributes.Final;
                 }

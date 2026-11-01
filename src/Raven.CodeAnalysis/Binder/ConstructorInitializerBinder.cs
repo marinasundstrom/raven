@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -42,34 +41,24 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         if (targetType is null)
             return null;
 
-        var boundArguments = new List<BoundArgument>();
-        var hasErrors = false;
+        var constructors = targetType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
+        var argumentArray = BindInvocationArgumentsWithCandidateTargetTypes(
+            constructors, argumentList.Arguments, out var hasErrors);
 
-        foreach (var argument in argumentList.Arguments)
+        for (var i = 0; i < argumentArray.Length; i++)
         {
-            var boundArgument = BindExpression(argument.Expression);
-            if (boundArgument is BoundErrorExpression)
-                hasErrors = true;
             var instanceUse = new InstanceUseWalker();
-            instanceUse.Visit(boundArgument);
+            instanceUse.Visit(argumentArray[i].Expression);
             if (instanceUse.Found)
             {
-                _diagnostics.ReportConstructorInitializerCannotAccessInstance(argument.GetLocation());
+                _diagnostics.ReportConstructorInitializerCannotAccessInstance(argumentList.Arguments[i].GetLocation());
                 hasErrors = true;
             }
-
-            var name = argument.NameColon?.Name.Identifier.ValueText;
-            if (string.IsNullOrEmpty(name))
-                name = null;
-            var isSpread = argument.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
-            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argument, isSpread));
         }
 
         if (hasErrors)
             return null;
 
-        var constructors = targetType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
-        var argumentArray = boundArguments.ToArray();
         var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation, binder: this, callSyntax: argumentList);
 
         if (!resolution.Success)
@@ -81,7 +70,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             }
 
             var matchingByArity = constructors
-                .Where(c => SupportsArgumentCount(c.Parameters, boundArguments.Count))
+                .Where(c => SupportsArgumentCount(c.Parameters, argumentArray.Length))
                 .ToImmutableArray();
             if (matchingByArity.Length == 1)
             {
@@ -91,7 +80,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
                     return null;
             }
 
-            _diagnostics.ReportNoOverloadForMethod("constructor for type", targetType.Name, boundArguments.Count, argumentList.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("constructor for type", targetType.Name, argumentArray.Length, argumentList.GetLocation());
             return null;
         }
 

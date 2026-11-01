@@ -62,6 +62,38 @@ public sealed class TargetBindingCapabilityTests
         Assert.Contains(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceSpan == syntax.Span);
     }
 
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void DotNetBindsGenericAndCovariantOverridesWithCliCapabilities()
+        => AssertOverrideBinding(TargetPlatform.DotNet);
+
+    [Fact]
+    [Trait("Target", "NeoCLR")]
+    public void NeoClrSemanticBindingSharesGenericAndCovariantOverridesWithHostReferences()
+        => AssertOverrideBinding(TargetPlatform.NeoCLR);
+
+    private static void AssertOverrideBinding(TargetPlatform target)
+    {
+        var compilation = Create("""
+            class Box<T> { val Value: T; init(value: T) { Value = value } }
+            open class Base {
+                virtual func Accept<T>(value: Box<T>) -> T => value.Value
+                virtual func Copy() -> Base => self
+            }
+            class Derived : Base {
+                override func Accept<TResult>(value: Box<TResult>) -> TResult => value.Value
+                override func Copy() -> Derived => self
+            }
+            """, target);
+        Assert.True(compilation.SupportsCovariantMethodReturns);
+        // Exercise shared binding only: host references are not a native core configuration.
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+        Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var derived = compilation.GetTypeByMetadataName("Derived")!;
+        Assert.True(Assert.Single(derived.GetMembers("Accept").OfType<IMethodSymbol>()).IsOverride);
+        Assert.True(Assert.Single(derived.GetMembers("Copy").OfType<IMethodSymbol>()).IsOverride);
+    }
+
     private static Compilation Create(string source, TargetPlatform? target = null)
     {
         // Semantic-only native fixtures use host reference symbols, not a native

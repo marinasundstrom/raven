@@ -159,7 +159,11 @@ class Repository<TContext: class, IDisposable> {
 
 The compiler enforces the constraint set whenever the generic type is
 constructed. An argument that violates a constraint reports `RAV0320` and
-identifies the unmet requirement.
+identifies the unmet requirement. Reference nullability annotations do not change
+nominal type membership: a nullable reference to a derived class still satisfies
+a bound on its base class. Explicit `notnull` constraints remain separate checks,
+and nullable value types retain their distinct runtime type. This does not permit
+assigning a nullable expression to a nonnullable storage location.
 
 Explicit constructor type arguments can use parameters of the containing generic
 type. For example, inside `Box<T>`, `Box<T>(value)` constructs another instance with
@@ -327,7 +331,9 @@ class Widget {
 
 A constructor can delegate to another constructor in the same type using
 `: self(...)`. Arguments use ordinary constructor overload resolution, including
-named and optional arguments. The selected constructor runs before the delegating
+named and optional arguments. Both `self(...)` and `base(...)` supply constructor
+parameter target types to arguments, including collection expressions. Nullable
+elements require nullable element types, such as `Node?[]`. The selected constructor runs before the delegating
 constructor's body. Instance field and lifecycle initializers run once, in the
 constructor that does not delegate through `self`.
 

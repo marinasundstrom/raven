@@ -91,6 +91,7 @@ internal readonly record struct SymbolQuery(
 
         var seenKeys = new HashSet<string>();
         var results = new List<ISymbol>();
+        var overridden = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         void AddFrom(INamedTypeSymbol t)
         {
@@ -98,6 +99,16 @@ internal readonly record struct SymbolQuery(
             {
                 if (IsExplicitInterfaceImplementation(m))
                     continue;
+
+                if (m is IMethodSymbol method)
+                {
+                    if (overridden.Contains(method.OriginalDefinition))
+                        continue;
+                    for (var replaced = (method.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod;
+                         replaced is not null;
+                         replaced = (replaced.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod)
+                        overridden.Add(replaced.OriginalDefinition);
+                }
 
                 // Ignore return type for the purpose of de-duplication; this matches .NET interface hiding patterns.
                 var key = GetSignatureKey(m);

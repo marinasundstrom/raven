@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix generic override matching and direct-call candidate suppression, support
+  covariant reference-return dispatch on capable CLI targets, preserve nullable
+  reference membership in nominal constraints, and target-type constructor
+  initializer arguments. These gaps were exposed by generated Raven syntax nodes.
+
 - Preserve nullable target types when binding conditional branches. Expressions
   such as `let value: int? = if flag { 7 } else { null }` now retain the selected
   value; nullable property initializers no longer emit invalid CLI programs.
