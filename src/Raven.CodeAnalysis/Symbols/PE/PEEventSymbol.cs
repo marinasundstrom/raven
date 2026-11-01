@@ -98,12 +98,12 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
 
             foreach (var iface in declaringType.GetInterfaces())
             {
-                var candidateName = GetFormattedTypeName(iface);
+                var candidateName = PEExplicitInterfaceNames.Format(iface);
                 if (!string.Equals(candidateName, ifaceMetadataName, StringComparison.Ordinal))
                     continue;
 
                 foreach (var ifaceEvent in iface.GetEvents(
-                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
                 {
                     var ifaceAdd = ifaceEvent.AddMethod;
                     var ifaceRemove = ifaceEvent.RemoveMethod;
@@ -132,22 +132,6 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
         }
     }
 
-    private static string GetFormattedTypeName(Type t)
-    {
-        if (t.IsGenericType && !t.IsGenericTypeDefinition)
-            t = t.GetGenericTypeDefinition();
-
-        var name = t.FullName ?? t.Name;
-        var i = name.LastIndexOf('`');
-        if (i > -1)
-        {
-            name = name[..i];
-            var param = t.GetGenericArguments().Select(x => x.Name);
-            name = $"{name}<{string.Join(",", param)}>";
-        }
-
-        return name;
-    }
 
     private static bool EventSignaturesMatch(EventInfo impl, EventInfo iface)
     {

@@ -6,6 +6,28 @@ projector and host handles. Native-only import does not open a .NET session.
 See [bootstrap target boundaries](architecture/bootstrap-target-boundaries.md).
 Historical checkpoints below retain their original implementation names.
 
+## Explicit interface members in CLI metadata
+
+Reflection-backed import matches explicit implementation names against the
+constructed interface, retaining actual generic arguments instead of replacing
+them with definition parameters. It examines static as well as instance interface
+members. Imported method, property and event symbols retain their explicit
+interface relationships so ordinary concrete-type lookup can exclude them.
+For example, `int.MaxValue` binds the public constant field rather than the private
+implementation of `IMinMaxValue<int>.MaxValue`. This is a metadata-import correction,
+not a special case for numeric names in binding. Native semantic import and target
+selection are unchanged.
+
+## .NET consumer-facing collection scopes
+
+The .NET emitter normalizes runtime implementation identities back to the
+selected semantic declarations for collection types and `Monitor`. This preserves
+reference-assembly consumption: `List<T>` may belong to `System.Collections`,
+while `IEnumerable<T>` and `IEnumerator<T>` belong to `System.Runtime`. A blanket
+`System.Collections` namespace mapping to either core library would be wrong.
+When no selected declaration is available, the existing fallback is retained.
+Explicit target-core retargeting uses its existing separate path.
+
 ## .NET compilation preset
 
 `CompilationOptions.DotNet` returns fresh immutable defaults for a .NET target

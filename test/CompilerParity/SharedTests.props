@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit" Version="2.4.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
+    <PackageReference Include="Shouldly" Version="3.0.2" />
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/TextSpanTests.cs" Link="TextSpanTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/LinePositionTests.cs" Link="LinePositionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextCoordinateContractTests.cs" Link="TextCoordinateContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ImplementationIdentityTests.cs" Link="ImplementationIdentityTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextUtilsTests.cs" Link="TextUtilsTests.cs" />
+  </ItemGroup>
+</Project>

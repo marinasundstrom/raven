@@ -124,14 +124,14 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 
             foreach (var iface in declaringType.GetInterfaces())
             {
-                // Compare to generic *definition* name, because explicit impl prefix uses that
-                var candidateName = GetFormattedTypeName(iface);
+                // Match the constructed interface encoded in the explicit member name.
+                var candidateName = PEExplicitInterfaceNames.Format(iface);
                 if (!string.Equals(candidateName, ifaceMetadataName, StringComparison.Ordinal))
                     continue;
 
                 // We have the right interface. Now find the matching property on that interface.
                 foreach (var ifaceProp in iface.GetProperties(
-                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
                 {
                     var ifaceGet = ifaceProp.GetMethod;
                     var ifaceSet = ifaceProp.SetMethod;
@@ -160,24 +160,6 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
         }
     }
 
-    private static string GetFormattedTypeName(Type t)
-    {
-        // For generic constructed interfaces, we want the definition name
-        if (t.IsGenericType && !t.IsGenericTypeDefinition)
-            t = t.GetGenericTypeDefinition();
-
-        // Metadata-style full name (includes `1, + for nested, etc.)
-        var name = t.FullName ?? t.Name;
-        var i = name.LastIndexOf('`');
-        if (i > -1)
-        {
-            name = name[..i];
-            var param = t.GetGenericArguments().Select(x => x.Name);
-            name = $"{name}<{string.Join(",", param)}>";
-        }
-
-        return name;
-    }
 
     private static bool PropertySignaturesMatch(PropertyInfo impl, PropertyInfo iface)
     {

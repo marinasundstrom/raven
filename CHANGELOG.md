@@ -1,8 +1,28 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
+Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
+
+- Make `LinePositionSpan` a positional record struct in both maintained compiler
+  codebases, with value equality, deconstruction and init-only coordinate
+  properties. C# uses `readonly record struct` to preserve value-object intent.
+  Constructor parameter names now match the `Start` and `End` properties.
+
+- Emit collection API scopes using their selected reference-assembly declarations,
+  so C# consumers of Raven libraries can use `List<T>` and enumeration interfaces
+  without referencing `System.Private.CoreLib`. Retain runtime behavior coverage.
+- Preserve constructed generic interface identity and static explicit members in
+  CLI metadata import. Ordinary numeric constant access such as `int.MaxValue`
+  now excludes private explicit interface properties instead of reporting an
+  accessibility error; add symbol and lookup regressions discovered by the port.
+- Start the .NET-hosted Raven compiler source port with text coordinates and
+  line lookup, retaining the C# implementation and linking shared C# tests into
+  separate parity projects. Keep public type names and direct translations;
+  record implementation identity independently of runtime target coverage.
+- Reject `TextSpan` construction when `start + length` cannot fit in `int`,
+  preventing negative wrapped end positions. Apply the fix to both the C# and
+  Raven implementations with shared boundary regression tests.
 
 - 2026-10-31: Enable public concrete static interface helpers and properties on
   nongeneric interfaces for the native neoCLR target. Preserve direct-call bodies

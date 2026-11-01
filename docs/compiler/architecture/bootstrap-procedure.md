@@ -5,6 +5,9 @@ original C# implementation alongside it. Establish behavioral parity and reliabl
 self-hosting before freezing C# development. Continue toward idiomatic Raven,
 then move the compiler host to neoCLR by implementing the APIs it needs there.
 
+The active component map, shared C# test harness and defect ledger are tracked in
+[Raven compiler source port](raven-port-progress.md).
+
 This procedure implements [ADR-0004](decisions/0004-port-first-bootstrap.md).
 It supersedes the earlier mandatory sequence of a frozen C# foundation,
 Raven.Core API adoption inside C#, and only then a Raven source port. API adoption

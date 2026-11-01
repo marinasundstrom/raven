@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis.Text
+
+public class TextLine {
+    private readonly field _text: SourceText
+
+    internal init(text: SourceText, lineNumber: int, start: int, end: int, endIncludingLineBreak: int) {
+        _text = text
+        LineNumber = lineNumber
+        Start = start
+        End = end
+        EndIncludingLineBreak = endIncludingLineBreak
+    }
+
+    public val LineNumber: int
+    public val Start: int
+    public val End: int
+    public val EndIncludingLineBreak: int
+    public val Span: TextSpan => TextSpan.FromBounds(Start, End)
+    public val SpanIncludingLineBreak: TextSpan => TextSpan.FromBounds(Start, EndIncludingLineBreak)
+
+    public override func ToString() -> string => _text.ToString(Span)
+}

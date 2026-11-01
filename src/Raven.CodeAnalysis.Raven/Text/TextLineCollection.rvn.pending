@@ -1,0 +1,31 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+public class TextLineCollection : IEnumerable<TextLine> {
+    private readonly field _lines: ImmutableArray<TextLine>
+
+    internal init(text: SourceText, lineStarts: IReadOnlyList<int>) {
+        let builder = ImmutableArray.CreateBuilder<TextLine>(lineStarts.Count)
+        var index = 0
+        while index < lineStarts.Count {
+            let start = lineStarts[index]
+            let endIncludingLineBreak = if index + 1 < lineStarts.Count { lineStarts[index + 1] } else { text.Length }
+            let end = start + text.GetLineLength(index)
+            builder.Add(TextLine(text, index, start, end, endIncludingLineBreak))
+            index++
+        }
+        _lines = builder.MoveToImmutable()
+    }
+
+    public val Count: int => _lines.Length
+    public val self[index: int]: TextLine => _lines[index]
+
+    public func GetEnumerator() -> IEnumerator<TextLine> => ((IEnumerable<TextLine>)_lines).GetEnumerator()
+
+    func IEnumerable.GetEnumerator() -> IEnumerator {
+        return GetEnumerator()
+    }
+}

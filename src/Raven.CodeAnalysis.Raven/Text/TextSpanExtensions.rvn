@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Text
+
+public extension TextSpanExtensions for TextSpan {
+    public func Contains(innerSpan: TextSpan) -> bool {
+        return self.Start <= innerSpan.Start && self.End >= innerSpan.End
+    }
+
+    public func Contains(position: int) -> bool {
+        return position >= self.Start && position < self.End
+    }
+
+    public func IntersectsWith(otherSpan: TextSpan) -> bool {
+        return self.Start < otherSpan.End && otherSpan.Start < self.End
+    }
+}

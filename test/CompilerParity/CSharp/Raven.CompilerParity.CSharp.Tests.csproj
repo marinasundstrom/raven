@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../SharedTests.props" />
+  <ItemGroup>
+    <AssemblyMetadata Include="CompilerImplementationAssembly" Value="Raven.CodeAnalysis" />
+    <ProjectReference Include="../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" />
+  </ItemGroup>
+</Project>

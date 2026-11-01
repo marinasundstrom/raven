@@ -1745,7 +1745,15 @@ internal class CodeGenerator
             metadataFieldProxies: _metadataFieldProxies,
             pdbInput: provisionalPdbStream,
             pdbOutput: pdbOutputStream,
-            unitContract: Compilation.Options.RuntimeUnitContract);
+            unitContract: Compilation.Options.RuntimeUnitContract,
+            resolveTargetTypeScope: metadataName =>
+            {
+                var type = Compilation.GetTypeByMetadataName(metadataName);
+                return type?.ContainingAssembly is { } owner &&
+                    targetReferences.TryGetValue(owner.Name, out var reference)
+                    ? reference
+                    : null;
+            });
     }
 
     internal bool IsMetadataConstructorProxy(ConstructorInfo constructor)

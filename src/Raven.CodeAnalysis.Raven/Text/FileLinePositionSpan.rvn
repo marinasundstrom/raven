@@ -1,0 +1,13 @@
+namespace Raven.CodeAnalysis.Text
+
+public struct FileLinePositionSpan {
+    public init(path: string, startLinePosition: LinePosition, endLinePosition: LinePosition) {
+        Path = path
+        StartLinePosition = startLinePosition
+        EndLinePosition = endLinePosition
+    }
+
+    public val Path: string
+    public val StartLinePosition: LinePosition
+    public val EndLinePosition: LinePosition
+}

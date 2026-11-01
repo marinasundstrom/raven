@@ -5,6 +5,13 @@ relates to the original source text. Understanding the differences between
 these spans is important when interpreting diagnostics or computing symbol
 locations.
 
+## Coordinate validity
+
+`TextSpan(start, length)` requires nonnegative `start` and `length`, and their
+sum must fit in `int`. Invalid inputs throw `ArgumentOutOfRangeException`; `End`
+never wraps negative for a constructed span. Empty spans, including an empty span
+at `int.MaxValue`, are valid. `FromBounds(start, end)` also requires `end >= start`.
+
 ## `Span`
 
 `Span` represents the region of source text covered by a node, excluding any
@@ -15,3 +22,11 @@ are included.
 
 `FullSpan` includes the node's leading and trailing trivia. It corresponds to
 the exact text the parser consumed for the node.
+
+## Line-coordinate values
+
+`LinePositionSpan` is a positional record struct containing `Start` and `End`.
+Its coordinates are init-only, and it supplies value equality, hashing,
+deconstruction and copy/with semantics. Both maintained compiler implementations
+use this contract. Constructor parameter names are `Start` and `End`; positional
+construction is unchanged.

@@ -1,0 +1,23 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.Collections.Generic.*
+
+public struct TextChangeRange {
+    private static field _noChangesRange: List<TextChangeRange>?
+
+    public val NewLength: int
+    public val Span: TextSpan
+    public val NoChanges: IReadOnlyList<TextChangeRange> {
+        get {
+            _noChangesRange ??= List<TextChangeRange>()
+            return _noChangesRange
+        }
+    }
+
+    public init(maxLength: int, span: TextSpan) {
+        NewLength = maxLength
+        Span = span
+    }
+
+    public override func ToString() -> string => "Span: ${Span}, NewLength: ${NewLength}"
+}

@@ -26,7 +26,8 @@ internal static class AssemblyReferenceNormalizer
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
         IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null,
-        RuntimeUnitContract? unitContract = null)
+        RuntimeUnitContract? unitContract = null,
+        Func<string, AssemblyNameReference?>? resolveTargetTypeScope = null)
     {
         if (peInput is null)
             throw new ArgumentNullException(nameof(peInput));
@@ -58,6 +59,7 @@ internal static class AssemblyReferenceNormalizer
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
         RetargetKeptCoreLibraryTypeScopes(module, targetReferences);
+        RetargetCoreLibraryTypesToDeclaredScopes(module, resolveTargetTypeScope);
         var coreLibRefs = module.AssemblyReferences
             .Where(reference => string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -518,6 +520,46 @@ internal static class AssemblyReferenceNormalizer
             if (!ModuleStillUsesReference(module, replacedScope))
                 module.AssemblyReferences.Remove(replacedScope);
         }
+    }
+
+    private static void RetargetCoreLibraryTypesToDeclaredScopes(
+        ModuleDefinition module,
+        Func<string, AssemblyNameReference?>? resolveTargetTypeScope)
+    {
+        if (resolveTargetTypeScope is null)
+            return;
+
+        var replacedScopes = new HashSet<AssemblyNameReference>();
+        var types = module.GetTypeReferences().Concat(
+            EnumerateMemberReferences(module).Select(member => member.DeclaringType).OfType<TypeReference>());
+        foreach (var type in types)
+        {
+            var definition = GetInnermostTypeReference(type);
+            if (definition.Scope is not AssemblyNameReference currentScope ||
+                currentScope.Name is not ("System.Private.CoreLib" or "System.Runtime") ||
+                !ShouldKeepCoreLibScope(definition.FullName, definition.Namespace ?? string.Empty))
+                continue;
+
+            // Collections do not all live in one facade: List<T> is declared in
+            // System.Collections, while IEnumerable<T> is in System.Runtime.
+            // Use the selected semantic declaration, not a namespace-wide guess.
+            var target = resolveTargetTypeScope(definition.FullName.Replace('/', '+'));
+            if (target is null || target.FullName == currentScope.FullName)
+                continue;
+
+            var scope = module.AssemblyReferences.FirstOrDefault(reference => reference.FullName == target.FullName);
+            if (scope is null)
+            {
+                scope = CloneAssemblyReference(target);
+                module.AssemblyReferences.Add(scope);
+            }
+            definition.Scope = scope;
+            replacedScopes.Add(currentScope);
+        }
+
+        foreach (var scope in replacedScopes)
+            if (!ModuleStillUsesReference(module, scope))
+                module.AssemblyReferences.Remove(scope);
     }
 
     private static void RetargetKeptCoreLibraryTypeScopes(

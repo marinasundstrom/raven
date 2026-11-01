@@ -1,0 +1,212 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Linq.*
+import System.Security.Cryptography.*
+import System.Text.*
+import System.Threading.*
+
+public class SourceText {
+    private const ChangeRangeChainScanLimit: int = 32
+    private readonly field _text: string
+    private readonly field _encoding: Encoding
+    private readonly field _lineStarts: List<int>
+    private readonly field _previousText: WeakReference<SourceText>?
+    private readonly field _changeRanges: IReadOnlyList<TextChangeRange>?
+    private field _lines: TextLineCollection?
+
+    public val Encoding: Encoding => _encoding
+    public val Length: int => _text.Length
+
+    private init(text: string, encoding: Encoding? = null, previousText: SourceText? = null, changeRanges: IReadOnlyList<TextChangeRange>? = null) {
+        _text = text ?? throw ArgumentNullException(nameof(text))
+        _encoding = encoding ?? System.Text.Encoding.UTF8
+        _lineStarts = TextUtils.ComputeLineStarts(_text)
+        _previousText = if previousText is SourceText previous { WeakReference<SourceText>(previous) } else { null }
+        _changeRanges = changeRanges
+    }
+
+    public static func From(text: string, encoding: Encoding? = null) -> SourceText {
+        return SourceText(text, encoding)
+    }
+
+    public static func From(stream: Stream, encoding: Encoding? = null) -> SourceText {
+        let actualEncoding = encoding ?? System.Text.Encoding.UTF8
+        use textReader = StreamReader(stream, actualEncoding)
+        return SourceText(textReader.ReadToEnd(), actualEncoding)
+    }
+
+    public val self[index: int]: char => _text[index]
+
+    public func WithChange(position: int, newText: string) -> SourceText {
+        if position < 0 || position > _text.Length {
+            throw ArgumentOutOfRangeException(nameof(position))
+        }
+        return WithChange(TextChange(TextSpan(position, 0), newText))
+    }
+
+    public func WithChange(change: TextChange) -> SourceText {
+        if change.Span.Start < 0 || change.Span.Start > _text.Length || change.Span.End < 0 || change.Span.End > _text.Length {
+            throw ArgumentOutOfRangeException(nameof(change), "The span is out of bounds.")
+        }
+        let updatedText = string.Concat(_text.AsSpan(0, change.Span.Start), change.NewText.AsSpan(), _text.AsSpan(change.Span.End))
+        return SourceText(updatedText, Encoding, previousText: self, changeRanges: [TextChangeRange(change.NewText.Length, change.Span)])
+    }
+
+    public func GetLineAndColumn(span: TextSpan) -> (line: int, column: int) => GetLineAndColumn(span.Start)
+
+    public func GetLineAndColumn(position: int) -> (line: int, column: int) {
+        var currentPosition = position
+        if currentPosition < 0 { currentPosition = 0 }
+        else if currentPosition > _text.Length { currentPosition = _text.Length }
+        return TextUtils.GetLineAndColumn(_lineStarts, currentPosition)
+    }
+
+    public func GetLineCount() -> int => _lineStarts.Count
+
+    public func GetLineLength(zeroBasedLine: int) -> int {
+        if zeroBasedLine < 0 { return 0 }
+        if zeroBasedLine >= _lineStarts.Count { return 0 }
+        let start = _lineStarts[zeroBasedLine]
+        var end = if zeroBasedLine + 1 < _lineStarts.Count { _lineStarts[zeroBasedLine + 1] } else { _text.Length }
+        while end > start && (_text[end - 1] == '\n' || _text[end - 1] == '\r') {
+            end--
+        }
+        return Math.Max(0, end - start)
+    }
+
+    public func GetTextReader() -> TextReader => StringReader(_text)
+
+    public func GetTextReader(position: int) -> TextReader {
+        var currentPosition = position
+        if currentPosition <= 0 { return StringReader(_text) }
+        if currentPosition >= _text.Length { return StringReader(string.Empty) }
+        let current = _text[currentPosition]
+        if current <= 0x7F { return StringReader(_text[currentPosition..]) }
+        if char.IsLowSurrogate(current) && currentPosition > 0 && char.IsHighSurrogate(_text[currentPosition - 1]) {
+            currentPosition--
+        }
+        return StringReader(_text[currentPosition..])
+    }
+
+    public func GetTextChanges(oldText: SourceText) -> IReadOnlyList<TextChange> {
+        if oldText == null { throw ArgumentNullException(nameof(oldText)) }
+        let ranges = GetChangeRanges(oldText)
+        if ranges.Count == 0 { return Array.Empty<TextChange>() }
+        if !IsFullTextChangeRange(oldText, ranges) { return CreateTextChangesFromRanges(ranges) }
+        return ComputeTextChanges(oldText)
+    }
+
+    public func GetChangeRanges(oldText: SourceText) -> IReadOnlyList<TextChangeRange> {
+        if oldText == null { throw ArgumentNullException(nameof(oldText)) }
+        if ReferenceEquals(self, oldText) || ContentEquals(oldText) { return Array.Empty<TextChangeRange>() }
+        if _previousText is WeakReference<SourceText> previousText && previousText.TryGetTarget(out var directPrevious) && ReferenceEquals(directPrevious, oldText) && _changeRanges is IReadOnlyList<TextChangeRange> changeRanges {
+            return changeRanges
+        }
+        if IsChangedFrom(oldText) {
+            return ComputeTextChanges(oldText).Select(change => TextChangeRange(change.NewText.Length, change.Span)).ToArray()
+        }
+        return ComputeTextChanges(oldText).Select(change => TextChangeRange(change.NewText.Length, change.Span)).ToArray()
+    }
+
+    private func CreateTextChangesFromRanges(ranges: IReadOnlyList<TextChangeRange>) -> IReadOnlyList<TextChange> {
+        let changes = List<TextChange>(ranges.Count)
+        var delta = 0
+        for range in ranges {
+            let newStart = range.Span.Start + delta
+            changes.Add(TextChange(range.Span, _text.Substring(newStart, range.NewLength)))
+            delta += range.NewLength - range.Span.Length
+        }
+        return changes
+    }
+
+    private static func IsFullTextChangeRange(oldText: SourceText, ranges: IReadOnlyList<TextChangeRange>) -> bool {
+        return ranges.Count == 1 && ranges[0].Span.Start == 0 && ranges[0].Span.Length == oldText.Length
+    }
+
+    private func IsChangedFrom(oldText: SourceText) -> bool {
+        var current = self
+        var i = 0
+        while i < ChangeRangeChainScanLimit {
+            if current._previousText is not WeakReference<SourceText> previousText { return false }
+            if !previousText.TryGetTarget(out var previous) { return false }
+            if ReferenceEquals(previous, oldText) { return true }
+            current = previous
+            i++
+        }
+        return false
+    }
+
+    private func ComputeTextChanges(oldText: SourceText) -> IReadOnlyList<TextChange> {
+        let oldTextString = oldText._text
+        let newTextString = self._text
+        let oldLength = oldTextString.Length
+        let newLength = newTextString.Length
+        var start = 0
+        while start < oldLength && start < newLength && oldTextString[start] == newTextString[start] {
+            start++
+        }
+        if start == oldLength && start == newLength { return Array.Empty<TextChange>() }
+        var oldEnd = oldLength - 1
+        var newEnd = newLength - 1
+        while oldEnd >= start && newEnd >= start && oldTextString[oldEnd] == newTextString[newEnd] {
+            oldEnd--
+            newEnd--
+        }
+        let oldSpanStart = start
+        let oldSpanLength = oldEnd - start + 1
+        let newSpanStart = start
+        let newSpanLength = newEnd - start + 1
+        let changedText = newTextString.Substring(newSpanStart, newSpanLength)
+        return List<TextChange> { TextChange(TextSpan(oldSpanStart, oldSpanLength), changedText) }
+    }
+
+    public func ContentEquals(other: SourceText) -> bool => _text.Equals(other._text)
+
+    public func CopyTo(sourceIndex: int, destination: char[], destinationIndex: int, count: int) {
+        ArgumentNullException.ThrowIfNull(destination)
+        if sourceIndex < 0 || sourceIndex > Length { throw ArgumentOutOfRangeException(nameof(sourceIndex)) }
+        if destinationIndex < 0 || destinationIndex > destination.Length { throw ArgumentOutOfRangeException(nameof(destinationIndex)) }
+        if count < 0 || count > Length - sourceIndex || count > destination.Length - destinationIndex { throw ArgumentOutOfRangeException(nameof(count)) }
+        _text.CopyTo(sourceIndex, destination, destinationIndex, count)
+    }
+
+    public func GetChecksum() -> ImmutableArray<byte> {
+        use sha256 = SHA256.Create()
+        let bytes = Encoding.GetBytes(_text)
+        return ImmutableArray.CreateRange(sha256.ComputeHash(bytes))
+    }
+
+    public func GetContentHash() -> ImmutableArray<byte> => GetChecksum()
+    public func GetSubText(span: TextSpan) -> string => _text.Substring(span.Start, span.Length)
+    public func GetSubText(start: int, length: int) -> string => _text.Substring(start, length)
+    public func Replace(span: TextSpan, newText: string) -> SourceText => WithChange(TextChange(span, newText))
+    public func Replace(start: int, length: int, newText: string) -> SourceText => Replace(TextSpan(start, length), newText)
+
+    public func GetLines() -> TextLineCollection {
+        return LazyInitializer.EnsureInitialized(ref _lines, () => TextLineCollection(self, _lineStarts))
+    }
+
+    public func Write(textWriter: TextWriter, cancellationToken: CancellationToken) {
+        ArgumentNullException.ThrowIfNull(textWriter)
+        cancellationToken.ThrowIfCancellationRequested()
+        textWriter.Write(_text.AsSpan())
+    }
+
+    public func Write(textWriter: TextWriter, span: TextSpan, cancellationToken: CancellationToken) {
+        ArgumentNullException.ThrowIfNull(textWriter)
+        ValidateSpan(span)
+        cancellationToken.ThrowIfCancellationRequested()
+        textWriter.Write(_text.AsSpan(span.Start, span.Length))
+    }
+
+    private func ValidateSpan(span: TextSpan) {
+        if span.Start > Length || span.Length > Length - span.Start { throw ArgumentOutOfRangeException(nameof(span)) }
+    }
+
+    public override func ToString() -> string => _text.ToString()
+    public func ToString(span: TextSpan) -> string => GetSubText(span)
+}

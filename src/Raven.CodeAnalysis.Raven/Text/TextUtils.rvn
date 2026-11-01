@@ -1,0 +1,27 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.Collections.Generic.*
+
+public static class TextUtils {
+    public static func ComputeLineStarts(text: string) -> List<int> {
+        let lineStarts = List<int>()
+        lineStarts.Add(0)
+        var i = 0
+        while i < text.Length {
+            if text[i] == '\n' || (text[i] == '\r' && (i + 1 == text.Length || text[i + 1] != '\n')) {
+                lineStarts.Add(i + 1)
+            }
+            i++
+        }
+        return lineStarts
+    }
+
+    public static func GetLineAndColumn(lineStarts: List<int>, position: int) -> (line: int, column: int) {
+        var line = lineStarts.BinarySearch(position)
+        if line < 0 {
+            line = ~line - 1
+        }
+        let column = position - lineStarts[line]
+        return (line + 1, column + 1)
+    }
+}

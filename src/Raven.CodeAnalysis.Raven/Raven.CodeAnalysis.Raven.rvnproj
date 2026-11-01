@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>Raven.CodeAnalysis.Raven</AssemblyName>
+    <OutputType>Library</OutputType>
+    <ImplicitImports>false</ImplicitImports>
+    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

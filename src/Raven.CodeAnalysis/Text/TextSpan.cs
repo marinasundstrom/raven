@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace Raven.CodeAnalysis.Text;
 
@@ -17,7 +17,7 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan>
 
     public TextSpan(int start, int length)
     {
-        if (start < 0 || length < 0)
+        if (start < 0 || length < 0 || length > int.MaxValue - start)
             throw new ArgumentOutOfRangeException();
 
         Start = start;

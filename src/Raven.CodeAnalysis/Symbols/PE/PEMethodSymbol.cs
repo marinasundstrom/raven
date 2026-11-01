@@ -699,14 +699,14 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
 
             foreach (var iface in declaringType.GetInterfaces())
             {
-                // Compare to generic *definition* name, because the metadata prefix uses that
-                var candidateName = GetFormattedTypeName(iface);
+                // Match the constructed interface encoded in the explicit member name.
+                var candidateName = PEExplicitInterfaceNames.Format(iface);
                 if (!string.Equals(candidateName, ifaceMetadataName, StringComparison.Ordinal))
                     continue;
 
                 // We have the right interface. Now find the matching method on that interface.
                 foreach (var ifaceMethod in iface.GetMethods(
-                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
                 {
                     if (!string.Equals(ifaceMethod.Name, memberName, StringComparison.Ordinal))
                         continue;
@@ -726,33 +726,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         }
     }
 
-    private static string GetFormattedTypeName(Type t)
-    {
-        // For generic constructed interfaces, we want the definition name
-        if (t.IsGenericType && !t.IsGenericTypeDefinition)
-            t = t.GetGenericTypeDefinition();
-
-        // Metadata-style full name (includes `1, + for nested, etc.)
-        var name = t.FullName ?? t.Name;
-        var i = name.LastIndexOf('`');
-        if (i > -1)
-        {
-            name = name[..i];
-            var param = t.GetGenericArguments().Select(x => x.Name);
-            name = $"{name}<{string.Join(",", param)}>";
-        }
-
-        return name;
-
-        /*
-        // For generic constructed interfaces, we want the definition name
-        if (t.IsGenericType && !t.IsGenericTypeDefinition)
-            t = t.GetGenericTypeDefinition();
-
-        // Metadata-style full name (includes `1, + for nested, etc.)
-        return t.FullName ?? t.Name;
-        */
-    }
 
     private static bool HasSameSignature(MethodInfo impl, MethodInfo iface)
     {
