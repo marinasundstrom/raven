@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Text;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
@@ -24,6 +26,14 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiColor).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiExtensions).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(SeekableTextSource).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticSeverity).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticDescriptor).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticInfo).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(LocalizableString).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(LocalizableStringImpl).Assembly);
+        Assert.True(typeof(LocalizableString).IsAbstract);
+        Assert.False(typeof(LocalizableStringImpl).IsSealed);
+        Assert.False(typeof(DiagnosticDescriptor).IsSealed);
         Assert.True(typeof(SeekableTextSource).IsSealed);
         Assert.False(typeof(SeekableTextSource).IsAbstract);
         Assert.Empty(typeof(SeekableTextSource).GetFields(

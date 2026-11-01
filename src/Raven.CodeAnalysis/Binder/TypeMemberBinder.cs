@@ -2571,6 +2571,11 @@ internal partial class TypeMemberBinder : Binder
 
     private void EnsureDelegateMembers(SourceNamedTypeSymbol delegateSymbol, DelegateDeclarationSyntax delegateDecl, Binder binder)
     {
+        // Declaration discovery and completion can visit the same delegate.
+        // Its runtime members are already owned by the source symbol.
+        if (!delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").IsEmpty)
+            return;
+
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
@@ -2652,6 +2657,8 @@ internal partial class TypeMemberBinder : Binder
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var pType = ResolveParameterTypeSyntaxForSignature(binder, typeSyntax, refKind);
+            pType = NormalizeVarParamsParameterType(
+                Compilation, p, pType, p.Identifier.ValueText, _diagnostics, out var isVarParams);
 
             ValidateTypeAccessibility(
                 pType,
@@ -2673,6 +2680,7 @@ internal partial class TypeMemberBinder : Binder
                 new[] { p.GetReference() },
                 refKind,
                 isMutable: refKind is RefKind.Ref or RefKind.Out,
+                isVarParams: isVarParams,
                 scopedKind: ParameterSyntaxUtilities.GetScopedKind(p, pType, _diagnostics)));
         }
 

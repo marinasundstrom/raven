@@ -1,0 +1,20 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Text.*
+
+internal open class DiagnosticInfo {
+    val Descriptor: DiagnosticDescriptor
+    val Span: TextSpan
+    val Args: object?[]
+
+    private init(descriptor: DiagnosticDescriptor, span: TextSpan, args: object?[]) {
+        Descriptor = descriptor
+        Span = span
+        Args = args
+    }
+
+    static func Create(descriptor: DiagnosticDescriptor, span: TextSpan, params args: object?[]) -> DiagnosticInfo {
+        return DiagnosticInfo(descriptor, span, args)
+    }
+}

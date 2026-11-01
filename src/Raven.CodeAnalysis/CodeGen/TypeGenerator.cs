@@ -1211,6 +1211,7 @@ internal class TypeGenerator
                     i + 1,
                     GetParameterAttributes(parameter),
                     parameter.Name);
+                CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
                 var hasImplicitScopedDefault =
                     parameter.RefKind == RefKind.Out ||
                     parameter.RefKind == RefKind.Ref &&
@@ -1702,7 +1703,8 @@ internal class TypeGenerator
             for (int i = 0; i < parameterSymbols.Length; i++)
             {
                 var parameter = parameterSymbols[i];
-                methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+                var parameterBuilder = methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+                CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
             }
 
             methodBuilder.SetCustomAttribute(markerAttribute);
@@ -1795,7 +1797,8 @@ internal class TypeGenerator
         for (int i = 0; i < parameterSymbols.Length; i++)
         {
             var parameter = parameterSymbols[i];
-            accessorBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+            var parameterBuilder = accessorBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+            CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
         }
 
         accessorBuilder.SetCustomAttribute(markerAttribute);

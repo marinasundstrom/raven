@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit parameter-array metadata for array collectors so C# consumers can use
+  omitted or expanded arguments on Raven methods, constructors and delegates.
+  Preserve collector flags on delegate signatures and avoid duplicate runtime
+  members during repeated declaration completion.
+- Port diagnostic primitives alongside C# and share their C# contract tests.
+  Make descriptor ID equality explicit with typed equality and matching operators
+  in both implementations, retaining the existing ID-only hash/equality policy.
+
 - Preserve source type identity during import binding when referenced assemblies
   expose the same namespace and metadata name. Declaration-time lookup uses source
   declarations instead of replacing them with provisional metadata symbols.

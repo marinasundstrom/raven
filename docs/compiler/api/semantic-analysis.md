@@ -153,3 +153,12 @@ contains a type with the same metadata name. Metadata-only candidates retain the
 existing target/assembly selection rules. Regression coverage checks semantic and
 emitted identity in both file orders, using a source `SyntaxKind` alongside the
 retained compiler assembly, plus adjacent namespace and import cases.
+
+### Delegate collectors during declaration completion
+
+Top-level and nested delegate declarations retain their collector parameter flags
+and normalized collection types in `Invoke` symbols. Repeated declaration
+completion reuses the delegate's existing runtime members instead of registering
+duplicate `Invoke` members. Public member queries and emitted signatures therefore
+observe one owned delegate signature. `ParamsMetadataTests` covers both declaration
+paths together with their exported array-collector metadata.

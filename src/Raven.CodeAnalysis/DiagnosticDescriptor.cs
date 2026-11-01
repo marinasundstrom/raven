@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public class DiagnosticDescriptor
+public class DiagnosticDescriptor : IEquatable<DiagnosticDescriptor>
 {
     private DiagnosticDescriptor(
         string id,
@@ -53,8 +53,15 @@ public class DiagnosticDescriptor
 
     public override bool Equals(object? obj)
     {
-        return obj is DiagnosticDescriptor other && Id == other.Id;
+        return obj is DiagnosticDescriptor other && Equals(other);
     }
+
+    public bool Equals(DiagnosticDescriptor? other) => other is not null && Id == other.Id;
+
+    public static bool operator ==(DiagnosticDescriptor? left, DiagnosticDescriptor? right) =>
+        ReferenceEquals(left, right) || (left is not null && left.Equals(right));
+
+    public static bool operator !=(DiagnosticDescriptor? left, DiagnosticDescriptor? right) => !(left == right);
 
     public override int GetHashCode()
     {

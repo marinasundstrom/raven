@@ -2305,6 +2305,22 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_isReadOnlyCtor, Array.Empty<object>());
     }
 
+    internal void ApplyParamArrayAttribute(IParameterSymbol parameter, Action<CustomAttributeBuilder> apply)
+    {
+        const string attributeName = "System.ParamArrayAttribute";
+        if (!parameter.IsVarParams || parameter.Type is not IArrayTypeSymbol ||
+            parameter.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToFullyQualifiedMetadataName() == attributeName))
+            return;
+
+        var attributeType = Compilation.GetTypeByMetadataName(attributeName);
+        var constructor = attributeType?.Constructors.FirstOrDefault(method =>
+            !method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
+            method.Parameters.IsEmpty);
+        if (constructor is not null)
+            apply(new CustomAttributeBuilder(RuntimeSymbolResolver.GetConstructorInfo(constructor), []));
+    }
+
     internal CustomAttributeBuilder? CreateScopedRefAttributeBuilder()
     {
         if (_scopedRefCtor is null)

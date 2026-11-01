@@ -1,0 +1,21 @@
+namespace Raven.CodeAnalysis
+
+public abstract class LocalizableString {
+    static func implicit(value: string) -> LocalizableString {
+        return LocalizableStringImpl(value)
+    }
+
+    static func implicit(value: LocalizableString) -> string {
+        return value.ToString()!
+    }
+}
+
+public open class LocalizableStringImpl : LocalizableString {
+    private readonly field _value: string
+
+    init(value: string) {
+        _value = value
+    }
+
+    override func ToString() -> string => _value
+}

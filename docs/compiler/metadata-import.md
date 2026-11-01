@@ -1230,3 +1230,17 @@ when binding succeeds. The existing fallback remains when a selected declaration
 cannot be resolved; the explicit target-core retargeting path is unchanged.
 Regression coverage checks metadata scope and executes calls with framework
 reference assemblies, alongside span, generic-call and normalizer tests.
+
+### Exported parameter arrays
+
+Array collector parameters (`params items: T[]`) emit `System.ParamArrayAttribute`
+from the selected compilation references. This applies to methods, constructors,
+delegate `Invoke` parameters and extension metadata, allowing C# consumers and
+subsequent metadata imports to recognize expanded argument calls. An explicitly
+supplied attribute is not duplicated. Ordinary arrays and non-array collectors
+are not marked as parameter arrays. Non-array collector export remains a separate
+compatibility gap; this does not introduce `ParamCollectionAttribute` support.
+
+Validation: `ParamsMetadataTests` checks binding and emitted method, constructor
+and delegate metadata; the diagnostic port's shared C# tests exercise empty and
+expanded calls to the Raven-produced `DiagnosticInfo.Create`.

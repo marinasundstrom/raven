@@ -41,7 +41,15 @@ convenience form `items: T ...` binds as `IList<T>`; use explicit `params`
 syntax, such as `params items: int[]`, to control the collection type.
 
 At call sites, extra positional arguments are packed into the collector.
-`...expr` expands an existing sequence into it.
+`...expr` expands an existing sequence into it. Delegate declarations preserve
+collector parameters too.
+
+**.NET metadata:** explicit array collectors such as `params items: int[]` export
+parameter-array metadata, so C# callers can omit the array or supply individual
+arguments. Non-array collectors, including the `IList<T>` convenience form, do
+not yet export collection-parameter metadata; foreign callers must pass the
+collection explicitly. This is an interop implementation gap, not a restriction
+on Raven calls.
 
 ## Named arguments
 

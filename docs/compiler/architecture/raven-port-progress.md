@@ -62,6 +62,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, plus `Text/SourceTextIOTests.cs` for encoding/disposal, checksums and generic/non-generic enumeration |
 | `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
+| `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal implementation, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -150,8 +151,15 @@ confusion with `SourceText.Encoding`.
 
 The independent text helpers and snapshot I/O/hash coverage are now included.
 `SeekableTextSource`, generated syntax kinds and token values are now ported and
-tested. Next port the diagnostic payload dependencies (`LocalizableString`,
-`DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`) before the lexer.
+tested. Diagnostic payload dependencies (`LocalizableString` and its literal
+implementation, `DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`)
+are now translated. Continue with resource-backed localization and the diagnostic
+catalog needed by the lexer, then the lexer itself. `LocalizableResourceString`
+is not yet ported: its C# implementation currently lacks resource lookup and needs
+focused characterization and a correction in both sources. Review literal-string
+value equality alongside that localization slice; this slice retains its existing
+wrapper identity. `DiagnosticInfo` retains reference identity and its caller-owned
+argument array rather than introducing deep equality over mutable inputs.
 Keep generated syntax-kind definitions tied to their source model rather than
 maintaining a divergent handwritten copy. `SourceTextWriter`
 depends on syntax nodes and follows that dependency group.
@@ -358,3 +366,44 @@ part of this slice (author direction, 2026-11-01).
 
 A fresh broad baseline is being run for the build and parity-harness changes.
 Its result is separate from these focused checks; no full-baseline pass is claimed.
+
+## Diagnostic dependency checkpoint — 2026-11-01
+
+Port the diagnostic severity enum, descriptor, literal localizable strings and
+internal diagnostic payload without redesigning their construction APIs.
+Descriptors keep ID-only equality; both implementations now explicitly implement
+`IEquatable<DiagnosticDescriptor>` and matching null-safe equality operators.
+Display text and severity remain outside descriptor identity. The port keeps
+reference classes and uses `open` where the C# API is non-sealed. Nullable values
+use Raven's specified pattern narrowing. `Token` is unchanged.
+
+The new six shared diagnostic cases passed against C# before translation.
+The full shared corpus then passed 91 cases per implementation (92 in the Raven
+project including the generated-enum identity check), covering C# calls, defaults,
+expanded arguments, identity, equality and hashing. Only modern .NET is executed.
+
+### PORT-013: exported array collectors and delegate declaration completion
+
+The initial diagnostic translation compiled, but C# could not call
+`DiagnosticInfo.Create` with omitted or expanded arguments. A reduced metadata
+test confirmed that the source method was a collector but lacked
+`ParamArrayAttribute`. CLI emission now obtains the attribute from the selected
+references and applies it to array collectors, preserving explicit attributes.
+Ordinary arrays and non-array collectors are excluded. Non-array collector export
+remains an interop gap, documented in the language reference/website.
+
+Adjacent delegate coverage exposed dropped collector flags in top-level and
+nested declaration completion, followed by duplicate `Invoke` symbols on repeated
+completion. Both declaration paths now normalize collectors and reuse already
+owned delegate runtime members. The binder and emitter are not yet ported; these
+fixes are requirements for their Raven translations. Regression coverage checks
+source symbols, method/constructor/delegate metadata and runtime calls.
+
+The focused pre-change parameter baseline passed 18 tests; the corrected
+parameter/delegate/diagnostic selection passes 32. The broad baseline remains
+separate and pending. The focused regression run uses a separate test output
+directory to avoid changing the binaries used by ongoing baseline batches.
+A website build started before the author prohibited RavenDoc generation completed;
+future porting slices update documentation/website sources without generation.
+Grammar is unchanged: the collector syntax already exists. Language-service
+consumers receive the corrected delegate symbols through existing compiler APIs.

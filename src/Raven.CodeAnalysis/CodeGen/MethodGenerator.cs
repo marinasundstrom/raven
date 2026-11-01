@@ -315,6 +315,8 @@ internal class MethodGenerator
             else
                 parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
 
+            TypeGenerator.CodeGen.ApplyParamArrayAttribute(parameterSymbol, parameterBuilder.SetCustomAttribute);
+
             TypeGenerator.CodeGen.ApplyNullableAttribute(
                 parameterSymbol.Type,
                 parameterBuilder.SetCustomAttribute);

@@ -1,0 +1,49 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public open class DiagnosticDescriptor : IEquatable<DiagnosticDescriptor> {
+    private init(id: string, title: LocalizableString, description: LocalizableString?, helpLinkUri: string,
+        messageFormat: LocalizableString, category: string, defaultSeverity: DiagnosticSeverity,
+        isEnabledByDefault: bool) {
+        Id = id
+        Title = title
+        Description = description
+        HelpLinkUri = helpLinkUri
+        MessageFormat = messageFormat
+        Category = category
+        DefaultSeverity = defaultSeverity
+        IsEnabledByDefault = isEnabledByDefault
+    }
+
+    static func Create(id: string, title: LocalizableString, description: LocalizableString?, helpLinkUri: string,
+        messageFormat: LocalizableString, category: string, defaultSeverity: DiagnosticSeverity,
+        isEnabledByDefault: bool = true) -> DiagnosticDescriptor {
+        return DiagnosticDescriptor(id, title, description, helpLinkUri, messageFormat, category, defaultSeverity, isEnabledByDefault)
+    }
+
+    val Id: string
+    val Title: LocalizableString
+    val Description: LocalizableString?
+    val HelpLinkUri: string
+    val MessageFormat: LocalizableString
+    val Category: string
+    val DefaultSeverity: DiagnosticSeverity
+    val IsEnabledByDefault: bool
+
+    override func Equals(obj: object?) -> bool {
+        return obj is DiagnosticDescriptor other && Equals(other)
+    }
+
+    func Equals(other: DiagnosticDescriptor?) -> bool {
+        return other is DiagnosticDescriptor descriptor && Id == descriptor.Id
+    }
+
+    static func ==(left: DiagnosticDescriptor?, right: DiagnosticDescriptor?) -> bool {
+        return object.ReferenceEquals(left, right) || (left is DiagnosticDescriptor descriptor && descriptor.Equals(right))
+    }
+
+    static func !=(left: DiagnosticDescriptor?, right: DiagnosticDescriptor?) -> bool => !(left == right)
+
+    override func GetHashCode() -> int => Id.GetHashCode()
+}
