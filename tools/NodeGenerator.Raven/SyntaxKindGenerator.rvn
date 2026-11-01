@@ -1,0 +1,23 @@
+import System.*
+import System.Collections.Generic.*
+import System.Text.*
+import NodesShared.*
+
+internal static class SyntaxKindGenerator {
+    static func Generate(nodes: IEnumerable<SyntaxNodeModel>, nodeKinds: IEnumerable<NodeKindModel>, tokens: IEnumerable<TokenKindModel>, raven: bool = false) -> string {
+        let names = SortedSet<string>(StringComparer.Ordinal)
+        names.Add("List")
+        for n in nodes { names.Add(n.Name) }
+        for nk in nodeKinds { names.Add(nk.Name) }
+        for t in tokens { names.Add(t.Name) }
+        let sb = StringBuilder()
+        sb.AppendLine(if raven { "namespace Raven.CodeAnalysis.Syntax" } else { "namespace Raven.CodeAnalysis.Syntax;" })
+        sb.AppendLine()
+        sb.AppendLine("public enum SyntaxKind")
+        sb.AppendLine("{")
+        sb.AppendLine("    None = 0,")
+        for name in names { sb.AppendLine("    ${name},") }
+        sb.AppendLine("}")
+        return sb.ToString()
+    }
+}

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>NodeGenerator.Raven</AssemblyName>
+    <OutputType>Library</OutputType>
+    <ImplicitImports>false</ImplicitImports>
+    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+    <IsPackable>false</IsPackable>
+    <RavenGenerateDocumentation>false</RavenGenerateDocumentation>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
+    <GenerateXmlDocumentationFromMarkdownComments>false</GenerateXmlDocumentationFromMarkdownComments>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NodesShared.Raven/NodesShared.Raven.rvnproj" />
+  </ItemGroup>
+</Project>

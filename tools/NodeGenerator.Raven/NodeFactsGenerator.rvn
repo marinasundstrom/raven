@@ -1,0 +1,50 @@
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import NodesShared.*
+
+internal static class NodeFactsGenerator {
+    static func GenerateSyntaxFacts(nodes: IEnumerable<SyntaxNodeModel>, nodeKinds: IEnumerable<NodeKindModel>, raven: bool = false) -> string {
+        let concrete = HashSet<string>(nodes.Where(n => !n.IsAbstract).Select(n => n.Name))
+        for nk in nodeKinds { concrete.Add(nk.Name) }
+        let baseTypes = nodeKinds.Select(nk => nk.Type).ToHashSet(StringComparer.Ordinal)
+        for b in baseTypes {
+            if b is "UnaryExpression" or "BinaryExpression" { continue }
+            concrete.Remove(b)
+        }
+        func IsExpressionKind(name: string) -> bool => name.EndsWith("Expression") || (name.EndsWith("Name") && name != "Name" && name != "SimpleName") || (name.EndsWith("Type") && name != "Type" && name != "PredefinedType")
+        func IsStatementKind(name: string) -> bool => name.EndsWith("Statement") || name == "Block"
+        func IsLiteralExpressionKind(name: string) -> bool => name.EndsWith("LiteralExpression") && name != "LiteralExpression"
+        func IsAssignmentExpressionKind(name: string) -> bool => name.EndsWith("AssignmentExpression") && name != "AssignmentExpression"
+        func IsTypeSyntaxKind(name: string) -> bool => (name.EndsWith("Type") && name != "Type") || (name.EndsWith("Name") && name != "Name" && name != "SimpleName")
+        let sorted = concrete.OrderBy(n => n).ToList()
+        let expressionKinds = sorted.Where(IsExpressionKind).ToList()
+        let statementKinds = sorted.Where(IsStatementKind).ToList()
+        let literalKinds = sorted.Where(IsLiteralExpressionKind).ToList()
+        let assignmentKinds = sorted.Where(IsAssignmentExpressionKind).ToList()
+        let typeKinds = sorted.Where(IsTypeSyntaxKind).ToList()
+        let sb = StringBuilder()
+        sb.AppendLine(if raven { "namespace Raven.CodeAnalysis.Syntax" } else { "namespace Raven.CodeAnalysis.Syntax;" })
+        sb.AppendLine()
+        sb.AppendLine("public static partial class SyntaxFacts")
+        sb.AppendLine("{")
+        func AppendMethod(methodName: string, kinds: IEnumerable<string>) {
+            sb.AppendLine(if raven { "    static func ${methodName}(kind: SyntaxKind) -> bool => kind match" } else { "    public static bool ${methodName}(SyntaxKind kind) => kind switch" })
+            sb.AppendLine("    {")
+            for k in kinds {
+                sb.AppendLine("        SyntaxKind.${k} => true${if raven { "" } else { "," }}")
+            }
+            sb.AppendLine(if raven { "        _ => false" } else { "        _ => false," })
+            sb.AppendLine(if raven { "    }" } else { "    };" })
+            sb.AppendLine()
+        }
+        AppendMethod("IsExpression", expressionKinds)
+        AppendMethod("IsStatement", statementKinds)
+        AppendMethod("IsLiteralExpression", literalKinds)
+        AppendMethod("IsAssignmentExpression", assignmentKinds)
+        AppendMethod("IsTypeSyntax", typeKinds)
+        sb.AppendLine("}")
+        return sb.ToString()
+    }
+}

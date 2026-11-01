@@ -18,4 +18,6 @@ for implementation in CSharp Raven; do
     --logger 'trx;LogFileName=results.trx' --results-directory "$results_dir/$implementation"
 done
 shasum -a 256 tools/NodesShared/bin/Debug/net10.0/NodesShared.dll \
-  tools/NodesShared.Raven/bin/Debug/net11.0/NodesShared.Raven.dll >> "$results_dir/provenance.txt"
+  tools/NodesShared.Raven/bin/Debug/net11.0/NodesShared.Raven.dll \
+  tools/NodeGenerator/bin/Debug/net10.0/NodeGenerator.dll \
+  tools/NodeGenerator.Raven/bin/Debug/net11.0/NodeGenerator.Raven.dll >> "$results_dir/provenance.txt"

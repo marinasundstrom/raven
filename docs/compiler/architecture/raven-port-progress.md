@@ -1013,3 +1013,28 @@ The focused baseline passed 28 existing cases and failed all four regressions.
 The corrected closure/receiver/semantic-capture selection passes **39 tests**.
 This validates .NET execution, not native neoCLR; the portable backend owns its
 own parameter layout. Carry this correction when MethodGenerator is ported.
+
+### PORT-034: Syntax-kind, node-fact and token emitters
+
+A separate `tools/NodeGenerator.Raven` library now translates SyntaxKindGenerator,
+NodeFactsGenerator and all four TokenGenerator entry points. Shared C# tests run
+against each implementation. An additional cross-implementation test compares all
+eight generated source outputs using the repository XML inputs, covering both C#
+and Raven output modes. The production generator still uses C#; its driver,
+loaders, structural node emitters, visitors and rewriters remain to be ported.
+
+TokenKindModel and NodeKindModel use primary-constructor records in both source
+languages. Raven intentionally requires record instance data in the primary
+constructor. Required names/types are constructor arguments, optional properties
+retain their defaults, and value equality and init-only properties are preserved.
+This does not change the lexer's Token type. Private helpers remain explicitly
+private and captured local functions retain their original structure; PORT-033
+fixes the compiler defect exposed by that direct translation.
+
+The existing generator baseline passed **14 tests per implementation**. Expanded
+parity now passes **21 C# tests and 22 Raven tests** on .NET 11, including exact
+source-output equality. The required generator/compiler build also passes. The
+Raven emitter build reports 16 warnings, including explicit null suppression and
+unused builder return values. No native neoCLR execution is claimed. RavenDoc and
+website generation were not run. This slice establishes more generator support
+for subsequent coherent parser/syntax ports; it does not yet port the parser.

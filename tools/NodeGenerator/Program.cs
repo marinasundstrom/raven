@@ -485,9 +485,8 @@ List<TokenKindModel> LoadTokenKindsFromXml(string path)
 
     foreach (var tokenElement in doc.Descendants("TokenKind"))
     {
-        var token = new TokenKindModel
+        var token = new TokenKindModel(tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"))
         {
-            Name = tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"),
             Text = tokenElement.Attribute("Text")?.Value,
             Value = tokenElement.Attribute("Value")?.Value,
             IsReservedWord = ParseBool(tokenElement.Attribute("IsReservedWord")),
@@ -515,11 +514,9 @@ List<NodeKindModel> LoadNodeKindsFromXml(string path)
 
     foreach (var nodeKindElement in doc.Descendants("NodeKind"))
     {
-        var nk = new NodeKindModel
-        {
-            Name = nodeKindElement.Attribute("Name")?.Value ?? throw new Exception("NodeKind missing Name"),
-            Type = nodeKindElement.Attribute("Type")?.Value ?? throw new Exception("NodeKind missing Type")
-        };
+        var nk = new NodeKindModel(
+            nodeKindElement.Attribute("Name")?.Value ?? throw new Exception("NodeKind missing Name"),
+            nodeKindElement.Attribute("Type")?.Value ?? throw new Exception("NodeKind missing Type"));
         result.Add(nk);
     }
 
@@ -747,24 +744,6 @@ void ValidateFactorySlotReference(
     {
         errors.Add($"Factory '{factoryNode}' overload {overloadIndex + 1}: '{referenceKind}' references unknown slot '{slotName}'.");
     }
-}
-
-record TokenKindModel
-{
-    public required string Name { get; init; }
-    public string? Text { get; init; }
-    public string? Value { get; init; }
-    public bool IsReservedWord { get; init; }
-    public bool IsTrivia { get; init; }
-    public bool IsUnaryOperator { get; init; }
-    public bool IsBinaryOperator { get; init; }
-    public int? Precedence { get; init; }
-}
-
-record NodeKindModel
-{
-    public required string Name { get; init; }
-    public required string Type { get; init; }
 }
 
 record GenerationStats

@@ -3,5 +3,9 @@
   <ItemGroup>
     <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared.Raven" />
     <ProjectReference Include="../../../tools/NodesShared.Raven/NodesShared.Raven.rvnproj" />
+    <ProjectReference Include="../../../tools/NodeGenerator.Raven/NodeGenerator.Raven.rvnproj" />
+    <ProjectReference Include="../../../tools/NodeGenerator/NodeGenerator.csproj" Aliases="SeedGenerator" />
+    <ProjectReference Include="../../../tools/NodesShared/NodesShared.csproj" Aliases="SeedModel" />
+    <Compile Include="../NodeEmitterCrossImplementationTests.cs" Link="NodeEmitterCrossImplementationTests.cs" />
   </ItemGroup>
 </Project>

@@ -3,5 +3,6 @@
   <ItemGroup>
     <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared" />
     <ProjectReference Include="../../../tools/NodesShared/NodesShared.csproj" />
+    <ProjectReference Include="../../../tools/NodeGenerator/NodeGenerator.csproj" />
   </ItemGroup>
 </Project>

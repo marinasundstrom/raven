@@ -1,0 +1,11 @@
+internal open record TokenKindModel(
+    Name: string,
+    Text: string? = null,
+    Value: string? = null,
+    IsReservedWord: bool = false,
+    IsTrivia: bool = false,
+    IsUnaryOperator: bool = false,
+    IsBinaryOperator: bool = false,
+    Precedence: int? = null)
+
+internal open record NodeKindModel(Name: string, Type: string)

@@ -1,10 +1,12 @@
 # Generator foundation parity
 
-These separate C# xUnit projects run the same tests against `tools/NodesShared`
-and `tools/NodesShared.Raven`. The Raven project compiles Raven sources with the
-repository C# compiler seed. Identity checks verify that the tested types come
-from the selected implementation; the Raven tests do not reference the C# model
-assembly.
+These separate C# xUnit projects run the same tests against the C# and Raven
+implementations of `NodesShared` and the self-contained node emitters. The Raven
+project compiles Raven sources with the repository C# compiler seed. Identity
+checks verify that the tested types come from the selected implementation.
+A Raven-only comparison test references the C# model/generator assemblies through
+explicit aliases and compares all output modes on the real repository XML inputs;
+ordinary shared tests still exercise the selected implementation directly.
 
 Run from the repository root:
 
@@ -20,5 +22,7 @@ execution on neoCLR. No documentation or website generator is run by this script
 
 Coverage includes mutable model defaults and identity, slot type names, XML
 metadata and escaping, every collection slot in the repository syntax model,
-and changes that must affect generator input hashing. This is the shared model
-and serializer port, not a claim that the node emitters are already Raven code.
+and changes that must affect generator input hashing. Syntax-kind, node-facts and
+token emitters are also ported, preserving their C# and Raven output modes.
+Green/red node classes, visitors, rewriters, model loading and the command-line
+orchestration remain in C# for now.
