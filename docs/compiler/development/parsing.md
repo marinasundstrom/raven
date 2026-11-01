@@ -35,3 +35,20 @@ var t1 = PeekToken(2); // ')'
  For contextual parsing, you can create a checkpoint, by calling `CreateCheckpoint` in the parser. And then restore to that checkpoint by either calling the method `Rewind` or disposing the object.
 
  The lexer does support resetting to a specified position. This is ultimately used by the aforementioned functionality.
+
+## Seekable reader retention
+
+`SeekableTextSource` is the internal input boundary used by the lexer. Its position
+is an absolute UTF-16 offset, and the supplied reader starts at `initialPosition`.
+The reader must be non-null, the initial position nonnegative, and the buffer limit
+positive. Peek operations do not consume input; repeated reads at EOF leave the
+position unchanged. Reset clamps to the available input range.
+
+The buffer limit bounds retained history, not active lookahead or live checkpoints.
+Those can temporarily require more space. Trimming removes only consumed characters
+older than the current position and all saved positions. Clearing a checkpoint
+makes its history eligible for trimming; restoring one rewinds before trimming.
+A reset into already-pruned history clamps to the earliest retained character.
+The default limit remains `int.MaxValue`; the lexer does not select a smaller limit.
+Shared C# tests exercise both the C# and Raven implementations, including a small
+limit that forces pruning. Adjacent lexer tests verify tokenization behavior.

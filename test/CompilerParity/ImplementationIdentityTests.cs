@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis.Text;
+using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 namespace Raven.CompilerParity.Tests;
 
@@ -22,5 +23,10 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(TextLineCollection).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiColor).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiExtensions).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(SeekableTextSource).Assembly);
+        Assert.True(typeof(SeekableTextSource).IsSealed);
+        Assert.False(typeof(SeekableTextSource).IsAbstract);
+        Assert.Empty(typeof(SeekableTextSource).GetFields(
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly));
     }
 }

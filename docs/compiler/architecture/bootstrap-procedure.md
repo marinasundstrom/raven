@@ -80,6 +80,15 @@ Trace failures through binding, lowering, emission and execution; assert stable
 behavior rather than emitted opcode sequences. Unclear semantics must be decided
 and documented before either implementation is treated as authoritative.
 
+### Raven accessibility convention
+
+Raven members are public by default. When translating C# members, omit redundant
+`public`; mark private implementation details explicitly `private`, and retain
+`internal`, `protected` and other restricted accessibility where required. Preserve
+the original API boundary, including explicit top-level type accessibility. Do not
+mechanically copy C# modifiers. This is an important porting convention, not a
+post-port style cleanup (author direction, 2026-11-01).
+
 ## 3. Keep C# tests during the compiler port
 
 Run the existing tests against the Raven compiler wherever the API and harness

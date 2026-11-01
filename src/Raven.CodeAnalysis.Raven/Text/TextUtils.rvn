@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Text
 import System.Collections.Generic.*
 
 public static class TextUtils {
-    public static func ComputeLineStarts(text: string) -> List<int> {
+    static func ComputeLineStarts(text: string) -> List<int> {
         let lineStarts = List<int>()
         lineStarts.Add(0)
         var i = 0
@@ -16,7 +16,7 @@ public static class TextUtils {
         return lineStarts
     }
 
-    public static func GetLineAndColumn(lineStarts: List<int>, position: int) -> (line: int, column: int) {
+    static func GetLineAndColumn(lineStarts: List<int>, position: int) -> (line: int, column: int) {
         var line = lineStarts.BinarySearch(position)
         if line < 0 {
             line = ~line - 1

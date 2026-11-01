@@ -8,5 +8,5 @@ internal static class AnsiRegexCache {
 }
 
 public extension AnsiExtensions for string {
-    public func StripAnsiCodes() -> string => AnsiRegexCache.Pattern.Replace(self, string.Empty)
+    func StripAnsiCodes() -> string => AnsiRegexCache.Pattern.Replace(self, string.Empty)
 }

@@ -4,6 +4,6 @@ import System.*
 import System.Collections.Generic.*
 
 public record struct TextChangeRange(NewLength: int, Span: TextSpan) {
-    public val NoChanges: IReadOnlyList<TextChangeRange> => Array.Empty<TextChangeRange>()
-    public override func ToString() -> string => "Span: ${Span}, NewLength: ${NewLength}"
+    val NoChanges: IReadOnlyList<TextChangeRange> => Array.Empty<TextChangeRange>()
+    override func ToString() -> string => "Span: ${Span}, NewLength: ${NewLength}"
 }

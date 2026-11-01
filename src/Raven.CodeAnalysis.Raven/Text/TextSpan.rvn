@@ -5,18 +5,18 @@ import System.Diagnostics.*
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
-    public static func FromBounds(start: int, end: int) -> TextSpan {
+    static func FromBounds(start: int, end: int) -> TextSpan {
         if start < 0 || end < start {
             throw ArgumentOutOfRangeException()
         }
         return TextSpan(start, end - start)
     }
 
-    public val Start: int
-    public val Length: int
-    public val End: int => Start + Length
+    val Start: int
+    val Length: int
+    val End: int => Start + Length
 
-    public init(start: int, length: int) {
+    init(start: int, length: int) {
         if start < 0 || length < 0 || length > int.MaxValue - start {
             throw ArgumentOutOfRangeException()
         }
@@ -25,9 +25,9 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
     }
 
     private func GetDebuggerDisplay() -> string => "[${Start}..${End}]"
-    public override func ToString() -> string => "[${Start}..${End}]"
+    override func ToString() -> string => "[${Start}..${End}]"
 
-    public func CompareTo(other: TextSpan) -> int {
+    func CompareTo(other: TextSpan) -> int {
         let startComparison = Start.CompareTo(other.Start)
         if startComparison != 0 {
             return startComparison
@@ -35,19 +35,19 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
         return End.CompareTo(other.End)
     }
 
-    public func Equals(other: TextSpan) -> bool {
+    func Equals(other: TextSpan) -> bool {
         return Start == other.Start && Length == other.Length
     }
 
-    public override func Equals(obj: object?) -> bool {
+    override func Equals(obj: object?) -> bool {
         if obj is TextSpan other {
             return Equals(other)
         }
         return false
     }
 
-    public override func GetHashCode() -> int => HashCode.Combine(Start, Length)
+    override func GetHashCode() -> int => HashCode.Combine(Start, Length)
 
-    public static func ==(left: TextSpan, right: TextSpan) -> bool => left.Equals(right)
-    public static func !=(left: TextSpan, right: TextSpan) -> bool => !(left == right)
+    static func ==(left: TextSpan, right: TextSpan) -> bool => left.Equals(right)
+    static func !=(left: TextSpan, right: TextSpan) -> bool => !(left == right)
 }

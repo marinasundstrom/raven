@@ -1,0 +1,109 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.IO.*
+import System.Collections.Generic.*
+
+internal class SeekableTextSource {
+    private readonly field _buffer: List<char> = List<char>()
+    private readonly field _reader: TextReader
+    private field _position: int
+    private field _absoluteStart: int
+    private readonly field _maxBufferSize: int
+    private readonly field _savedPositions: Stack<int> = Stack<int>()
+
+    init(reader: TextReader, initialPosition: int = 0, maxBufferSize: int = int.MaxValue) {
+        ArgumentNullException.ThrowIfNull(reader)
+        if initialPosition < 0 { throw ArgumentOutOfRangeException(nameof(initialPosition)) }
+        if maxBufferSize <= 0 { throw ArgumentOutOfRangeException(nameof(maxBufferSize)) }
+        _reader = reader
+        _maxBufferSize = maxBufferSize
+        _position = initialPosition
+        _absoluteStart = initialPosition
+    }
+
+    val Position: int => _position
+
+    func ResetPosition(position: int) {
+        var target = position
+        if target < _absoluteStart { target = _absoluteStart }
+        EnsureBuffered(target)
+        if target > _absoluteStart + _buffer.Count { target = _absoluteStart + _buffer.Count }
+        _position = target
+        TrimBuffer()
+    }
+
+    func PushPosition() -> int {
+        _savedPositions.Push(_position)
+        return _position
+    }
+
+    func PopAndRestorePosition() -> int {
+        val position = _savedPositions.Pop()
+        ResetPosition(position)
+        return position
+    }
+
+    func PopPosition() -> int {
+        val position = _savedPositions.Pop()
+        TrimBuffer()
+        return position
+    }
+
+    func Peek() -> int {
+        EnsureBuffered(_position)
+        return if InBufferRange(_position) { GetFromBuffer(_position) } else { -1 }
+    }
+
+    func PeekChar(offset: int, out ch: char) -> bool {
+        EnsureBuffered(_position + offset)
+        val targetPosition = _position + offset
+        if !InBufferRange(targetPosition) {
+            ch = '\0'
+            return false
+        }
+        val no = GetFromBuffer(targetPosition)
+        if no == -1 {
+            ch = '\0'
+            return false
+        }
+        ch = (char)no
+        return true
+    }
+
+    func Read() -> int {
+        EnsureBuffered(_position)
+        if !InBufferRange(_position) { return -1 }
+        val value = GetFromBuffer(_position)
+        _position++
+        TrimBuffer()
+        return value
+    }
+
+    private func EnsureBuffered(position: int) {
+        while _buffer.Count <= position - _absoluteStart {
+            val next = _reader.Read()
+            if next == -1 { break }
+            _buffer.Add((char)next)
+            TrimBuffer()
+        }
+    }
+
+    private func TrimBuffer() {
+        if _buffer.Count <= _maxBufferSize { return }
+        // Preserve unread input and every live checkpoint under buffer pressure.
+        var retainFrom = _position
+        for saved in _savedPositions { retainFrom = Math.Min(retainFrom, saved) }
+        val removeCount = Math.Min(_buffer.Count - _maxBufferSize, retainFrom - _absoluteStart)
+        if removeCount <= 0 { return }
+        _buffer.RemoveRange(0, removeCount)
+        _absoluteStart += removeCount
+    }
+
+    private func GetFromBuffer(position: int) -> int {
+        val offset = position - _absoluteStart
+        return if (uint)offset < (uint)_buffer.Count { _buffer[offset] } else { -1 }
+    }
+
+    private func InBufferRange(position: int) -> bool => position >= _absoluteStart && position < _absoluteStart + _buffer.Count
+}

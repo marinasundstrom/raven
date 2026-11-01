@@ -1,5 +1,5 @@
 namespace Raven.CodeAnalysis.Text
 
 public record struct LinePositionSpan(Start: LinePosition, End: LinePosition) {
-    public override func ToString() -> string => "LinePositionSpan { Start = ${Start}, End = ${End} }"
+    override func ToString() -> string => "LinePositionSpan { Start = ${Start}, End = ${End} }"
 }

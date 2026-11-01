@@ -3,9 +3,9 @@ namespace Raven.CodeAnalysis.Text
 import System.*
 
 public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition> {
-    public static val Zero: LinePosition = LinePosition(0, 0)
+    static val Zero: LinePosition = LinePosition(0, 0)
 
-    public init(line: int, character: int) {
+    init(line: int, character: int) {
         if line < 0 {
             throw ArgumentOutOfRangeException(nameof(line), "Line must be non-negative.")
         }
@@ -16,10 +16,10 @@ public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition>
         Character = character
     }
 
-    public val Character: int
-    public val Line: int
+    val Character: int
+    val Line: int
 
-    public func CompareTo(other: LinePosition) -> int {
+    func CompareTo(other: LinePosition) -> int {
         if Line < other.Line { return -1 }
         if Line > other.Line { return 1 }
         if Character < other.Character { return -1 }
@@ -27,21 +27,21 @@ public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition>
         return 0
     }
 
-    public func Equals(other: LinePosition) -> bool {
+    func Equals(other: LinePosition) -> bool {
         return Line == other.Line && Character == other.Character
     }
 
-    public override func Equals(obj: object?) -> bool {
+    override func Equals(obj: object?) -> bool {
         return obj is LinePosition other && Equals(other)
     }
 
-    public override func GetHashCode() -> int => HashCode.Combine(Line, Character)
-    public override func ToString() -> string => "Line ${Line}, Character ${Character}"
+    override func GetHashCode() -> int => HashCode.Combine(Line, Character)
+    override func ToString() -> string => "Line ${Line}, Character ${Character}"
 
-    public static func ==(left: LinePosition, right: LinePosition) -> bool => left.Equals(right)
-    public static func !=(left: LinePosition, right: LinePosition) -> bool => !left.Equals(right)
-    public static func <(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) < 0
-    public static func >(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) > 0
-    public static func <=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) <= 0
-    public static func >=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) >= 0
+    static func ==(left: LinePosition, right: LinePosition) -> bool => left.Equals(right)
+    static func !=(left: LinePosition, right: LinePosition) -> bool => !left.Equals(right)
+    static func <(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) < 0
+    static func >(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) > 0
+    static func <=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) <= 0
+    static func >=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) >= 0
 }

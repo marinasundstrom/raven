@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the lexer input boundary, `SeekableTextSource`, to Raven and fix bounded
+  buffering in both implementations: preserve unread lookahead and live checkpoints
+  while trimming consumed history. Validate constructor inputs and reuse C# tests.
+- Apply Raven's public-by-default member convention throughout the compiler port;
+  keep private implementation details explicit and preserve API accessibility.
+
 - Port `AnsiColor` and `AnsiExtensions` alongside their C# implementations. Expand
   shared text tests for ANSI sequences, stream encoding/disposal, checksums and
   line enumeration; retain C# tests against both implementations.

@@ -8,10 +8,16 @@ internal sealed class SeekableTextSource
     private int _absoluteStart; // The absolute index of the first character in the buffer
     private readonly int _maxBufferSize;
 
-    private readonly Stack<int> _savedPositions = new(); // Optional: to help with pruning
+    private readonly Stack<int> _savedPositions = new();
 
     public SeekableTextSource(TextReader reader, int initialPosition = 0, int maxBufferSize = int.MaxValue)
     {
+        ArgumentNullException.ThrowIfNull(reader);
+        if (initialPosition < 0)
+            throw new ArgumentOutOfRangeException(nameof(initialPosition));
+        if (maxBufferSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxBufferSize));
+
         _reader = reader;
         _maxBufferSize = maxBufferSize;
         _position = initialPosition;
@@ -44,6 +50,7 @@ internal sealed class SeekableTextSource
             position = _absoluteStart + _buffer.Count;
 
         _position = position;
+        TrimBuffer();
     }
 
     /// <summary>
@@ -71,7 +78,9 @@ internal sealed class SeekableTextSource
     /// </summary>
     public int PopPosition()
     {
-        return _savedPositions.Pop();
+        var position = _savedPositions.Pop();
+        TrimBuffer();
+        return position;
     }
 
     public int Peek()
@@ -110,13 +119,13 @@ internal sealed class SeekableTextSource
 
         var value = GetFromBuffer(_position);
         _position++;
+        TrimBuffer();
         return value;
     }
 
     private void EnsureBuffered(int position)
     {
-        int neededOffset = position - _absoluteStart;
-        while (_buffer.Count <= neededOffset)
+        while (_buffer.Count <= position - _absoluteStart)
         {
             int next = _reader.Read();
             if (next == -1)
@@ -124,13 +133,26 @@ internal sealed class SeekableTextSource
 
             _buffer.Add((char)next);
 
-            // Trim buffer if it exceeds max size
-            if (_buffer.Count > _maxBufferSize)
-            {
-                _absoluteStart++;
-                _buffer.RemoveAt(0);
-            }
+            TrimBuffer();
         }
+    }
+
+    private void TrimBuffer()
+    {
+        if (_buffer.Count <= _maxBufferSize)
+            return;
+
+        // Lookahead and checkpoints may temporarily exceed the retention limit.
+        // Only consumed characters older than every saved position can be removed.
+        var retainFrom = _position;
+        foreach (var saved in _savedPositions)
+            retainFrom = Math.Min(retainFrom, saved);
+        var removeCount = Math.Min(_buffer.Count - _maxBufferSize, retainFrom - _absoluteStart);
+        if (removeCount <= 0)
+            return;
+
+        _buffer.RemoveRange(0, removeCount);
+        _absoluteStart += removeCount;
     }
 
     private int GetFromBuffer(int position)

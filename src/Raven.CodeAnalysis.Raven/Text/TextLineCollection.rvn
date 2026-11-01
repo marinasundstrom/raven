@@ -20,10 +20,10 @@ public class TextLineCollection : IEnumerable<TextLine> {
         _lines = builder.MoveToImmutable()
     }
 
-    public val Count: int => _lines.Length
-    public val self[index: int]: TextLine => _lines[index]
+    val Count: int => _lines.Length
+    val self[index: int]: TextLine => _lines[index]
 
-    public func GetEnumerator() -> IEnumerator<TextLine> => ((IEnumerable<TextLine>)_lines).GetEnumerator()
+    func GetEnumerator() -> IEnumerator<TextLine> => ((IEnumerable<TextLine>)_lines).GetEnumerator()
 
     func IEnumerable.GetEnumerator() -> IEnumerator {
         return GetEnumerator()

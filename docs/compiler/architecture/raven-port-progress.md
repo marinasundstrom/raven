@@ -24,7 +24,10 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 Translate members and algorithms one-to-one where possible. Retain ordinary .NET
 interfaces, exceptions, value semantics and public signatures. Use necessary Raven
 syntax (`init`, `func`, `val`, `self`, interpolation and extension declarations)
-without using the translation as an opportunity for broad API redesign. The
+without using the translation as an opportunity for broad API redesign. Raven
+members are public by default: omit redundant `public`, explicitly mark private
+implementation details, and preserve restricted and top-level type accessibility.
+Apply this convention while porting, including to the existing translated files. The
 explicitly approved exception is `LinePositionSpan`: both codebases now use a
 positional record struct with init-only coordinates, value equality, deconstruction
 and copy/with support. C# uses `readonly record struct`; Raven uses its immutable
@@ -33,6 +36,8 @@ positional record properties. Constructor parameter names become `Start` and
 preserved or improved semantics. `LinePosition` remains a struct for now: its
 negative-coordinate validation and ordering must survive any record conversion. Raven's `while`
 spells the indexed loop in `TextUtils`; it preserves the original control flow.
+Raven classes are non-inheritable by default; omit C# `sealed` rather than copying
+it, since Raven's `sealed` declares an abstract closed hierarchy.
 
 A source translation that fails to express intended behavior is a compiler
 workload: reduce it, classify syntax/semantic/API/emission/runtime ownership, and
@@ -42,8 +47,9 @@ requirement when the owning component has not yet been ported.
 
 ## Component map
 
-Each Raven file under `Text/` corresponds to the C# file of the same basename
-under `src/Raven.CodeAnalysis/Text/`.
+Raven sources preserve the corresponding C# namespace and relative directory.
+Text sources correspond by basename under `src/Raven.CodeAnalysis/Text/`;
+lexer input lives under `Syntax/InternalSyntax/Parser/`.
 
 | Component | Shared C# coverage |
 | --- | --- |
@@ -55,6 +61,7 @@ under `src/Raven.CodeAnalysis/Text/`.
 | `TextUtils` | `Text/TextUtilsTests.cs`, including mixed line endings, UTF-16 positions and named tuple access from C# |
 | `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, plus `Text/SourceTextIOTests.cs` for encoding/disposal, checksums and generic/non-generic enumeration |
 | `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
+| `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
 
 The original tests retain their assertions. Added behavioral tests are shared by
 both implementations and remain in the main compiler test project too. Shared
@@ -98,6 +105,7 @@ as described in the bootstrap procedure.
 | PORT-008 | The snapshot port compiled, but C# `SourceText[index]` failed with CS0021 because emitted indexers lacked default-member metadata. | CLI type metadata emission | Synthesize the ordinary instance indexer's `DefaultMemberAttribute` from the selected compilation's runtime declaration. Two reduced C# consumer cases failed before the fix. | C# backend fixed; carry this into the later emission port. |
 | PORT-009 | Snapshot tests compile but edits/writes and lazy lines throw `TypeLoadException` for `MemoryExtensions` and `LazyInitializer` incorrectly scoped to `System.Runtime`. | .NET final assembly normalization | Consult selected framework declarations for all normalized core-library types, extending PORT-003 beyond its collection whitelist. Both reduced metadata/runtime cases failed before the fix. | C# backend correction; carry it into the emission port. |
 | PORT-010 | A field-shaped declaration in the ANSI extension crashed diagnostics because an accessor-less synthesized property had no type. Duplicate incomplete properties reproduced the same failure. | Shared source symbol recovery | Retain the declared property/indexer type as a fallback until accessors exist. Both reduced cases failed before the fix. Extension storage remains invalid by design; the regex cache lives in a separate internal helper in Raven. | C# symbol/binder correction; carry it into those later ports. |
+| PORT-011 | With a small buffer, lexer input trimming can drain the reader and discard unread characters or live checkpoints. | Shared `SeekableTextSource` buffer retention | Recompute the required relative offset as the buffer moves; trim only consumed history older than every saved position, releasing pinned history when checkpoints are popped. Three original regressions failed in both implementations before correction. | Corrected in both C# and Raven; shared buffering tests retain the workload. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -139,10 +147,11 @@ confusion with `SourceText.Encoding`.
 ## Next dependency slice
 
 The independent text helpers and snapshot I/O/hash coverage are now included.
-Next port the lexer input boundary (`SeekableTextSource`), retaining shared C#
-behavior tests for buffering, peeking, rewinding and end-of-input behavior before
-moving to tokenization. `SourceTextWriter` depends on syntax nodes and follows
-that dependency group.
+`SeekableTextSource` is now ported and tested. Next establish the tokenization
+dependency boundary: syntax kinds, token values and diagnostic payloads before
+porting the lexer. Keep generated syntax-kind definitions tied to their source
+model rather than maintaining a divergent handwritten copy. `SourceTextWriter`
+depends on syntax nodes and follows that dependency group.
 Continue preserving each discovered failure as a regression at its owning layer.
 Open coalescing-assignment and stored-range parser gaps remain stabilization work.
 
@@ -285,3 +294,16 @@ skips, covering ANSI values and stripping plus explicit/default encodings, strea
 disposal, SHA-256 content hashes and both line enumeration interfaces. Assembly
 identity checks include both newly ported public types. `SourceTextWriter` is the
 remaining text-namespace source and is deferred only for its syntax-node dependency.
+
+
+## Lexer input checkpoint — 2026-11-01
+
+The targeted pre-change lexer baseline passed 90 tests. The first eight shared
+reader cases reproduced three bounded-buffer failures in each implementation.
+After the retention correction and constructor guards, the shared corpus passes
+**82 tests per implementation**. The adjacent lexer, parser-recovery, trivia
+checkpoint and reader selection passes **135 tests**. .NET metadata checks verify
+the ported reader remains non-abstract, non-inheritable and has no public fields.
+Internal test access uses narrowly named friend assemblies in each codebase; the
+reader has not been made public for testing. The Raven member-accessibility
+cleanup is covered by the same C# consumer suite.
