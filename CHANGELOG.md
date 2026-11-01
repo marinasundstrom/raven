@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port encoded-string literal payloads to Raven and give both compiler codebases
+  record value semantics: text, encoding and interpolation state determine equality
+  and hashing, including equality of tokens holding independently created payloads.
+
 - Add explicit `--raven-syntax-tree <directory>` generator output, assembling Raven
   nodes, factories, hierarchies, kinds/facts, visitors and rewriters in both tool
   codebases. C# output remains the default. Escape dollar signs in generated Raven

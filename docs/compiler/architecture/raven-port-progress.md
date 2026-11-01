@@ -70,7 +70,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `CompilerDiagnostics` | Shared catalog lookup/cache checks and cross-assembly descriptor-field parity |
 | `SyntaxFacts` | Shared string decoding, identifier escaping and keyword tests; exhaustive cross-assembly kind classification, token text, precedence and UTF-16 identifier classification |
-| `SyntaxKind`, `Token`, `GraphemeLiteralValue` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
+| `SyntaxKind`, `Token`, `GraphemeLiteralValue`, `EncodedStringLiteralValue` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 | `Lexer`, `LexerFlags`, `ILexer`, `IMacroBodyScanner` | Shared `Syntax/Parser/LexerTests.cs`, including literals, lookahead, diagnostics and conditional checkpoint restoration |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -1668,3 +1668,35 @@ zero errors. A final CLI probe verifies 985 stable files across two runs,
 stale cleanup, missing-argument failure and preservation of authored/C# files
 and the C# stamp. No RavenDoc/site generation or native neoCLR execution was
 performed; the broad baseline caveat in PORT-054 is unchanged.
+
+## PORT-057 — encoded string payload value semantics
+
+The next dependency leaf of the syntax runtime is the encoded string payload used
+by parsing, binding and hover formatting. `EncodedStringLiteralValue` is now a
+sealed positional record class in C# and Raven, retaining text, encoding and the
+interpolation marker. The encoding enum is ported alongside it. This follows the
+porting directive for immutable data objects while retaining reference-type
+storage. Constructor parameter names now match their properties, consistent with
+the other positional record ports; current production call sites are positional.
+
+The prior payload class used identity equality, so independently created equal
+payloads also made containing lexer tokens unequal. Two focused regressions fail
+before the change. Shared C# tests cover all three equality fields, ordinal text,
+null/unrelated values, typed equality, operators, matching hashes, hash-set
+membership, sealed reference-type shape and equality of tokens containing the
+payload. `Token` itself is unchanged. Existing encoded-string diagnostics,
+byte-emission and hover-formatting coverage validate the production consumers.
+
+This is shared syntax data before target lowering, with no new language syntax or
+runtime mapping. .NET remains default. The class is now part of the Raven compiler
+port; the production expression parser and node runtime still require translation.
+
+Validation on .NET 11: **104 shared token/lexer tests pass against each compiler
+implementation**, plus **17 C# compiler tests** for encoded-string diagnostics,
+byte emission and hover formatting. The initial baseline was 7 passing tests;
+the two new equality regressions failed before the record conversion. Seed and
+Raven project builds, formatting and diff checks pass. The first Raven project
+build exited without diagnostics; its process was confirmed terminal, the record
+compiled independently, and a retry using an immutable copy of the rebuilt seed
+passed with 403 existing warnings and zero errors. No native neoCLR execution,
+RavenDoc/site generation or clean full-baseline claim is made.

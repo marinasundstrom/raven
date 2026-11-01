@@ -18,6 +18,49 @@ public sealed class TokenValueTests
     }
 
     [Fact]
+    public void EncodedPayloadHasValueEqualityAcrossAllSemanticFields()
+    {
+        var first = new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Utf8, false);
+        var same = new EncodedStringLiteralValue(new string("hello".ToCharArray()), EncodedStringLiteralEncoding.Utf8, false);
+        Assert.NotSame(first, same);
+        Assert.Equal(first, same);
+        Assert.Equal(first.GetHashCode(), same.GetHashCode());
+        Assert.True(first == same);
+        Assert.False(first != same);
+        Assert.IsAssignableFrom<IEquatable<EncodedStringLiteralValue>>(first);
+        Assert.False(first.Equals(null));
+        Assert.False(first.Equals(new GraphemeLiteralValue("hello")));
+        Assert.True(typeof(EncodedStringLiteralValue).IsSealed);
+        Assert.False(typeof(EncodedStringLiteralValue).IsValueType);
+        foreach (var different in new[]
+        {
+            new EncodedStringLiteralValue("HELLO", EncodedStringLiteralEncoding.Utf8, false),
+            new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Ascii, false),
+            new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Utf8, true)
+        })
+        {
+            Assert.NotEqual(first, different);
+            Assert.True(first != different);
+        }
+        Assert.Single(new HashSet<EncodedStringLiteralValue> { first, same });
+    }
+
+    [Fact]
+    public void TokenEqualityUsesEncodedPayloadValueSemantics()
+    {
+        var first = new Token(SyntaxKind.StringLiteralToken, "\"hello\"u8", new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Utf8, false));
+        var same = new Token(SyntaxKind.StringLiteralToken, "\"hello\"u8", new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Utf8, false));
+        Assert.Equal(first, same);
+        Assert.Equal(first.GetHashCode(), same.GetHashCode());
+        Assert.NotEqual(first, new Token(SyntaxKind.StringLiteralToken, first.Text,
+            new EncodedStringLiteralValue("hello", EncodedStringLiteralEncoding.Ascii, false)));
+        var payload = Assert.IsType<EncodedStringLiteralValue>(first.Value);
+        Assert.Equal("hello", payload.Text);
+        Assert.Equal(EncodedStringLiteralEncoding.Utf8, payload.Encoding);
+        Assert.False(payload.ContainsInterpolation);
+    }
+
+    [Fact]
     public void IdentifierToken_InternsTextAndRetainsUtf16Width()
     {
         var text = new string("name_å".ToCharArray());

@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Syntax
+
+internal enum EncodedStringLiteralEncoding
+{
+    Utf8,
+    Ascii
+}
+
+internal record EncodedStringLiteralValue(
+    Text: string,
+    Encoding: EncodedStringLiteralEncoding,
+    ContainsInterpolation: bool) { }
