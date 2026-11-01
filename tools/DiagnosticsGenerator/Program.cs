@@ -16,6 +16,20 @@ var lockPath = Path.GetFullPath(Path.Combine("obj", "DiagnosticsGenerator.lock")
 using var generationLock = AcquireGenerationLock(lockPath);
 
 var diagnostics = LoadDiagnosticDescriptorsFromXml(diagnosticsPath);
+// Generate the port catalog from the same model without touching the C# outputs
+// or their incremental-generation stamp.
+var ravenOption = Array.IndexOf(args, "--raven-catalog");
+if (ravenOption >= 0)
+{
+    if (ravenOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-catalog requires an output path.");
+    var ravenOutputPath = Path.GetFullPath(args[ravenOption + 1]);
+    Directory.CreateDirectory(Path.GetDirectoryName(ravenOutputPath)!);
+    await File.WriteAllTextAsync(ravenOutputPath, DiagnosticDescriptorGenerator.GenerateRavenCompilerDiagnostics(diagnostics));
+    Console.WriteLine($"Generated {diagnostics.Count} Raven diagnostics: {ravenOutputPath}");
+    return;
+}
+
 var hash = await GetHashAsync(diagnosticsPath, EnumerateGeneratorInputs(repoRoot));
 
 var force = args.Contains("-f");

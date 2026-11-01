@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Raven.Generators
 {
-    internal static class DiagnosticDescriptorGenerator
+    internal static partial class DiagnosticDescriptorGenerator
     {
         public static string GenerateCompilerDiagnostics(List<DiagnosticDescriptorModel> diagnostics)
         {
@@ -19,7 +19,7 @@ namespace Raven.Generators
             sb.AppendLine("    private static HashSet<string>? _allDiagnosticIds;");
             foreach (var d in diagnostics)
             {
-                sb.AppendLine($"    private const string {d.Identifier}Id = \"{d.Id}\";");
+                sb.AppendLine($"    private const string {d.Identifier}Id = {Quote(d.Id)};");
             }
 
             sb.AppendLine();
@@ -37,11 +37,11 @@ namespace Raven.Generators
                 sb.AppendLine("    /// </summary>");
                 sb.AppendLine($"    public static DiagnosticDescriptor {d.Identifier} => {fieldName} ??= DiagnosticDescriptor.Create(");
                 sb.AppendLine($"        id: {d.Identifier}Id,");
-                sb.AppendLine($"        title: \"{d.Title}\",");
-                sb.AppendLine($"        description: \"{d.Description}\",");
-                sb.AppendLine($"        helpLinkUri: \"{d.HelpLinkUri}\",");
-                sb.AppendLine($"        messageFormat: \"{d.Message}\",");
-                sb.AppendLine($"        category: \"{d.Category}\",");
+                sb.AppendLine($"        title: {Quote(d.Title)},");
+                sb.AppendLine($"        description: {Quote(d.Description)},");
+                sb.AppendLine($"        helpLinkUri: {Quote(d.HelpLinkUri)},");
+                sb.AppendLine($"        messageFormat: {Quote(d.Message)},");
+                sb.AppendLine($"        category: {Quote(d.Category)},");
                 sb.AppendLine($"        DiagnosticSeverity.{d.Severity},");
                 sb.AppendLine($"        isEnabledByDefault: {d.EnabledByDefault.ToString().ToLowerInvariant()});");
                 sb.AppendLine();
@@ -77,6 +77,9 @@ namespace Raven.Generators
             sb.AppendLine("}");
             return sb.ToString();
         }
+
+        private static string Quote(string text) =>
+            Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(text, quote: true);
 
         private static string EscapeXmlDocumentationText(string text)
             => text

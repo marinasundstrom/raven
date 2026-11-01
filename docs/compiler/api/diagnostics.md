@@ -24,3 +24,15 @@ service; two different manager instances are not assumed interchangeable.
 These are compiler API contracts, not new Raven language rules. Shared C# tests
 exercise both implementations on modern .NET; native runtime execution is not
 claimed. The original C# compiler remains the maintained bootstrap seed.
+
+## Generated compiler catalog
+
+The internal `CompilerDiagnostics` catalogs in C# and Raven are generated from
+`DiagnosticDescriptors.xml`, with identical descriptor identifiers, placeholder
+indices and descriptor fields. XML text is plain text, not a C#-escaped string
+literal; the generators perform language-specific quoting and escaping. Per-descriptor properties and aggregate catalog
+properties retain their existing lazy caching behavior. ID membership is ordinal
+and case-sensitive; unknown or null IDs return no descriptor. This work does not
+change the existing mutable array/set API or claim thread-safe first access.
+The retained C# generator supplies both outputs during bootstrapping; descriptor
+parity tests compare the resulting assemblies rather than only generated text.

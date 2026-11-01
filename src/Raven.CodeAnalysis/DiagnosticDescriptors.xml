@@ -241,7 +241,7 @@
     Message="Type '{typeName}' is closed and cannot be inherited" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound" Title="No virtual member to override"
-    Message="\'{memberName}': no suitable {memberType} found to override" Category="compiler"
+    Message="'{memberName}': no suitable {memberType} found to override" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0331" Identifier="MemberHidesInheritedMember"
     Title="Member hides inherited member"

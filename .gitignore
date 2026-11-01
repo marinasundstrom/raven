@@ -438,3 +438,6 @@ logs
 
 # Generated Raven compiler port syntax model
 src/Raven.CodeAnalysis.Raven/Syntax/generated/
+
+# Generated Raven compiler port diagnostic catalog
+src/Raven.CodeAnalysis.Raven/Diagnostics/generated/

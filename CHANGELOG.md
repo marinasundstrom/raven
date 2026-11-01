@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Generate the Raven compiler diagnostic catalog from the same XML model as C#,
+  retaining lazy descriptor creation, IDs, messages and lookup contracts. Add
+  shared C# catalog tests and cross-assembly checks for every descriptor field.
+  Normalize an unnecessary C# escape in the shared XML and quote model text
+  explicitly in each output language, preserving existing C# diagnostic text.
+
 - Bind null-coalescing assignment (`??=`) with lazy right-hand-side evaluation,
   skipped setters for existing values, and single evaluation of receiver/index
   locations. Preserve assignment's `unit` result, including nested statement-only

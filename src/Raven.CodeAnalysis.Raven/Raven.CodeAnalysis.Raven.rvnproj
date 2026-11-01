@@ -8,6 +8,8 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PortDiagnosticInput Include="../Raven.CodeAnalysis/DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
+                         Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
     <PortSyntaxKindInput Include="../Raven.CodeAnalysis/Syntax/*.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
                          Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
   </ItemGroup>
@@ -21,6 +23,18 @@
     <ItemGroup>
       <Compile Remove="Syntax/generated/SyntaxKind.g.rvn" />
       <Compile Include="Syntax/generated/SyntaxKind.g.rvn" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GeneratePortDiagnostics"
+          Inputs="$(MSBuildProjectFullPath);@(PortDiagnosticInput)"
+          Outputs="Diagnostics/generated/CompilerDiagnostics.g.rvn">
+    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator -- --raven-catalog &quot;$(MSBuildProjectDirectory)/Diagnostics/generated/CompilerDiagnostics.g.rvn&quot;"
+          WorkingDirectory="../Raven.CodeAnalysis" />
+  </Target>
+  <Target Name="IncludePortDiagnostics" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortDiagnostics">
+    <ItemGroup>
+      <Compile Remove="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
+      <Compile Include="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
     </ItemGroup>
   </Target>
 </Project>

@@ -63,6 +63,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
 | `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
+| `CompilerDiagnostics` | Shared catalog lookup/cache checks and cross-assembly descriptor-field parity |
 | `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -152,7 +153,8 @@ The independent text helpers and snapshot I/O/hash coverage are now included.
 tested. Diagnostic payload dependencies (`LocalizableString` and its literal
 implementation, `DiagnosticDescriptor`, `DiagnosticSeverity`, `DiagnosticInfo`)
 are now translated, including resource-backed localization. Continue with the
-diagnostic catalog needed by the lexer, then the lexer itself. Literal strings
+remaining lexer dependencies (`SyntaxFacts`, parse options and scanner contracts),
+then the lexer itself. The diagnostic catalog is generated from the shared XML. Literal strings
 now have text-based value equality; resource strings have culture-independent
 identity based on their resource configuration. Both corrections are shared by
 C# and Raven. `DiagnosticInfo` retains reference identity and its caller-owned
@@ -469,3 +471,44 @@ pass on .NET 11. The retained C# tests remain authoritative runtime regressions;
 no emitted-opcode assertions were added. The existing compiler-port parity corpus
 passes 95 shared cases against each implementation, plus the Raven project's
 one additional enum/assembly check (96 total).
+
+## Generated diagnostic catalog — 2026-11-01
+
+`DiagnosticsGenerator --raven-catalog <output>` consumes the same descriptor model
+and placeholder conversion as the C# generator. It produces the internal Raven
+`CompilerDiagnostics` class without modifying C# outputs or the C# generation
+stamp. The port project tracks the XML, generator sources and project as inputs,
+and includes the generated file even when it was absent during initial project
+evaluation. Generated Raven files remain ignored by Git.
+
+The translation retains individual lazy descriptor fields, catalog caches,
+ordinal ID membership and ID-to-descriptor lookup. Raven's unit-valued assignment
+requires `??=` followed by an explicit return in getters. The catalog is not
+hand-maintained and the tool itself remains C# until its separate tool-port slice.
+DiagnosticBag extension generation follows the bag/location dependencies rather
+than introducing substitute implementations into this partial port.
+
+Six shared C# cases check descriptors, property/lookup identity, ID sets, caching
+and unknown IDs. A Raven-project-only check compares every descriptor property
+against the seed assembly, including catalog order and all text/severity/default
+fields. It uses the seed only as an oracle, not as the implementation under test.
+Tests that touch the existing unsynchronized lazy catalog caches share an xUnit
+collection so their identity checks are not affected by concurrent first access.
+
+The pre-change C# parity selection passed 100 tests. The initial additive generator
+change preserved C# catalog and bag-extension SHA-256 hashes. Field-by-field
+runtime comparison then caught a C#-escaped apostrophe in XML message RAV0307:
+C# consumed the backslash while Raven preserved it. The XML now contains plain
+text, both generators quote/escape that text explicitly, and a shared regression
+checks the intended message. C# generated spelling changes for that message,
+without changing its runtime text. No language rules change and no RavenDoc
+generation is run for this slice.
+
+Validation: the required `scripts/codex-build.sh` workflow passes. The final shared
+corpus passes **101 C# tests against each implementation**, with two additional
+cross-assembly checks in the Raven project (103 total). All 363 descriptors match.
+The first build generated an absent catalog, and unchanged-input target execution
+leaves the output timestamp unchanged. The port build reports intentional `!`
+assertion warnings in generated lazy getters, alongside the existing port
+warnings; no errors remain. Execution validation is .NET 11 only. The broad
+baseline's known RavenDoc failure remains recorded separately under PORT-015.
