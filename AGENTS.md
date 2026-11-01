@@ -173,6 +173,9 @@ No external type-union analyzer project is part of this repository.
   Keep the port primarily direct: do not introduce Raven-specific idioms or a
   stylistic rewrite. Each adjustment must add concrete stabilization or cleanup
   value; do not defer suitable improvements merely for textual similarity.
+- Improve unclear expressions and small performance issues encountered during
+  porting when there is concrete value. Keep the impact local to a class or
+  function; this does not authorize broad redesign or Raven-specific restyling.
 - When a translation or cleanup exposes missing or incorrect language support,
   decide whether it is a compiler gap, reduce it, implement the correction and
   retain focused regressions plus adjacent coverage. Treat porting as compiler

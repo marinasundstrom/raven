@@ -96,7 +96,9 @@ when they suit both C# and Raven syntax and semantics. The translation remains
 primarily direct, without introducing Raven-specific idioms. Apply applicable
 changes to both codebases. Each change should add concrete stabilization or
 cleanup value, rather than restyling the compiler. Do not preserve accidental
-complexity merely for textual similarity. Evaluate missing support as a possible compiler gap, reduce and fix
+complexity merely for textual similarity. Small improvements to expression,
+clarity or performance are also appropriate when their impact stays local to a
+class or function (author direction, 2026-11-01). Evaluate missing support as a possible compiler gap, reduce and fix
 it with regressions, and run adjacent coverage. Keep both implementations aligned.
 Update compiler documentation and the changelog; when a correction changes
 language rules, update the language specification and website as well, and review
