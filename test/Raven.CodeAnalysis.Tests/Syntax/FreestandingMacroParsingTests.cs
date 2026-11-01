@@ -8,6 +8,28 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 
 public sealed class FreestandingMacroParsingTests
 {
+    [Theory]
+    [InlineData("if !flag { 1 } else { 2 }")]
+    [InlineData("if /* condition */ !flag { 1 } else { 2 }")]
+    [Trait("Target", "Shared")]
+    public void NegatedIfConditionDoesNotBecomeKeywordMacro(string expression)
+    {
+        var tree = SyntaxTree.ParseText($"func Pick(flag: bool) -> int => {expression}");
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Single(tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void AdjacentKeywordBangStillParsesMacroAlias()
+    {
+        var tree = SyntaxTree.ParseText("func Pick() -> int => if!(true)");
+        Assert.Empty(tree.GetDiagnostics());
+        var invocation = Assert.Single(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.Equal("if", invocation.Name.ToString());
+    }
+
     [Fact]
     public void FreestandingMacroExpression_ParsesBangIdentifierAndArguments()
     {

@@ -333,6 +333,11 @@ Suffix lookup uses the exported macro name, independently of the provider class
 name, so previously compiled providers remain discoverable without rebuilding.
 Explicitly authored provider classes retain their authored class names.
 
+A macro alias spelled as a language keyword requires an adjacent bang:
+`if!(condition)` is a macro invocation, while `if !condition { ... }` is an
+ordinary conditional with a negated condition. Whitespace or comments between
+the keyword and bang preserve the keyword's language meaning.
+
 Aliases do not become lexical keywords. They resolve contextually through the
 macro registry and can be shadowed by an ordinary local name. After successful
 resolution, IDEs present the alias token with the contextual-keyword semantic

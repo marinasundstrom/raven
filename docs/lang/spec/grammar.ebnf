@@ -765,6 +765,8 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
+(* Keyword macro aliases require an adjacent bang: if!(...) is a macro,
+   while if !condition retains ordinary conditional syntax. *)
 FreestandingMacroExpression ::= QualifiedName '!'
                              ( ArgumentList
                              | [ArgumentList] MacroTokenTree ) ;

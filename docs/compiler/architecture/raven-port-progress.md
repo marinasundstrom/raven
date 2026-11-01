@@ -1137,3 +1137,19 @@ remains available for the bootstrap compiler.
 
 The required generator/compiler build passes. Reference/website source docs were
 updated; RavenDoc and website generation were not run.
+
+### PORT-039: Negated conditional and keyword macro disambiguation
+
+The red-node generator translation exposed `if !condition` being recognized as
+an `if` macro invocation. Keyword aliases now require an adjacent bang; spaces
+and comments retain ordinary keyword syntax. Existing `if!(...)` aliases still
+parse. This shared parser correction applies before .NET/neoCLR backend choice;
+there is no target encoding or external runtime change. The parser is not yet
+ported, so no duplicate Raven implementation needs updating at this stage.
+
+The targeted baseline passed 50 macro/conditional tests. Two reduced negated-if
+cases failed before the fix while the adjacent keyword macro passed. All 53
+focused tests pass after the correction on modern .NET. Language reference,
+website source and grammar notes are updated; no RavenDoc/site generation ran.
+Semantic editor classification consumes the corrected parser. TextMate remains
+a lexical approximation rather than the authority for macro recognition.

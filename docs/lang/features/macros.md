@@ -18,6 +18,10 @@ DSL reads naturally beside built-in Raven declarations. The required `!`
 remains visible as the stable signal that the construct is a macro invocation
 provided by a library rather than syntax fixed into the Raven language.
 
+When an alias uses a language keyword, write the bang directly after its name:
+`if!(condition)`. A separated bang in `if !condition { ... }` negates the ordinary
+conditional's condition. Comments also separate the keyword from the bang.
+
 Macros are experimental. Their syntax and authoring contracts may change while
 the feature is refined.
 

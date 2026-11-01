@@ -231,9 +231,17 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
     }
 
     private bool CanStartMacroName()
-        => CanTokenBeIdentifier(PeekToken()) ||
-            SyntaxFacts.IsKeywordKind(PeekToken().Kind) &&
-            PeekToken(1).IsKind(SyntaxKind.ExclamationToken);
+    {
+        var token = PeekToken();
+        if (SyntaxFacts.IsKeywordKind(token.Kind) && PeekToken(1).IsKind(SyntaxKind.ExclamationToken))
+        {
+            // Keyword aliases must be adjacent to their bang so ordinary
+            // expressions such as `if !condition` keep their language meaning.
+            return token.TrailingTrivia.Width == 0 && PeekToken(1).LeadingTrivia.Width == 0;
+        }
+
+        return CanTokenBeIdentifier(token);
+    }
 
     private NameSyntax ParseMacroName()
     {

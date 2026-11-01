@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve ordinary negated conditions such as `if !flag` during macro
+  lookahead. Keyword macro aliases require an adjacent bang (`if!(...)`);
+  whitespace or comments before the bang retain the keyword's language meaning.
+
 - Infer abstract common base classes for conditional branches, supply collection
   elements as one argument to non-params `ReadOnlySpan<T>` builder factories, and
   infer callback inputs from ordinary arguments after overload shape filtering.

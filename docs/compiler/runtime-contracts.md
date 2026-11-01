@@ -4714,3 +4714,13 @@ the span. Emission uses the existing bound collection/span path. No Runtime
 Contract defaults, target selection, public semantic API or metadata encoding
 changes. The compiler source is still C# in these areas; preserve the fixes when
 porting it. Focused runtime validation covers modern .NET, not native neoCLR.
+
+### Keyword macro lookahead during compiler porting
+
+Keyword macro aliases require their bang to be adjacent. Shared parsing keeps
+`if !condition` (including intervening comments) as a conditional, while
+`if!(condition)` remains a macro invocation. This correction precedes target
+selection and introduces no runtime mapping or CLI bridge. The parser has not
+yet been translated to Raven; its future translation must retain this rule.
+Language services consume this shared syntax tree. TextMate's lexical macro
+heuristic is not authoritative for target validity or semantic classification.
