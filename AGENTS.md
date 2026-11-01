@@ -183,6 +183,9 @@ No external type-union analyzer project is part of this repository.
 - Update compiler docs and the changelog for compiler-affecting changes. When
   language rules change, update the language specification and website too,
   and evaluate grammar and language-service implications.
+- Preserve generator tools during porting. Maintain working C# and Raven output
+  modes from shared models; when a generator supports both, validate both outputs
+  after changes. Adding Raven output must not replace or break C# generation.
 - Do not run RavenDoc/site generation during compiler porting. Update the
   documentation and website sources and use focused source/link checks instead.
 

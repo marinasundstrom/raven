@@ -153,6 +153,11 @@ remain compatibility workloads, not just compiler self-build inputs.
 
 ### Port generator tools as dependencies become available
 
+Preserve the generator tools throughout porting, including working C# and Raven
+output modes driven by shared models (author direction, 2026-11-01). Adding or
+porting a Raven output mode must not remove C# output; validate both modes whenever
+a dual-output generator changes. The retained C# compiler must remain regenerable.
+
 The node generator belongs in the eventual Raven toolchain port (author direction,
 2026-11-01). During the initial compiler translation, the retained C# generator
 may emit both languages from the same syntax model. Do not fork the model or
