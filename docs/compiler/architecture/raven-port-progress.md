@@ -96,6 +96,7 @@ as described in the bootstrap procedure.
 | PORT-007 | An unparenthesized open-ended stored range can consume a following `return` across a newline. | Parser boundary handling; requires reduced syntax regression and clarification against continuation rules | Parenthesized stored ranges are covered by slicing tests; this does not resolve the unparenthesized parser gap. | Open follow-up. |
 | PORT-008 | The snapshot port compiled, but C# `SourceText[index]` failed with CS0021 because emitted indexers lacked default-member metadata. | CLI type metadata emission | Synthesize the ordinary instance indexer's `DefaultMemberAttribute` from the selected compilation's runtime declaration. Two reduced C# consumer cases failed before the fix. | C# backend fixed; carry this into the later emission port. |
 | PORT-009 | Snapshot tests compile but edits/writes and lazy lines throw `TypeLoadException` for `MemoryExtensions` and `LazyInitializer` incorrectly scoped to `System.Runtime`. | .NET final assembly normalization | Consult selected framework declarations for all normalized core-library types, extending PORT-003 beyond its collection whitelist. Both reduced metadata/runtime cases failed before the fix. | C# backend correction; carry it into the emission port. |
+| PORT-010 | A field-shaped declaration in the ANSI extension crashed diagnostics because an accessor-less synthesized property had no type. Duplicate incomplete properties reproduced the same failure. | Shared source symbol recovery | Retain the declared property/indexer type as a fallback until accessors exist. Both reduced cases failed before the fix. Extension storage remains invalid by design; the regex cache lives in a separate internal helper in Raven. | C# symbol/binder correction; carry it into those later ports. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -259,3 +260,13 @@ After the owning compiler fixes, the shared C# suite passes **59 tests against
 C# and 59 against Raven**, with no skipped cases. The original C# implementation
 remains in place. This is a .NET 11 component checkpoint, not compiler self-hosting
 or native target qualification.
+
+
+## Extension recovery checkpoint — 2026-11-01
+
+The extension suite passed 140 tests before the correction. Both reduced invalid
+storage cases then reproduced the accessor-less property exception. With the
+source-declared type retained, the same extension classes plus the two regressions
+pass **142 tests**. The .NET seed builds, and ordinary extension lookup/generic
+inference coverage remains passing. Storage is still invalid, so the ANSI port
+uses an internal regex-cache helper rather than adding extension backing fields.

@@ -128,3 +128,15 @@ model caches realized operations and uses `OperationFactory` to translate bound
 nodes into `IOperation` instances that mirror Roslyn's shape. The dedicated
 [Operations API](operations.md) document covers the available kinds, caching
 behavior, and current limitations.【F:src/Raven.CodeAnalysis/SemanticModel.Operations.cs†L1-L45】【F:docs/compiler/api/operations.md†L1-L55】
+
+
+### Incomplete extension properties
+
+Source extension property and indexer symbols retain their declared type while
+accessors are being attached or when invalid source leaves them absent. Diagnostics
+and duplicate-member checks may query these symbols during declaration recovery;
+such queries must not throw merely because there is no getter or setter yet.
+Once present, accessor types remain authoritative, including constructed generic
+accessor substitutions. This is compiler-owned recovery state, with no additional
+public cache API or language-service workaround. Storage declarations inside an
+extension remain invalid; this change does not add extension backing fields.

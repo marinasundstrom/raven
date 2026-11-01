@@ -3741,7 +3741,7 @@ internal partial class TypeMemberBinder : Binder
         }
 
         IPropertySymbol propertySymbol = isExtensionMember
-            ? new SynthesizedExtensionPropertySymbol(_containingType, [indexerDecl.GetLocation()], [indexerDecl.GetReference()], name: "Item")
+            ? new SynthesizedExtensionPropertySymbol(_containingType, [indexerDecl.GetLocation()], [indexerDecl.GetReference()], name: "Item", declaredType: propertyType)
             : new SourcePropertySymbol(
             "Item",
             propertyType,

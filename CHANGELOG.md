@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Diagnose malformed extension storage declarations without crashing when a
+  synthesized property has no accessors. Retain its declared type during recovery;
+  valid accessor-based types and generic substitutions keep their existing behavior.
+
 - Enable the side-by-side Raven `SourceText`, `TextLine` and `TextLineCollection`
   implementations. Reuse the existing C# snapshot tests against both assemblies,
   covering edits, change ranges, readers, line collections, writes and cancellation.

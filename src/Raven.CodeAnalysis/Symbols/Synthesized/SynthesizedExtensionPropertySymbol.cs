@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis.Symbols;
 sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbol
 {
     private ITypeSymbol? _type;
+    private readonly ITypeSymbol? _declaredType;
     private string? _name;
     private readonly Func<ISymbol, DocumentationComment?>? _documentationProvider;
 
@@ -20,13 +21,15 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         IMethodSymbol? getMethod = null,
         IMethodSymbol? setMethod = null,
         string? name = null,
-        Func<ISymbol, DocumentationComment?>? documentationProvider = null)
+        Func<ISymbol, DocumentationComment?>? documentationProvider = null,
+        ITypeSymbol? declaredType = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, declaringReferences)
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
         _name = name;
         _documentationProvider = documentationProvider;
+        _declaredType = declaredType;
     }
 
     public override DocumentationComment? GetDocumentationComment() =>
@@ -74,8 +77,10 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 
             // Setter-only: property type is the "value" parameter (last parameter).
             var set = SetMethod;
+            // Source declarations can be queried before accessors are attached,
+            // or remain accessor-less during error recovery. Keep their known type.
             if (set is null)
-                throw new InvalidOperationException("Synthesized extension property has no accessors attached.");
+                return _declaredType ?? throw new InvalidOperationException("Synthesized extension property has no accessors attached.");
 
             if (set.Parameters.IsDefaultOrEmpty)
                 throw new InvalidOperationException("Setter-only synthesized property has no parameters to determine the value type.");
@@ -138,7 +143,8 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         SetMethod = setMethod;
 
         // Reset caches so Name/Type reflect the newly attached accessors.
-        _name = null;
+        if (getMethod is not null || setMethod is not null)
+            _name = null;
         _type = null;
     }
 

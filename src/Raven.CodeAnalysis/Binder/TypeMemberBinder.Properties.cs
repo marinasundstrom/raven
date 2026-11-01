@@ -262,7 +262,8 @@ internal partial class TypeMemberBinder : Binder
                 _containingType,
                 [propertyDecl.GetLocation()],
                 [propertyDecl.GetReference()],
-                name: propertyName);
+                name: propertyName,
+                declaredType: propertyType);
         }
         else
         {
