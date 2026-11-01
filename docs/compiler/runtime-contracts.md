@@ -4631,3 +4631,19 @@ this does not broaden callable-signature admission or allow reference escape.
 Editor highlighting needs no grammar change: the existing index and element
 access syntax is reused. Semantic-model regression coverage checks the original
 indexer symbol, element type and argument operation.
+
+### Required-member CLI metadata
+
+When the configured runtime supplies `RequiredMemberAttribute`, source types
+that declare required fields or properties carry that marker along with their
+members. This paired metadata contract lets C# consume required-member lists
+without CS9037; it does not waive object-initializer obligations. Constructor
+import recognizes the exact
+`System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute` identity.
+Unrelated attributes do not satisfy required-member initialization.
+
+This is CLI metadata interoperability, not a new language feature. The shared
+source-symbol implementation does not invent an attribute when a runtime omits
+it. Native neoCLR imports currently report no SetsRequiredMembers contract;
+round-tripping native required-member obligations is a separate existing gap,
+not a permanent difference in the intended initialization semantics.

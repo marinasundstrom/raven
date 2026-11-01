@@ -786,7 +786,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
     {
         get
         {
-            return _setsRequiredMembers ??= _methodInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.SetsRequiredMembersAttribute");
+            return _setsRequiredMembers ??= _methodInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName == "System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute");
         }
     }
 

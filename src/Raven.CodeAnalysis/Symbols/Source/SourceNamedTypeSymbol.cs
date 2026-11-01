@@ -592,15 +592,19 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (!IsExtensionDeclaration)
-            return base.GetAttributes();
+        var attributes = base.GetAttributes();
+        if (IsExtensionDeclaration && CreateExtensionAttributeData() is { } extensionAttribute)
+            attributes = attributes.Add(extensionAttribute);
 
-        var baseAttributes = base.GetAttributes();
-        var extensionAttribute = CreateExtensionAttributeData();
-        if (extensionAttribute is null)
-            return baseAttributes;
+        // RequiredMember is a paired metadata contract: members advertise the
+        // requirement and the declaring type advertises the required-member list.
+        if (GetMembers().Any(member =>
+                SymbolEqualityComparer.Default.Equals(member.ContainingType, this) &&
+                member is IPropertySymbol { IsRequired: true } or IFieldSymbol { IsRequired: true }) &&
+            CreateRequiredMemberAttribute() is { } requiredMember)
+            attributes = attributes.Add(requiredMember);
 
-        return baseAttributes.Add(extensionAttribute);
+        return attributes;
     }
 
     private AttributeData? CreateExtensionAttributeData()

@@ -870,3 +870,23 @@ metadata (CS9037), and the linked LexerTests file includes two syntax-layer test
 whose SyntaxTree/SyntaxFactory dependencies are not yet ported. Fix the metadata
 rather than changing the record representation; separate the syntax-layer tests
 from lexer parity coverage. Lexer runtime parity is not yet established.
+
+
+### PORT-028: Required-member metadata interoperability
+
+The C# consumer failure exposed missing declaring-type RequiredMember metadata.
+Source types now advertise required-member lists alongside their marked fields
+and properties. A reduced required-property consumer reproduced CS9037 before
+the correction. C# consumers now accept positional records, record structs,
+friend-accessible records and ordinary required properties; omitted required
+initializers still produce CS9035. Import also fixes the inverted/wrong-name
+SetsRequiredMembers check, reproduced with an unrelated Obsolete attribute.
+
+The record/object-creation baseline passed 158 tests. The completed selection
+passes **267 focused and adjacent tests**, including lexer and syntax test
+relocation coverage. Native source-core emission passes; required-member native
+import remains the documented separate gap. The two lexer-file cases that use
+SyntaxTree/SyntaxFactory moved to IdentifierConstructionTests in the main test
+project, retaining their coverage without pulling unported syntax APIs into
+lexer parity. The shared C# parity project passes 298 tests; Raven runtime parity
+remains pending until its rebuilt implementation is exercised.
