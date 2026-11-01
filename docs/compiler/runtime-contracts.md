@@ -4735,3 +4735,15 @@ configuration or establish independent lifetime for callbacks retained across
 iterations. Modern .NET runtime tests cover all four loop paths, non-generic
 enumeration, and reference-type elements. StatementGenerator is not yet ported;
 retain this correction when translating it to Raven.
+
+### Nullable conditional targets
+
+BindIfExpressionCore retains the complete contextual target type, including
+nullable wrappers, when binding and converting branches. Both branches therefore
+have a compatible result representation before emission. Previously a nullable
+value target could be discarded, causing lost values or invalid CLI stack merges
+in object initializers. This is shared binding, not a new Runtime Contract or
+CLI-only conversion policy. The binder is not yet ported to Raven and its future
+translation must carry the correction. Validation includes modern .NET execution
+of nullable returns, locals, property initializers and TryParse/out-variable
+branches; it does not establish native nullable-value support.

@@ -18341,3 +18341,13 @@ immutable locals from their local storage. It does not use this CLI display-clas
 store and needs no duplicated fix. Native function environments and loop-local
 storage remain responsible for capture initialization and lifetime, replacing
 CLI display-class metadata; existing native capability restrictions still apply.
+
+### Nullable conditional target preservation
+
+The shared binder keeps a contextual nullable target when converting conditional
+branches. CLI emission uses the existing nullable representation; this correction
+adds no bridge encoding. Native portable lowering consumes the same bound branch
+types and retains its existing nullable capability checks. No duplicated native
+policy change is required, and .NET runtime regressions do not claim native
+execution. Native nullable metadata/storage remains the replacement for any CLI
+Nullable<T> encoding; contextual target preservation is shared language behavior.

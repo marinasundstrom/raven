@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nullable target types when binding conditional branches. Expressions
+  such as `let value: int? = if flag { 7 } else { null }` now retain the selected
+  value; nullable property initializers no longer emit invalid CLI programs.
+
 - Initialize captured `for` variables before each loop-body execution in CLI
   output, keeping direct reads and immediate callbacks in agreement for array,
   span, range and enumerator loops.

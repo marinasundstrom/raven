@@ -6726,8 +6726,6 @@ partial class BlockBinder : Binder
         Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows)
     {
         var targetType = GetTargetType(ifExpression);
-        if (targetType is NullableTypeSymbol nullableTargetType)
-            targetType = nullableTargetType.UnderlyingType;
 
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
         var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;

@@ -1202,3 +1202,21 @@ now pass. The final Raven generator build reports 39 warnings, plus 15 in its
 shared-model dependency. The required generator/compiler build passes with both
 PORT-039 and PORT-040 included. No neoCLR runtime, RavenDoc generation or website
 generation was run.
+
+### PORT-042: Nullable conditional target preservation
+
+The translated token loader compiled but failed at runtime with an invalid CLI
+stack merge for an integer/null conditional in a record property initializer.
+Reduced typed-local and return cases also lost the selected integer value.
+BindIfExpressionCore had unwrapped the nullable contextual target before binding
+its branches. It now retains that target and applies ordinary branch conversions;
+no emission-specific workaround or loader algorithm rewrite is needed.
+
+The focused baseline passed 19 conditional/return tests. All 23 focused tests
+pass after the change, including nullable returns, locals, initializers and the
+TryParse/out-variable shape. Another 123 adjacent nullable-type, target-typed
+expression and function-inference tests pass. Validation is on modern .NET. Native portable
+lowering consumes the corrected shared bound tree and retains existing nullable
+capability restrictions; no native execution is claimed. The unported binder
+must carry this correction when translated. Language-reference/website source,
+Runtime Contract and neoCLR bridge documentation record the behavior and scope.

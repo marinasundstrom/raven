@@ -65,6 +65,12 @@ those results. A shared base class may be abstract: the expression returns an
 existing derived instance rather than constructing the base class. Literal
 branches use or widen from their primitive types as needed.
 
+A conditional also retains its contextual nullable target. For example,
+`let value: int? = if flag { 7 } else { null }` converts both branches to `int?`,
+producing `7` or `null` according to the condition. The same rule applies to
+nullable return values, arguments and property initializers; the target is not
+stripped to its underlying non-nullable type before branch binding.
+
 ### Branch type inference
 
 ```raven
