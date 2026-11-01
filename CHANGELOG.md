@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add `T[](count)` array allocation with default-initialized elements, a single
+  evaluation of the count, known-length type inference, and semantic
+  array-creation operations. .NET remains
+  the default target; shared portable lowering also represents the allocation.
+
 - Accept nullable reference operands in `as` casts. The shared binder now tests
   reference compatibility independently of nullability; native portable emission
   returns null for null or mismatched references and evaluates the operand once.

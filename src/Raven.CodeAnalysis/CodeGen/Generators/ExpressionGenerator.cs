@@ -249,6 +249,11 @@ internal partial class ExpressionGenerator : Generator
                 EmitMatchExpression(matchExpression, context);
                 break;
 
+            case BoundArrayCreationExpression arrayCreation:
+                EmitExpression(arrayCreation.Length);
+                ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayCreation.ArrayType.ElementType));
+                break;
+
             case BoundCollectionExpression collectionExpression:
                 EmitCollectionExpression(collectionExpression);
                 break;

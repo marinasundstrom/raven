@@ -18235,3 +18235,19 @@ This bounded native capability excludes default instance interface bodies and
 concrete methods on generic interfaces; generic static helpers remain unsupported.
 Native static extension properties are a separate unresolved capability, not a
 fallback representation for these members.
+
+### Runtime-length array construction (porting stabilization)
+
+`T[](count)` expresses default-initialized rank-one array storage. Binding owns
+count validation; the portable body uses the existing target-checked NewArray
+instruction. The CLI bridge retains its existing vector representation and
+runtime default values; this adds no new CLI encoding. Native array storage and
+allocation capabilities remain the eventual owning runtime contracts.
+`Array<Token>(count: 10)` is being considered for later design, not a
+currently implemented neoCLR spelling. Fixed lengths remain source constraints
+while local body storage uses ordinary vectors. This does not admit fixed-length callable signatures: preserving their
+metadata contracts remains a separate native capability requirement. The native
+source-core probe validates zero-length and default-initialized arrays, mutation,
+nullable references and single evaluation of a dynamic count. The neoCLR
+interpreter returns 42. Native JIT/AOT and negative runtime lengths were not
+executed; .NET runtime tests cover negative lengths.

@@ -744,3 +744,31 @@ after rebuilding `Raven.Analyzers`; the two initial failures are resolved.
 Focused metadata constructor-delegation, constructed-base and generic-base checks
 pass in the separate neoCLR worktree. Both source worktrees retain their own
 branches; no merge or push is performed for this slice.
+
+
+### PORT-025: Runtime-length array allocation
+
+The lexer requires C# `new Token[count]`. Raven now represents this as
+`Token[](count)`, an invocation of an array type with a dedicated bound allocation
+and `IArrayCreationOperation`. The shared portable backend uses its existing
+NewArray instruction; the .NET backend allocates default-initialized storage.
+The syntax is shared, not neoCLR-exclusive. `Array<Token>(count: 10)` is a future
+neoCLR design consideration, not implemented syntax or a requirement for this
+port. No RavenDoc or website generation is run; language-reference source feeds
+the existing website. Existing punctuation/type highlighting applies without a
+new keyword. Hover/type/operation consumers use the ordinary semantic APIs.
+
+The pre-change array/collection selection passes 118 tests. Five new syntax and
+runtime tests failed before implementation and pass after the initial change.
+Constant counts retain fixed-length source types, consistent with array literals;
+runtime counts retain `T[]`. Portable local storage erases only this source length
+annotation to vector storage; callable signature admission still rejects fixed
+lengths without metadata support. The native source-core interpreter returns 42,
+including allocation, zero/default values, mutation and count side effects.
+The required generator/compiler build passes with documentation generation
+disabled. Runtime .NET tests cover generic elements, nulls and negative lengths.
+Rust-like repetition is deferred: semicolons currently separate collection
+elements. Future syntax should follow Raven's existing conventions.
+
+Final array allocation validation: **150 focused and adjacent tests pass**.
+Native source-core emission passes and the interpreter returns `Int32(42)`.

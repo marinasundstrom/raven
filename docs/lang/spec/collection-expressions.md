@@ -20,6 +20,31 @@ let colors = [
 ]
 ```
 
+## Arrays with a runtime length
+
+Construct an array type with a count to allocate default-initialized storage:
+
+```raven
+let values = int[](10)
+let tokens = Token[](count)
+let references = object?[](count: 10)
+let rows = int[][](3)
+```
+
+The count is evaluated once and must be implicitly convertible to `int`. Zero
+creates an empty array. Negative constants are diagnosed; negative runtime
+counts throw `OverflowException` on .NET. This form allocates a rank-one array;
+`T[][](count)` allocates only the outer array, leaving inner arrays null.
+
+Elements receive their runtime default values, without invoking element
+constructors: zero for numeric values, default storage for structs, and null for
+references. As with .NET array allocation, writing a non-nullable reference
+element type does not initialize those references. Fill the elements before
+reading them as non-null values, or use a nullable element type when null is an
+intended element value. A constant count retains fixed-size type information (`int[](10)` has type
+`int[10]`); a runtime count produces `T[]`. Both use the same array storage.
+Array literals and comprehensions remain available for initialized contents.
+
 ## Immutable, mutable, and array forms
 
 When no surrounding type determines the collection kind, Raven uses the

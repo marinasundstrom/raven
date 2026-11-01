@@ -87,7 +87,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult ||
             capabilities?.AllowsImportedCompositionCalls == true && method.ReturnType is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol) &&
                 TrySignature(method, out var signature) && signature.ReturnsValue;
-        bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
+        bool TryType(ITypeSymbol type, bool result, out EmissionType value)
+        {
+            // Fixed lengths constrain source values, not vector storage inside a body.
+            // Keep signature admission separate: a backend must preserve public length
+            // contracts before accepting fixed-length callable signatures.
+            if (type is IArrayTypeSymbol { Rank: 1, FixedLength: not null } array)
+                type = model.Compilation.CreateArrayTypeSymbol(array.ElementType);
+            return CallableSignature.TryType(type, result, out value, capabilities);
+        }
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
         var functions = ImmutableArray.CreateBuilder<(BoundFunctionExpression, SyntaxNode)>();
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
@@ -1748,6 +1756,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
                     Add(indexGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
+                case BoundArrayCreationExpression arrayCreation when SupportedArray(arrayCreation.Type):
+                    if (!LowerValue(arrayCreation.Length)) return false;
+                    instructions.Add(new(LinearInstructionKind.NewArray, Syntax(expression), Type: arrayCreation.ArrayType.ElementType));
+                    return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
                     return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
                 case BoundEmptyCollectionExpression { Type: INamedTypeSymbol emptyType } empty
@@ -2107,6 +2119,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.PointerCast, Syntax(expression), Type: conversion.Type));
                     return true;
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
+                    conversion.Expression.Type is IArrayTypeSymbol { Rank: 1, FixedLength: not null } sizedArray &&
+                    conversion.Type is IArrayTypeSymbol { Rank: 1, FixedLength: null } vector &&
+                    SymbolEqualityComparer.Default.Equals(sizedArray.ElementType, vector.ElementType):
+                    return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&

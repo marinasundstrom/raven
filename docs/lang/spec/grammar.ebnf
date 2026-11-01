@@ -672,6 +672,7 @@ CastExpression           ::= '(' Type ')' UnaryExpression ;
 PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 
 PostfixTrailer           ::= ArgumentList
+                           | ArrayAllocationTypeSuffix
                            | MemberAccessTrailer
                            | ElementAccessTrailer
                            | SuppressNullableWarningTrailer
@@ -979,3 +980,7 @@ BinaryDigit              ::= '0' | '1' ;
    `module` also uses the existing file-scoped namespace declaration form.
    Logical module paths and import directives use the same qualified-name grammar.
    Module-private visibility and re-export syntax are not introduced. *)
+
+(* Empty array suffixes on a type followed by an argument list construct a
+   rank-one array. The single argument is positional or named count. *)
+ArrayAllocationTypeSuffix ::= ['?'] '[' ']' ;

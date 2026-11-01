@@ -10606,8 +10606,50 @@ partial class BlockBinder : Binder
         return expression;
     }
 
+    private BoundExpression BindArrayCreation(InvocationExpressionSyntax syntax, ArrayTypeSyntax arraySyntax)
+    {
+        var type = BindTypeSyntaxAndReport(arraySyntax);
+        if (type is not IArrayTypeSymbol arrayType || type.ContainsErrorType())
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        if (syntax.ArgumentList.Arguments.Count != 1 || syntax.Initializer is not null ||
+            syntax.ArgumentList.Arguments[0].NameColon is { Name.Identifier.ValueText: not "count" } ||
+            syntax.ArgumentList.Arguments[0].DotDotDotToken.Kind != SyntaxKind.None ||
+            syntax.ArgumentList.Arguments[0].RefKindKeyword.Kind != SyntaxKind.None)
+        {
+            _diagnostics.ReportNoOverloadForMethod("array constructor", type.ToDisplayString(), syntax.ArgumentList.Arguments.Count, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+        }
+
+        var argument = syntax.ArgumentList.Arguments[0].Expression;
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+        var length = BindExpressionWithTargetType(argument, intType);
+        var conversion = Compilation.ClassifyConversion(length.Type, intType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+        {
+            ReportCannotConvertFromTypeToType(length.Type, intType, argument.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (TryEvaluateConstant(length, argument, out var constant) && constant is int value)
+        {
+            if (value < 0)
+            {
+                _diagnostics.ReportArrayLengthCannotBeNegative(argument.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+            }
+
+            arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedLength: value);
+        }
+
+        return new BoundArrayCreationExpression(arrayType, ApplyConversion(length, intType, conversion, argument));
+    }
+
     private BoundExpression BindInvocationExpressionCore(InvocationExpressionSyntax syntax)
     {
+        if (syntax.Expression is ArrayTypeSyntax arraySyntax)
+            return BindArrayCreation(syntax, arraySyntax);
+
         BoundExpression? receiver;
         string methodName;
 

@@ -887,6 +887,10 @@
     Title="Stack allocation count must be an integer"
     Message="The stack allocation count must be implicitly convertible to 'int'; found '{typeName}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0378" Identifier="ArrayLengthCannotBeNegative"
+    Title="Array length cannot be negative"
+    Message="The array length cannot be a negative constant."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1922" Identifier="StackAllocCountCannotBeNegative"
     Title="Stack allocation count cannot be negative"
     Message="The stack allocation count cannot be negative."

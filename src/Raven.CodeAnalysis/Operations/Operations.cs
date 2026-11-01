@@ -691,3 +691,8 @@ public interface IUnitOperation : IOperation
 public interface IInvalidOperation : IOperation
 {
 }
+
+public interface IArrayCreationOperation : IOperation
+{
+    IOperation Length { get; }
+}

@@ -40,7 +40,7 @@ under [neoCLR-only language features](neoclr-features.md); see [target availabil
 <li data-reference-topic data-keywords="unwrap fail result optional option carrier ! chaining"><a href="async-and-error-propagation.md#unwrap-or-fail">Unwrap or fail: !</a><p>Extract a carrier payload or fail; chain access on the output value.</p></li>
 <li data-reference-topic data-keywords="null nullable nullability is not null null forgiving !"><a href="type-system.md#nullable-types">Nullable types and suppression: T? and !</a><p>Handle null, narrow with patterns, and suppress nullability.</p></li>
 <li data-reference-topic data-keywords="interpolation typeof nameof default literal"><a href="fundamental-expressions.md">Literals, tuples, and basic expressions</a><p>Write strings, numbers, tuples, default values, and type expressions.</p></li>
-<li data-reference-topic data-keywords="array list dictionary set [] spread .."><a href="collection-expressions.md">Collections and spread</a><p>Create collections and spread elements into them.</p></li>
+<li data-reference-topic data-keywords="array list dictionary set [] spread .."><a href="collection-expressions.md">Collections and spread</a><p>Create collections, allocate arrays by length, and spread elements into them.</p></li>
 <li data-reference-topic data-keywords="infer target typing block expression"><a href="expressions-and-inference.md">Expressions and type inference</a><p>How expressions produce values and acquire their types.</p></li>
 <li data-reference-topic data-keywords="+ - * / == != &amp;&amp; || ?? .. ..&lt; ^ bitwise"><a href="operators.md">Operators, precedence, and ranges</a><p>Look up operator order, indexing, arithmetic, and comparisons.</p></li>
 </ul>

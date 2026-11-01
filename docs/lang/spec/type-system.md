@@ -125,7 +125,8 @@ not implicit. `T[N]` converts to another fixed-length `T[M]` only when `N` and
 `M` are equal.
 
 Fixed-length inference is conservative. Raven infers or validates a length only
-when the collection expression makes its element count directly available.
+when a collection expression makes its element count directly available, or
+when `T[](count)` supplies a compile-time constant count.
 See [Collection expressions](collection-expressions.md#array-targets).
 
 On .NET, a one-dimensional `T[]` implements `IEnumerable<T>`,

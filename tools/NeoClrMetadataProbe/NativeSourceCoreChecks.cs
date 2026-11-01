@@ -222,6 +222,7 @@ internal static class NativeSourceCoreChecks
             public static class InitProbe {
                 static field Count: int
                 static func Next() -> int { Count += 1; return Count }
+                static func Empty() -> int[] => int[](0)
             }
             public class Chained {
                 public field Number: int = InitProbe.Next()
@@ -250,6 +251,13 @@ internal static class NativeSourceCoreChecks
                 InitProbe.Count = 0
                 if ChainedValue().Number != 43 || InitProbe.Count != 1 { return -7 }
                 if ChainedGeneric<int>(42).Value != 42 { return -8 }
+                InitProbe.Count = 0
+                let allocated = int[](InitProbe.Next())
+                if InitProbe.Count != 1 || allocated.Length != 1 || allocated[0] != 0 { return -9 }
+                allocated[0] = 42
+                if allocated[0] != 42 || InitProbe.Empty().Length != 0 { return -10 }
+                let references = CopyBase?[](2)
+                if references[0] is not null || references[1] is not null { return -11 }
                 let original: CopyBase = CopyValue(1, 40)
                 let changed = original with { Value = 2 }
                 if original.Value != 1 { return -1 }

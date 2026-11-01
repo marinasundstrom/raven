@@ -1603,6 +1603,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return expr;
     }
 
+    private static TypeSyntax? TryGetArrayElementType(ExpressionSyntax expression)
+    {
+        if (expression is TypeSyntax type)
+            return type;
+        if (expression is MemberAccessExpressionSyntax member &&
+            member.OperatorToken.IsKind(SyntaxKind.DotToken) &&
+            TryGetArrayElementType(member.Expression) is NameSyntax name)
+            return QualifiedName(name, member.OperatorToken, member.Name);
+        return null;
+    }
+
     private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
     {
         while (true) // Loop to handle consecutive member access and invocations
@@ -1670,6 +1681,18 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 // This prevents: <expr> [newline] '['
                 if (HasLeadingNewLine(token))
                     return expr;
+                // An empty rank suffix denotes an array type, not an indexer.
+                if (PeekToken(1).IsKind(SyntaxKind.CloseBracketToken) && TryGetArrayElementType(expr) is { } elementType)
+                {
+                    var openBracket = ReadToken();
+                    var closeBracket = ReadToken();
+                    var rank = ArrayRankSpecifier(openBracket, MissingToken(SyntaxKind.NumericLiteralToken), SyntaxList.Empty, closeBracket);
+                    expr = elementType is ArrayTypeSyntax arrayType
+                        ? ArrayType(arrayType.ElementType, arrayType.RankSpecifiers.Add(rank))
+                        : ArrayType(elementType, List(new GreenNode[] { rank }));
+                    continue;
+                }
+
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList);
@@ -1701,6 +1724,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     return expr;
 
                 expr = ParseWithExpression(expr);
+            }
+            else if (token.IsKind(SyntaxKind.QuestionToken) &&
+                PeekToken(1).IsKind(SyntaxKind.OpenBracketToken) &&
+                PeekToken(2).IsKind(SyntaxKind.CloseBracketToken) &&
+                TryGetArrayElementType(expr) is { } nullableElementType)
+            {
+                expr = NullableType(nullableElementType, ReadToken());
             }
             else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access OR propagate (`<expr>?`)
             {

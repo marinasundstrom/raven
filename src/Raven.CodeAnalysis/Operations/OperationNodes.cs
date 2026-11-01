@@ -3506,3 +3506,24 @@ internal sealed class InvalidOperation : Operation, IInvalidOperation
         return OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
     }
 }
+
+internal sealed class ArrayCreationOperation : Operation, IArrayCreationOperation
+{
+    private readonly BoundArrayCreationExpression _bound;
+    private readonly InvocationExpressionSyntax _syntax;
+    private IOperation? _length;
+
+    internal ArrayCreationOperation(SemanticModel semanticModel, BoundArrayCreationExpression bound,
+        InvocationExpressionSyntax syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.ArrayCreation, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+        _syntax = syntax;
+    }
+
+    public IOperation Length => _length ??= OperationUtilities.CreateOperationFromBound(
+        SemanticModel, _bound.Length, _syntax.ArgumentList.Arguments[0].Expression)
+        ?? throw new InvalidOperationException("Array length operation is unavailable.");
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray.Create(Length);
+}

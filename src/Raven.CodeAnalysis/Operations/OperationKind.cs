@@ -481,5 +481,8 @@ public enum OperationKind
     /// <summary>
     /// The unit literal value.
     /// </summary>
-    Unit
+    Unit,
+
+    /// <summary>Allocation of a default-initialized array with a runtime length.</summary>
+    ArrayCreation,
 }
