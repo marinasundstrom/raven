@@ -11,6 +11,18 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class PatternSyntaxParserTests
 {
     [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("\n")]
+    [InlineData(";")]
+    public void LiteralPatternEndsBeforeFollowingMember(string separator)
+    {
+        var tree = SyntaxTree.ParseText("class Probe { static func Test(keyword: string) -> bool => keyword is \"if\" or \"elif\" or \"else\" or \"endif\"" + separator +
+            "private func Following() -> bool => true }");
+        AssertNoErrors(tree);
+        Assert.Equal(4, tree.GetRoot().DescendantNodes().OfType<ConstantPatternSyntax>().Count());
+    }
+
+    [Theory]
     [InlineData("() -> T")]
     [InlineData("(int) -> int")]
     [InlineData("(int, string) -> bool")]

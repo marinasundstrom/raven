@@ -18251,3 +18251,13 @@ source-core probe validates zero-length and default-initialized arrays, mutation
 nullable references and single evaluation of a dynamic count. The neoCLR
 interpreter returns 42. Native JIT/AOT and negative runtime lengths were not
 executed; .NET runtime tests cover negative lengths.
+
+### Shared binding stabilization during lexer porting
+
+Unsigned constant operand conversions and definite assignment of forwarded `out`
+parameters are shared language behavior. The native source-core probe includes a
+UInt64 fixture declaration and executes both behaviors with the interpreter
+(result 42). The existing native primitive/by-reference encodings are reused;
+there is no new CLI bridge representation or permanent target restriction.
+String-range values in expression blocks were validated on .NET; native string
+slicing remains the separate implementation gap documented above.

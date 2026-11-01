@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve nested types in containing-type declarations and member signatures.
+  Preserve trailing range-expression values in expression blocks, honor unsigned
+  constant operand conversions, and retain definite `out` assignment from the
+  always-evaluated left operand of short-circuit expressions. Accept literal
+  patterns at newline, semicolon and end-of-file boundaries.
+
 - Add `T[](count)` array allocation with default-initialized elements, a single
   evaluation of the count, known-length type inference, and semantic
   array-creation operations. .NET remains

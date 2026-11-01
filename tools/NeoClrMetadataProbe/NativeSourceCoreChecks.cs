@@ -60,6 +60,7 @@ internal static class NativeSourceCoreChecks
                 static val Zero: int => 0
             }
             public struct Int64 { private var m_value: long }
+            public struct UInt64 { private var m_value: ulong }
             public class String { private var m_value: string }
             public abstract class Attribute {}
             public abstract class Enum : ValueType {}
@@ -99,12 +100,13 @@ internal static class NativeSourceCoreChecks
         {
             version = 1,
             libraries = new[] { new { assemblyName = name, sources = new[] { "Core.rvn" },
-                types = new[] { "System.RuntimeTypeHandle", "System.Int32", "System.Int64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
+                types = new[] { "System.RuntimeTypeHandle", "System.Int32", "System.Int64", "System.UInt64", "System.Boolean", "System.Byte", "System.String", "System.Void", "System.Sequence`1", "System.Cursor`1", "System.Views" } } },
             nativePrimitives = new Dictionary<string, string>
             {
                 ["System.RuntimeTypeHandle"] = name,
                 ["System.Int32"] = name,
                 ["System.Int64"] = name,
+                ["System.UInt64"] = name,
                 ["System.Boolean"] = name,
                 ["System.Byte"] = name,
                 ["System.String"] = name
@@ -223,6 +225,8 @@ internal static class NativeSourceCoreChecks
                 static field Count: int
                 static func Next() -> int { Count += 1; return Count }
                 static func Empty() -> int[] => int[](0)
+                static func Read(out value: int) -> bool { value = 42; return true }
+                static func Forward(out value: int) -> bool => Read(out value) && value == 42
             }
             public class Chained {
                 public field Number: int = InitProbe.Next()
@@ -258,6 +262,9 @@ internal static class NativeSourceCoreChecks
                 if allocated[0] != 42 || InitProbe.Empty().Length != 0 { return -10 }
                 let references = CopyBase?[](2)
                 if references[0] is not null || references[1] is not null { return -11 }
+                if !InitProbe.Forward(out var forwarded) || forwarded != 42 { return -12 }
+                let wide: ulong = 84
+                if wide / 2 != 42 { return -13 }
                 let original: CopyBase = CopyValue(1, 40)
                 let changed = original with { Value = 2 }
                 if original.Value != 1 { return -1 }

@@ -229,3 +229,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   order. Unnamed elements continue to consume the remaining unmatched
   parameters in declaration order. If a supplied name does not match any
   supported deconstruction member/parameter, the pattern is invalid.
+
+Literal patterns follow ordinary expression and statement boundaries. An
+expression-bodied member ending with a literal pattern may be followed by another
+member on the next line; no extra delimiter is required.

@@ -1215,8 +1215,17 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private bool IsPatternTerminator(SyntaxToken token)
     {
+        // Newlines also terminate expression-bodied members and statements.
+        if (HasLineBreakBeforePeekToken())
+            return true;
+
         // Tokens that end the current pattern or separate patterns.
         return token.Kind is
+            SyntaxKind.EndOfFileToken or
+            SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken or
+            SyntaxKind.SemicolonToken or
             SyntaxKind.CommaToken or
             SyntaxKind.CloseParenToken or
             SyntaxKind.CloseBracketToken or

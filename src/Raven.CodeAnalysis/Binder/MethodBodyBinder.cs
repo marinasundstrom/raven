@@ -606,6 +606,20 @@ class MethodBodyBinder : BlockBinder
             if (expression is null)
                 return assigned;
 
+            if (expression is BoundParenthesizedExpression parenthesized)
+                return MarkAssignedExpression(parenthesized.Expression, assigned);
+
+            if (expression is BoundConversionExpression conversion)
+                return MarkAssignedExpression(conversion.Expression, assigned);
+
+            if (expression is BoundBinaryExpression binary)
+            {
+                var afterLeft = MarkAssignedExpression(binary.Left, assigned);
+                return binary.Operator.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr
+                    ? afterLeft
+                    : MarkAssignedExpression(binary.Right, afterLeft);
+            }
+
             if (expression is BoundByRefAssignmentExpression { Reference: BoundParameterAccess parameterAccess })
                 return MarkAssignedParameter(parameterAccess.Parameter, assigned);
 

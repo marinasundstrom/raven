@@ -23,7 +23,8 @@ partial class BlockBinder
 
     private BoundStatement BindExpressionStatement(
         ExpressionStatementSyntax expressionStmt,
-        ITypeSymbol? contextualTargetType = null)
+        ITypeSymbol? contextualTargetType = null,
+        bool preserveValue = false)
     {
         if (expressionStmt.Expression is FreestandingMacroExpressionSyntax { TokenTree: not null } macroExpression)
         {
@@ -89,7 +90,7 @@ partial class BlockBinder
             CacheBoundNode(expressionStmt.Expression, expr);
         }
 
-        return ExpressionToStatement(expr);
+        return preserveValue ? new BoundExpressionStatement(expr) : ExpressionToStatement(expr);
     }
 
     private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)
@@ -725,11 +726,10 @@ partial class BlockBinder
                     bound = new BoundExpressionStatement(expr);
                 }
                 else if (isExpressionContext &&
-                         targetType is not null &&
                          statementIndex == block.Statements.Count - 1 &&
                          stmt is ExpressionStatementSyntax valueStatement)
                 {
-                    bound = BindExpressionStatement(valueStatement, targetType);
+                    bound = BindExpressionStatement(valueStatement, targetType, preserveValue: true);
                 }
                 else
                 {

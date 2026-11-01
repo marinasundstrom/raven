@@ -52,6 +52,10 @@ internal partial class TypeMemberBinder : Binder
         if (typeParameter is not null)
             return typeParameter;
 
+        var nestedType = _containingType.GetTypeMembers(name).FirstOrDefault();
+        if (nestedType is not null)
+            return nestedType;
+
         return base.LookupType(name);
     }
 

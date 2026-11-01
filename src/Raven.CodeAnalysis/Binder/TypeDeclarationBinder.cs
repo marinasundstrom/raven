@@ -46,6 +46,10 @@ internal abstract class TypeDeclarationBinder : Binder
         if (typeParameter is not null)
             return typeParameter;
 
+        var nestedType = ContainingSymbol.GetTypeMembers(name).FirstOrDefault();
+        if (nestedType is not null)
+            return nestedType;
+
         if (BlocksContainingTypeParameters())
             return null;
 

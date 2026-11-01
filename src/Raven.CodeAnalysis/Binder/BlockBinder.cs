@@ -9387,6 +9387,22 @@ partial class BlockBinder : Binder
         _ => false
     };
 
+    private BoundExpression PromoteUnsignedConstantOperand(BoundExpression operand, ITypeSymbol otherType, ExpressionSyntax? syntax)
+    {
+        var source = operand.Type.UnwrapLiteralType().SpecialType;
+        var target = otherType.UnwrapLiteralType().SpecialType;
+        if (!(target == SpecialType.System_UInt32 && source == SpecialType.System_Int32 ||
+              target == SpecialType.System_UInt64 && source is SpecialType.System_Int32 or SpecialType.System_Int64))
+            return operand;
+
+        object? constant;
+        if (!(syntax is null ? TryGetExpressionConstantValue(operand, out constant) : TryEvaluateConstant(operand, syntax, out constant)) ||
+            !ConstantValueEvaluator.TryConvert(otherType.UnwrapLiteralType(), constant, out _))
+            return operand;
+
+        return new BoundConversionExpression(operand, otherType.UnwrapLiteralType(), new Conversion(isImplicit: true, isNumeric: true));
+    }
+
     private BoundExpression BindBinaryExpression(
         SyntaxKind opKind,
         BoundExpression left,
@@ -9433,6 +9449,13 @@ partial class BlockBinder : Binder
                 if (concatMethod is not null)
                     return CreateStringConcatInvocation(concatMethod, left, right, callSyntax);
             }
+        }
+
+        if (opKind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken))
+        {
+            left = PromoteUnsignedConstantOperand(left, right.Type, leftSyntax);
+            right = PromoteUnsignedConstantOperand(right, left.Type, rightSyntax);
         }
 
         // Operators on concrete primitive types are predefined language operators.

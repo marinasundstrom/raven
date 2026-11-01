@@ -772,3 +772,43 @@ elements. Future syntax should follow Raven's existing conventions.
 
 Final array allocation validation: **150 focused and adjacent tests pass**.
 Native source-core emission passes and the interpreter returns `Int32(42)`.
+
+### PORT-026: Shared binding corrections exposed by the lexer
+
+Reduced C# regression tests initially reject both nested record declarations in
+field signatures, a range-valued `if` branch, unsigned operations with positive
+signed constants, and a forwarded `out` parameter in the left operand of `&&`.
+These are shared compiler defects, not reasons to rewrite the Raven translation.
+
+Type/member binders now resolve nested types in their containing type. Value
+blocks retain their final bound expression even when that expression itself uses
+a block to capture a receiver and range. Numeric binding admits representable
+`int` constants with `uint`/`ulong` operands and nonnegative `long` constants with
+`ulong`, while leaving shift counts and nonconstant signed operands unchanged.
+This follows the ordinary [.NET/C# constant-expression conversions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/conversions#10211-implicit-constant-expression-conversions).
+Definite assignment accounts for the left operand of short-circuit expressions,
+without treating the conditionally evaluated right operand as always executed.
+
+The reduced cases plus adjacent suites pass 197 tests. A second focused run
+including emitted runtime values and negative unsigned cases passes 97 tests
+(the selections overlap). The native source-core fixture includes UInt64 and
+validates unsigned constant operands and forwarded `out` storage; its interpreter
+returns 42. Native string-range execution remains unsupported by the source-core
+fixture and was not claimed; native JIT/AOT was not executed. These binder owners
+remain C# until their dependency-ordered Raven translations are ready.
+
+The broader baseline stopped after 73 passes and one failure in
+`PublicDelegateWithInternalSignatureTypes_ReportsRAV0501`. Rebuilding with all
+five pre-slice binder files reproduces the same missing diagnostics; the files
+were then restored and the seed rebuilt. This pre-existing baseline failure
+remains open; the complete baseline is not claimed green.
+
+The full lexer also exposed literal patterns failing at newline boundaries before
+another member declaration. Pattern parsing now accepts ordinary newline,
+semicolon and end-of-file boundaries, including newline tokens and trivia.
+The full lexer is still an unvalidated draft, including a remaining from-end
+indexer gap and an uninitialized character accumulator.
+
+Final PORT-026 selection: **240 focused and adjacent tests pass**. The complete
+lexer draft now parses without syntax diagnostics; Raven emission/parity remains
+pending on the remaining porting gaps.
