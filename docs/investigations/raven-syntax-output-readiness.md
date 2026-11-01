@@ -8,7 +8,7 @@ and concrete nodes, optional children, constructors, slots, update/With identity
 diagnostics, visitors and red-node creation.
 
 This starts syntax-tree source output. The production driver still generates C#;
-the authored production syntax runtime, Raven red-node/rewriter output and
+the authored production syntax runtime, Raven red-node output and
 CLI selection remain subsequent slices. The fixture is not a claim that the whole
 compiler syntax runtime has been ported.
 
@@ -25,6 +25,22 @@ green namespaces. The generated green hierarchy executes direct Accept dispatch,
 abstract root/intermediate dispatch, unknown-node fallback and inherited concrete
 fallback in both semantic query orders. Red visitor output is covered by parsing
 and parity, not a production red-runtime execution claim.
+
+## Rewriter output
+
+Both implementations emit concrete Raven rewriter partial methods on the generic
+visitor. These delegate token and list traversal to authored runtime hooks and
+pass visited slots to Update, retaining explicit kinds and no-op identity. Optional
+slots skip visits when absent. Required green lists assert the nullable VisitList
+result is present; the list compile probe correctly diagnosed the original missing
+assertion, so both emitters now express the required-slot contract explicitly.
+This is generator output stabilization, not weakened compiler nullability.
+
+The generated green runtime fixture covers recursive token replacement, list
+replacement/deletion, optional generic/typed child deletion, no-op identity and
+unknown-node fallback. Repository red output is parsed and compared between the
+two emitters; it has not been executed with a production red runtime. Authored
+production list traversal and syntax runtime porting remain separate work.
 
 ## Gaps fixed during the first compile/run probe
 

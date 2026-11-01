@@ -1,0 +1,85 @@
+namespace Raven.Generators
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import NodesShared.*
+
+public static class RavenRewriterGenerator
+{
+    static func GenerateRewriter(nodes: List<SyntaxNodeModel>, isPublic: bool = true,
+        namespaceName: string = "Raven.CodeAnalysis.Syntax") -> string
+    {
+        let builder = StringBuilder()
+        let green = namespaceName.Contains("InternalSyntax", StringComparison.Ordinal)
+        let accessibility = if isPublic { "public" } else { "internal" }
+        _ = builder.AppendLine("namespace " + namespaceName)
+        _ = builder.AppendLine("${accessibility} abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?> {")
+        let byName = nodes.ToDictionary(n => n.Name, StringComparer.Ordinal)
+        for root in nodes.Where(n => n.IsAbstract)
+        {
+            let cases = nodes.Where(n => !n.IsAbstract && IsDerivedFrom(n, root.Name, byName))
+                .OrderBy(n => n.Name, StringComparer.Ordinal).ToList()
+            if cases.Count == 0 { continue }
+            let name = root.Name
+            _ = builder.AppendLine("    override func Visit${name}(node: ${name}Syntax) -> SyntaxNode? {")
+            _ = builder.AppendLine("        return node match {")
+            for item in cases
+            {
+                let caseName = item.Name
+                _ = builder.AppendLine("            ${caseName}Syntax n => Visit${caseName}(n),")
+            }
+            _ = builder.AppendLine("            _ => node,")
+            _ = builder.AppendLine("        }")
+            _ = builder.AppendLine("    }")
+        }
+        for node in nodes.Where(n => !n.IsAbstract)
+        {
+            let name = node.Name
+            _ = builder.AppendLine("    override func Visit${name}(node: ${name}Syntax) -> SyntaxNode? {")
+            let arguments = List<string>()
+            if node.HasExplicitKind { arguments.Add("node.Kind") }
+            for slot in node.Slots
+            {
+                let rawType = slot.FullTypeName
+                var method = if rawType == "Node" { "Visit" } else { "Visit" + rawType }
+                if rawType == "TokenList" { method = if green { "VisitList" } else { "VisitTokenList" } }
+                else if rawType.StartsWith("List<") || rawType.StartsWith("SeparatedList<") { method = "VisitList" }
+                let access = "node." + slot.Name
+                var argument = method + "(" + access + (if slot.IsNullable { "!" } else { "" }) + ")"
+                if method != "VisitToken" && method != "VisitList" && method != "VisitTokenList"
+                {
+                    argument = "(" + MapType(rawType, slot.IsNullable) + ")" + argument
+                }
+                if green && method == "VisitList" && !slot.IsNullable { argument += "!" }
+                if slot.IsNullable { argument = "if " + access + " is null { null } else { " + argument + " }" }
+                arguments.Add(argument)
+            }
+            let argumentText = string.Join(", ", arguments)
+            _ = builder.AppendLine("        return node.Update(${argumentText})")
+            _ = builder.AppendLine("    }")
+        }
+        _ = builder.AppendLine("}")
+        return builder.ToString()
+    }
+
+    private static func IsDerivedFrom(candidate: SyntaxNodeModel, rootName: string,
+        byName: IReadOnlyDictionary<string, SyntaxNodeModel>) -> bool
+    {
+        var current = candidate
+        while !string.IsNullOrEmpty(current.Inherits)
+        {
+            if string.Equals(current.Inherits, rootName, StringComparison.Ordinal) { return true }
+            if !byName.TryGetValue(current.Inherits, out var parent) { break }
+            current = parent
+        }
+        return false
+    }
+
+    private static func MapType(rawType: string, nullable: bool) -> string
+    {
+        let type = if rawType == "Node" { "SyntaxNode" } else { rawType + "Syntax" }
+        return if nullable { type + "?" } else { type }
+    }
+}

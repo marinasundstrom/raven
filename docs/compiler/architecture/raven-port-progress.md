@@ -1428,3 +1428,50 @@ Validation: the focused runtime tests pass (**14 tests**); the combined visitor,
 syntax-list, annotation and green-diagnostic suite passes **27 tests** on .NET 11.
 The targeted compiler build passes. The broader baseline remains in progress;
 these results do not establish a fully bootstrapped compiler or native execution.
+
+
+### PORT-050: Generate Raven syntax rewriter partial methods
+
+Both generator implementations now emit Raven rewriters over the generated
+visitors. They preserve ordinal transitive abstract dispatch, return unknown nodes
+unchanged independently of DefaultVisit overrides, preserve explicit kinds, route
+slots through the matching token/list/node hooks, and call Update for identity.
+Optional slots skip absent children; required green lists assert the authored
+nullable VisitList result is present. A compile probe caught the missing assertion
+before it was corrected in both emitters; compiler nullability was not weakened.
+
+Shared C# tests parse all repository red/green output and compare exact output from
+both implementations. The generated green fixture covers generic and typed child
+slots, list and token replacement, node removal, list-element deletion, unchanged
+tree identity and unknown-node fallback under both semantic query orders. The
+production authored runtime, Raven red-node output and CLI output selection remain
+separate work. Existing C# output is retained. No language-rule change or native
+neoCLR execution is claimed.
+
+
+Validation of this output exposed an intermittent compiler failure: an override on
+DropLeafRewriter was rejected after an earlier lookup marked the partially declared
+base rewriter method nonvirtual. Temporary tracing confirmed that lookup had run
+before base visitor signatures existed. FindOverrideCandidate now invokes the
+existing compiler-owned member-signature completion path before testing candidates.
+The tracing was removed. Reduced partial generic query-order coverage and the
+shared generated-runtime fixture retain the regression; the C# binder is not yet
+ported and its future translation must retain the fix. No public API or target
+encoding changed.
+
+Validation: **61 C# / 69 Raven generator tests pass** with the corrected compiler.
+Four additional full C# generator-suite processes pass (244 test executions),
+checking the previously intermittent hierarchy failure. **86 adjacent override and
+partial-type tests pass**, including runtime coverage. The translated generator
+build succeeds (42 existing warnings, zero errors), the required build script
+succeeds on retry, and the final targeted compiler build succeeds. Formatting and
+diff checks pass. The first required-build invocation stopped without a compiler
+diagnostic; no cause is claimed.
+
+The broader baseline subsequently stopped at four metadata documentation tests
+because the temporary no-doc wrapper suppressed ordinary C# XML sidecars as well
+as RavenDoc output. Restoring normal C# XML output and narrowing the wrapper fixed
+the fixture prerequisite: **all 20 MetadataReferenceResolutionTests pass** without
+RavenDoc/site generation. No compiler/test expectation was weakened. A fresh full
+baseline on the completed slice remains required; prior mixed-worktree batches are
+not a final all-green baseline claim.

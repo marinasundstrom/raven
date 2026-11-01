@@ -4805,3 +4805,18 @@ through its locally public delegate.
 This restores required RAV0501 diagnostics without changing a public semantic API,
 runtime metadata layout or target policy. The shared binder/semantic-model code is
 not ported yet and must retain this correction in its Raven translation.
+
+
+### Override lookup across partial source declarations
+
+Method override validation ensures the matching base member signature is declared
+before testing its return/parameter types and virtual flags. Partial bases may put
+the method in a later syntax tree; treating an undiscovered method as absent could
+clear its override flags and make a subsequent derived override fail depending on
+query order. Completion uses the existing compiler-owned signature path and retains
+canonical symbols. It does not eagerly bind method bodies or expose a new public API.
+
+This is shared binding for both targets, with unchanged .NET defaults and unchanged
+CLI/native override representation contracts. The generated Raven hierarchy executes
+on modern .NET, and query-order/override tests cover partial generic bases. The
+unported binder must retain this correction when translated.

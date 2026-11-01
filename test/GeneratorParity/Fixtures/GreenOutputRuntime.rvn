@@ -51,11 +51,47 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
     internal class SyntaxToken : GreenNode {
         init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind) : base(kind, 0) { }
     }
+    internal class SyntaxList : GreenNode {
+        val Items: SyntaxNode[]
+        init(items: SyntaxNode[]) : base(Raven.CodeAnalysis.Syntax.SyntaxKind.None, items.Length) { Items = items }
+    }
     internal abstract partial class SyntaxVisitor {
         virtual func DefaultVisit(node: SyntaxNode) { }
     }
     internal abstract partial class SyntaxVisitor<TResult> {
         virtual func DefaultVisit(node: SyntaxNode) -> TResult { throw InvalidOperationException("default visitor") }
+    }
+    internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?> {
+        virtual func Visit(node: SyntaxNode?) -> SyntaxNode? {
+            if node is null { return null }
+            return node!.Accept<SyntaxNode?>(self)
+        }
+        override func DefaultVisit(node: SyntaxNode) -> SyntaxNode? => node
+        virtual func VisitToken(token: SyntaxToken) -> SyntaxToken => token
+        virtual func VisitList(list: SyntaxList) -> SyntaxList? {
+            let items = List<SyntaxNode>()
+            var changed = false
+            for item in list.Items {
+                let visited = Visit(item)
+                if !ReferenceEquals(item, visited) { changed = true }
+                if visited is not null { items.Add(visited!) }
+            }
+            return if changed { SyntaxList(items.ToArray()) } else { list }
+        }
+    }
+    internal class IdentityRewriter : SyntaxRewriter {
+        override func DefaultVisit(node: SyntaxNode) -> SyntaxNode? => null
+    }
+    internal class DropLeafRewriter : SyntaxRewriter {
+        override func VisitSample(node: SampleSyntax) -> SyntaxNode? {
+            if node.Child is null { return null }
+            return base.VisitSample(node)
+        }
+    }
+    internal class TokenRewriter : SyntaxRewriter {
+        private val _token: SyntaxToken
+        init(token: SyntaxToken) { _token = token }
+        override func VisitToken(token: SyntaxToken) -> SyntaxToken => _token
     }
     internal class RecordingVisitor : SyntaxVisitor {
         var Last: SyntaxNode? { get; set; } = null
@@ -78,14 +114,15 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
         static func Run() -> int {
             let kind = Raven.CodeAnalysis.Syntax.SyntaxKind.Sample
             let token = SyntaxToken(Raven.CodeAnalysis.Syntax.SyntaxKind.Token)
-            let node = SyntaxFactory.Sample(kind, token)
-            if node.Kind != kind || node.SlotCount != 2 || !ReferenceEquals(node.Keyword, token) || node.Child is not null { throw InvalidOperationException("slots") }
-            if !ReferenceEquals(node, node.Update(kind, token, null)) { throw InvalidOperationException("update identity") }
-            let changed = node.Update(Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate, token, node)
+            let empty = SyntaxList([])
+            let node = SyntaxFactory.Sample(kind, token, empty)
+            if node.Kind != kind || node.SlotCount != 3 || !ReferenceEquals(node.Keyword, token) || node.Child is not null { throw InvalidOperationException("slots") }
+            if !ReferenceEquals(node, node.Update(kind, token, null, empty)) { throw InvalidOperationException("update identity") }
+            let changed = node.Update(Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate, token, node, SyntaxList([node]))
             if ReferenceEquals(node, changed) || changed.Kind != Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate || !ReferenceEquals(changed.Child, node) { throw InvalidOperationException("update change") }
             let diagnostics = [| DiagnosticInfo() |]
-            let annotated = node.With([token, node], diagnostics, null)
-            if !ReferenceEquals(annotated, annotated.With([token, node], diagnostics, null)) { throw InvalidOperationException("with identity") }
+            let annotated = node.With([token, node, empty], diagnostics, null)
+            if !ReferenceEquals(annotated, annotated.With([token, node, empty], diagnostics, null)) { throw InvalidOperationException("with identity") }
             let visitor = RecordingVisitor()
             node.Accept(visitor)
             if !ReferenceEquals(visitor.Last, node) { throw InvalidOperationException("visitor") }
@@ -97,6 +134,17 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
             visitor.VisitExpression(unknown)
             if !ReferenceEquals(visitor.Last, unknown) || visitor.Samples != 3 { throw InvalidOperationException("visitor fallback") }
             if node.Accept<int>(DefaultResultVisitor()) != 7 { throw InvalidOperationException("concrete default visit") }
+            let identity = IdentityRewriter()
+            if !ReferenceEquals(identity.Visit(node), node) || !ReferenceEquals(identity.Visit(changed), changed) { throw InvalidOperationException("rewrite identity") }
+            if !ReferenceEquals(identity.VisitExpression(unknown), unknown) || identity.Visit(null) is not null { throw InvalidOperationException("rewrite fallback") }
+            let dropped = (SampleSyntax)DropLeafRewriter().Visit(changed)!
+            if dropped.Child is not null || dropped.Items.Items.Length != 0 { throw InvalidOperationException("rewrite deletion") }
+            let replacement = SyntaxToken(Raven.CodeAnalysis.Syntax.SyntaxKind.Alternate)
+            let rewritten = (SampleSyntax)TokenRewriter(replacement).Visit(changed)!
+            if ReferenceEquals(rewritten, changed) || rewritten.Kind != changed.Kind || !ReferenceEquals(rewritten.Keyword, replacement) { throw InvalidOperationException("rewrite token") }
+            if ReferenceEquals(rewritten.Items, changed.Items) || !ReferenceEquals(((SampleSyntax)rewritten.Items.Items[0]).Keyword, replacement) { throw InvalidOperationException("rewrite list") }
+            let rewrittenChild = (SampleSyntax)rewritten.Child!
+            if !ReferenceEquals(rewrittenChild.Keyword, replacement) || rewrittenChild.Child is not null { throw InvalidOperationException("rewrite child") }
             let result = ResultVisitor()
             if result.VisitExpression(node) != 42 || result.VisitPrimaryExpression(node) != 42 || result.VisitExpression(unknown) != -1 { throw InvalidOperationException("generic dispatch") }
             return node.Accept<int>(result)

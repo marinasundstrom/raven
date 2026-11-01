@@ -4,9 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Declare matching source-base signatures before override validation, including
+  methods in later partial declarations. Valid derived overrides no longer depend
+  on whether another semantic query has already discovered the base method.
+
 - Preserve unchanged green syntax lists and dispatch their tokens/trivia through
   concrete rewrite hooks. Changed lists retain annotations and diagnostics, remove
   deleted nodes, and preserve item order.
+
+- Generate Raven syntax rewriter partial methods in both compiler tool codebases,
+  including optional children, typed visits and syntax-runtime list hooks. Shared
+  C# tests execute identity-preserving and replacing rewrites on generated nodes.
 
 - Emit generic and non-generic Raven syntax visitor partial classes from both
   generator implementations, preserving transitive node dispatch and default

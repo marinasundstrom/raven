@@ -18395,3 +18395,12 @@ in the completing binder. This is shared declaration diagnostics, not a CLI brid
 encoding or a native capability change. Delegate member identity is preserved;
 existing target delegate/function representation contracts remain unchanged. Tests
 use .NET reference symbols and do not claim native execution.
+
+
+### Source-base signature availability during override validation
+
+Shared override lookup now declares the matching source-base signature before
+validation, including later partial declarations. This prevents premature invalid
+override flags from reaching either backend. It adds no CLI bridge encoding or
+native capability and does not alter target-owned covariance support. Validation
+executes generated hierarchies on modern .NET; native execution is not claimed.

@@ -4306,7 +4306,10 @@ internal partial class TypeMemberBinder : Binder
     {
         for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
-            foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
+            // A partial source base may live in a later syntax tree. Declare the
+            // matching signature before deciding that an override does not exist.
+            SemanticModel.TryEnsureSourceTypeMemberSignatureDeclared(baseType, name, out var lookupType);
+            foreach (var method in lookupType.GetMembers(name).OfType<IMethodSymbol>())
             {
                 if (method.Arity != typeParameters.Length)
                     continue;

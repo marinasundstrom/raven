@@ -66,6 +66,9 @@ public class NodeEmitterCrossImplementationTests
         foreach (var generic in new[] { false, true })
             Assert.Equal(SeedGenerator::Raven.Generators.RavenVisitorGenerator.GenerateVisitor(seedNodes, generic, !green, ns),
                 Raven.Generators.RavenVisitorGenerator.GenerateVisitor(nodes, generic, !green, ns));
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RavenRewriterGenerator).Assembly.GetName().Name);
+        Assert.Equal(SeedGenerator::Raven.Generators.RavenRewriterGenerator.GenerateRewriter(seedNodes, !green, ns),
+            Raven.Generators.RavenRewriterGenerator.GenerateRewriter(nodes, !green, ns));
         Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateVisitorClass(seedNodes, !green, ns).ToFullString(),
             Raven.Generators.VisitorGenerator.GenerateVisitorClass(nodes, !green, ns).ToFullString());
         Assert.Equal(SeedGenerator::Raven.Generators.VisitorGenerator.GenerateGenericVisitorClass(seedNodes, !green, ns).ToFullString(),

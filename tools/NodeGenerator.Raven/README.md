@@ -86,5 +86,14 @@ The runtime owns traversal entry points, token/list handling and default behavio
 Shared C# tests compare both emitters, parse both namespaces, and execute generated
 green visitor dispatch through two abstract levels and fallback paths.
 
-Red-node and rewriter Raven output and the production runtime port remain
+`RavenRewriterGenerator.GenerateRewriter` adds concrete rewriting methods over those
+visitors. Generated methods preserve explicit kinds, delegate tokens/lists to the
+runtime hooks, skip absent optional children and call Update to preserve identity.
+Required green lists explicitly assert the nullable runtime VisitList result is
+present, matching their required-slot contract. Abstract dispatch retains the C# rewriter’s
+ordinal cases and returns unknown nodes unchanged without invoking DefaultVisit.
+Shared C# runtime checks cover generic/typed children, recursive replacement, lists,
+deletion and no-op identity. List traversal remains authored runtime behavior.
+
+Red-node Raven output and the production runtime port remain
 subsequent slices. No C# output mode has been replaced.

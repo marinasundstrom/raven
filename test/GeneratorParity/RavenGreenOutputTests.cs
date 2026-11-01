@@ -39,6 +39,15 @@ public class RavenGreenOutputTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void RepositoryRewritersParse(bool green)
+    {
+        var ns = green ? "Raven.CodeAnalysis.Syntax.InternalSyntax" : "Raven.CodeAnalysis.Syntax";
+        AssertParses(RavenRewriterGenerator.GenerateRewriter(NodeEmitterInputs.Nodes(), !green, ns), "rewriter");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void VisitorRootDispatchIncludesTransitiveCasesInOrdinalOrder(bool generic)
     {
         var source = RavenVisitorGenerator.GenerateVisitor([
@@ -75,9 +84,11 @@ public class RavenGreenOutputTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void GeneratedHierarchyCompilesAndRunsConstructorsSlotsUpdatesFactoriesAndVisitors(bool queryDerivedFirst)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void GeneratedHierarchyCompilesAndRunsConstructorsSlotsUpdatesFactoriesAndVisitors(bool queryDerivedFirst, bool typedChild)
     {
         var expression = new SyntaxNodeModel
         {
@@ -93,18 +104,20 @@ public class RavenGreenOutputTests
             Inherits = "PrimaryExpression",
             HasExplicitKind = true,
             Slots = [new() { Name = "Keyword", Type = "Token", IsInherited = true },
-                new() { Name = "Child", Type = "Node", IsNullable = true }]
+                new() { Name = "Child", Type = typedChild ? "Expression" : "Node", IsNullable = true },
+                new() { Name = "Items", Type = "List<Expression>" }]
         };
         var sources = new[] { File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "GreenOutputRuntime.rvn")),
             RavenGreenNodeGenerator.GenerateNode(expression), RavenGreenNodeGenerator.GenerateNode(sample),
             RavenGreenNodeGenerator.GenerateFactory(sample)!, RavenGreenNodeGenerator.GenerateNode(primary),
             RavenVisitorGenerator.GenerateVisitor([expression, primary, sample], false, false, "Raven.CodeAnalysis.Syntax.InternalSyntax"),
-            RavenVisitorGenerator.GenerateVisitor([expression, primary, sample], true, false, "Raven.CodeAnalysis.Syntax.InternalSyntax") };
+            RavenVisitorGenerator.GenerateVisitor([expression, primary, sample], true, false, "Raven.CodeAnalysis.Syntax.InternalSyntax"),
+            RavenRewriterGenerator.GenerateRewriter([expression, primary, sample], false, "Raven.CodeAnalysis.Syntax.InternalSyntax") };
         var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         var references = new[] { typeof(object).Assembly.Location, typeof(Enumerable).Assembly.Location,
             Path.Combine(runtimeDirectory, "System.Runtime.dll"), Path.Combine(runtimeDirectory, "System.Collections.dll") }
             .Distinct().Select(path => MetadataReference.CreateFromFile(path)).ToArray();
-        var trees = sources.Select(source => SyntaxTree.ParseText(source)).ToArray();
+        var trees = sources.Select((source, index) => SyntaxTree.ParseText(source, path: $"generated-{index}.rvn")).ToArray();
         var compilation = Compilation.Create("GeneratedGreen" + Guid.NewGuid().ToString("N"), trees, references,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithFrameworkProjectionMode(FrameworkProjectionMode.None));
         IPropertySymbol? queriedProperty = null;
@@ -115,7 +128,7 @@ public class RavenGreenOutputTests
             queriedProperty = (IPropertySymbol)compilation.GetSemanticModel(trees[2]).GetDeclaredSymbol(propertySyntax)!;
         }
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics.Select(d => $"{d.Location.SourceTree?.FilePath}:{d.Location.SourceSpan.Start}: {d}")));
         var sampleType = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.InternalSyntax.SampleSyntax")!;
         var keyword = Assert.Single(sampleType.GetMembers("Keyword").OfType<IPropertySymbol>());
         if (queriedProperty is not null)
