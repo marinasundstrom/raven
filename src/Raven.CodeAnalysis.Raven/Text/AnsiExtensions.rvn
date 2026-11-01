@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.Text.RegularExpressions.*
+
+// Extension members have no backing storage; keep the compiled regex on a helper.
+internal static class AnsiRegexCache {
+    internal static readonly field Pattern: Regex = Regex("\u001B\\[[0-9;:]*m", RegexOptions.Compiled)
+}
+
+public extension AnsiExtensions for string {
+    public func StripAnsiCodes() -> string => AnsiRegexCache.Pattern.Replace(self, string.Empty)
+}

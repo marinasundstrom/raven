@@ -19,5 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextUtilsTests.cs" Link="TextUtilsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/TextValueRecordTests.cs" Link="TextValueRecordTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/SourceTextTests.cs" Link="SourceTextTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/SourceTextIOTests.cs" Link="SourceTextIOTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Text/AnsiExtensionsTests.cs" Link="AnsiExtensionsTests.cs" />
   </ItemGroup>
 </Project>

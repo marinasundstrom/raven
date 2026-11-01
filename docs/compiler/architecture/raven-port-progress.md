@@ -53,7 +53,8 @@ under `src/Raven.CodeAnalysis/Text/`.
 | `LinePositionSpan`, `FileLinePositionSpan` | `Text/TextCoordinateContractTests.cs`, `Text/TextValueRecordTests.cs` |
 | `TextChange`, `TextChangeRange` | `Text/TextValueRecordTests.cs` |
 | `TextUtils` | `Text/TextUtilsTests.cs`, including mixed line endings, UTF-16 positions and named tuple access from C# |
-| `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, including edits, change chains, surrogate-aware readers, copying, lazy lines, writes and cancellation |
+| `SourceText`, `TextLine`, `TextLineCollection` | Existing `Text/SourceTextTests.cs`, plus `Text/SourceTextIOTests.cs` for encoding/disposal, checksums and generic/non-generic enumeration |
+| `AnsiColor`, `AnsiExtensions` | `Text/AnsiExtensionsTests.cs`, including SGR values, extended color sequences, incomplete escapes and C# static/extension calls |
 
 The original tests retain their assertions. Added behavioral tests are shared by
 both implementations and remain in the main compiler test project too. Shared
@@ -137,9 +138,11 @@ confusion with `SourceText.Encoding`.
 
 ## Next dependency slice
 
-Complete the independent text helpers (`AnsiColor` and `AnsiExtensions`) and
-extend snapshot I/O/hash coverage before moving into lexer/parser dependencies.
-`SourceTextWriter` depends on syntax nodes and follows that dependency group.
+The independent text helpers and snapshot I/O/hash coverage are now included.
+Next port the lexer input boundary (`SeekableTextSource`), retaining shared C#
+behavior tests for buffering, peeking, rewinding and end-of-input behavior before
+moving to tokenization. `SourceTextWriter` depends on syntax nodes and follows
+that dependency group.
 Continue preserving each discovered failure as a regression at its owning layer.
 Open coalescing-assignment and stored-range parser gaps remain stabilization work.
 
@@ -270,3 +273,15 @@ source-declared type retained, the same extension classes plus the two regressio
 pass **142 tests**. The .NET seed builds, and ordinary extension lookup/generic
 inference coverage remains passing. Storage is still invalid, so the ANSI port
 uses an internal regex-cache helper rather than adding extension backing fields.
+
+
+## Text helper and I/O checkpoint — 2026-11-01
+
+`AnsiColor` and `AnsiExtensions` are compiled Raven sources alongside the original
+C# files. The regex cache is on a small internal Raven helper because extension
+members have no backing storage; the public extension/static call shape is
+unchanged. The shared C# suite passes **73 tests per implementation**, with no
+skips, covering ANSI values and stripping plus explicit/default encodings, stream
+disposal, SHA-256 content hashes and both line enumeration interfaces. Assembly
+identity checks include both newly ported public types. `SourceTextWriter` is the
+remaining text-namespace source and is deferred only for its syntax-node dependency.

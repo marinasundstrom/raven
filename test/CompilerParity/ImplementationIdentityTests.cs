@@ -20,5 +20,7 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(SourceText).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(TextLine).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(TextLineCollection).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiColor).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(AnsiExtensions).Assembly);
     }
 }

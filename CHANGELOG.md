@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port `AnsiColor` and `AnsiExtensions` alongside their C# implementations. Expand
+  shared text tests for ANSI sequences, stream encoding/disposal, checksums and
+  line enumeration; retain C# tests against both implementations.
+
 - Diagnose malformed extension storage declarations without crashing when a
   synthesized property has no accessors. Retain its declared type during recovery;
   valid accessor-based types and generic substitutions keep their existing behavior.
