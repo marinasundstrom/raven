@@ -93,6 +93,7 @@ as described in the bootstrap procedure.
 | PORT-005 | `ImmutableArray.CreateBuilder<TextLine>` correctly closes the builder's containing type but leaves member parameters/results using `T`. | Shared nested-symbol substitution defect | Include constructed containing-type substitutions when creating the nested symbol. Symbol regression failed before the correction; emitted immutable-array builder calls now execute correctly. | C# fix implemented; carry the correction and tests when the symbol layer is ported. |
 | PORT-006 | The faithful snapshot reader uses string range access, which was unsupported. | Shared slicing semantics with target-owned runtime mapping | .NET selects length, range offset/length validation and substring members through an explicit contract. Tests cover stored/direct bounds, inclusivity, from-end offsets, evaluation order, invalid bounds and UTF-16 units. | Implemented in the C# compiler; carry this into the later binder/target-contract port. Native slicing remains a gap. |
 | PORT-007 | An unparenthesized open-ended stored range can consume a following `return` across a newline. | Parser boundary handling; requires reduced syntax regression and clarification against continuation rules | Parenthesized stored ranges are covered by slicing tests; this does not resolve the unparenthesized parser gap. | Open follow-up. |
+| PORT-008 | The snapshot port compiled, but C# `SourceText[index]` failed with CS0021 because emitted indexers lacked default-member metadata. | CLI type metadata emission | Synthesize the ordinary instance indexer's `DefaultMemberAttribute` from the selected compilation's runtime declaration. Two reduced C# consumer cases failed before the fix. | C# backend fixed; carry this into the later emission port. |
 
 No language workaround or test exclusion has been introduced for this slice.
 Public compiler API changes belong in both codebases; no target policy or Runtime
@@ -222,3 +223,11 @@ failed before implementation. The final focused suite passes 67 tests, including
 UTF-16 and non-writable-slice coverage. The seed compiler builds on .NET 11, and
 the snapshot drafts compile without changing their string slicing expressions.
 No native runtime validation is claimed. Syntax and TextMate tokens are unchanged.
+
+
+## Indexer interop checkpoint — 2026-11-01
+
+The adjacent indexer/interface-member baseline passed 57 tests. Reduced class and
+struct C# consumers then reproduced CS0021. After adding default-member metadata,
+all 59 focused tests pass, including C# compilation and reflection checks. The
+shared snapshot tests remain the end-to-end consumer workload for this correction.

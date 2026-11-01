@@ -1378,6 +1378,31 @@ internal class TypeGenerator
     {
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
         CodeGen.ApplyNullableContextAttribute(TypeBuilder!.SetCustomAttribute);
+        ApplyDefaultIndexerMemberAttribute();
+    }
+
+    private void ApplyDefaultIndexerMemberAttribute()
+    {
+        const string attributeName = "System.Reflection.DefaultMemberAttribute";
+        if (TypeSymbol.GetAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToFullyQualifiedMetadataName() == attributeName))
+            return;
+
+        var indexer = TypeSymbol.GetMembers().OfType<IPropertySymbol>().FirstOrDefault(property =>
+            property.IsIndexer && !property.IsStatic && !property.IsExtensionProperty &&
+            property.ExplicitInterfaceImplementations.IsDefaultOrEmpty);
+        if (indexer is null)
+            return;
+
+        var attributeType = Compilation.GetTypeByMetadataName(attributeName);
+        var constructor = attributeType?.Constructors.FirstOrDefault(method =>
+            !method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
+            method.Parameters.Length == 1 && method.Parameters[0].Type.SpecialType == SpecialType.System_String);
+        if (constructor is null)
+            return;
+
+        TypeBuilder!.SetCustomAttribute(new CustomAttributeBuilder(
+            CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructor), [indexer.MetadataName]));
     }
 
     private void EnsureExtensionGroupingType()

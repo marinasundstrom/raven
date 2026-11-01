@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit `DefaultMemberAttribute` for ordinary instance indexers so C# consumers
+  can use `[]` on Raven classes and structs. Preserve explicitly authored metadata
+  and exclude extension and explicit-interface-only indexers from synthesis.
+
 - Support string range slices on .NET, including stored ranges, inclusive and
   from-end bounds, with single receiver/bound evaluation and UTF-16 offsets.
   Runtime member selection is owned by the target contract; native string

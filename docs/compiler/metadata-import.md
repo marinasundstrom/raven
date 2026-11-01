@@ -1204,3 +1204,16 @@ even when the nested type declares no type parameters of its own. Merely assigni
 a constructed `ContainingType` is insufficient: the member substitution map must
 include that owner's arguments. This is shared symbol behavior, with .NET metadata
 and runtime regression coverage; no target default or Runtime Contract changes.
+
+
+### Indexer metadata for CLI consumers
+
+Raven emits one `System.Reflection.DefaultMemberAttribute` naming the ordinary
+instance indexer's metadata name on its declaring type. Overloaded indexers share
+that attribute. Extension and explicit-interface-only indexers do not synthesize
+it, and an explicitly authored default-member attribute is retained without a
+duplicate. Resolution uses the selected compilation's attribute declaration and
+constructor, not an unconditional host type. If that attribute is absent from the
+selected runtime, synthesis is unavailable; this does not define native metadata.
+C# consumer compilation and reflected default-member discovery cover .NET classes
+and structs, alongside the existing indexer and interface-member regressions.

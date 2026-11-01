@@ -80,13 +80,15 @@ Trace failures through binding, lowering, emission and execution; assert stable
 behavior rather than emitted opcode sequences. Unclear semantics must be decided
 and documented before either implementation is treated as authoritative.
 
-## 3. Reuse tests, port only where necessary
+## 3. Keep C# tests during the compiler port
 
 Run the existing tests against the Raven compiler wherever the API and harness
-permit. The test suite need not be rewritten into Raven just because the compiler
-is. Preserve shared input fixtures and expected results across implementations.
+permit. Keep the tests in C# throughout the compiler port, sharing input fixtures
+and expected results across implementations. Porting the test suite to Raven is
+a follow-up phase after the compiler port is complete (author direction,
+2026-11-01), not a parallel migration that weakens the parity oracle.
 
-Where a test cannot run unchanged, adapt its harness or port it while retaining
+Where a test cannot run unchanged, adapt its harness while retaining
 its behavioral assertions. Record the original-to-replacement mapping and why
 reuse was impractical. A test is not obsolete merely because the initial port
 cannot satisfy it. Keep temporary exclusions explicit, with an owner and closure
@@ -95,7 +97,9 @@ condition; do not silently weaken coverage to claim parity.
 Separate implementation coverage from runtime-target coverage. Identify .NET-only
 and neoCLR-only tests with target traits and explicit names. `Target=Shared`
 means target-independent assertions, not proof of execution on both runtimes.
-Use the [test impact map](../../testing/test-impact-map.md) for daily changes and
+Treat the port as stabilization work: add or update focused regressions for each
+discovered defect, and run adjacent tests for the affected compiler layer when
+needed. Use the [test impact map](../../testing/test-impact-map.md) for daily changes and
 [release/bootstrapping gates](../../testing/release-and-bootstrap-gates.md) for
 stage acceptance. Samples, Core, macros, SDK tooling and external consumers
 remain compatibility workloads, not just compiler self-build inputs.
