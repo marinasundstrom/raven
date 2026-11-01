@@ -165,3 +165,37 @@ No external type-union analyzer project is part of this repository.
   native semantic intent, temporary CLI encoding, losses/restrictions, owning layers,
   validation evidence and the native metadata/codegen capability that replaces it.
   Bridge limitations must not silently become permanent neoCLR language rules.
+
+## Compiler porting: cleanup and stabilization
+
+- Porting includes bounded cleanup and modernization when the change suits both
+  C# and Raven syntax and semantics. Apply applicable changes to both codebases.
+  Keep the port primarily direct: do not introduce Raven-specific idioms or a
+  stylistic rewrite. Each adjustment must add concrete stabilization or cleanup
+  value; do not defer suitable improvements merely for textual similarity.
+- When a translation or cleanup exposes missing or incorrect language support,
+  decide whether it is a compiler gap, reduce it, implement the correction and
+  retain focused regressions plus adjacent coverage. Treat porting as compiler
+  stabilization, not as a reason to work around bugs in Raven source.
+- Update compiler docs and the changelog for compiler-affecting changes. When
+  language rules change, update the language specification and website too,
+  and evaluate grammar and language-service implications.
+- Do not run RavenDoc/site generation during compiler porting. Update the
+  documentation and website sources and use focused source/link checks instead.
+
+### Equality contracts
+
+- During each porting slice, decide whether each type has reference identity or
+  value equality; make that contract deliberate in C# and Raven.
+- Prefer record classes or record structs for data objects when record equality
+  matches the intended semantics, preserving reference-type versus value-type
+  representation. Otherwise implement the appropriate `IEquatable<T>`,
+  `Equals(object)`, `GetHashCode`, `==` and `!=` contract explicitly for value
+  equality. Preserve reference identity for identity-bearing objects.
+- Test equality, inequality, null handling and hash consistency against both
+  implementations. Consider inheritance, mutable state and collection members;
+  a record does not automatically give collections structural equality.
+- Do not redesign widely used constructors or factories just to enable a record.
+  In particular, keep `Token` unchanged for this purpose. Keep each adjustment
+  bounded and preserve or intentionally improve semantics with shared tests.
+- See `docs/compiler/architecture/bootstrap-procedure.md` for the porting policy.

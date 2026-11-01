@@ -89,6 +89,40 @@ the original API boundary, including explicit top-level type accessibility. Do n
 mechanically copy C# modifiers. This is an important porting convention, not a
 post-port style cleanup (author direction, 2026-11-01).
 
+### Cleanup and stabilization are part of porting
+
+Author direction, 2026-11-01: make bounded cleanup and modernization changes
+when they suit both C# and Raven syntax and semantics. The translation remains
+primarily direct, without introducing Raven-specific idioms. Apply applicable
+changes to both codebases. Each change should add concrete stabilization or
+cleanup value, rather than restyling the compiler. Do not preserve accidental
+complexity merely for textual similarity. Evaluate missing support as a possible compiler gap, reduce and fix
+it with regressions, and run adjacent coverage. Keep both implementations aligned.
+Update compiler documentation and the changelog; when a correction changes
+language rules, update the language specification and website as well, and review
+grammar and language-service support. This is stabilization during the port,
+not a deferred rewrite after it. Do not run RavenDoc/site generation during the
+port (author direction, 2026-11-01); maintain documentation and website sources
+and use focused source/link checks instead.
+
+### Equality is a porting directive
+
+Author direction, 2026-11-01: evaluate reference identity versus value equality
+for every type as it is ported. Data objects should enforce their intended value
+semantics, regardless of whether their representation is a class or a struct.
+Prefer records when their equality and construction semantics fit, retaining
+class/struct representation. Otherwise provide the appropriate `IEquatable<T>`,
+`Equals(object)`, `GetHashCode`, `==` and `!=` implementation. Identity-bearing
+types retain reference equality; do not add structural equality indiscriminately.
+
+Keep C# and Raven aligned, with shared tests for equality, inequality, nulls and
+hash consistency. Review inheritance, mutable members and collection equality
+explicitly. Records do not imply deep collection equality. Preserve custom keys:
+for example, diagnostic descriptors compare by ID, not by every display field.
+Do not redesign widely used constructor APIs merely to adopt records; `Token`
+retains its existing constructors and struct shape. These decisions belong in
+each porting slice, rather than in a deferred idiomatic rewrite.
+
 ## 3. Keep C# tests during the compiler port
 
 Run the existing tests against the Raven compiler wherever the API and harness
