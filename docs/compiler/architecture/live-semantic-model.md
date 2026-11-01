@@ -263,6 +263,13 @@ Source declarations normally take precedence over metadata declarations in the
 same namespace and with the same identifier. Lookup services should make that
 precedence explicit instead of relying on merged tree traversal.
 
+Alias targets follow this rule during early declaration binding too. While
+declaration completion is suppressed, qualified non-generic type aliases consult
+the source declaration index before retaining a metadata candidate. Only the
+matching indexed source candidate is requested; this must not require eagerly
+binding every source file. This matters during bootstrapping, when source and the
+referenced bootstrap assembly intentionally contain matching type names.
+
 ## Current Gaps
 
 The following areas still need cleanup before the editor loop is fully live and

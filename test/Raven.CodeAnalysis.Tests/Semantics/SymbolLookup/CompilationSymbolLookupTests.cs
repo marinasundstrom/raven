@@ -13,6 +13,33 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void QualifiedSourceBaseWinsOverBootstrapMetadataAcrossFiles(bool reverseTrees, bool useAlias)
+    {
+        const string definition = """
+            namespace Shared
+            public open class Node {
+                internal field marker: int = 7
+            }
+            """;
+        var metadata = TestMetadataFactory.CreateFileReferenceFromSource(definition, assemblyName: "Bootstrap.Node");
+        var source = SyntaxTree.ParseText(definition, path: "node.rvn");
+        var consumer = SyntaxTree.ParseText("namespace Client\n" +
+            (useAlias ? "alias Base = Shared.Node\n" : "") +
+            "class Derived : " + (useAlias ? "Base" : "Shared.Node") +
+            " { func Read() -> int => marker }", path: "derived.rvn");
+        var compilation = Compilation.Create("SourceBase", reverseTrees ? [source, consumer] : [consumer, source],
+            TestMetadataReferences.Default.Append(metadata).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var derived = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(
+            consumer.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        Assert.Same(compilation.Assembly, derived.BaseType!.ContainingAssembly);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
     [InlineData(false, "", "Shared.Api")]
     [InlineData(true, "", "Shared.Api")]
     [InlineData(false, "import Shared.*", "Api")]

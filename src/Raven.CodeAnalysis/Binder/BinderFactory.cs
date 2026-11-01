@@ -316,11 +316,35 @@ class BinderFactory
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            return ResolveMetadataTypeByName(name)
+            // Alias binders can be created while declaration completion is suppressed.
+            // Metadata found at that point is provisional: declare the exact indexed
+            // source candidate before retaining a bootstrap type in the alias target.
+            return ResolveIndexedSourceType(name)
+                ?? ResolveIndexedSourceType(Combine(current, name))
+                ?? ResolveMetadataTypeByName(name)
                 ?? ResolveScopedMetadataType(current, name)
                 ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
                 ?? ResolveTypeFromGlobalRoots(name);
+        }
+
+        INamedTypeSymbol? ResolveIndexedSourceType(string name)
+        {
+            if (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+                return null;
+
+            var separator = name.LastIndexOf('.');
+            var namespaceName = separator < 0 ? string.Empty : name[..separator];
+            var typeName = name[(separator + 1)..];
+            var scope = string.IsNullOrEmpty(namespaceName)
+                ? _compilation.SourceGlobalNamespace
+                : _compilation.GetNamespaceSymbol(namespaceName);
+            if (scope is null)
+                return null;
+
+            return _compilation.TryDeclareIndexedSourceType(scope, typeName, out var sourceType) && sourceType.Arity == 0
+                ? sourceType
+                : null;
         }
 
         ITypeSymbol? ResolveTypeFromGlobalRoots(string name)

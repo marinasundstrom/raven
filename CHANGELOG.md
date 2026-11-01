@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve qualified type aliases to matching source declarations during early
+  declaration binding, even when the bootstrap assembly contains the same type.
+  Preserve source assembly ownership independently of source-file order.
+
 - Validate all node/separator slots in `IsSoundSeparatedList`, accepting valid
   multi-node lists and trailing separators. `GetSeparator` now retrieves trailing
   separators while retaining bounds checks for empty lists and invalid indices.

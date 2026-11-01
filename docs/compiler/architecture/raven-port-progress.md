@@ -1725,3 +1725,35 @@ whitespace formatting and diff checks pass. This is shared compiler syntax
 behavior, not target policy; native neoCLR was not executed. Neither list helper
 nor separated-list runtime is translated yet: their Raven ports must carry these
 corrections and reuse the new C# tests. No RavenDoc/site generation was run.
+
+## PORT-059 — source alias ownership during bootstrap binding
+
+The production syntax-runtime translation exposed a bootstrap collision: a
+qualified alias could retain a type from the referenced C# compiler assembly
+instead of the matching Raven source declaration. Direct qualified base types
+already selected source correctly. The alias path ran while declaration
+completion was suppressed and accepted the metadata candidate too early.
+
+Alias lookup now requests the exact indexed non-generic source candidate before
+retaining metadata. Existing declaration guards handle re-entry; this does not
+introduce eager whole-compilation declaration binding or a new public API.
+Regression tests query the derived declaration before diagnostics, verify that
+its base belongs to the source assembly, and exercise access to an internal base
+member. Both file orders and direct/aliased base names are covered. The two alias
+cases failed before the correction; direct qualification already passed.
+
+Validation on .NET 11 rc1: **20 symbol-lookup tests and 155 adjacent namespace,
+import, alias and incremental-compilation tests pass**. The pre-change lookup
+baseline passed 16 tests. Core and compiler-driver builds, whitespace formatting
+and diff checks pass. This is shared binding behavior before target lowering;
+no native neoCLR execution was performed. The binder is not yet ported, so the
+fix currently belongs to the C# bootstrap and must accompany its later Raven
+translation. No RavenDoc/site generation was run.
+
+The next runtime slice is still uncommitted: 27 authored Raven node, token,
+trivia, list and visitor files parse without syntax errors, but semantic closure
+and runtime parity are not established. Generated declarations, node methods,
+rewriters and tree/diagnostic integration remain dependencies. Passing parser
+checks must not be reported as a working syntax runtime, and bootstrap metadata
+must not silently stand in for missing Raven declarations. The prior 54-test
+node/list/annotation baseline passed before starting this translation.
