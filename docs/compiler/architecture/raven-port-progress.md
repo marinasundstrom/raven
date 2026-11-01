@@ -1153,3 +1153,19 @@ focused tests pass after the correction on modern .NET. Language reference,
 website source and grammar notes are updated; no RavenDoc/site generation ran.
 Semantic editor classification consumes the corrected parser. TextMate remains
 a lexical approximation rather than the authority for macro recognition.
+
+### PORT-040: Captured for-variable initialization
+
+The translated red-node emitter compiled but four parity tests failed at runtime:
+loops assigned an IL local while captured body reads used an uninitialized
+closure field. CLI StatementGenerator now initializes that field before each
+body execution for array, span, range and enumerator loops. The Raven translation
+retains its ordinary loops and callbacks. StatementGenerator has not yet been
+ported, so its future translation must carry this correction.
+
+The focused baseline passed 32 tests. Six reduced runtime regressions failed
+before the fix (default numeric values or null references); all 38 focused and
+adjacent tests pass afterward on modern .NET. Native portable lowering was
+inspected and uses local storage for supported immutable captures rather than
+this CLI display class. No native run or complete retained-callback lifetime
+parity is claimed. Runtime Contract and neoCLR bridge notes record ownership.

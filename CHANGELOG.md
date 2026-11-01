@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Initialize captured `for` variables before each loop-body execution in CLI
+  output, keeping direct reads and immediate callbacks in agreement for array,
+  span, range and enumerator loops.
+
 - Preserve ordinary negated conditions such as `if !flag` during macro
   lookahead. Keyword macro aliases require an adjacent bang (`if!(...)`);
   whitespace or comments before the bang retain the keyword's language meaning.

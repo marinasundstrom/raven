@@ -500,6 +500,22 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(this, assignmentStatement.Expression, preserveResult: false).Emit();
     }
 
+    private void EmitStoreForIterationVariable(ILocalSymbol local, IILocal storage)
+    {
+        ILGenerator.Emit(OpCodes.Stloc, storage);
+        if (!MethodBodyGenerator.TryGetCapturedField(local, out var field, out var fromStateMachine))
+            return;
+
+        // Body reads and callbacks use the capture field. Enumeration must
+        // initialize that same storage before the first read in each iteration.
+        if (fromStateMachine)
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+        else
+            MethodBodyGenerator.EmitLoadClosure();
+        ILGenerator.Emit(OpCodes.Ldloc, storage);
+        ILGenerator.Emit(OpCodes.Stfld, field);
+    }
+
     private void EmitForStatement(BoundForStatement forStatement)
     {
         var beginLabel = ILGenerator.DefineLabel();
@@ -629,7 +645,7 @@ internal class StatementGenerator : Generator
         }
 
         if (elementLocal is not null)
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitStoreForIterationVariable(loopLocal!, elementLocal);
         else
             ILGenerator.Emit(OpCodes.Pop);
 
@@ -732,7 +748,7 @@ internal class StatementGenerator : Generator
                     EmitConversion(elementType, targetElementType, conversion);
             }
 
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitStoreForIterationVariable(loopLocal!, elementLocal);
         }
         else
         {
@@ -928,7 +944,7 @@ internal class StatementGenerator : Generator
         }
 
         if (elementLocal is not null)
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitStoreForIterationVariable(loopLocal!, elementLocal);
         else
             ILGenerator.Emit(OpCodes.Pop);
 
@@ -986,7 +1002,7 @@ internal class StatementGenerator : Generator
         }
 
         if (elementLocal is not null)
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            EmitStoreForIterationVariable(loopLocal!, elementLocal);
         else
             ILGenerator.Emit(OpCodes.Pop);
 

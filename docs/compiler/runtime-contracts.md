@@ -4724,3 +4724,14 @@ selection and introduces no runtime mapping or CLI bridge. The parser has not
 yet been translated to Raven; its future translation must retain this rule.
 Language services consume this shared syntax tree. TextMate's lexical macro
 heuristic is not authoritative for target validity or semantic classification.
+
+### Captured loop-variable initialization
+
+CLI StatementGenerator initializes the shared capture field from each current
+iteration value before entering the body. Array, span, range and enumerator paths
+use the same store helper, so direct body reads and immediate callbacks observe
+the current value rather than default/null. This does not change Runtime Contract
+configuration or establish independent lifetime for callbacks retained across
+iterations. Modern .NET runtime tests cover all four loop paths, non-generic
+enumeration, and reference-type elements. StatementGenerator is not yet ported;
+retain this correction when translating it to Raven.

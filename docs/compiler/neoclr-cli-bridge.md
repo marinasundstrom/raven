@@ -18323,3 +18323,21 @@ Native target implementations must retain their own collection/span capability
 checks and use native collection storage when those APIs are available. Validation
 for these corrections uses .NET metadata and execution; it does not establish
 native collection-builder support or change the default target.
+
+### Captured for-variable initialization
+
+Shared semantics require the body and its callbacks to see the current iteration
+value. CLI StatementGenerator stores that value into its display-class capture
+field before running the body; previously enumeration initialized only an IL
+local while captured reads used a default-valued field. This applies to any
+bridge using the CLI emitter. Six .NET runtime cases cover arrays, spans, ranges,
+generic/non-generic enumerators and reference elements, alongside 32 adjacent
+tests. No native execution is claimed. Retained callback lifetime across
+iterations is outside this initialization fix.
+
+The native portable path was inspected: LinearMethodBody lowers supported
+reference enumeration through TryLowerPortableEnumeration and captures supported
+immutable locals from their local storage. It does not use this CLI display-class
+store and needs no duplicated fix. Native function environments and loop-local
+storage remain responsible for capture initialization and lifetime, replacing
+CLI display-class metadata; existing native capability restrictions still apply.
