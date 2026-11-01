@@ -94,13 +94,21 @@ class ImportBinder : Binder
             return null;
 
         if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
+            scope is INamespaceSymbol namespaceScope &&
+            Compilation.TryDeclareIndexedSourceType(namespaceScope, name, out var sourceType))
+        {
+            return sourceType;
+        }
+
+        if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
             scope is SourceNamespaceSymbol sourceNamespace)
         {
             return sourceNamespace.LookupTypeDeclared(name);
         }
 
         var type = scope.LookupType(name);
-        return scope is INamespaceSymbol && type is INamedTypeSymbol named
+        return scope is INamespaceSymbol && type is INamedTypeSymbol named &&
+            !SymbolEqualityComparer.Default.Equals(named.ContainingAssembly, Compilation.Assembly)
             ? Compilation.GetTypeByMetadataName(named.ToFullyQualifiedMetadataName())
             : type;
     }

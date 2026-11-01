@@ -140,3 +140,16 @@ Once present, accessor types remain authoritative, including constructed generic
 accessor substitutions. This is compiler-owned recovery state, with no additional
 public cache API or language-service workaround. Storage declarations inside an
 extension remain invalid; this change does not add extension backing fields.
+
+
+### Source/import identity during declarations
+
+Import binding resolves an indexed source type in the requested namespace before
+metadata fallback when declaration completion is suppressed. It also retains
+already-resolved source-owned symbols instead of canonicalizing them through a
+metadata lookup that deliberately excludes incomplete source declarations. This
+keeps member signatures bound to the source definition when a referenced assembly
+contains a type with the same metadata name. Metadata-only candidates retain the
+existing target/assembly selection rules. Regression coverage checks semantic and
+emitted identity in both file orders, using a source `SyntaxKind` alongside the
+retained compiler assembly, plus adjacent namespace and import cases.
