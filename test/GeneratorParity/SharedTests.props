@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit" Version="2.4.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
+    <Using Include="Xunit" />
+    <None Include="$(MSBuildThisFileDirectory)../../src/Raven.CodeAnalysis/Syntax/Model.xml" Link="Model.xml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="$(MSBuildThisFileDirectory)NodeModelTests.cs" Link="NodeModelTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)NodeSerializationTests.cs" Link="NodeSerializationTests.cs" />
+  </ItemGroup>
+</Project>

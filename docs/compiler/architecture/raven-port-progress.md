@@ -45,6 +45,11 @@ fix the compiler with a focused C# regression. Do not encode compensating source
 workarounds. Carry shared fixes into already-ported components, and record a
 requirement when the owning component has not yet been ported.
 
+The independent generator support port lives in `tools/NodesShared.Raven`, beside
+`tools/NodesShared`. Its C# parity projects are under `test/GeneratorParity` and
+run with `scripts/test-generator-parity.sh`; they remain separate from compiler
+component parity.
+
 ## Component map
 
 Raven sources preserve the corresponding C# namespace and relative directory.
@@ -958,3 +963,37 @@ through selected framework declarations. The focused and adjacent metadata,
 collection interop, core-selection and required-member selection passes **32
 tests**. This is a .NET emission correction; no native XML API support is claimed.
 Carry this fix when the metadata normalization component is ported.
+
+
+### PORT-032: Generator model and XML serializer
+
+The syntax-node generator's seven shared model types and XML serializer now have
+Raven translations in a separate tools library. Mutable model objects retain
+reference identity, open class behavior and independent collection instances.
+Private helper methods remain private. The production node generator continues
+using the maintained C# library; node-emitter logic is not yet ported.
+
+A shared regression found that serialization dropped separately stored
+`ElementType` values and did not normalize inline `SeparatedList<T>` forms.
+Both versions now retain those values, so changing a collection element type
+changes the serialized generator input used for hashing. The targeted baseline
+passed nine tests and failed three collection-shape cases. Final parity passes
+**14 tests per implementation**, including every collection slot in the repository
+syntax model, metadata flags, escaping, defaults, public surface and assembly
+identity. The required generator/compiler build passes. Regenerated Raven syntax
+kinds and facts match the existing outputs. Validation uses .NET 11; the C# tools
+library retains its .NET 10 target. No native runtime validation is claimed.
+
+The translation also exposed existing, intentional nullability differences:
+XName's implicit conversion declares a nullable result with NotNullIfNotNull;
+Raven does not apply that flow refinement. Both implementations now call
+`XName.Get` explicitly. Nullable comparison uses `EqualityComparer<T?>`, and
+values guarded against null are explicitly suppressed at the XAttribute object
+boundary. These are bounded API choices, not new language semantics. The Raven
+build reports 15 warnings, including default-initialized mutable properties and
+explicit suppression; behavioral parity does not claim a warning-free build.
+
+The broad baseline was rerun and remains at **73 passing tests and the known
+PublicDelegateWithInternalSignatureTypes_ReportsRAV0501 failure**. That unrelated
+accessibility defect is still open. Source documentation was updated without
+running RavenDoc or website generation.

@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   avoiding leaked `System.Private.Xml`/`System.Private.Xml.Linq` dependencies in
   C# consumers of Raven libraries.
 
+- Preserve separate collection element types in serialized syntax-generator
+  models, so element-type changes affect generator input hashes. Normalize
+  inline `SeparatedList<T>` types as well as `List<T>`.
+
 - Capture the enclosing instance for local-function `self`, unqualified fields,
   properties and method calls. Preserve static boundaries instead of emitting
   instance access without a receiver.

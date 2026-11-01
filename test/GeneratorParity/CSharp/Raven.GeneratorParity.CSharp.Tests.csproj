@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../SharedTests.props" />
+  <ItemGroup>
+    <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared" />
+    <ProjectReference Include="../../../tools/NodesShared/NodesShared.csproj" />
+  </ItemGroup>
+</Project>

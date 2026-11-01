@@ -1,0 +1,79 @@
+namespace NodesShared
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Threading.Tasks.*
+import System.Xml.*
+import System.Xml.Linq.*
+
+public static class Serialization {
+    static async func SerializeAsXml(
+        model: List<SyntaxNodeModel>,
+        hierarchies: List<SyntaxHierarchyModel>,
+        xmlWriter: XmlWriter) -> Task {
+        let doc = XDocument(XElement(XName.Get("Model"),
+            hierarchies.Select(hierarchy =>
+                XElement(XName.Get("Hierarchy"),
+                    XAttribute(XName.Get("Name"), hierarchy.Name),
+                    OptionalAttributeStr("ModelBase", hierarchy.ModelBase),
+                    hierarchy.AdditionalPermittedTypes.Select(type =>
+                        XElement(XName.Get("PermittedType"), XAttribute(XName.Get("Name"), type))))),
+            model.Select(n => {
+                return XElement(XName.Get("Node"),
+                    XAttribute(XName.Get("Name"), n.Name),
+                    OptionalAttributeStr("Inherits", n.Inherits),
+                    OptionalAttribute<bool>("IsAbstract", n.IsAbstract, false),
+                    OptionalAttribute<bool>("HasExplicitKind", n.HasExplicitKind, false),
+                    n.AdditionalPermittedTypes.Select(type =>
+                        XElement(XName.Get("PermittedType"), XAttribute(XName.Get("Name"), type))),
+                    n.Slots.Select(s => {
+                        return XElement(XName.Get("Slot"),
+                            XAttribute(XName.Get("Name"), s.Name),
+                            XAttribute(XName.Get("Type"), GetType(s.Type)),
+                            OptionalAttributeStr("ElementType", s.ElementType ?? GetElementType(s.Type)),
+                            OptionalAttributeStr("DefaultToken", s.DefaultToken),
+                            OptionalAttribute<bool>("IsOptionalToken", s.IsOptionalToken, false),
+                            OptionalAttribute<bool>("IsNullable", s.IsNullable, false),
+                            OptionalAttribute<bool>("IsInherited", s.IsInherited, false),
+                            OptionalAttribute<bool>("IsAbstract", s.IsAbstract, false))
+                    }))
+            })))
+        await doc.SaveAsync(xmlWriter, default)
+    }
+
+    private static func OptionalAttribute<T>(name: string, value: T?, defaultValue: T? = default) -> XAttribute?
+        where T: struct, IEquatable<T> {
+        if value is null || EqualityComparer<T?>.Default.Equals(value, defaultValue) {
+            return null
+        }
+        return XAttribute(XName.Get(name), value!)
+    }
+
+    private static func OptionalAttributeStr(name: string, value: string?, defaultValue: string? = null) -> XAttribute? {
+        if string.IsNullOrEmpty(value) || value == defaultValue {
+            return null
+        }
+        return XAttribute(XName.Get(name), value!)
+    }
+
+    private static func GetType(type: string) -> string {
+        if type.StartsWith("List<", StringComparison.Ordinal) {
+            return "List"
+        }
+        if type.StartsWith("SeparatedList<", StringComparison.Ordinal) {
+            return "SeparatedList"
+        }
+        return type
+    }
+
+    private static func GetElementType(type: string) -> string? {
+        var elementType: string? = null
+        let open = type.IndexOf('<')
+        let close = type.LastIndexOf('>')
+        if open >= 0 && close > open {
+            elementType = type.Substring(open + 1, close - open - 1)
+        }
+        return elementType
+    }
+}

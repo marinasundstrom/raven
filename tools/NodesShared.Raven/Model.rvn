@@ -1,0 +1,69 @@
+namespace NodesShared
+
+import System.*
+import System.Collections.Generic.*
+
+public open class SyntaxNodeModel
+{
+    var Name: string { get; set; } = string.Empty
+    var Inherits: string { get; set; } = string.Empty
+    var IsAbstract: bool { get; set; }
+    var HasExplicitKind: bool { get; set; }
+    var AdditionalPermittedTypes: List<string> { get; set; } = []
+    var Slots: List<SlotModel> { get; set; } = []
+}
+
+public open class SyntaxHierarchyModel
+{
+    var Name: string { get; set; } = string.Empty
+    var ModelBase: string? { get; set; }
+    var AdditionalPermittedTypes: List<string> { get; set; } = []
+}
+
+public open class SlotModel
+{
+    var Name: string { get; set; } = string.Empty
+    var Type: string { get; set; } = string.Empty
+    var ElementType: string? { get; set; }
+    var DefaultToken: string? { get; set; }
+    var IsOptionalToken: bool { get; set; }
+
+    val FullTypeName: string {
+        get {
+            if Type == "List" || Type == "SeparatedList" {
+                return "${Type}<${ElementType}>"
+            }
+            return Type
+        }
+    }
+
+    var IsNullable: bool { get; set; }
+    var IsInherited: bool { get; set; }
+    var IsAbstract: bool { get; set; }
+}
+
+public open class FactoryDefinitionModel
+{
+    var Node: string { get; set; } = string.Empty
+    var Overloads: List<FactoryOverloadModel> { get; set; } = []
+}
+
+public open class FactoryOverloadModel
+{
+    var Alias: string? { get; set; }
+    var Summary: string? { get; set; }
+    var Parameters: List<FactoryParameterModel> { get; set; } = []
+    var Defaults: List<FactoryDefaultModel> { get; set; } = []
+}
+
+public open class FactoryParameterModel
+{
+    var Slot: string { get; set; } = string.Empty
+}
+
+public open class FactoryDefaultModel
+{
+    var Slot: string { get; set; } = string.Empty
+    var Token: string? { get; set; }
+    var Null: bool { get; set; }
+}

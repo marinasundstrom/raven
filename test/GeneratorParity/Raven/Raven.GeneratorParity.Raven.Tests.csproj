@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../SharedTests.props" />
+  <ItemGroup>
+    <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared.Raven" />
+    <ProjectReference Include="../../../tools/NodesShared.Raven/NodesShared.Raven.rvnproj" />
+  </ItemGroup>
+</Project>
