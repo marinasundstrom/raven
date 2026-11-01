@@ -1,15 +1,18 @@
 namespace Raven.CodeAnalysis.Targets;
 
-internal sealed record StringSliceMembers(
+internal sealed record RuntimeRangeSliceMembers(
     IMethodSymbol GetLength,
     IMethodSymbol GetOffsetAndLength,
     IFieldSymbol Offset,
     IFieldSymbol Length,
-    IMethodSymbol Substring);
+    IMethodSymbol Slice);
 
 internal abstract partial class CliRuntimeContract
 {
+    internal virtual RuntimeRangeSliceMembers? ResolveSpanSliceMembers(Compilation compilation, ITypeSymbol receiverType, ITypeSymbol rangeType)
+        => null;
+
     // Native string representation and slicing support must supply their own contract.
-    internal virtual StringSliceMembers? ResolveStringSliceMembers(Compilation compilation, ITypeSymbol rangeType)
+    internal virtual RuntimeRangeSliceMembers? ResolveStringSliceMembers(Compilation compilation, ITypeSymbol rangeType)
         => null;
 }

@@ -3115,6 +3115,10 @@ partial class BlockBinder
         if (receiverType.SpecialType == SpecialType.System_String && argumentExprs.Length == 1 && IsRangeType(argumentExprs[0].Type))
             return BindStringRangeAccess(receiver, argumentExprs[0], syntax);
 
+        if (argumentExprs.Length == 1 && IsRangeType(argumentExprs[0].Type) &&
+            Compilation.ResolveSpanSliceMembers(receiverType, argumentExprs[0].Type!) is { } spanSlice)
+            return BindRuntimeRangeAccess(receiver, argumentExprs[0], syntax, spanSlice);
+
         var indexer = ResolveIndexer(receiverType, argumentExprs, argumentList.Arguments, requireSetter: false, out var convertedArguments);
 
         if (indexer is null)
@@ -3382,6 +3386,12 @@ partial class BlockBinder
             return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
         }
 
+        return BindRuntimeRangeAccess(receiver, range, syntax, members);
+    }
+
+    private BoundExpression BindRuntimeRangeAccess(BoundExpression receiver, BoundExpression range, SyntaxNode syntax,
+        Targets.RuntimeRangeSliceMembers members)
+    {
         var statements = new List<BoundStatement>();
         BoundExpression Capture(BoundExpression expression)
         {
@@ -3392,10 +3402,11 @@ partial class BlockBinder
 
         var text = Capture(receiver);
         var bounds = Capture(range);
-        var length = new BoundInvocationExpression(members.GetLength, [], text);
+        var length = new BoundInvocationExpression(members.GetLength, [], text, requiresReceiverAddress: receiver.Type!.IsValueType);
         var offsets = Capture(new BoundInvocationExpression(members.GetOffsetAndLength, [length], bounds));
-        var result = new BoundInvocationExpression(members.Substring,
-            [new BoundFieldAccess(offsets, members.Offset), new BoundFieldAccess(offsets, members.Length)], text);
+        var result = new BoundInvocationExpression(members.Slice,
+            [new BoundFieldAccess(offsets, members.Offset), new BoundFieldAccess(offsets, members.Length)], text,
+            requiresReceiverAddress: receiver.Type!.IsValueType);
         statements.Add(new BoundExpressionStatement(result));
         return new BoundBlockExpression(statements, result.Type!);
     }

@@ -50,6 +50,9 @@ public sealed class ScopedParameterTests : CompilationTestBase
     [Theory]
     [InlineData("return value")]
     [InlineData("let alias = value\nreturn alias")]
+    [Trait("Target", "DotNet")]
+    [InlineData("return value[1..3]")]
+    [InlineData("let alias = value[1..3]\nreturn alias")]
     public void ScopedRefLikeParameter_CannotEscapeThroughReturn(string body)
     {
         var source = $$"""

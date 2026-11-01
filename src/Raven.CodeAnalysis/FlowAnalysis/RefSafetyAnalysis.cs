@@ -71,6 +71,8 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
 
     public override void VisitVariableDeclarator(BoundVariableDeclarator node)
     {
+        base.VisitVariableDeclarator(node);
+
         if (node.Initializer is { } initializer && IsStackAllocBacked(initializer))
             _stackAllocBackedLocals.Add(node.Local);
         if (node.Initializer is { } localReferenceInitializer &&
@@ -83,12 +85,12 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         {
             _scopedBackedLocals[node.Local] = scopedOrigin;
         }
-
-        base.VisitVariableDeclarator(node);
     }
 
     public override void VisitExpression(BoundExpression node)
     {
+        base.VisitExpression(node);
+
         if (node is BoundLocalAssignmentExpression assignment &&
             IsStackAllocBacked(assignment.Right))
         {
@@ -169,12 +171,12 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         {
             AddScopedEscape(escapingFieldValue, escapingFieldOrigin);
         }
-
-        base.VisitExpression(node);
     }
 
     public override void VisitReturnStatement(BoundReturnStatement node)
     {
+        base.VisitReturnStatement(node);
+
         if (node.Expression is { } expression && IsStackAllocBacked(expression))
             AddEscape(expression);
         if (node.Expression is { } localReferenceExpression &&
@@ -188,12 +190,12 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         {
             AddScopedEscape(scopedExpression, scopedOrigin);
         }
-
-        base.VisitReturnStatement(node);
     }
 
     public override void VisitReturnExpression(BoundReturnExpression node)
     {
+        base.VisitReturnExpression(node);
+
         if (node.Expression is { } expression && IsStackAllocBacked(expression))
             AddEscape(expression);
         if (node.Expression is { } localReferenceExpression &&
@@ -207,8 +209,6 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         {
             AddScopedEscape(scopedExpression, scopedOrigin);
         }
-
-        base.VisitReturnExpression(node);
     }
 
     public override void VisitFunctionExpression(BoundFunctionExpression node)
@@ -231,6 +231,10 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
             BoundIfExpression conditional =>
                 IsStackAllocBacked(conditional.ThenBranch) ||
                 conditional.ElseBranch is { } elseBranch && IsStackAllocBacked(elseBranch),
+            BoundBlockExpression block =>
+                TryGetResultExpression(block) is { } result && IsStackAllocBacked(result),
+            BoundInvocationExpression invocation =>
+                GetInvocationEscapeSources(invocation).Any(IsStackAllocBacked),
             _ => false,
         };
     }
@@ -252,6 +256,10 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
             BoundIfExpression conditional =>
                 IsLocalReferenceBacked(conditional.ThenBranch) ||
                 conditional.ElseBranch is { } elseBranch && IsLocalReferenceBacked(elseBranch),
+            BoundBlockExpression block =>
+                TryGetResultExpression(block) is { } result && IsLocalReferenceBacked(result),
+            BoundInvocationExpression invocation =>
+                GetInvocationEscapeSources(invocation).Any(IsLocalReferenceBacked),
             _ => false,
         };
     }
@@ -318,6 +326,8 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
             BoundIfExpression conditional =>
                 TryGetScopedOrigin(conditional.ThenBranch) ??
                 (conditional.ElseBranch is { } elseBranch ? TryGetScopedOrigin(elseBranch) : null),
+            BoundBlockExpression block =>
+                TryGetResultExpression(block) is { } result ? TryGetScopedOrigin(result) : null,
             BoundInvocationExpression invocation => TryGetScopedInvocationOrigin(invocation),
             _ => null,
         };
@@ -325,31 +335,32 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
 
     private ISymbol? TryGetScopedInvocationOrigin(BoundInvocationExpression invocation)
     {
-        if (!SemanticFacts.MayBeRefLike(invocation.Type))
-            return null;
-
-        if (invocation.Receiver is { } receiver &&
-            TryGetScopedOrigin(receiver) is { } receiverOrigin)
+        foreach (var source in GetInvocationEscapeSources(invocation))
         {
-            return receiverOrigin;
-        }
-
-        if (invocation.ExtensionReceiver is { } extensionReceiver &&
-            TryGetScopedOrigin(extensionReceiver) is { } extensionReceiverOrigin)
-        {
-            return extensionReceiverOrigin;
-        }
-
-        foreach (var (argument, parameter) in invocation.Arguments.Zip(invocation.Method.Parameters))
-        {
-            if (parameter.ScopedKind != ScopedKind.None)
-                continue;
-
-            if (TryGetScopedOrigin(argument) is { } argumentOrigin)
-                return argumentOrigin;
+            if (TryGetScopedOrigin(source) is { } origin)
+                return origin;
         }
 
         return null;
+    }
+
+    // A ref-like result can retain its receiver or any unscoped argument.
+    private static IEnumerable<BoundExpression> GetInvocationEscapeSources(
+        BoundInvocationExpression invocation)
+    {
+        if (!SemanticFacts.MayBeRefLike(invocation.Type))
+            yield break;
+
+        if (invocation.Receiver is { } receiver)
+            yield return receiver;
+        if (invocation.ExtensionReceiver is { } extensionReceiver)
+            yield return extensionReceiver;
+
+        foreach (var (argument, parameter) in invocation.Arguments.Zip(invocation.Method.Parameters))
+        {
+            if (parameter.ScopedKind == ScopedKind.None)
+                yield return argument;
+        }
     }
 
     public void AddScopedEscape(

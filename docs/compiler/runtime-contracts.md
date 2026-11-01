@@ -173,6 +173,21 @@ The neoCLR contract currently declines this operation. This is a native string
 runtime gap, not a permanent language restriction or a new CLI bridge encoding.
 Native support must define its own string slicing contract before claiming parity.
 
+## Span range-access contracts
+
+`Compilation.ResolveSpanSliceMembers` delegates recognition of `Span<T>` and
+`ReadOnlySpan<T>` and their runtime APIs to the .NET target contract. It resolves
+`Length`, `Range.GetOffsetAndLength(int)` and `Slice(int, int)` from the selected
+compilation. Both string and span slicing use the internal
+`RuntimeRangeSliceMembers` description and shared receiver/range capture. Span
+receivers are passed by address to their instance operations; slices preserve
+underlying storage rather than allocating an array copy.
+
+The default contract declines span slicing. No neoCLR native span implementation
+or new bridge encoding is claimed. The .NET regression suite checks bounds,
+inclusive/from-end syntax, aliasing and evaluation count; the Raven string-decoder
+port exercises `ReadOnlySpan<char>` slicing as a compiler workload.
+
 ## Current target composition
 
 `Targets.CompilationTarget` composes the selected runtime contract and semantic

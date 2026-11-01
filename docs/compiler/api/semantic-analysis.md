@@ -177,3 +177,13 @@ expression, including nested guarded mutation blocks. Runtime regressions cover
 nullable reference/value locals, static fields, ref storage, arrays, properties,
 indexers, conditional receivers, overloaded equality, and rejected storage/value
 combinations. These are .NET execution checks, not native runtime qualification.
+
+## Ref-like result lifetime analysis
+
+Ref-safety analysis visits expression children before recording their result's
+lifetime. This includes compiler-created receiver captures in range slicing.
+Result blocks retain their final expression's origin; ref-like invocation results
+can retain the receiver and unscoped arguments. Stack allocations, local references
+and scoped values therefore remain restricted through slices and aliases.
+Non-ref-like call results do not inherit these lifetime restrictions. The runtime
+contract selects slice members; shared flow analysis owns escape diagnostics.

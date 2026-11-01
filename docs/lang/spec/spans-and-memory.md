@@ -5,6 +5,19 @@ Spans are specialized, allocation-free views over contiguous memory.
 `System.ReadOnlySpan<T>` provides read-only access. Both support indexed reads,
 slicing, and `for` iteration; read-only span indexers are not settable.
 
+Range indexing on .NET spans returns another view over the same storage:
+
+```raven
+let values: System.ReadOnlySpan<int> = [10, 20, 30, 40]
+let middle = values[1..^1] // view of 20, 30
+```
+
+Open-ended, inclusive and from-end bounds use the ordinary range rules. The
+receiver and range are evaluated once, and invalid bounds throw
+`ArgumentOutOfRangeException`. Slicing does not copy the elements. This describes
+the .NET span representation; other targets need their own runtime slicing
+contract.
+
 The following implicit conversions are available:
 
 * a single-dimensional `T[]` to `Span<T>` or `ReadOnlySpan<T>`;
@@ -45,3 +58,8 @@ See [Ref structs and ref safety](ref-structs-and-ref-safety.md) for the lifetime
 rules shared by spans and other ref-like values. Pointer-targeted stack
 allocation is covered by
 [Unsafe code and interoperability](unsafe-code-and-interop.md#stack-allocation).
+
+Slicing preserves the source's lifetime restrictions as well as its storage. A
+slice of stack-allocated memory cannot escape the method, and a slice of a scoped
+parameter cannot be returned. A slice of an ordinary unscoped span parameter may
+be returned.

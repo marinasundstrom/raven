@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port string-literal decoding helpers to Raven and fix `\0` decoding in both
+  implementations. Add shared escape, Unicode scalar and consumed-width tests.
+- Support range slicing of .NET `Span<T>` and `ReadOnlySpan<T>` through the target
+  runtime contract, preserving storage aliasing and single receiver/range evaluation.
+  Retain stack, local-reference and scoped origins through ref-like calls and
+  result blocks so slicing cannot bypass lifetime diagnostics.
+- Keep an earlier nested local visible when an enclosing block declares the same
+  name later; retain use-before-declaration errors within the local's own scope.
+
 - Generate the Raven compiler diagnostic catalog from the same XML model as C#,
   retaining lazy descriptor creation, IDs, messages and lookup contracts. Add
   shared C# catalog tests and cross-assembly checks for every descriptor field.

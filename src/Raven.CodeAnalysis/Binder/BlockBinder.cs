@@ -8710,17 +8710,23 @@ partial class BlockBinder : Binder
 
             if (current is StatementSyntax currentStatement)
             {
-                if (currentStatement.Parent is BlockStatementSyntax blockStatement &&
-                    TryFindLaterDeclarator(blockStatement.Statements, currentStatement, name, out declaration))
+                var statements = currentStatement.Parent switch
                 {
-                    return true;
-                }
-
-                if (currentStatement.Parent is BlockSyntax blockExpression &&
-                    TryFindLaterDeclarator(blockExpression.Statements, currentStatement, name, out declaration))
+                    BlockStatementSyntax block => block.Statements,
+                    BlockSyntax block => block.Statements,
+                    _ => default
+                };
+                // A declaration already reached in this scope owns the name.
+                // Do not let a later declaration in an enclosing scope hide it.
+                foreach (var earlier in statements)
                 {
-                    return true;
+                    if (IsSameSyntaxNode(earlier, currentStatement))
+                        break;
+                    if (TryFindDeclaratorInStatement(earlier, name, out _))
+                        return false;
                 }
+                if (TryFindLaterDeclarator(statements, currentStatement, name, out declaration))
+                    return true;
             }
         }
 

@@ -64,6 +64,7 @@ lexer input lives under `Syntax/InternalSyntax/Parser/`.
 | `SeekableTextSource` | `Syntax/Parser/SeekableTextSourceTests.cs`, including bounded retention, lookahead, checkpoints, absolute offsets, EOF and constructor invariants |
 | `DiagnosticSeverity`, `DiagnosticDescriptor`, `LocalizableString`/literal/resource implementations, `DiagnosticInfo` | Shared `Diagnostics/DiagnosticPrimitiveTests.cs` |
 | `CompilerDiagnostics` | Shared catalog lookup/cache checks and cross-assembly descriptor-field parity |
+| `SyntaxFacts` string-decoding helpers | Shared escape decoding, Unicode scalar/consumed-width and hexadecimal validation tests |
 | `SyntaxKind`, `Token` | Cross-assembly generated-kind identity check; shared `Syntax/Parser/TokenValueTests.cs` |
 
 The original tests retain their assertions. Added behavioral tests are shared by
@@ -512,3 +513,33 @@ leaves the output timestamp unchanged. The port build reports intentional `!`
 assertion warnings in generated lazy getters, alongside the existing port
 warnings; no errors remain. Execution validation is .NET 11 only. The broad
 baseline's known RavenDoc failure remains recorded separately under PORT-015.
+
+## String decoding and span slicing — 2026-11-01
+
+Port the string-literal helpers in `SyntaxFacts.StringLiterals` directly, retaining
+`ReadOnlySpan<char>` signatures, Unicode scalar validation, consumption rules and
+out parameters. Twenty new shared C# cases exercise both implementations.
+
+- **PORT-016 (fixed):** the original decoder matched a literal null character
+  after a backslash instead of the character `0`. Both implementations now decode
+  `\0` as documented. The new test failed against the original C# implementation.
+- **PORT-017 (fixed in seed, retain when binding is ported):** a later enclosing
+  local declaration incorrectly hid an already declared nested local. The reduced
+  regression now passes without renaming locals in the Raven translation.
+- **PORT-018 (fixed in seed, retain when binding/flow are ported):** span range
+  indexing lacked support. The .NET target resolves `Length`, range offsets and
+  `Slice`; shared binding captures receiver/range once and preserves storage.
+  Escape analysis now follows ref-like calls and result blocks after visiting
+  their captures, preserving stack/local-reference/scoped origins. Regression
+  tests cover aliasing, evaluation counts, bounds, returned stack/scoped slices
+  and valid unscoped parameter slices. No neoCLR support is inferred.
+
+The language specification doubles as website source. Existing grammar already
+recognizes these constructs; no highlighting update or RavenDoc generation is
+needed. Generator tools and both output modes remain preserved.
+
+Validation: the seed builds; 185 focused/adjacent compiler tests pass.
+121 shared C# tests pass against each implementation
+(123 total in the Raven test project including the two cross-assembly checks).
+Execution is .NET 11 only. The previously recorded broad-baseline RavenDoc
+failure is unchanged; no full-baseline success is claimed.

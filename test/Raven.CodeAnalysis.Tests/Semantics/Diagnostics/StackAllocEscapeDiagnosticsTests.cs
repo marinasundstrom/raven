@@ -4,6 +4,36 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class StackAllocEscapeDiagnosticsTests : DiagnosticTestBase
 {
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData("return values[1..3]")]
+    [InlineData("let slice = values[1..3]\nreturn slice")]
+    [InlineData("return values.Slice(1, 2)")]
+    public void StackAllocSlice_CannotEscapeThroughRangeIndexing(string body)
+    {
+        var code = $$"""
+        func Create() -> System.Span<int> {
+            let values: System.Span<int> = stackalloc int[4]
+            {{body}}
+        }
+        """;
+        CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.StackAllocValueCannotEscape.Id).WithAnySpan(),
+        ]).Verify();
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void SpanParameterSlice_CanBeReturned()
+    {
+        const string code = """
+        func Slice(values: System.ReadOnlySpan<int>) -> System.ReadOnlySpan<int> {
+            return values[1..3]
+        }
+        """;
+        CreateVerifier(code).Verify();
+    }
+
     [Fact]
     public void StackAlloc_CannotBeReturnedDirectly()
     {

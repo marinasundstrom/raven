@@ -72,6 +72,10 @@ let answer = 41
 let answer = answer + 1 // RAV0168 (warning)
 ```
 
+An already-declared local in a nested block remains visible there even if an
+enclosing block declares the same name later. A use before a declaration in its
+own scope still receives the use-before-declaration diagnostic.
+
 Each declaration introduces a distinct symbol. Shadowing is allowed for both
 immutable and mutable bindings, but warning `RAV0168` helps catch accidental
 redeclarations. Parameters of the enclosing function count as earlier

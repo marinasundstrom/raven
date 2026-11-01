@@ -69,6 +69,23 @@ func demo(x: int) {
     }
 
     [Fact]
+    public void EarlierNestedLocalIsNotHiddenByLaterEnclosingDeclaration()
+    {
+        var code = """
+            func Main() {
+                if true {
+                    var i = 1
+                    while i < 2 { i++ }
+                    System.Console.WriteLine(i)
+                }
+                var i = 0
+                System.Console.WriteLine(i)
+            }
+            """;
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void VariableUseBeforeDeclaration_ReportsError()
     {
         var code = """

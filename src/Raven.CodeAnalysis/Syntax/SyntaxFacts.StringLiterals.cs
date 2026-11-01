@@ -44,7 +44,7 @@ public static partial class SyntaxFacts
                 case '\\':
                     builder.Append('\\');
                     break;
-                case '\0':
+                case '0':
                     builder.Append('\0');
                     break;
                 case 'a':
@@ -72,37 +72,37 @@ public static partial class SyntaxFacts
                     builder.Append('$');
                     break;
                 case 'u':
-                {
-                    var remaining = text[(i + 1)..];
-                    if (!TryDecodeUnicodeEscape(remaining, digits: 4, allowBraces: true, out var rune, out var consumed))
                     {
-                        hadInvalidEscape = true;
-                        builder.Append('?');
-                        i += consumed;
+                        var remaining = text[(i + 1)..];
+                        if (!TryDecodeUnicodeEscape(remaining, digits: 4, allowBraces: true, out var rune, out var consumed))
+                        {
+                            hadInvalidEscape = true;
+                            builder.Append('?');
+                            i += consumed;
+                        }
+                        else
+                        {
+                            builder.Append(rune.ToString());
+                            i += consumed;
+                        }
+                        break;
                     }
-                    else
-                    {
-                        builder.Append(rune.ToString());
-                        i += consumed;
-                    }
-                    break;
-                }
                 case 'U':
-                {
-                    var remaining = text[(i + 1)..];
-                    if (!TryDecodeUnicodeEscape(remaining, digits: 8, allowBraces: false, out var rune, out var consumed))
                     {
-                        hadInvalidEscape = true;
-                        builder.Append('?');
-                        i += consumed;
+                        var remaining = text[(i + 1)..];
+                        if (!TryDecodeUnicodeEscape(remaining, digits: 8, allowBraces: false, out var rune, out var consumed))
+                        {
+                            hadInvalidEscape = true;
+                            builder.Append('?');
+                            i += consumed;
+                        }
+                        else
+                        {
+                            builder.Append(rune.ToString());
+                            i += consumed;
+                        }
+                        break;
                     }
-                    else
-                    {
-                        builder.Append(rune.ToString());
-                        i += consumed;
-                    }
-                    break;
-                }
                 default:
                     hadInvalidEscape = true;
                     builder.Append('?');

@@ -26,5 +26,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Diagnostics/DiagnosticPrimitiveTests.cs" Link="DiagnosticPrimitiveTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Diagnostics/LocalizableStringTests.cs" Link="LocalizableStringTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Diagnostics/CompilerDiagnosticCatalogTests.cs" Link="CompilerDiagnosticCatalogTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/StringLiteralDecodingTests.cs" Link="StringLiteralDecodingTests.cs" />
   </ItemGroup>
 </Project>
