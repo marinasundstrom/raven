@@ -120,7 +120,9 @@ internal sealed record SourceCallablePlan(
             plan = null; return false;
         }
         if (synthesizedAnchor is RecordDeclarationSyntax recordAnchor &&
-            (symbol.MethodKind == MethodKind.Constructor || symbol.Name == "Deconstruct") &&
+            (symbol.MethodKind == MethodKind.Constructor || symbol.Name == "Deconstruct" ||
+                symbol.ContainingAssembly is SourceAssemblySymbol assembly &&
+                symbol.Name == assembly.Compilation.RuntimeRecordCloneMethodName) &&
             symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true } recordOwner &&
             capabilities?.Allows(recordOwner.IsValueType ? EmissionDeclarationKind.PositionalRecordStorage : EmissionDeclarationKind.PositionalReferenceRecordStorage) == true &&
             recordOwner.DeclaringSyntaxReferences.Any(reference => reference.SyntaxTree == recordAnchor.SyntaxTree && reference.Span == recordAnchor.Span) &&

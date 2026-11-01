@@ -89,6 +89,18 @@ internal static partial class SynthesizedMethodBodyFactory
             return true;
         }
 
+        if (method.Name == compilation.RuntimeRecordCloneMethodName &&
+            method.Parameters.IsEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } &&
+            !method.ContainingType!.IsValueType)
+        {
+            var copy = method.ContainingType.Constructors.Single(constructor => constructor.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, method.ContainingType));
+            body = new BoundBlockStatement([new BoundReturnStatement(new BoundObjectCreationExpression(
+                copy, [new BoundSelfExpression(method.ContainingType)]))]);
+            return true;
+        }
+
         if (method.MethodKind == MethodKind.Constructor &&
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } recordNominalType &&

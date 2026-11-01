@@ -123,6 +123,9 @@ internal sealed partial class Lowerer
             return compilation.BoundNodeFactory.CreateBlockExpression(statements);
         }
 
+        if (node.Strategy == BoundWithStrategyKind.RecordClone)
+            cloneExpression = ApplyConversionIfNeeded(cloneExpression, receiverAccess.Type, compilation);
+
         var cloneType = cloneExpression.Type ?? compilation.ErrorTypeSymbol;
         var cloneTemp = CreateTempLocal("withClone", cloneType, isMutable: true);
         var cloneAccess = new BoundLocalAccess(cloneTemp);

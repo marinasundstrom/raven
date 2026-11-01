@@ -629,3 +629,40 @@ the existing syntax-kind and diagnostic catalog parity checks. Removing both
 new generated files before project evaluation regenerates identical content and
 includes each file exactly once. No C# semantic divergence was needed for these
 fixes. The complete compiler port and native neoCLR validation remain unfinished.
+
+## Conditional directive evaluation — 2026-11-01
+
+Port `ConditionalDirectiveParser`, its private expression parser,
+`ConditionalDirectiveInfo`, and `ConditionalDirectiveKind` directly to Raven.
+The immutable directive metadata remains a sealed reference record. Keep the
+boolean evaluation order, complete expression validation, first-error offsets,
+identifier boundaries and case-sensitive symbol lookup. The lexer itself remains
+unported; its `ParseOptions`/diagnostic dependencies need a separate slice.
+
+Twenty-four shared C# cases cover valid/invalid expressions, non-short-circuited
+syntax validation, record equality, deconstruction and nonmutating C# `with`.
+The parity gate passes 190 tests against each implementation, plus five Raven
+cross-assembly oracle checks (195 Raven tests total). The focused pre-port
+conditional-directive baseline passed seven tests.
+
+### PORT-022: record-class copy interoperability and runtime type (fixed in seed)
+
+The translated metadata record exposed missing CLI clone metadata: C# rejected
+`with` on the emitted Raven record. Synthesize the record clone contract and use
+virtual copy dispatch in shared lowering. This also corrects base-typed Raven
+copies that previously constructed the static record type. Keep the target-owned
+metadata spelling and update both native declaration collection and portable
+callable planning; shared synthesis alone did not reach those paths.
+
+The final focused .NET selection passes 88 tests: record semantics/planning,
+C# consumers, generic copies, base/derived copies, existing closed record
+inheritance, adjacent `with` behavior and conditional directives. The native
+source-core probe passes; its new record-copy artifact executes on the neoCLR
+interpreter with result 42 and checks derived-state retention and original-state
+preservation. No native JIT/AOT or full self-hosting claim is made. The owning
+binder/synthesis/lowering components are not yet ported; preserve this correction
+when translating them. See [record copying](../record-inheritance-equality.md)
+and [the target evidence](../neoclr-cli-bridge.md).
+
+No RavenDoc/site generation was run. The published language source now describes
+runtime-type-preserving copies and .NET C# consumer support.

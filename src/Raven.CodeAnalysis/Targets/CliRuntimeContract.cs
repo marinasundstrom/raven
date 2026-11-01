@@ -12,6 +12,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     protected CompilationOptions Options { get; } = options;
 
     internal abstract string TupleTypeName { get; }
+    internal virtual string RecordCloneMethodName => "<Clone>$";
     internal virtual string RecordEquatableTypeName => "System.IEquatable`1";
     internal virtual string UnionInterfaceTypeName => "System.Runtime.CompilerServices.IUnion";
     internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";

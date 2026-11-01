@@ -1,5 +1,31 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Record-class copy contract (2026-11-01)
+
+Native semantic intent is a shallow, nonmutating copy preserving the runtime
+record type, including when `with` uses a base-record reference. This is shared
+language behavior. Synthesis and lowering live in the shared compiler; the target
+Runtime Contract owns the clone metadata name. The CLI encoding uses a public
+parameterless `<Clone>$` method, virtual for open roots and overridden in derived
+records, with a root-record return type and a conversion at the call site.
+It enables C# `with` consumers without requiring covariant-return metadata.
+
+The native emitter's independent generated-member allowlist and the portable
+callable planner now include the clone. Native metadata/codegen consumes the same
+synthesized copy body and virtual-call semantics. The current native spelling also
+uses `<Clone>$`; this compatibility name is not a native language restriction.
+A future native record-copy descriptor can replace that spelling while preserving
+runtime-type dispatch. Existing bounded native record eligibility still applies.
+This change does not claim C#-authored record inheritance from Raven records.
+
+Validation: the final focused .NET selection passes 88 record, copy/`with`,
+C# consumer and conditional-directive checks. `NeoClrMetadataProbe --native-source-core` passes with the added
+`RecordCopy.dll` emission/metadata regression. On the local neoCLR interpreter,
+its base-typed copy returns 42, checking derived-state retention and unchanged
+original state. Native JIT/AOT, generic record inheritance, .NET Framework and
+NanoFramework were not executed for this slice. No native runtime source change
+was needed; the integration correction is in Raven's native backend.
+
 ## Binding-policy ownership after consolidation (2026-10-31)
 
 `NeoClrCliRuntimeContract.Binding` now owns normalization that previously lived

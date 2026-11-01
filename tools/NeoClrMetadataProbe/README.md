@@ -23,6 +23,9 @@ matching neoCLR executable, the empty System seed from neoCLR's
 42; `ReadUninitialized.dll` and `NegativeLength.dll` must fault. The setup and
 interpreter/JIT/AOT ownership are described in neoCLR's
 `docs/validation/native-core-removal/validate-source-core-storage.py`.
+`RecordCopy.dll` must return 42: it copies a derived record through a base-typed
+reference, retains derived state, and leaves the original unchanged. The probe
+also checks that native metadata contains the generated clone operation.
 Compiler-only success does not establish execution or production-core coverage.
 
 ## Historical first integration

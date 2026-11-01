@@ -226,7 +226,8 @@ internal static class Int32Emitter
                                 i.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], recordSymbol)))
                             throw Unsupported("record equality interface requires supported component equality and hashing: " + recordSymbol.ToDisplayString());
                         // Unqualified generated members remain absent from native metadata.
-                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
+                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && method.Name != "Deconstruct" &&
+                            method.Name != compilation.RuntimeRecordCloneMethodName) continue;
                         if (!SourceCallablePlan.TryCreate(method, out var recordCallable, bodyCapabilities, recordSyntax))
                             throw Unsupported("record callable contract: " + method.ToDisplayString());
                         plans.Add(recordCallable!);

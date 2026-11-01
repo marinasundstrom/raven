@@ -216,6 +216,27 @@ internal static class NativeSourceCoreChecks
         NativeSelfChecks.Run(catalog.References.ToArray(), consumerOptions,
             assemblyName => new NeoClrEmissionBackend(new(new(assemblyName, new Version(1, 0, 0, 0)), identity, catalog.Dependencies)),
             directory, snapshot);
+        const string copySource = """
+            public open record CopyBase(Value: int)
+            public record CopyValue(Value: int, Extra: int) : CopyBase(Value)
+            func Main() -> int {
+                let original: CopyBase = CopyValue(1, 40)
+                let changed = original with { Value = 2 }
+                if original.Value != 1 { return -1 }
+                if changed is CopyValue value { return value.Value + value.Extra }
+                return -2
+            }
+            """;
+        var copyCompilation = Compilation.Create("RecordCopy", [SyntaxTree.ParseText(copySource)],
+            catalog.References.ToArray(), consumerOptions);
+        using var copyImage = new MemoryStream();
+        var copyResult = copyCompilation.Emit(copyImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(
+            new(new("RecordCopy", new Version(1, 0, 0, 0)), identity, catalog.Dependencies))));
+        if (!copyResult.Success) throw new Exception(string.Join("\n", copyResult.Diagnostics));
+        var copyMetadata = AssemblyDefinition.ReadNativeAssembly(copyImage.ToArray());
+        if (copyMetadata.MainModule.Types.Single(t => t.Name == "CopyValue").Methods.Count(m => m.Name == "<Clone>$") != 1)
+            throw new Exception("Native record copy contract missing.");
+        File.WriteAllBytes(Path.Combine(directory, "RecordCopy.dll"), copyImage.ToArray());
         var consumerSource = "func Main() -> int => System.Example.Answer() + System.Int32.Zero";
         var consumer = Compilation.Create("Consumer", [SyntaxTree.ParseText(consumerSource)], catalog.References.ToArray(), consumerOptions);
         nativeProject.Validate(consumer);

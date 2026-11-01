@@ -179,7 +179,9 @@ No external type-union analyzer project is part of this repository.
 - Use foundational C#/.NET semantics as the baseline for shared behavior. Raven
   remains a .NET language foremost; divergences must be intentional Raven-specific
   features. Apply the same foundational behavior to neoCLR unless that target
-  deliberately specifies different semantics. Inform the author when a discovered
+  deliberately specifies different semantics. Inspect both implementations, including
+  duplicated target paths, and transfer applicable corrections; a shared fix or
+  passing .NET tests alone does not prove neoCLR parity. Inform the author when a discovered
   language quirk cannot be aligned
   with C# behavior and needs a language-design decision.
 - When a translation or cleanup exposes missing or incorrect language support,

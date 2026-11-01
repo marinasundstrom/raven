@@ -175,9 +175,14 @@ accessor is allowed because a `with` body is an initialization context. Required
 members may likewise be assigned there.
 
 For records, Raven clones the record and applies the assignments. Synthesized
-record copying follows the record's value shape, which contains only public
-promoted properties. Non-public promoted properties are not included in
-synthesized copy semantics.
+record copying follows the record's positional value shape, including inherited
+and non-public positional properties. A record-class copy preserves the receiver's runtime
+type even when the expression uses a base-record type; updates apply to a new
+instance and leave the original unchanged. Copying is shallow: reference-valued
+members retain their referenced objects unless replaced by an update.
+
+**.NET interop:** C# consumers can use `with` on emitted Raven record classes,
+including base-typed references and generic records.
 
 ### Copy conventions for other types
 

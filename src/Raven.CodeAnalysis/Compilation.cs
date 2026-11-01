@@ -2366,6 +2366,8 @@ public partial class Compilation
 
     internal string RuntimeAsyncStateMachineTypeName => _target.RuntimeContract.AsyncStateMachineTypeName;
 
+    internal string RuntimeRecordCloneMethodName => _target.RuntimeContract.RecordCloneMethodName;
+
     internal string RuntimeRecordEquatableTypeName => _target.RuntimeContract.RecordEquatableTypeName;
 
     internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;

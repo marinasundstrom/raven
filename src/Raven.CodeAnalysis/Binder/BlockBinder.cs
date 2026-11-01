@@ -17746,6 +17746,23 @@ partial class BlockBinder : Binder
             return ReturnWithError(BoundExpressionReason.UnsupportedOperation);
         }
 
+        if (!namedReceiver.IsValueType &&
+            namedReceiver.GetMembers(Compilation.RuntimeRecordCloneMethodName).OfType<IMethodSymbol>()
+                .FirstOrDefault(method => !method.IsStatic && method.Parameters.IsEmpty &&
+                    method.DeclaredAccessibility == Accessibility.Public) is { } recordClone)
+        {
+            return new BoundWithExpression(
+                receiver,
+                [.. assignments.Select(x => x.BoundNode)],
+                BoundWithStrategyKind.RecordClone,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: recordClone,
+                copyConstructor: null,
+                type: receiverType);
+        }
+
         if (IsRecordType(receiverType) && TryGetCopyConstructor(namedReceiver, out var recordCopyConstructor))
         {
             return new BoundWithExpression(

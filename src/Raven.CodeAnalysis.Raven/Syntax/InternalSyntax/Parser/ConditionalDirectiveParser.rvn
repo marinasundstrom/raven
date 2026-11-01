@@ -1,0 +1,135 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class ConditionalDirectiveParser {
+    static func TryEvaluate(text: string, definedSymbols: IReadOnlySet<string>, out value: bool,
+        out errorOffset: int, out error: string?) -> bool {
+        let parser = ExpressionParser(text, definedSymbols)
+        value = parser.ParseOrExpression()
+        parser.SkipWhitespace()
+        if parser.Error is null && !parser.IsAtEnd {
+            parser.Fail("unexpected token")
+        }
+        errorOffset = parser.Position
+        error = parser.Error
+        return error is null
+    }
+
+    private class ExpressionParser {
+        private readonly field _text: string
+        private readonly field _definedSymbols: IReadOnlySet<string>
+
+        init(text: string, definedSymbols: IReadOnlySet<string>) {
+            _text = text
+            _definedSymbols = definedSymbols
+        }
+
+        var Position: int { get; private set; }
+        var Error: string? { get; private set; }
+        val IsAtEnd: bool => Position >= _text.Length
+
+        func ParseOrExpression() -> bool {
+            var value = ParseAndExpression()
+            while Error is null {
+                if !TryConsumeOperator("or") && !TryConsumeOperator("||") { break }
+                let right = ParseAndExpression()
+                value |= right
+            }
+            return value
+        }
+
+        private func ParseAndExpression() -> bool {
+            var value = ParseUnaryExpression()
+            while Error is null {
+                if !TryConsumeOperator("and") && !TryConsumeOperator("&&") { break }
+                let right = ParseUnaryExpression()
+                value &= right
+            }
+            return value
+        }
+
+        private func ParseUnaryExpression() -> bool {
+            SkipWhitespace()
+            if TryConsumeOperator("not") || TryConsumeOperator("!") {
+                return !ParseUnaryExpression()
+            }
+            return ParsePrimaryExpression()
+        }
+
+        private func ParsePrimaryExpression() -> bool {
+            SkipWhitespace()
+            if TryConsume("(") {
+                let value = ParseOrExpression()
+                SkipWhitespace()
+                if !TryConsume(")") { Fail("expected ')'") }
+                return value
+            }
+            if !TryReadIdentifier(out var identifier) {
+                Fail(if IsAtEnd { "expected an expression" } else { "expected a conditional symbol" })
+                return false
+            }
+            return identifier match {
+                "true" => true
+                "false" => false
+                _ => _definedSymbols.Contains(identifier)
+            }
+        }
+
+        func SkipWhitespace() {
+            while !IsAtEnd && char.IsWhiteSpace(_text[Position]) { Position++ }
+        }
+
+        func Fail(message: string) {
+            Error ??= message
+        }
+
+        private func TryReadIdentifier(out identifier: string) -> bool {
+            SkipWhitespace()
+            let start = Position
+            if IsAtEnd || !SyntaxFacts.IsIdentifierStartCharacter(_text[Position]) {
+                identifier = string.Empty
+                return false
+            }
+            Position++
+            while !IsAtEnd && SyntaxFacts.IsIdentifierPartCharacter(_text[Position]) { Position++ }
+            identifier = _text[start..Position]
+            return true
+        }
+
+        private func TryConsumeOperator(value: string) -> bool {
+            let start = Position
+            SkipWhitespace()
+            if !TryConsume(value) {
+                Position = start
+                return false
+            }
+            if char.IsLetter(value[0]) && !IsAtEnd && SyntaxFacts.IsIdentifierPartCharacter(_text[Position]) {
+                Position = start
+                return false
+            }
+            return true
+        }
+
+        private func TryConsume(value: string) -> bool {
+            if Position + value.Length > _text.Length || !_text.AsSpan(Position, value.Length).SequenceEqual(value) {
+                return false
+            }
+            Position += value.Length
+            return true
+        }
+    }
+}
+
+internal record ConditionalDirectiveInfo(
+    Kind: ConditionalDirectiveKind,
+    SyntaxKind: SyntaxKind,
+    ConditionText: string,
+    IsBranchActive: bool,
+    BranchTaken: bool,
+    KeywordOffset: int,
+    KeywordLength: int,
+    ConditionOffset: int,
+    ConditionLength: int)

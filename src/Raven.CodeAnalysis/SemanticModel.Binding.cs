@@ -7341,6 +7341,38 @@ public partial class SemanticModel
             copyConstructor.SetParameters(ImmutableArray.Create(otherParameter));
             copyConstructor.MarkSetsRequiredMembers();
         }
+
+        if (!recordSymbol.IsValueType &&
+            !HasMethod(recordSymbol, Compilation.RuntimeRecordCloneMethodName, MethodKind.Ordinary))
+        {
+            var baseClone = recordSymbol.BaseType?.GetMembers(Compilation.RuntimeRecordCloneMethodName)
+                .OfType<IMethodSymbol>().FirstOrDefault(method => !method.IsStatic && method.Parameters.IsEmpty);
+            // Keep one virtual slot across the hierarchy without requiring runtime
+            // support for covariant return metadata. Callers cast back to their
+            // static receiver type after virtual cloning.
+            INamedTypeSymbol cloneReturnType = recordSymbol;
+            while (cloneReturnType.BaseType is { } baseRecord &&
+                baseRecord.OriginalDefinition is SourceNamedTypeSymbol { IsRecord: true })
+                cloneReturnType = baseRecord;
+            var hasRecordBase = !ReferenceEquals(cloneReturnType, recordSymbol);
+            var clone = new SourceMethodSymbol(
+                Compilation.RuntimeRecordCloneMethodName,
+                cloneReturnType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                isVirtual: hasRecordBase || !recordSymbol.IsClosed,
+                isOverride: hasRecordBase,
+                isAbstract: recordSymbol.IsAbstract,
+                declaredAccessibility: Accessibility.Public);
+            if (baseClone is not null)
+                clone.SetOverriddenMethod(baseClone);
+        }
     }
 
     private static bool HasMethod(

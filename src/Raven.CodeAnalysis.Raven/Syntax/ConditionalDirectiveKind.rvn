@@ -1,0 +1,8 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public enum ConditionalDirectiveKind {
+    If,
+    Elif,
+    Else,
+    EndIf
+}

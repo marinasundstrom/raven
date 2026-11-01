@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port conditional-directive expression evaluation, directive metadata and kind
+  to Raven, retaining the same C# tests against both implementations.
+- Preserve a record class's runtime type when copying through a base-typed `with`
+  expression. Emit the clone contract needed by C# consumers, and include the
+  same synthesized copy operation in neoCLR native declaration planning.
+
 - Complete field initializers on their canonical symbols when full binding
   revisits declarations, preserving calls to later-declared factory methods
   instead of emitting stale recovery defaults.
