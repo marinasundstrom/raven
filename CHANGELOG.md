@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add Raven red-node declaration output to both node-generator implementations,
+  retaining typed constructors, cached children/lists, positions, updates and
+  visitor dispatch. Production generation continues to emit C#.
+
 - Resolve qualified source types during lazy declaration binding instead of
   treating their temporary absence from metadata lookup as a missing type. This
   preserves constructor delegation in generated, multi-file syntax hierarchies.

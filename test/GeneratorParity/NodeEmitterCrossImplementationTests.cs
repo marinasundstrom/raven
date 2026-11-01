@@ -122,6 +122,7 @@ public class NodeEmitterCrossImplementationTests
         var nodes = NodeEmitterInputs.Nodes();
         var factories = NodeEmitterInputs.Factories().ToDictionary(f => f.Node);
         Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RedNodeGenerator).Assembly.GetName().Name);
+        Assert.Equal("NodeGenerator.Raven", typeof(Raven.Generators.RavenRedNodeGenerator).Assembly.GetName().Name);
         Assert.NotEmpty(factories);
         foreach (var node in nodes)
         {
@@ -148,6 +149,8 @@ public class NodeEmitterCrossImplementationTests
                 .Concat(node.AdditionalPermittedTypes).ToArray();
             Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedNode(seed, subtypes).ToFullString(),
                 Raven.Generators.RedNodeGenerator.GenerateRedNode(node, subtypes).ToFullString());
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenRedNodeGenerator.GenerateNode(seed, subtypes),
+                Raven.Generators.RavenRedNodeGenerator.GenerateNode(node, subtypes));
             Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateClosedHierarchyDeclaration(node.Name + "Syntax", subtypes).ToFullString(),
                 Raven.Generators.RedNodeGenerator.GenerateClosedHierarchyDeclaration(node.Name + "Syntax", subtypes).ToFullString());
             factories.TryGetValue(node.Name, out var factory);

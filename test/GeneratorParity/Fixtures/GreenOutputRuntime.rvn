@@ -31,6 +31,20 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
             _diagnostics = diagnostics?.ToArray()
             _annotations = annotations?.ToArray()
         }
+        virtual val FullWidth: int {
+            get {
+                var width = 0
+                var index = 0
+                while index < SlotCount { width += GetSlot(index)?.FullWidth ?? 0; index += 1 }
+                return width
+            }
+        }
+        func GetChildStartPosition(index: int) -> int {
+            var position = 0
+            var slot = 0
+            while slot < index { position += GetSlot(slot)?.FullWidth ?? 0; slot += 1 }
+            return position
+        }
         virtual func GetSlot(index: int) -> GreenNode? { throw InvalidOperationException() }
         func GetSlot<T>(index: int) -> T where T: GreenNode? { return (T)GetSlot(index) }
         internal virtual func Accept(visitor: SyntaxVisitor) { throw InvalidOperationException() }
@@ -49,9 +63,11 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax {
         override func GetSlot(index: int) -> GreenNode? => _slots[index]
     }
     internal class SyntaxToken : GreenNode {
+        override val FullWidth: int => 2
         init(kind: Raven.CodeAnalysis.Syntax.SyntaxKind) : base(kind, 0) { }
     }
     internal class SyntaxList : GreenNode {
+        override func GetSlot(index: int) -> GreenNode? => Items[index]
         val Items: SyntaxNode[]
         init(items: SyntaxNode[]) : base(Raven.CodeAnalysis.Syntax.SyntaxKind.None, items.Length) { Items = items }
     }

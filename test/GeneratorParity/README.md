@@ -41,3 +41,12 @@ translated too. Fixtures now call those production loaders. Shared tests cover
 required attributes, defaults, optional factory input, ordering and flags; an
 independent comparison checks all repository model data against the C# loader.
 Model validation and command-line orchestration remain in C# for now.
+
+
+Raven red-node output is also compared and parsed for every repository model.
+The focused red runtime fixture executes constructors, lazy child/list caching,
+positions, updates and red visitor dispatch. Both implementations run the same
+C# tests; the fixture is not the production syntax runtime. Closed-hierarchy
+attributes and optional token/separated-list output are currently source-level
+coverage only. Production Raven factories/runtime and CLI selection remain later
+slices.

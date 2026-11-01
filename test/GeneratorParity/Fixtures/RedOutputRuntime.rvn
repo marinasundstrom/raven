@@ -1,0 +1,67 @@
+// Focused red-runtime contract; production syntax runtime is ported separately.
+import System.*
+namespace Raven.CodeAnalysis.Syntax {
+    public enum SyntaxKind { None, Token, Sample, Alternate }
+    public class SyntaxAnnotation { }
+    public abstract class SyntaxNode {
+        internal val Green: InternalSyntax.GreenNode
+        val Parent: SyntaxNode?
+        val Position: int
+        val Kind: SyntaxKind => Green.Kind
+        internal init(green: InternalSyntax.GreenNode, parent: SyntaxNode?, position: int) {
+            Green = green
+            Parent = parent
+            Position = position
+        }
+        internal virtual func GetNodeSlot(index: int) -> SyntaxNode? => null
+        func GetRed<T>(ref node: T, index: int) -> T where T: SyntaxNode? {
+            if node is not null { return node }
+            let slot = Green.GetSlot(index)
+            if slot is null { return default(T) }
+            node = (T)slot!.CreateRed(self, Position + Green.GetChildStartPosition(index))
+            return node
+        }
+        abstract func Accept(visitor: SyntaxVisitor)
+        abstract func Accept<T>(visitor: SyntaxVisitor<T>) -> T
+    }
+    public record struct SyntaxToken(internal Green: InternalSyntax.SyntaxToken, Parent: SyntaxNode?, Position: int) { }
+    public record struct SyntaxList<T>(internal Green: InternalSyntax.SyntaxList, Parent: SyntaxNode?, Position: int) where T: SyntaxNode {
+        val Count: int => Green.Items.Length
+    }
+    public abstract partial class SyntaxVisitor {
+        virtual func DefaultVisit(node: SyntaxNode) { }
+    }
+    public abstract partial class SyntaxVisitor<TResult> {
+        virtual func DefaultVisit(node: SyntaxNode) -> TResult { throw InvalidOperationException() }
+    }
+    public class RecordingRedVisitor : SyntaxVisitor {
+        var Last: SyntaxNode? { get; set; } = null
+        override func VisitSample(node: SampleSyntax) { Last = node }
+    }
+    public class ResultRedVisitor : SyntaxVisitor<int> {
+        override func VisitSample(node: SampleSyntax) -> int => node.Position
+    }
+    public static class RedProbe {
+        static func Run() -> int {
+            let token = InternalSyntax.SyntaxToken(SyntaxKind.Token)
+            let empty = InternalSyntax.SyntaxList([])
+            let leaf = InternalSyntax.SyntaxFactory.Sample(SyntaxKind.Sample, token, empty)
+            let green = leaf.Update(SyntaxKind.Alternate, token, leaf, InternalSyntax.SyntaxList([leaf]))
+            let red = (SampleSyntax)green.CreateRed(null, 10)
+            if red.Position != 10 || red.Parent is not null || red.Kind != SyntaxKind.Alternate { throw InvalidOperationException("root") }
+            if red.Keyword.Position != 10 || !ReferenceEquals(red.Keyword.Parent, red) { throw InvalidOperationException("token") }
+            let child = red.Child!
+            if !ReferenceEquals(child.Parent, red) || child.Position != 12 || !ReferenceEquals(child, red.Child) { throw InvalidOperationException("child cache") }
+            if red.Items.Position != 14 || red.Items.Count != 1 || !ReferenceEquals(red.Items.Parent, red) { throw InvalidOperationException("list") }
+            if !ReferenceEquals(red, red.Update(red.Kind, red.Keyword, red.Child, red.Items)) { throw InvalidOperationException("update identity") }
+            if !ReferenceEquals(red, red.WithKeyword(red.Keyword)) || !ReferenceEquals(red, red.WithKind(red.Kind)) || !ReferenceEquals(red, red.WithChild(red.Child)) || !ReferenceEquals(red, red.WithItems(red.Items)) { throw InvalidOperationException("with identity") }
+            let detached = red.WithChild(null)
+            if detached.Child is not null || detached.Position != 0 || detached.Parent is not null || detached.Kind != red.Kind { throw InvalidOperationException("changed child") }
+            if red.WithKind(SyntaxKind.Sample).Kind != SyntaxKind.Sample { throw InvalidOperationException("changed kind") }
+            let visitor = RecordingRedVisitor()
+            red.Accept(visitor)
+            if !ReferenceEquals(visitor.Last, red) { throw InvalidOperationException("visitor") }
+            return red.Accept<int>(ResultRedVisitor())
+        }
+    }
+}

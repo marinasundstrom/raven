@@ -1540,3 +1540,33 @@ tests pass** on .NET 11, including the generated red-node runtime probe. Targete
 compiler builds, required generator/build script, whitespace formatting and diff
 checks pass. The red emitter and its shared fixture are committed in the following
 slice after validating the translated generator.
+
+
+## PORT-053 — Raven red-node declaration output
+
+Both generator implementations now provide RavenRedNodeGenerator.GenerateNode.
+Output preserves abstract/concrete hierarchy declarations, green and typed
+constructors with `: self(...)`, private child/list caches, positioned token
+wrappers, Update/With identity and generic/non-generic visitor dispatch. Concrete
+Raven classes retain their default sealing. Abstract nodes can emit closed-hierarchy
+attributes. C# production output remains available and unchanged.
+
+Shared C# tests parse repository output, compare both emitters exactly and execute
+a generated red/green hierarchy against small authored runtime fixtures. The probe
+covers explicit kinds, nullable children, ordinary node lists, token/child/list
+positions, parent links, cached identity, detached updates and red visitor dispatch.
+It passes in compilation-first and semantic-model-first diagnostic orders. The
+constructor tests additionally exercise incremental document diagnostics directly.
+Optional tokens, token/separated lists and closed-hierarchy metadata are covered by
+source parsing/parity here, not complete runtime execution.
+
+Validation: **64 C# generator tests / 72 Raven generator tests pass** on .NET 11.
+The complete Raven tool library was rebuilt with an immutable C# compiler snapshot
+from f2b613a41, then the shared suite was rerun. The required generator/build script,
+targeted builds, whitespace formatting and diff checks pass. The tool rebuild
+retains 42 existing source warnings and has no errors. No native execution or
+completed compiler bootstrap is claimed.
+
+Raven red factories, production syntax-runtime translation and CLI output-mode
+selection remain subsequent slices. This fixture is deliberately not presented as
+the production syntax runtime port.

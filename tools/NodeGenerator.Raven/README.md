@@ -95,5 +95,14 @@ ordinal cases and returns unknown nodes unchanged without invoking DefaultVisit.
 Shared C# runtime checks cover generic/typed children, recursive replacement, lists,
 deletion and no-op identity. List traversal remains authored runtime behavior.
 
-Red-node Raven output and the production runtime port remain
+`RavenRedNodeGenerator.GenerateNode` now emits Raven red-node declarations in
+both implementations. It retains green/typed constructors (including `: self`),
+lazy child/list caching, positioned token wrappers, Update/With identity and
+visitor dispatch. Abstract roots can carry closed-hierarchy metadata. Repository
+output is parsed and compared; a focused authored runtime fixture exercises
+children, ordinary node lists, tokens, explicit kinds and red visitors on .NET.
+Optional tokens, separated/token lists and closed-hierarchy metadata have source
+coverage, not complete runtime coverage in that fixture.
+
+Raven red factories, the production runtime port and CLI output selection remain
 subsequent slices. No C# output mode has been replaced.

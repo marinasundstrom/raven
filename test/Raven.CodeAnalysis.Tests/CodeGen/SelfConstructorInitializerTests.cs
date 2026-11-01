@@ -35,6 +35,8 @@ public sealed class SelfConstructorInitializerTests
         var compilation = Compilation.Create("QualifiedDelegation" + Guid.NewGuid().ToString("N"),
             sources.Select(source => SyntaxTree.ParseText(source)).ToArray(), TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        foreach (var tree in compilation.SyntaxTrees)
+            Assert.DoesNotContain(compilation.GetSemanticModel(tree).GetDocumentDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         Assert.Equal(42, Execute(compilation));
     }
 
@@ -47,7 +49,7 @@ public sealed class SelfConstructorInitializerTests
         var compilation = Compilation.Create("MissingDelegation", [tree,
             SyntaxTree.ParseText("namespace Public.Internal { class Present {} }; class Missing {}")],
             TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        var diagnostics = documentDiagnostics ? compilation.GetSemanticModel(tree).GetDiagnostics() : compilation.GetDiagnostics();
+        var diagnostics = documentDiagnostics ? compilation.GetSemanticModel(tree).GetDocumentDiagnostics() : compilation.GetDiagnostics();
         Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV0234");
         using var image = new MemoryStream();
         Assert.False(compilation.Emit(image).Success);

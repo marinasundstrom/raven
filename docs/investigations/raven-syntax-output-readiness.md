@@ -8,7 +8,7 @@ and concrete nodes, optional children, constructors, slots, update/With identity
 diagnostics, visitors and red-node creation.
 
 This starts syntax-tree source output. The production driver still generates C#;
-the authored production syntax runtime, Raven red-node output and
+the authored production syntax runtime, Raven red factories and
 CLI selection remain subsequent slices. The fixture is not a claim that the whole
 compiler syntax runtime has been ported.
 
@@ -88,3 +88,23 @@ have not yet been ported. Their future Raven translations must retain them. The
 generator changes are present in both source codebases. Tests execute on modern
 .NET; no native neoCLR execution is claimed. See the compiler Runtime Contract
 and neoCLR bridge documentation for ownership and encoding details.
+
+
+## Red-node declaration output
+
+Both generator codebases now emit Raven red-node declarations. Shared C# tests
+parse repository output and compare it exactly, then compile and execute a
+small generated hierarchy with authored red and green runtime fixtures. Runtime
+checks cover token/list positions, child parent links and caching, unchanged
+Update/With identity, detached changed nodes, explicit kinds and both visitor
+forms. The generated typed constructor delegates through `: self(...)`.
+
+This probe exposed qualified source-type lookup during lazy declaration binding:
+metadata-name lookup intentionally omits source types on re-entry. Qualified
+expression lookup now completes the indexed source declaration in the same
+namespace rather than caching a missing-type error. Initializers bind once after
+declaration binders are ready, and their errors survive rebinding in the model’s
+declaration diagnostic bag. Shared binding owns these fixes;
+there is no new target policy or Raven syntax. The production red runtime and
+factories remain unported. Optional tokens, token/separated lists and closed
+hierarchies have parsing/parity coverage here, not production execution coverage.
