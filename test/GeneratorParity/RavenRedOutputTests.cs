@@ -16,19 +16,40 @@ public class RavenRedOutputTests
     public void RepositoryRedNodesParseAsRaven()
     {
         var nodes = NodeEmitterInputs.Nodes();
+        var factories = NodeEmitterInputs.Factories().ToDictionary(f => f.Node);
         foreach (var node in nodes)
         {
             var subtypes = nodes.Where(n => n.Inherits == node.Name).Select(n => n.Name + "Syntax").ToArray();
             var source = RavenRedNodeGenerator.GenerateNode(node, subtypes);
             var errors = SyntaxTree.ParseText(source).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
             Assert.True(!errors.Any(), node.Name + Environment.NewLine + string.Join(Environment.NewLine, errors));
+            factories.TryGetValue(node.Name, out var definition);
+            foreach (var factory in new[] { RavenRedNodeGenerator.GenerateFactory(node), RavenRedNodeGenerator.GenerateFactory(node, definition) })
+            {
+                if (node.IsAbstract) { Assert.Null(factory); continue; }
+                var factoryErrors = SyntaxTree.ParseText(factory!).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+                Assert.True(!factoryErrors.Any(), node.Name + Environment.NewLine + string.Join(Environment.NewLine, factoryErrors));
+            }
         }
     }
 
+    [Fact]
+    public void FactoryDefaultsPreserveMissingTokensAndRejectUnsupportedValues()
+    {
+        var node = new SyntaxNodeModel { Name = "Optional", Inherits = "Node", Slots = [new() { Name = "Token", Type = "Token", IsOptionalToken = true }] };
+        Assert.Contains("Token(SyntaxKind.None)", RavenRedNodeGenerator.GenerateFactory(node));
+        Assert.Throws<InvalidOperationException>(() => RavenRedNodeGenerator.GenerateFactory(node, new FactoryDefinitionModel
+        {
+            Overloads = [new() { Defaults = [new() { Slot = "Token" }] }]
+        }));
+    }
+
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void GeneratedRedHierarchyPreservesPositionsCachingUpdatesAndVisitorDispatch(bool documentDiagnosticsFirst)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void GeneratedRedHierarchyPreservesPositionsCachingUpdatesAndVisitorDispatch(bool documentDiagnosticsFirst, bool explicitFactories)
     {
         var expression = new SyntaxNodeModel
         {
@@ -43,7 +64,7 @@ public class RavenRedOutputTests
             Name = "Sample",
             Inherits = "PrimaryExpression",
             HasExplicitKind = true,
-            Slots = [new() { Name = "Keyword", Type = "Token", IsInherited = true },
+            Slots = [new() { Name = "Keyword", Type = "Token", IsInherited = true, DefaultToken = "Token" },
                 new() { Name = "Child", Type = "Expression", IsNullable = true }, new() { Name = "Items", Type = "List<Expression>" }]
         };
         var nodes = new List<SyntaxNodeModel> { expression, primary, sample };
@@ -60,6 +81,22 @@ public class RavenRedOutputTests
         sources.AddRange(nodes.Select(RavenGreenNodeGenerator.GenerateNode));
         sources.Add(RavenGreenNodeGenerator.GenerateFactory(sample)!);
         sources.AddRange(nodes.Select(n => RavenRedNodeGenerator.GenerateNode(n, [])));
+        var factoryDefinition = new FactoryDefinitionModel
+        {
+            Node = "Sample",
+            Overloads = [new()
+            {
+                Alias = "CreateSample", Summary = "Create <sample> & retain items.",
+                Parameters = [new() { Slot = "Kind" }, new() { Slot = "Items" }],
+                Defaults = [new() { Slot = "Keyword", Token = "Token" }, new() { Slot = "Child", Null = true }]
+            }, new()
+            {
+                Parameters = [new() { Slot = "Kind" }, new() { Slot = "Keyword" }, new() { Slot = "Child" }, new() { Slot = "Items" }]
+            }]
+        };
+        sources.Add(RavenRedNodeGenerator.GenerateFactory(sample, explicitFactories ? factoryDefinition : null)!);
+        var factoryName = explicitFactories ? "CreateSample" : "Sample";
+        sources.Add("namespace Raven.CodeAnalysis.Syntax\nstatic class FactoryProbe { static func Create(kind: SyntaxKind, items: SyntaxList<ExpressionSyntax>) -> SampleSyntax => SyntaxFactory." + factoryName + "(kind, items) }");
         foreach (var ns in new[] { "Raven.CodeAnalysis.Syntax", "Raven.CodeAnalysis.Syntax.InternalSyntax" })
         {
             sources.Add(RavenVisitorGenerator.GenerateVisitor(nodes, false, !ns.Contains("InternalSyntax"), ns));

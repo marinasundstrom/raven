@@ -1602,3 +1602,33 @@ qualified/canonical lookup, incremental binder/compilation reuse, extension look
 source/metadata extension semantics and indexer runtime behavior. Both generator
 suites were revalidated against this compiler: **64 C# / 72 Raven tests pass**.
 Targeted builds, whitespace formatting and diff checks pass on .NET 11.
+
+## PORT-055 — Raven red factory output
+
+Both generator implementations now emit Raven red syntax factories alongside red
+node declarations. Automatic overloads preserve explicit kinds, default tokens,
+missing optional tokens and nullable children. XML definitions retain parameter
+order, token/null defaults, aliases and escaped summaries. Abstract nodes return
+no factory; malformed unsupported defaults retain the existing error contract.
+The emitter is a partial class so factory logic remains separate from declarations
+without duplicating type mapping or naming helpers.
+
+Shared C# tests parse both factory modes for every repository node and compare
+complete output between implementations. The generated fixture executes full and
+convenience factories, aliases, default tokens, null children and lists under both
+compilation-first and semantic-model-first query orders. Optional missing tokens
+have source-level coverage. This is fixture runtime validation, not a completed
+production syntax-runtime port. CLI selection and production runtime translation
+remain separate work; C# generation remains intact.
+
+The Raven translation explicitly unwraps nullable factory definitions within their
+null guard. Default Raven nullability intentionally does not narrow after a null
+check, so this follows the documented rule rather than introducing a language
+change. No target policy changed; .NET remains the default.
+
+Validation: **67 C# / 75 Raven generator tests pass on .NET 11**, including exact
+repository output parity and generated factory execution. The required generator
+build script, full Raven generator build, whitespace formatting and diff checks
+pass. The Raven generator build retains warning diagnostics (46 warnings, zero
+errors). No RavenDoc/site generation or native neoCLR execution was performed.
+The broad baseline caveat recorded in PORT-054 remains unchanged.

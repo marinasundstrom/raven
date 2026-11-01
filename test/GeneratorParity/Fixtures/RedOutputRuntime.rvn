@@ -24,7 +24,12 @@ namespace Raven.CodeAnalysis.Syntax {
         abstract func Accept(visitor: SyntaxVisitor)
         abstract func Accept<T>(visitor: SyntaxVisitor<T>) -> T
     }
-    public record struct SyntaxToken(internal Green: InternalSyntax.SyntaxToken, Parent: SyntaxNode?, Position: int) { }
+    public record struct SyntaxToken(internal Green: InternalSyntax.SyntaxToken, Parent: SyntaxNode?, Position: int) {
+        val Kind: SyntaxKind => Green.Kind
+    }
+    public static partial class SyntaxFactory {
+        static func Token(kind: SyntaxKind) -> SyntaxToken => SyntaxToken(InternalSyntax.SyntaxToken(kind), null, 0)
+    }
     public record struct SyntaxList<T>(internal Green: InternalSyntax.SyntaxList, Parent: SyntaxNode?, Position: int) where T: SyntaxNode {
         val Count: int => Green.Items.Length
     }
@@ -50,6 +55,10 @@ namespace Raven.CodeAnalysis.Syntax {
             let red = (SampleSyntax)green.CreateRed(null, 10)
             if red.Position != 10 || red.Parent is not null || red.Kind != SyntaxKind.Alternate { throw InvalidOperationException("root") }
             if red.Keyword.Position != 10 || !ReferenceEquals(red.Keyword.Parent, red) { throw InvalidOperationException("token") }
+            let created = FactoryProbe.Create(SyntaxKind.Alternate, red.Items)
+            if created.Child is not null || created.Keyword.Kind != SyntaxKind.Token || created.Items.Count != 1 || created.Parent is not null || created.Position != 0 || created.Kind != SyntaxKind.Alternate { throw InvalidOperationException("factory defaults") }
+            let full = SyntaxFactory.Sample(red.Kind, red.Keyword, red.Child, red.Items)
+            if full.Child is null || full.Items.Count != 1 || full.Kind != red.Kind { throw InvalidOperationException("full factory") }
             let child = red.Child!
             if !ReferenceEquals(child.Parent, red) || child.Position != 12 || !ReferenceEquals(child, red.Child) { throw InvalidOperationException("child cache") }
             if red.Items.Position != 14 || red.Items.Count != 1 || !ReferenceEquals(red.Items.Parent, red) { throw InvalidOperationException("list") }

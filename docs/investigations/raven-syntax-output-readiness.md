@@ -8,8 +8,7 @@ and concrete nodes, optional children, constructors, slots, update/With identity
 diagnostics, visitors and red-node creation.
 
 This starts syntax-tree source output. The production driver still generates C#;
-the authored production syntax runtime, Raven red factories and
-CLI selection remain subsequent slices. The fixture is not a claim that the whole
+the authored production syntax runtime and CLI selection remain subsequent slices. The fixture is not a claim that the whole
 compiler syntax runtime has been ported.
 
 ## Visitor output
@@ -105,6 +104,21 @@ expression lookup now completes the indexed source declaration in the same
 namespace rather than caching a missing-type error. Initializers bind once after
 declaration binders are ready, and their errors survive rebinding in the model’s
 declaration diagnostic bag. Shared binding owns these fixes;
-there is no new target policy or Raven syntax. The production red runtime and
-factories remain unported. Optional tokens, token/separated lists and closed
+there is no new target policy or Raven syntax. The production red runtime remains unported. Optional tokens, token/separated lists and closed
 hierarchies have parsing/parity coverage here, not production execution coverage.
+
+## Red factory output
+
+Both emitters now produce Raven red factories. Automatic overloads omit default
+and optional tokens and nullable slots; explicit XML definitions control parameter
+order, defaults, aliases and summaries. Abstract nodes have no factories. Shared
+C# tests parse automatic and explicit factories for every repository node and
+compare exact output between the C# and Raven emitters.
+
+The generated runtime probe executes full and convenience overloads, explicit
+aliases, default tokens, null children, lists and explicit kinds, in both
+compilation-first and semantic-model-first query orders. Missing-token defaults
+also have a focused source assertion. This validates generated factories against
+the small authored fixture on .NET, not the production syntax runtime or native
+neoCLR. No language rule changed; nullable definition access in the Raven emitter
+uses an explicit unwrap within its null guard, as required by default nullability.

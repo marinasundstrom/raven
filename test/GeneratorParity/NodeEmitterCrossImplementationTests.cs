@@ -169,6 +169,10 @@ public class NodeEmitterCrossImplementationTests
                 Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(node)?.ToFullString());
             Assert.Equal(SeedGenerator::Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(seed, seedFactory)?.ToFullString(),
                 Raven.Generators.RedNodeGenerator.GenerateRedFactoryMethod(node, factory)?.ToFullString());
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenRedNodeGenerator.GenerateFactory(seed),
+                Raven.Generators.RavenRedNodeGenerator.GenerateFactory(node));
+            Assert.Equal(SeedGenerator::Raven.Generators.RavenRedNodeGenerator.GenerateFactory(seed, seedFactory),
+                Raven.Generators.RavenRedNodeGenerator.GenerateFactory(node, factory));
         }
     }
 

@@ -6,7 +6,7 @@ import System.Linq.*
 import System.Text.*
 import NodesShared.*
 
-public static class RavenRedNodeGenerator
+public static partial class RavenRedNodeGenerator
 {
     static func GenerateNode(node: SyntaxNodeModel, directSubtypes: IReadOnlyList<string>) -> string
     {

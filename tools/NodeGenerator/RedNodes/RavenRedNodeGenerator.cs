@@ -5,7 +5,7 @@ using NodesShared;
 namespace Raven.Generators;
 
 /// <summary>Raven red-node declarations over the existing green-node model.</summary>
-public static class RavenRedNodeGenerator
+public static partial class RavenRedNodeGenerator
 {
     public static string GenerateNode(SyntaxNodeModel node, IReadOnlyList<string> directSubtypes)
     {

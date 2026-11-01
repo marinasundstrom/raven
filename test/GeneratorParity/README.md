@@ -48,5 +48,7 @@ The focused red runtime fixture executes constructors, lazy child/list caching,
 positions, updates and red visitor dispatch. Both implementations run the same
 C# tests; the fixture is not the production syntax runtime. Closed-hierarchy
 attributes and optional token/separated-list output are currently source-level
-coverage only. Production Raven factories/runtime and CLI selection remain later
-slices.
+coverage only. Automatic and XML-defined Raven factories are parsed and compared
+for every model. Runtime checks execute full/convenience overloads, aliases,
+default tokens, nullable children and explicit kinds in both query orders.
+Production runtime translation and CLI selection remain later slices.

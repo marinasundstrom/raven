@@ -104,5 +104,12 @@ children, ordinary node lists, tokens, explicit kinds and red visitors on .NET.
 Optional tokens, separated/token lists and closed-hierarchy metadata have source
 coverage, not complete runtime coverage in that fixture.
 
-Raven red factories, the production runtime port and CLI output selection remain
-subsequent slices. No C# output mode has been replaced.
+`RavenRedNodeGenerator.GenerateFactory` emits Raven red factories in both
+implementations. Automatic overloads retain default/missing tokens and nullable
+children; XML-defined overloads retain parameter order, defaults, summaries and
+aliases. Shared tests parse all repository factories and execute full and
+convenience overloads in the focused runtime fixture. The direct Raven translation
+explicitly unwraps nullable factory definitions after checking them, consistent
+with Raven's default strict nullability rules.
+
+The production runtime port and CLI output selection remain subsequent slices. No C# output mode has been replaced.
