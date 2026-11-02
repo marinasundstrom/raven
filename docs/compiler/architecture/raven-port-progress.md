@@ -2121,3 +2121,27 @@ signature-ownership corrections are committed together as this stabilization
 slice; the unfinished Raven syntax-runtime files remain uncommitted. Logs: `/tmp/skeleton-import-before.log`,
 `/tmp/skeleton-import-focused-after.log`, `/tmp/skeleton-import-adjacent.log`, and
 `/tmp/node-runtime-analysis-skeleton-import.log`.
+
+
+## PORT-066 — default-token and trivia-list nullability
+
+The red token's green reference can be null in a default struct value. Its field
+is now explicitly nullable in C# and Raven; guarded Raven accesses use explicit
+unwraps, preserving the existing default-token branches. Green trivia lists
+accept a null array as empty, so their constructor input is nullable. Their
+checked slot override returns a non-null node or throws for an invalid index.
+Width is calculated once from the normalized array and reused for full width.
+These are local contract/cleanup changes, not new language semantics.
+
+The focused baseline passed **26 tests**. Added runtime checks passed before the
+change while the nullable metadata assertion failed. **46 focused and adjacent
+token/trivia/annotation/ownership tests pass** afterward. The compiler build and
+Raven parser validation pass (zero syntax errors). Full Raven semantic analysis
+now reports **31 errors**, down from 45. Conditional access on incorrectly
+non-nullable token/trivia inputs is resolved. Remaining errors include a `Sum`
+overload-selection issue (decimal result for an int-valued selector), nullable
+token consumers in replacement code, and other existing runtime/dependency gaps.
+The mirrored runtime files remain uncommitted until the runtime dependency slice
+compiles. Validation is modern .NET only. Logs:
+`/tmp/runtime-null-contract-before.log`, `/tmp/runtime-null-contract-after.log`,
+and `/tmp/node-runtime-analysis-null-contract.log`.

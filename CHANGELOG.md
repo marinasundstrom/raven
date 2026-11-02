@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Align default-token and green trivia-list nullability annotations with runtime
+  behavior in both compiler sources; retain checked non-null trivia slots and
+  compute trivia-list width once during construction.
+
 - Keep imported and qualified types source-owned in preliminary method
   signatures when a bootstrap assembly defines the same metadata names, avoiding
   false override diagnostics during declaration completion.

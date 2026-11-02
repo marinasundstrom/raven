@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public struct SyntaxToken : IEquatable<SyntaxToken>
 {
-    internal readonly InternalSyntax.SyntaxToken Green;
+    internal readonly InternalSyntax.SyntaxToken? Green;
     private readonly SyntaxNode? _parent;
 
     public string Text => Green?.Text ?? string.Empty;

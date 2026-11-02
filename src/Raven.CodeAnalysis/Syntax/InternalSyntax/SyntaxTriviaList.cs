@@ -11,15 +11,15 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     public readonly static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
     private readonly SyntaxTrivia[] _trivias;
 
-    public SyntaxTriviaList(SyntaxTrivia[] trivias,
+    public SyntaxTriviaList(SyntaxTrivia[]? trivias,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
         : base(SyntaxKind.List, trivias?.Length ?? 0, diagnostics, annotations)
     {
         _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
 
-        Width = CalculateFullWidth(trivias);
-        FullWidth = CalculateFullWidth(trivias);
+        Width = CalculateFullWidth(_trivias);
+        FullWidth = Width;
     }
 
     public SyntaxTrivia this[int index] => (SyntaxTrivia)GetSlot(index);
@@ -33,7 +33,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return (SyntaxTriviaList)With(n.ToArray());
     }
 
-    public override GreenNode? GetSlot(int index)
+    public override GreenNode GetSlot(int index)
     {
         if (index < 0 || index >= SlotCount)
             throw new IndexOutOfRangeException($"Invalid slot index: {index}");
@@ -41,7 +41,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     }
 
     private static int CalculateFullWidth(SyntaxTrivia[] trivias) =>
-        trivias?.Sum(trivia => trivia.FullWidth) ?? 0;
+        trivias.Sum(trivia => trivia.FullWidth);
 
 
     /// <summary>

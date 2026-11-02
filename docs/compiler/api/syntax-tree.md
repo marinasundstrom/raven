@@ -187,3 +187,10 @@ A green list's item array remains required: null still throws
 `ArgumentNullException` with parameter name `items`. The explicit null test in
 its base initializer preserves that guard while avoiding conditional access on a
 statically non-null input in Raven.
+
+The red token's internal green-node reference is nullable because `default(SyntaxToken)`
+has no green node. Empty/default token properties and update helpers retain their
+existing behavior. Green trivia-list construction accepts a null array as empty,
+and its checked `GetSlot` override returns a non-null trivia or throws for an
+out-of-range index. These annotations are shared by the C# and Raven sources.
+Trivia-list construction computes the width once for both width properties.
