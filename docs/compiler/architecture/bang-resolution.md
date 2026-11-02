@@ -30,6 +30,32 @@ ordinary call or index reports an ordinary diagnostic; it does not fall back to
 macro expansion. An unknown, shadowed or unsupported macro-shaped invocation
 likewise does not fall back to ordinary postfix access.
 
+## Operand-dependent value semantics
+
+Syntax classification does not choose the meaning of a value operator. Binding
+uses the operand type after parsing:
+
+| Operand | Standalone `expr?` | `expr!` |
+| --- | --- | --- |
+| Nullable reference | Nullability alone does not enable propagation. | Suppresses the nullable warning; inserts no runtime null check. |
+| Nullable value type | Nullability alone does not enable propagation. | Extracts the value; on .NET, throws `InvalidOperationException` when absent. |
+| `Optional<T>` | Extracts `Some`; returns `None` from a compatible enclosing carrier context when absent. | Extracts `Some`; fails when absent. |
+| `Result<T, E>` | Extracts `Ok`; propagates the failure through a compatible enclosing carrier context. | Extracts `Ok`; fails on failure. |
+
+Standalone propagation requires compatible `IPropagatable` contracts on the
+operand and enclosing return type. Custom carriers use that contract too.
+Carrier `!` needs no carrier-returning enclosing context; on .NET its failure
+throws `InvalidOperationException`, without rethrowing the residual.
+
+Conditional access (`?.`, `?(...)`, `?[...]`) is distinct from standalone `?`.
+Nullable receivers skip access when null; `Optional` and `Result` lift access over
+the success payload and retain absence/failure. Custom propagation carriers use
+the propagation behavior defined in the
+[propagation specification](../../lang/spec/async-and-error-propagation.md).
+Parentheses in `(expr!)(...)` and `(expr!)[...]` preserve whichever nullable or
+carrier semantics the operand requires; they only disambiguate the following
+call or index from macro syntax.
+
 ## Position and scope
 
 Syntax position still determines which macro carriers are permitted and what
