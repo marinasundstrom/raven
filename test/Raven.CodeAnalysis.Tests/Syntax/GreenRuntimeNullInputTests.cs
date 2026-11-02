@@ -8,6 +8,22 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public sealed class GreenRuntimeNullInputTests
 {
     [Fact]
+    public void GreenListSpans_IgnoreEmptyBoundarySlots()
+    {
+        var token = new GreenSyntax.SyntaxToken(SyntaxKind.IdentifierToken, "name")
+            .WithLeadingTrivia(new[] { GreenSyntax.SyntaxFactory.Space })
+            .WithTrailingTrivia(new[] { GreenSyntax.SyntaxFactory.Space });
+        var list = new GreenSyntax.SyntaxList([null, token, null]);
+        GreenSpanHelper.ComputeSpanAndFullSpan(list, 7, out var span, out var fullSpan);
+        Assert.Equal(new Text.TextSpan(8, 4), span);
+        Assert.Equal(new Text.TextSpan(7, 6), fullSpan);
+        var empty = new GreenSyntax.SyntaxList([null, null]);
+        GreenSpanHelper.ComputeSpanAndFullSpan(empty, 7, out span, out fullSpan);
+        Assert.Equal(new Text.TextSpan(7, 0), span);
+        Assert.Equal(span, fullSpan);
+    }
+
+    [Fact]
     public void GreenList_PreservesEmptySlotsAndSkipsThemDuringTraversal()
     {
         var token = new GreenSyntax.SyntaxToken(SyntaxKind.IdentifierToken, "name");

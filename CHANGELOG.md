@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Compute green-list spans across empty boundary slots without throwing; lists
+  containing only empty slots have empty spans in both compiler sources.
+
 - Make required structured-trivia child-slot assumptions explicit in the C# and
   Raven sources, preserving existing directive and skipped-token behavior.
 

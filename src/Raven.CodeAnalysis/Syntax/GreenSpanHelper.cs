@@ -8,14 +8,22 @@ internal static class GreenSpanHelper
         out TextSpan span,
         out TextSpan fullSpan)
     {
-        if (greenList.SlotCount == 0)
+        var firstIndex = 0;
+        while (firstIndex < greenList.SlotCount && greenList[firstIndex] is null)
+            firstIndex++;
+
+        if (firstIndex == greenList.SlotCount)
         {
             span = fullSpan = new TextSpan(position, 0);
             return;
         }
 
-        var firstGreen = greenList[0];
-        var lastGreen = greenList[greenList.SlotCount - 1];
+        var lastIndex = greenList.SlotCount - 1;
+        while (greenList[lastIndex] is null)
+            lastIndex--;
+
+        var firstGreen = greenList[firstIndex]!;
+        var lastGreen = greenList[lastIndex]!;
 
         int fullWidth = greenList.FullWidth;
         int spanStart = position + firstGreen.GetLeadingTriviaWidth();

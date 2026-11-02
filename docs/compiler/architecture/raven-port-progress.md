@@ -2230,3 +2230,17 @@ items. Those consumers require explicit invariant handling. PORT-069 passes
 validation. Modern .NET was tested. Its refreshed analysis is running in
 `/tmp/node-runtime-analysis-required-trivia-slots.log`. The unfinished Raven
 runtime sources remain uncommitted.
+
+
+## PORT-070 — spans across empty green slots
+
+The nullable-slot audit exposed a shared runtime defect: `GreenSpanHelper`
+dereferenced empty boundary slots. Both sources now scan to the first/last
+non-empty slot before trimming trivia; all-empty lists yield empty spans at the
+supplied position. The baseline passed **35 tests**, and the new regression
+failed with NullReferenceException before the fix. **44 focused and adjacent
+tests pass** afterward, together with the targeted build, whitespace formatting,
+and Raven parser validation (zero errors). Modern .NET was tested. The mirrored
+Raven runtime remains uncommitted pending its dependency closure. The preceding
+PORT-069 full analysis is still running and does not include this span change.
+Logs: `/tmp/green-slot-spans-before.log`, `/tmp/green-slot-spans-after.log`.
