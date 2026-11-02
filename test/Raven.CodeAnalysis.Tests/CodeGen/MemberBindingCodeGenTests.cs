@@ -143,6 +143,7 @@ class Program {
     }
 
     [Fact]
+    [Trait("Target", "DotNet")]
     public void GenericExtension_GetType_WithLambdaPredicate_ExecutesWithoutBadImageFormat()
     {
         const string code = """
@@ -155,13 +156,13 @@ extension TypeProbe<T> for T {
         let type = self.GetType()
         return type
             .GetProperties()
-            .Where(pi => !(pi.GetMethod?.IsStatic ?? false) && pi.GetMethod?.GetParameters()?.Length == 0)
+            .Where(pi => !(pi.GetMethod?.IsStatic ?? false) && pi.GetMethod?.GetParameters().Length == 0)
             .Count()
     }
 }
 
 class Program {
-    public static func Run() -> int {
+    static func Run() -> int {
         let obj = List<int>()
         return obj.CountReadableInstanceProperties()
     }

@@ -2312,3 +2312,40 @@ FirstOrDefault conversion resolved. Builds, formatting and diff checks pass.
 A separate reduced case still rejects `(Node)value` for `T where T: Node`,
 with Node explicitly open; see `/tmp/raven-generic-base-cast-open.log`. Investigate
 constraint conversions next rather than weakening the translated generic APIs.
+
+
+## PORT-074 — class-constrained type parameter conversions
+
+The shared reference-conversion classifier now follows declared class constraints
+and chains through type parameters. It previously walked only BaseType, which
+source type parameters do not expose, rejecting the direct generic translation
+of node replacement code. Constraint traversal tracks visited parameters.
+The conversion remains a reference conversion and does not admit unrelated
+classes. Preserve this classifier behavior when porting it to Raven.
+
+The baseline passed **83 tests**. Four regressions failed before the fix, covering
+implicit/explicit syntax and direct/chained constraints. These and a .NET runtime
+reference-identity test pass (**5 focused tests**). A negative unrelated-class
+case also passes: **89 focused and adjacent tests pass** in
+`/tmp/constraint-conversion-focused-final.log`. Broader conversion/generic/constraint/
+overload validation is running in `/tmp/constraint-conversion-adjacent.log`, and a
+fresh 70-file analysis in `/tmp/node-runtime-analysis-constraint-conversion.log`. Logs: `/tmp/constraint-conversion-before.log`
+and `/tmp/constraint-conversion-after.log`. Native neoCLR was not executed.
+
+The refreshed 70-file analysis completed with **19 errors**, down from 22,
+resolving the constrained generic node conversions. Broader validation remains
+running. A separate reduced LINQ tuple-label probe fails because unnamed tuple
+expressions do not infer identifier labels; see `/tmp/raven-tuple-label-query.log`.
+Investigate that language gap next instead of rewriting away tuple usage.
+
+The broad run completed with **1,269 passing tests and one pre-existing failure**:
+`GenericExtension_GetType_WithLambdaPredicate` used a redundant conditional access
+after the non-null GetParameters array. The preceding compiler fails identically
+(`/tmp/constraint-conversion-existing-failure.log`). Its sample now uses
+`GetMethod?.GetParameters().Length`, preserving the first nullable receiver guard,
+and removes a redundant public modifier. It is classified Target=DotNet. The
+repaired test, adjacent member-binding class and new constraint cases pass
+**14 tests** (`/tmp/constraint-conversion-cleanup-after.log`). No unchanged broad
+run is claimed fully green; the only failure was separately reproduced and
+repaired. The compiler correction and local fixture cleanup are committed as
+this slice. No documentation-site generation was run.

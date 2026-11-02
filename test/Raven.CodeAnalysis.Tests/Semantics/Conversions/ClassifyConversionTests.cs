@@ -11,6 +11,47 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ClassifyConversionTests : CompilationTestBase
 {
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void ClassConstrainedParameter_DoesNotConvertToUnrelatedClass()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            open class Root {}
+            open class Other {}
+            class Probe { static func Keep<T>(value: T) -> T where T: Root => value }
+            """);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(
+            tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single()));
+        var other = compilation.GetTypeByMetadataName("Other")!;
+        Assert.False(compilation.ClassifyConversion(method.Parameters[0].Type, other, includeUserDefined: false).IsImplicit);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [Trait("Target", "Shared")]
+    public void ClassConstrainedParameter_ConvertsToEffectiveBase(bool cast, bool chained)
+    {
+        var source = $$"""
+            open class Root {}
+            open class Node : Root {}
+            class Probe {
+                static func Up<{{(chained ? "T, U" : "T")}}>(value: T) -> Root
+                    where T: {{(chained ? "U" : "Node")}} {{(chained ? "where U: Node" : "")}} => {{(cast ? "(Root)value" : "value")}}
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var conversion = compilation.ClassifyConversion(method.Parameters[0].Type, method.ReturnType, includeUserDefined: false);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
     [Theory]
     [InlineData(SpecialType.System_Int32, SpecialType.System_IntPtr, true)]
     [InlineData(SpecialType.System_UInt32, SpecialType.System_IntPtr, false)]

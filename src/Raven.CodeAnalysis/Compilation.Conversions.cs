@@ -1682,6 +1682,31 @@ public partial class Compilation
             return true;
         }
 
+        if (source is ITypeParameterSymbol sourceParameter)
+        {
+            var pending = new Stack<ITypeParameterSymbol>();
+            var visited = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+            pending.Push(sourceParameter);
+            while (pending.TryPop(out var parameter))
+            {
+                if (!visited.Add(parameter))
+                    continue;
+                foreach (var constraint in parameter.ConstraintTypes)
+                {
+                    if (constraint is ITypeParameterSymbol nextParameter)
+                    {
+                        pending.Push(nextParameter);
+                    }
+                    else if (constraint is INamedTypeSymbol { TypeKind: TypeKind.Class } classConstraint &&
+                        (SymbolEqualityComparer.Default.Equals(classConstraint, destination) ||
+                         IsReferenceConversion(classConstraint, destination)))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
         var current = source.BaseType;
         while (current is not null)
         {

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Recognize implicit reference conversions from generic parameters through class
+  constraints and chained type-parameter constraints to their effective base types.
+
 - Expose annotation-only generic struct return values as unlifted invocation
   results, fixing `FirstOrDefault(predicate)` while preserving genuine nullable
   value results and method-signature annotations.

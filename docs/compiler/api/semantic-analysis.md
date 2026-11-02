@@ -253,3 +253,8 @@ known value types when the return contract uses the underlying value ABI. Method
 symbols retain their declared annotation. Genuine nullable-value storage and
 nullable reference returns remain nullable; this distinguishes unconstrained
 generic `T?` annotations substituted with a struct from actual `Nullable<T>`.
+
+Reference-conversion classification follows a type parameter's class constraints,
+including chains through other type parameters, to the effective class and its
+reference-convertible bases/interfaces. Constraint traversal is cycle-protected.
+Unrelated class conversions are not introduced by these constraints.
