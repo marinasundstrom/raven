@@ -2231,14 +2231,6 @@ internal partial class ExpressionGenerator : Generator
         if (SubmissionCodeGenerator.TryEmitVariableLoad(this, localAccess.Local, out var submissionEmitInfo))
             return submissionEmitInfo;
 
-        if (_carrierPayloadSymbol is not null &&
-            _carrierPayloadLocal is not null &&
-            SymbolEqualityComparer.Default.Equals(localAccess.Local, _carrierPayloadSymbol))
-        {
-            ILGenerator.Emit(OpCodes.Ldloc, _carrierPayloadLocal);
-            return EmitInfo.ForValue(local: _carrierPayloadLocal);
-        }
-
         if (TryEmitCapturedVariableLoad(localAccess.Local))
             return EmitInfo.ForValue(localAccess.Local, wasCaptured: true);
 
@@ -7106,7 +7098,7 @@ internal partial class ExpressionGenerator : Generator
         return EmitInfo.ForValue();
     }
 
-    private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional, EmitContext context)
+    private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional, EmitContext context, bool receiverAlreadyLoaded = false)
     {
         var receiverType = conditional.Receiver.Type;
         var isNullableValue = receiverType.IsNullable && receiverType.IsValueType;
@@ -7114,7 +7106,8 @@ internal partial class ExpressionGenerator : Generator
         var receiverClrType = ResolveClrType(receiverType);
         var local = ILGenerator.DeclareLocal(receiverClrType);
 
-        EmitExpression(conditional.Receiver);
+        if (!receiverAlreadyLoaded)
+            EmitExpression(conditional.Receiver);
         ILGenerator.Emit(OpCodes.Stloc, local);
 
         var whenNullLabel = ILGenerator.DefineLabel();
@@ -7201,19 +7194,42 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitWhenNotNull(BoundExpression expression)
     {
+        // The null test left the unwrapped root receiver on the stack. Walk the
+        // access spine so each intermediate receiver is evaluated exactly once.
+        if (expression is BoundConditionalReceiverExpression)
+            return;
+
         switch (expression)
         {
             case BoundMemberAccessExpression memberAccess:
+                if (memberAccess.Receiver is not null)
+                    EmitWhenNotNull(memberAccess.Receiver);
                 EmitMemberAccessExpression(memberAccess, receiverAlreadyLoaded: true);
                 break;
             case BoundInvocationExpression invocation:
+                if ((invocation.ExtensionReceiver ?? invocation.Receiver) is { } invocationReceiver)
+                    EmitWhenNotNull(invocationReceiver);
                 EmitInvocationExpression(invocation, receiverAlreadyLoaded: true);
                 break;
             case BoundArrayAccessExpression arrayAccess:
+                EmitWhenNotNull(arrayAccess.Receiver);
                 EmitArrayAccessExpression(arrayAccess, receiverAlreadyLoaded: true);
                 break;
             case BoundIndexerAccessExpression indexerAccess:
+                EmitWhenNotNull(indexerAccess.Receiver);
                 EmitIndexerAccessExpression(indexerAccess, receiverAlreadyLoaded: true);
+                break;
+            case BoundConversionExpression conversion:
+                EmitWhenNotNull(conversion.Expression);
+                EmitConversion(conversion.Expression.Type, conversion.Type, conversion.Conversion, conversion.IsChecked);
+                break;
+            case BoundDereferenceExpression dereference:
+                EmitWhenNotNull(dereference.Reference);
+                EmitLoadIndirect(dereference.ElementType);
+                break;
+            case BoundConditionalAccessExpression conditional:
+                EmitWhenNotNull(conditional.Receiver);
+                EmitConditionalAccessExpression(conditional, EmitContext.Value, receiverAlreadyLoaded: true);
                 break;
             default:
                 EmitExpression(expression);

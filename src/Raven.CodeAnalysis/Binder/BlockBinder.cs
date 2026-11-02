@@ -7833,23 +7833,7 @@ partial class BlockBinder : Binder
         var lookupType = GetConditionalAccessLookupType(receiverType);
         var whenNotNullReceiver = GetConditionalAccessWhenNotNullReceiver(receiverAccess, lookupType);
 
-        BoundExpression target = syntax.WhenNotNull switch
-        {
-            MemberBindingExpressionSyntax memberBinding => BindMemberAccessOnReceiver(
-                whenNotNullReceiver,
-                memberBinding.Name,
-                preferMethods: false,
-                allowEventAccess: true,
-                suppressNullWarning: true,
-                receiverTypeForLookup: lookupType,
-                forceExtensionReceiver: true),
-            ElementBindingExpressionSyntax elementBinding => BindElementAccessExpression(
-                whenNotNullReceiver,
-                elementBinding.ArgumentList,
-                elementBinding,
-                suppressNullWarning: true),
-            _ => ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation)
-        };
+        var target = BindConditionalAccessContinuation(syntax.WhenNotNull, whenNotNullReceiver, lookupType);
 
         if (IsErrorExpression(target))
             return AsErrorExpression(target);

@@ -485,4 +485,7 @@ public enum OperationKind
 
     /// <summary>Allocation of a default-initialized array with a runtime length.</summary>
     ArrayCreation,
+
+    /// <summary>The implicit receiver within a conditional-access branch.</summary>
+    ConditionalAccessInstance,
 }

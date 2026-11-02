@@ -16,6 +16,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   preserving alias identity in nullable arrays and generic signatures. Overrides
   using aliased nullable array parameters now match their base declarations.
 
+- Keep member, invocation and index chains within conditional access, preserving
+  single receiver evaluation and skipping branch arguments when null. Parentheses
+  terminate the chain. Nullable and carrier binding share chain traversal, and
+  operations expose the implicit nullable conditional receiver explicitly. Correct
+  Optional input/output payload metadata and preserve carrier payload locals
+  across nested emission so mapped chains can change their payload type.
+
 - Correct trailing-trivia spans to include leading-trivia width and let
   `SyntaxNode.FindTrivia` find trailing trivia instead of treating it as token text.
 

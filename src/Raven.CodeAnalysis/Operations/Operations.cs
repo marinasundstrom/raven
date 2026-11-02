@@ -188,6 +188,8 @@ public interface IMethodReferenceOperation : ISymbolReferenceOperation<IMethodSy
 
 public interface IMemberReferenceOperation : ISymbolReferenceOperation<ISymbol>
 {
+    /// <summary>The receiver of an instance member, or null for a static member.</summary>
+    IOperation? Instance => null;
 }
 
 public interface IUnaryOperation : IOperation
@@ -271,6 +273,11 @@ public interface IConditionalAccessOperation : IOperation
     IOperation? Receiver { get; }
 
     IOperation? WhenNotNull { get; }
+}
+
+/// <summary>The non-null receiver supplied by an enclosing conditional access.</summary>
+public interface IConditionalAccessInstanceOperation : IOperation
+{
 }
 
 public interface IAwaitOperation : IOperation

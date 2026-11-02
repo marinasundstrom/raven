@@ -170,3 +170,19 @@ The reference behavior is Roslyn's
 operation shapes and does not claim exact Roslyn source compatibility. External
 implementations of IBinaryOperation must implement the new members. Ordinary consumers
 can use the semantic properties without depending on internal bound-node types.
+
+### Conditional access chains
+
+`IConditionalAccessOperation.WhenNotNull` represents the complete access and
+invocation chain before a parenthesis or non-access postfix boundary. Within a
+nullable conditional branch, `IConditionalAccessInstanceOperation` represents
+the already-evaluated, non-null receiver. It is implicit, has the unwrapped
+receiver type, and has no children. It does not represent another evaluation of
+`IConditionalAccessOperation.Receiver`. Nested conditional accesses have their
+own instance and short-circuit boundary.
+
+`IMemberReferenceOperation.Instance` and its child operations retain the receiver
+of an instance member, including the conditional instance and intervening calls
+in an access chain. Static members have no instance. This lets operation walkers
+see the complete branch without re-binding source syntax as an independent
+expression.

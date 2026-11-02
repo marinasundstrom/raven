@@ -1614,11 +1614,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return null;
     }
 
-    private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
+    private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr, bool conditionalChain = false)
     {
         while (true) // Loop to handle consecutive member access and invocations
         {
             var token = PeekToken();
+
+            // Access/invocation trailers belong to the conditional branch. Other postfix
+            // operators apply to its result; parentheses already form a primary boundary.
+            if (conditionalChain && token.Kind is not (SyntaxKind.DotToken or SyntaxKind.ArrowToken
+                    or SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)
+                && !(token.IsKind(SyntaxKind.QuestionToken) && PeekToken(1).Kind is
+                    SyntaxKind.DotToken or SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken))
+                return expr;
 
             // In statement/condition contexts (if/while/for headers, if-expression condition),
             // `{` begins the following block expression/body and must not be consumed as an
@@ -1810,7 +1818,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     whenNotNull = MemberBindingExpression(missingDot, missingName);
                 }
 
-                expr = ConditionalAccessExpression(expr, operatorToken, whenNotNull);
+                expr = ConditionalAccessExpression(expr, operatorToken, AddTrailers(start, whenNotNull, conditionalChain: true));
             }
             else if (token.IsKind(SyntaxKind.PlusPlusToken)) // Post-increment
             {

@@ -18417,3 +18417,29 @@ value representation to preserve the same observable semantics. Validation execu
 reference, value, nullable-value and constrained-reference cases on modern .NET;
 no native-runtime execution is claimed. Nullable reference constraint relationship
 queries are shared semantic logic and do not introduce a bridge encoding.
+
+
+### Conditional-access chains during compiler porting (2026-11-02)
+
+Shared syntax and binding keep member, invocation and index trailers inside a
+conditional-access branch. Nullable receivers are evaluated once, and a null
+receiver skips the branch including argument/index evaluation. Carrier access
+maps the complete branch over its success payload. Parentheses terminate the
+chain; this is shared language behavior, not a neoCLR restriction.
+
+The shared bound tree uses `BoundConditionalReceiverExpression` for the
+already-evaluated nullable receiver. It survives rewrites without retaining a
+second executable receiver expression. The CLI emitter keeps the original
+receiver in a temporary, tests for null, and supplies its unwrapped value while
+emitting the access chain. The marker itself has no emitted metadata identity.
+The native backend must preserve the same control/data dependence using native
+locals/blocks; it must not evaluate the original receiver again. This change
+adds no native layout or metadata requirement and does not make the temporary
+CLI encoding a language rule. Validation for this porting slice is .NET only;
+native neoCLR execution has not been performed.
+
+Carrier payloads use an ordinary lexical emission scope shared by nested
+expression generators. Optional extraction resolves the receiver's `Some<T>`
+metadata, independently of the output `Some<U>` constructor. The native path
+must likewise distinguish input extraction from output wrapping; a payload-type
+change is not an unsupported language feature.

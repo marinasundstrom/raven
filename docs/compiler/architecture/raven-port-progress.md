@@ -1792,3 +1792,182 @@ not cover this chain. Fix short-circuit chain ownership in parser/binder and add
 observable null/non-null and evaluation-order coverage before translating this
 case into a workaround. Parentheses must remain an explicit chain boundary;
 carrier access and both target implementations also need review.
+
+## PORT-061 — conditional-chain stabilization (compiler slice validated)
+
+The syntax-runtime port's `token?.LeadingTrivia.Width` exposed a missing
+conditional-access chain boundary. Parsing now keeps subsequent member,
+invocation and index trailers in the conditional branch; parentheses and other
+postfix operators terminate it. Nullable and carrier binding share explicit
+receiver-driven traversal. No ambient binder receiver state is introduced.
+
+A new `BoundConditionalReceiverExpression` represents the already-evaluated
+non-null receiver. The first emission implementation exposed why receiver
+object identity is insufficient: lowering can copy executable receiver nodes.
+The explicit marker survives generated rewrites and prevents re-evaluation.
+The CLI emitter walks the branch's receiver chain from that supplied value.
+Operations expose `IConditionalAccessInstanceOperation`, and member-reference
+operations retain their instance as a child so cold semantic queries and
+operation walkers can observe the complete chain.
+
+Carrier tests exposed two additional existing defects: Optional extraction used
+output-case metadata when the mapping changed payload type, and nested expression
+generators lost the carrier payload local. Extraction now uses input metadata;
+output construction remains separate. Payload locals use the existing lexical
+emission scope instead of per-expression mutable overrides. Shared semantics
+apply to both targets; only modern .NET execution is validated here.
+
+The initial 10-test conditional-access baseline passed. Reduced chain tests failed
+with RAV0402 before the parser/binder changes. New behavior tests cover null and
+non-null receivers, chained calls/indexes, nested nullable access, nullable value
+receivers, skipped arguments, single receiver evaluation, discarded values,
+parenthesis boundaries, syntax round-tripping, cold type/operation queries and
+Optional/Result success/failure with changed payload types. **44 focused tests and
+337 tests in the final adjacent selection pass on .NET 11 rc1** (overlapping
+selections, not additive totals). The adjacent selection covers conditional
+access/attributes, nullable conditionals, carriers, propagation, pointers and
+operations. A diagnostic-span regression found during consolidation was corrected.
+
+The required generator/build script passed, and bound visitors/rewriters were
+regenerated. Targeted builds, whitespace formatting and diff checks pass. The
+repository baseline stopped after 68 successful batches with one stale
+`SyntaxTriviaTest.TokenAttachedTrivia_HasCorrectPositions` assertion in the next
+batch (`/tmp/node-runtime-chain-baseline.log`). It expected offset 6 after
+`"  return"`, rather than offset 8 including leading trivia; this follows from
+the previously committed trivia-position correction. The expectation is being
+updated with empty/space/tab leading-trivia cases. No clean full-baseline result
+is claimed yet. RavenDoc/site generation is disabled;
+ordinary XML comment sidecars remain enabled for bootstrap metadata. Language,
+grammar, website-reference text, operations API, CLI bridge and changelog notes
+are updated; token highlighting does not need a new token rule.
+
+The 31-file authored runtime translation remains uncommitted. The direct-source
+semantic analysis preceding this fix completed with 89 errors, distinguishing
+remaining dependencies/translation issues from parser success. It must be rerun
+using the stabilized seed, then complete the missing runtime dependencies and
+run shared C# tests against the Raven implementation. The binder/parser/emitter
+are not ported yet; their eventual translations must retain these corrections.
+
+Follow-up while the baseline runs: the internal syntax rewriter and public
+syntax walker are translated (33 authored runtime files pending), and all
+currently authored Raven compiler files pass parser-only checks. The stabilized
+seed's direct-source semantic analysis completed with **83 errors**, down from
+89; this is still not a working runtime build. The pass preceded these last two
+translations.
+
+Two independent reduced repros identify further stabilization work:
+`func Get() -> Node => null!` reports RAV1503 despite the reference-suppression
+contract, and `a![0]` reports RAV0030 because the bang/index combination is
+recognized as a macro form. Bracket macro arguments are currently documented as
+reserved, unimplemented design direction. Reconcile that reservation with
+ordinary suppression/indexing before changing port source syntax. Simple alias
+and aliased override probes with bootstrap metadata (including multiple files)
+succeed; the remaining runtime override diagnostics need a more representative
+reduction rather than assuming another alias-resolution bug.
+
+Bang disambiguation now has an explicit syntax rule documented in
+`bang-resolution.md`: `foo!(...)` and `foo![...]` retain their macro-shaped
+interpretation regardless of a nullable value with that name. The port uses
+`(a!)[i]`, `(b!)[i]` and `(Green!)[index]` where explicit unwrapping followed by
+indexing is intended. Conditional invocation/indexing remain `foo?(...)` and
+`foo?[...]`. A direct compiler probe accepts all four conditional/parenthesized
+value forms (with the expected two suppression warnings). Thus the indexing
+case is an intentional syntax distinction, not a compiler nullability defect.
+The separate target-typed `null!` repro remains unresolved.
+
+The refreshed direct-source analysis includes **70 Raven files** and completes
+with **81 errors** (`/tmp/node-runtime-analysis-current.log`). This is a larger
+source set than the preceding 83-error run, so the counts are not a like-for-like
+measure of stabilization. Remaining errors include missing generated/source
+ownership, nullability annotations, override matching, method hiding, target-typed
+`null!`, and ordinary out-value copying. No runtime parity is claimed.
+
+A separate compiler-API probe isolates the nullable-array alias override defect:
+`Green?[]` and `G?[]`, where `alias G = Shared.Green`, resolve to array symbols
+whose nullable element wrappers contain respectively the source type and its
+alias. The alias targets that same source type. `SymbolEqualityComparer.Default`
+returns false, while `IgnoringNullability` returns true. The current comparer has
+structural array handling but no structural nullable-wrapper handling when
+nullability is included; wrapper names retain the alias spelling. The next fix
+must preserve nullable distinctions and equality/hash consistency, with regression
+coverage for alias-based overrides, rather than discard nullability to make the
+port compile. Probe: `/tmp/raven-alias-inspect.log`. This diagnosis does not yet
+establish that all remaining override errors share this cause.
+
+Nullable alias regression preparation: the existing focused equality/override
+baseline passes **21 tests** (`/tmp/nullable-alias-baseline.log`). The new
+`NullableAliasSignatureTests` covers nullable reference/value/constructed-generic
+aliases, array and jagged-array nesting, equality/hash collection lookup, and
+cold-versus-diagnostics-first override queries. All **11 cases fail** against the
+current compiler. These exact C# test methods were compiled and invoked in an
+isolated temporary harness referencing the existing compiler/test binaries
+(`/tmp/nullable-alias-regression-before.log`); the repository test assembly and
+ongoing full-baseline binaries were not rebuilt. The tests remain uncommitted
+until the fix and normal test-runner validation are complete.
+
+The stale attached-trivia expectation is corrected in `3ffdc66ee`, with **42
+adjacent syntax tests passing**. Nullable alias identity is corrected in
+`501fb3e58`: **41 focused and 185 adjacent tests pass** (overlapping selections),
+including the 11 cases first reproduced in the normal test runner. Nullable
+wrappers now compare/hash their underlying semantic type; existing equality
+across differing nullable ABI projections remains intact. The comparer is not
+yet translated to Raven; its future port must preserve this shared rule.
+
+The macro-adjacency clarification additionally applies to every macro name,
+not just keyword aliases. Tests cover ordinary/qualified names, spaces/tabs/
+comments, and declaration positions; `if !foo()` remains ordinary syntax while
+`if! foo()` is an expression-header macro candidate. During negative declaration
+coverage, malformed type-member recovery was observed to drop the final closing
+brace in `ToFullString`; this is a separate recovery gap, not a reason to accept
+spaced macro names. Adjacency tests assert the macro classification, while valid
+expression cases also require diagnostics-free parsing and text round-tripping.
+
+Macro adjacency (`7dfac1245`) passes **68 focused parser tests and 601 adjacent
+macro/conditional-access/suppression tests** (overlapping selections). The
+refreshed 70-file port analysis completes with **82 errors** in
+`/tmp/node-runtime-analysis-nullable-alias.log`: relative to the prior 81-error
+run, one ambiguous call moves from one `With` use to the next and one additional
+`SyntaxToken.With` override diagnostic appears. The broader source/metadata
+ownership and override failures are therefore not resolved by the nullable-alias
+identity fix alone.
+
+The next isolated gap is ordinary value copying from scoped references.
+`GreenSpanHelper` assigns `span` and then `fullSpan = span`, but the compiler
+mistook that copy from an implicitly scoped `out` parameter for a scoped-value
+escape. The 38-test scoped baseline passed; eight added diagnostics regressions
+failed with RAV0353 before the change. Restricting write-through assignment
+escape checks to ref-like values now passes **51 focused tests**, including a
+.NET runtime test proving that changing the source after the copy does not alter
+the destination. Existing scoped ref-like escape rejection remains covered.
+**267 adjacent ref-safety tests pass** (overlapping the focused selection), and
+the original reduced `out int` CLI repro now analyzes successfully. The shared flow analyzer has not
+yet been translated to Raven; the direct Raven helper needs no workaround.
+
+Scoped value-copy correction is committed as `6ab6c9e1d`. Baseline continuation
+uses `/tmp/raven-baseline-remainder.sh`, a temporary copy of the repository script
+that starts at the failed batch (`SyntaxOwnershipContractTests` through
+`TargetCoreSelectionTests`), uses the already built compiler-test assembly, and
+then runs the unchanged remaining-project loop. Log:
+`/tmp/node-runtime-chain-baseline-remainder.log`. This continuation includes the
+subsequent validated fixes; it is not represented as one unchanged-snapshot full
+baseline run. The first 68 compiler batches passed before the trivia assertion
+stopped the original run.
+
+The baseline continuation completed all **11 remaining compiler batches** and
+passed **300 C# compiler-parity tests**. It is now building the unfinished Raven
+syntax-runtime project for Raven parity; a clean port build is not established.
+
+Target-typed `null!` stabilization has a **26-test passing baseline** and five
+new C# diagnostics/semantic-query regressions that fail before the fix. Reduced
+CLI probes cover expression/body returns, typed local initialization, assignment
+and arguments. A separate `(null)!` probe reports RAV0103 (`null` is not in scope),
+which needs independent parser investigation. The reference-target suppression
+implementation and runtime-null regression are being prepared; ordinary null
+conversions and nullable-value extraction must remain unchanged.
+
+The baseline continuation is terminal: all remaining compiler batches and the
+C# parity project passed, then the unfinished Raven project failed with **81
+errors**. The ordinary `out`-copy diagnostic is absent after its fix. Later test
+projects were not reached. This is not a clean repository-wide baseline or a
+successful Raven runtime port; it is validation of the compiler slice plus an
+explicit failure of the still-uncommitted dependency translation.

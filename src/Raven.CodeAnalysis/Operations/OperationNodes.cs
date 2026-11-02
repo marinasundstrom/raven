@@ -759,6 +759,9 @@ internal sealed class MethodReferenceOperation : SymbolReferenceOperation<IMetho
 
 internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbol>, IMemberReferenceOperation
 {
+    private readonly BoundExpression? _receiver;
+    private IOperation? _instance;
+
     internal MemberReferenceOperation(
         SemanticModel semanticModel,
         BoundMemberAccessExpression bound,
@@ -767,6 +770,7 @@ internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbo
         bool isImplicit)
         : base(semanticModel, kind, syntax, bound.Member, bound.Type, isImplicit)
     {
+        _receiver = bound.Receiver;
     }
 
     internal MemberReferenceOperation(
@@ -777,7 +781,15 @@ internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbo
         bool isImplicit)
         : base(semanticModel, kind, syntax, bound.Member, bound.Type, isImplicit)
     {
+        _receiver = bound.PointerReceiver;
     }
+
+    public IOperation? Instance => Symbol.IsStatic || _receiver is null ? null :
+        _instance ??= OperationFactory.Create(SemanticModel, SemanticModel.GetSyntax(_receiver) ?? Syntax, _receiver);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Instance is { } instance
+        ? ImmutableArray.Create(instance)
+        : ImmutableArray<IOperation>.Empty;
 }
 
 internal sealed class UnaryOperation : Operation, IUnaryOperation
@@ -3526,4 +3538,14 @@ internal sealed class ArrayCreationOperation : Operation, IArrayCreationOperatio
         ?? throw new InvalidOperationException("Array length operation is unavailable.");
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray.Create(Length);
+}
+
+internal sealed class ConditionalAccessInstanceOperation : Operation, IConditionalAccessInstanceOperation
+{
+    internal ConditionalAccessInstanceOperation(SemanticModel semanticModel, BoundConditionalReceiverExpression bound, SyntaxNode syntax)
+        : base(semanticModel, OperationKind.ConditionalAccessInstance, syntax, bound.Type, isImplicit: true)
+    {
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }

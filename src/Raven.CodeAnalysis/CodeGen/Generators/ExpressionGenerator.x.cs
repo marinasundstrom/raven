@@ -11,9 +11,6 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal partial class ExpressionGenerator
 {
-    private ILocalSymbol? _carrierPayloadSymbol;
-    private IILocal? _carrierPayloadLocal;
-
     private void EmitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression expr, EmitContext context)
     {
         var receiverClrType = Generator.InstantiateType(ResolveClrType(expr.Receiver.Type));
@@ -98,13 +95,9 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Stloc, payloadLocalBuilder);
         }
 
-        var prevSym = _carrierPayloadSymbol;
-        var prevLoc = _carrierPayloadLocal;
-        _carrierPayloadSymbol = expr.PayloadLocal;
-        _carrierPayloadLocal = payloadLocalBuilder;
-
-        try { EmitExpression(expr.WhenPresent); }
-        finally { _carrierPayloadSymbol = prevSym; _carrierPayloadLocal = prevLoc; }
+        var payloadScope = new Scope(this);
+        payloadScope.AddLocal(expr.PayloadLocal, payloadLocalBuilder);
+        new ExpressionGenerator(payloadScope, expr.WhenPresent, EmitContext.Value).Emit2();
 
         // Wrap as Result<U,E>.Ok then construct Result<U,E>.
         var okCtor = GetConstructorInfo(expr.ResultOkCtor!);
@@ -438,7 +431,10 @@ internal partial class ExpressionGenerator
 
         var someCaseSym = expr.OptionSomeCaseType
             ?? throw new InvalidOperationException("Missing Optional.Some case symbol");
-        var someOutType = Generator.InstantiateType(ResolveClrType(someCaseSym));
+        var someOutType = CloseNestedCarrierCaseType(
+            TryGetOutLocalElementType(tryGetSome)
+                ?? Generator.InstantiateType(ResolveClrType(expr.OptionSomeValueGetter!.ContainingType!)),
+            receiverClrType);
         var someOutLocal = ILGenerator.DeclareLocal(someOutType);
 
         var someLabel = ILGenerator.DefineLabel();
@@ -481,13 +477,9 @@ internal partial class ExpressionGenerator
         }
 
         // Emit WhenPresent, with payload symbol mapped to payloadLocalBuilder
-        var prevSym = _carrierPayloadSymbol;
-        var prevLoc = _carrierPayloadLocal;
-        _carrierPayloadSymbol = expr.PayloadLocal;
-        _carrierPayloadLocal = payloadLocalBuilder;
-
-        try { EmitExpression(expr.WhenPresent); }
-        finally { _carrierPayloadSymbol = prevSym; _carrierPayloadLocal = prevLoc; }
+        var payloadScope = new Scope(this);
+        payloadScope.AddLocal(expr.PayloadLocal, payloadLocalBuilder);
+        new ExpressionGenerator(payloadScope, expr.WhenPresent, EmitContext.Value).Emit2();
 
         // Stack now has U. Wrap into Optional<U>.Some and then construct Optional<U>.
         var someCtorSym = expr.OptionSomeCtor

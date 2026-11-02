@@ -703,7 +703,11 @@ SuppressNullableWarningTrailer
    `try await Foo()?` = `(try await Foo())?`. Parentheses and arguments
    start independent expressions. ConditionalAccessTrailer is not deferred. *)
 PropagateTrailer          ::= '?' ;
-ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
+(* Subsequent access/invocation trailers stay inside the conditional branch.
+   Parentheses around the expression terminate this chain; other postfix
+   operators apply to its result. *)
+ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList)
+                             { MemberAccessTrailer | ElementAccessTrailer | ArgumentList | ConditionalAccessTrailer } ;
 
 (* ---------- Object initializers and with expressions ---------- *)
 

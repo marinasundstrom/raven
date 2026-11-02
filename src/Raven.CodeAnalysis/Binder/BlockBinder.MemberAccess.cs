@@ -2483,8 +2483,10 @@ partial class BlockBinder
         => ApplyConditionalCallPolicy(BindConditionalAccessExpressionCore(syntax), syntax);
 
     private BoundExpression BindConditionalAccessExpressionCore(ConditionalAccessExpressionSyntax syntax)
+        => BindConditionalAccessExpressionCore(syntax, BindExpressionAllowingEvent(syntax.Expression));
+
+    private BoundExpression BindConditionalAccessExpressionCore(ConditionalAccessExpressionSyntax syntax, BoundExpression receiver)
     {
-        var receiver = BindExpressionAllowingEvent(syntax.Expression);
         if (receiver is BoundErrorExpression) return receiver;
 
         // classify carrier
@@ -2517,48 +2519,7 @@ partial class BlockBinder
 
         var payloadType = propagatedReceiver.Type ?? Compilation.ErrorTypeSymbol;
 
-        return syntax.WhenNotNull switch
-        {
-            MemberBindingExpressionSyntax memberBinding =>
-                BindMemberAccessOnReceiver(
-                    propagatedReceiver,
-                    memberBinding.Name,
-                    preferMethods: false,
-                    allowEventAccess: true,
-                    suppressNullWarning: false,
-                    receiverTypeForLookup: payloadType,
-                    forceExtensionReceiver: true),
-
-            InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation =>
-                BindInvocationOnMethodGroup(
-                    (BoundMethodGroupExpression)BindMemberAccessOnReceiver(
-                        propagatedReceiver,
-                        memberBinding.Name,
-                        preferMethods: true,
-                        allowEventAccess: false,
-                        suppressNullWarning: false,
-                        receiverTypeForLookup: payloadType,
-                        forceExtensionReceiver: true),
-                    invocation),
-
-            ElementBindingExpressionSyntax elementBinding =>
-                BindElementAccessExpression(
-                    propagatedReceiver,
-                    elementBinding.ArgumentList,
-                    elementBinding,
-                    suppressNullWarning: false),
-
-            InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation =>
-                BindInvocationExpressionCore(
-                    propagatedReceiver,
-                    "Invoke",
-                    invocation.ArgumentList,
-                    syntax.Expression,
-                    invocation,
-                    suppressNullWarning: false),
-
-            _ => ErrorExpression(reason: BoundExpressionReason.NotFound)
-        };
+        return BindConditionalAccessContinuation(syntax.WhenNotNull, propagatedReceiver, payloadType);
     }
 
     private BoundExpression BindCarrierConditionalAccess(
@@ -2580,53 +2541,7 @@ partial class BlockBinder
         var payloadLocal = CreateTempLocal("payload", payloadType, syntax);
         var payloadReceiver = new BoundLocalAccess(payloadLocal);
 
-        BoundExpression BindCarrierMemberInvocation(MemberBindingExpressionSyntax memberBinding, InvocationExpressionSyntax invocation)
-        {
-            var member = BindMemberAccessOnReceiver(
-                payloadReceiver, memberBinding.Name,
-                preferMethods: true,
-                allowEventAccess: false,
-                suppressNullWarning: true,
-                receiverTypeForLookup: payloadType,
-                forceExtensionReceiver: true);
-            if (IsErrorExpression(member))
-                return AsErrorExpression(member);
-            if (member is BoundMethodGroupExpression methodGroup)
-                return BindInvocationOnMethodGroup(methodGroup, invocation);
-
-            if (TryGetInvokedMemberName(memberBinding, out var memberName))
-                _diagnostics.ReportNonInvocableMember(memberName, invocation.GetLocation());
-            else
-                _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
-        }
-
-        // Bind WhenPresent using payloadReceiver *as the receiver*.
-        // (This is different from your current approach, which binds against `receiver`
-        // but uses receiverTypeForLookup to *pretend* it’s payload.)
-        BoundExpression whenPresent = syntax.WhenNotNull switch
-        {
-            MemberBindingExpressionSyntax memberBinding =>
-                BindMemberAccessOnReceiver(
-                    payloadReceiver,
-                    memberBinding.Name,
-                    preferMethods: false,
-                    allowEventAccess: true,
-                    suppressNullWarning: true,
-                    receiverTypeForLookup: payloadType,
-                    forceExtensionReceiver: true),
-
-            InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax mb } inv =>
-                BindCarrierMemberInvocation(mb, inv),
-
-            ElementBindingExpressionSyntax eb =>
-                BindElementAccessExpression(payloadReceiver, eb.ArgumentList, eb, suppressNullWarning: true),
-
-            InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } inv =>
-                BindInvocationExpressionCore(payloadReceiver, "Invoke", inv.ArgumentList, syntax.Expression, inv, suppressNullWarning: true),
-
-            _ => ErrorExpression(reason: BoundExpressionReason.NotFound)
-        };
+        var whenPresent = BindConditionalAccessContinuation(syntax.WhenNotNull, payloadReceiver, payloadType);
 
         whenPresent = IsErrorExpression(whenPresent) ? AsErrorExpression(whenPresent) : whenPresent;
 
@@ -2709,11 +2624,13 @@ partial class BlockBinder
                 var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
                 optSome = FindUnionCase(carrierTypeSymbol, OptionalFacts.SomeCaseName);
                 optNone = FindUnionCase(carrierTypeSymbol, OptionalFacts.NoneCaseName);
-                optTrySome = FindTryGetValueMethod(receiverNamed, optSome);
+                var receiverSome = FindUnionCase(receiverNamed, OptionalFacts.SomeCaseName);
+                optTrySome = FindTryGetValueMethod(receiverNamed, receiverSome);
+                if (receiverSome is not null)
+                    optSomeValue = FindPropertyGetter(receiverSome, "Value") ?? FindPropertyGetter(receiverSome, "Item") ?? FindPropertyGetter(receiverSome, "Payload");
 
                 if (optSome is not null)
                 {
-                    optSomeValue = FindPropertyGetter(optSome, "Value") ?? FindPropertyGetter(optSome, "Item") ?? FindPropertyGetter(optSome, "Payload");
                     optSomeCtor = FindSingleArgCtor(optSome);
                     optImplSome = FindImplicitConversion(carrierTypeSymbol, optSome);
                 }
@@ -2943,6 +2860,69 @@ partial class BlockBinder
                 m.Parameters[0].Type.MetadataIdentityEquals(from));
     }
 
+    // Bind the branch against an explicit receiver so nullable and carrier access
+    // share chain ownership without introducing ambient receiver state.
+    private BoundExpression BindConditionalAccessContinuation(
+        ExpressionSyntax syntax, BoundExpression receiver, ITypeSymbol? lookupType, bool preferMethods = false)
+    {
+        BoundExpression result;
+        switch (syntax)
+        {
+            case MemberBindingExpressionSyntax member:
+                result = BindMemberAccessOnReceiver(receiver, member.Name, preferMethods,
+                    allowEventAccess: !preferMethods, suppressNullWarning: true,
+                    receiverTypeForLookup: lookupType, forceExtensionReceiver: true);
+                break;
+            case ReceiverBindingExpressionSyntax:
+                result = receiver;
+                break;
+            case ElementBindingExpressionSyntax element:
+                result = BindElementAccessExpression(receiver, element.ArgumentList, element, suppressNullWarning: true);
+                break;
+            case MemberAccessExpressionSyntax member:
+                var memberReceiver = BindConditionalAccessContinuation(member.Expression, receiver, lookupType);
+                result = member.IsKind(SyntaxKind.PointerMemberAccessExpression)
+                    ? BindPointerMemberAccessExpression(member, preferMethods, !preferMethods, memberReceiver)
+                    : BindMemberAccessOnReceiver(memberReceiver, member.Name, preferMethods,
+                        allowEventAccess: !preferMethods, suppressNullWarning: false,
+                        receiverTypeForLookup: null, forceExtensionReceiver: false);
+                break;
+            case ElementAccessExpressionSyntax element:
+                var elementReceiver = BindConditionalAccessContinuation(element.Expression, receiver, lookupType);
+                result = BindElementAccessExpression(elementReceiver, element.ArgumentList, element, suppressNullWarning: false);
+                break;
+            case InvocationExpressionSyntax invocation:
+                var target = BindConditionalAccessContinuation(invocation.Expression, receiver, lookupType, preferMethods: true);
+                if (IsErrorExpression(target))
+                    result = AsErrorExpression(target);
+                else if (target is BoundMethodGroupExpression methods)
+                    result = BindInvocationOnMethodGroup(methods, invocation);
+                else if (invocation.Expression is ReceiverBindingExpressionSyntax ||
+                    target.Type.GetNonNullableType().TypeKind == TypeKind.Delegate)
+                    result = BindInvocationExpressionCore(target, "Invoke", invocation.ArgumentList,
+                        invocation.Expression, invocation);
+                else
+                {
+                    if (TryGetInvokedMemberName(invocation.Expression, out var memberName))
+                        _diagnostics.ReportNonInvocableMember(memberName, invocation.GetLocation());
+                    else
+                        _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
+                    result = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+                break;
+            case ConditionalAccessExpressionSyntax conditional:
+                var conditionalReceiver = BindConditionalAccessContinuation(conditional.Expression, receiver, lookupType);
+                result = BindConditionalAccessExpressionCore(conditional, conditionalReceiver);
+                break;
+            default:
+                result = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                break;
+        }
+
+        CacheBoundNode(syntax, result);
+        return result;
+    }
+
     private BoundExpression BindNullableConditionalAccessExpression(
         ConditionalAccessExpressionSyntax syntax,
         BoundExpression receiver)
@@ -2965,90 +2945,9 @@ partial class BlockBinder
         }
 
         var lookupType = GetConditionalAccessLookupType(receiver.Type);
-        var whenNotNullReceiver = GetConditionalAccessWhenNotNullReceiver(receiver, lookupType);
+        var whenNotNullReceiver = new BoundConditionalReceiverExpression(lookupType ?? Compilation.ErrorTypeSymbol);
 
-        BoundExpression whenNotNull;
-
-        switch (syntax.WhenNotNull)
-        {
-            case MemberBindingExpressionSyntax memberBinding:
-                {
-                    // Bind using the same logic as '.' (including extensions),
-                    // but:
-                    // - lookup against underlying type (T? -> T)
-                    // - suppress null warning (because it's conditional access)
-                    // - force extension lookup even if receiver is nullable
-                    whenNotNull = BindMemberAccessOnReceiver(
-                        whenNotNullReceiver,
-                        memberBinding.Name,
-                        preferMethods: false,
-                        allowEventAccess: true,
-                        suppressNullWarning: true,
-                        receiverTypeForLookup: lookupType,
-                        forceExtensionReceiver: true);
-
-                    if (IsErrorExpression(whenNotNull))
-                        whenNotNull = AsErrorExpression(whenNotNull);
-
-                    break;
-                }
-
-            case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation:
-                {
-                    // First bind "<receiver>.<name>" as a method group (incl. extensions),
-                    // then reuse normal invocation binding.
-                    var member = BindMemberAccessOnReceiver(
-                        whenNotNullReceiver,
-                        memberBinding.Name,
-                        preferMethods: true,
-                        allowEventAccess: false,
-                        suppressNullWarning: true,
-                        receiverTypeForLookup: lookupType,
-                        forceExtensionReceiver: true);
-
-                    if (IsErrorExpression(member))
-                    {
-                        whenNotNull = AsErrorExpression(member);
-                        break;
-                    }
-
-                    if (member is BoundMethodGroupExpression mg)
-                    {
-                        whenNotNull = BindInvocationOnMethodGroup(mg, invocation);
-                        if (IsErrorExpression(whenNotNull))
-                            whenNotNull = AsErrorExpression(whenNotNull);
-                    }
-                    else
-                    {
-                        if (TryGetInvokedMemberName(memberBinding, out var memberName))
-                            _diagnostics.ReportNonInvocableMember(memberName, invocation.GetLocation());
-                        else
-                            _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
-                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
-                    }
-
-                    break;
-                }
-
-            case InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation:
-                {
-                    var result = BindInvocationExpressionCore(whenNotNullReceiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation, suppressNullWarning: true);
-                    whenNotNull = IsErrorExpression(result) ? AsErrorExpression(result) : result;
-                    break;
-                }
-
-            case ElementBindingExpressionSyntax elementBinding:
-                {
-                    whenNotNull = BindElementAccessExpression(whenNotNullReceiver, elementBinding.ArgumentList, elementBinding, suppressNullWarning: true);
-                    if (IsErrorExpression(whenNotNull))
-                        whenNotNull = AsErrorExpression(whenNotNull);
-                    break;
-                }
-
-            default:
-                whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
-                break;
-        }
+        var whenNotNull = BindConditionalAccessContinuation(syntax.WhenNotNull, whenNotNullReceiver, lookupType);
 
         var resultType = whenNotNull.Type;
         if (!resultType.IsNullable)
@@ -4085,11 +3984,14 @@ partial class BlockBinder
     private BoundExpression BindPointerMemberAccessExpression(
         MemberAccessExpressionSyntax memberAccess,
         bool preferMethods,
-        bool allowEventAccess)
+        bool allowEventAccess,
+        BoundExpression? boundReceiver = null)
     {
         // Bind receiver expression (same pattern as normal member access).
         BoundExpression receiver;
-        if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
+        if (boundReceiver is not null)
+            receiver = boundReceiver;
+        else if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
             receiver = BindTypeSyntaxAsExpression(ts);
         else
             receiver = BindExpression(memberAccess.Expression);

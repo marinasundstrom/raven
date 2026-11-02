@@ -239,8 +239,10 @@ uses the same carrier recognition and output extraction as `?`, including custom
 func length(value: Result<string, string>) -> int => value!.Length
 ```
 
-`expr!.Member`, `expr![index]`, and `expr!(arguments)` operate on the extracted
-payload. Each `!` unwraps one carrier layer. On .NET a non-success result throws
+`expr!.Member`, `(expr!)[index]`, and `(expr!)(arguments)` operate on the extracted
+payload. Parenthesize explicit unwrap before indexing or invocation: bare
+identifier forms such as `foo![index]` and `foo!(arguments)` are macro-shaped
+syntax, regardless of the operand type. Each `!` unwraps one carrier layer. On .NET a non-success result throws
 `InvalidOperationException`; the residual is not rethrown or included in the
 exception. Targets with terminal failure use their configured failure mechanism.
 
@@ -298,6 +300,14 @@ func selectedItemName() -> Result<string, LookupError> {
 * `expr?[index]` and `expr?(args)` are not lifted for `Result` or `Optional`.
 * If indexing or invocation is required, unwrap first with `?`, pattern
   matching, or an explicit helper API.
+
+A conditional branch includes following member, invocation and index accesses.
+For example, `value?.Trim().Length` maps the complete `Trim().Length` expression
+over a carrier's success value, or returns null when a nullable receiver is null.
+Receiver evaluation occurs once; arguments and indexes within a skipped branch
+are not evaluated. Parentheses terminate the branch. Ordinary member access does
+not unwrap nullable intermediate results; use another conditional access when
+that intermediate receiver is nullable.
 
 For nullable/reference receivers, Raven also supports null-conditional member
 assignment in statement position:

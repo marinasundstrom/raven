@@ -184,12 +184,33 @@ type:
 let length: int? = value?.Length
 ```
 
+Member, invocation and index access that follow `?.`, `?(` or `?[` belong to
+its conditional branch:
+
+```raven
+let length: int? = name?.Trim().Length
+let first: char? = name?.ToCharArray()[0]
+```
+
+The receiver is evaluated once. If it is null, the rest of the chain (including
+argument and index expressions) is skipped. Each additional conditional access
+checks its own receiver. Ordinary `.` still requires a nonnullable intermediate
+value. Parentheses end the chain: `(name?.Trim()).Length` attempts ordinary access
+on `string?` and requires unwrapping. Postfix `!` applies to the conditional
+result rather than extending its access chain.
+
 Postfix `!` explicitly suppresses nullability for one expression and reports
 warning `RAV0403`:
 
 ```raven
 let length = value!.Length
 ```
+
+When calling or indexing an explicitly suppressed value, parenthesize it:
+`(callback!)(args)` and `(array!)[index]`. The unparenthesized forms
+`callback!(args)` and `array![index]` are macro-shaped syntax, not ordinary value
+access. Conditional invocation `callback?(args)` and conditional indexing
+`array?[index]` remain valid and skip the operation when the receiver is null.
 
 For references, `!` inserts no runtime null check. For nullable value types,
 it extracts the underlying value and throws `InvalidOperationException` if
