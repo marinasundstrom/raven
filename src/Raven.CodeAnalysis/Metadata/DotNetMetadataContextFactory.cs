@@ -13,9 +13,10 @@ internal static class DotNetMetadataContextFactory
 {
     internal static MetadataLoadContext Create(
         DotNetMetadataReferenceSet references,
-        string? coreAssemblyName)
+        string? coreAssemblyName,
+        Action<Assembly, byte[]>? captureImage = null)
     {
-        var resolver = new StreamBackedPathAssemblyResolver(references);
+        var resolver = new StreamBackedPathAssemblyResolver(references, captureImage);
         var resolvedCoreAssemblyName = string.IsNullOrWhiteSpace(coreAssemblyName) ? "System.Private.CoreLib" : coreAssemblyName;
         return new MetadataLoadContext(resolver, resolvedCoreAssemblyName);
     }
@@ -59,8 +60,11 @@ internal static class DotNetMetadataContextFactory
         private readonly Dictionary<string, string> _pathsByIdentity;
         private readonly Dictionary<string, string> _pathsBySimpleName;
 
-        public StreamBackedPathAssemblyResolver(DotNetMetadataReferenceSet references)
+        private readonly Action<Assembly, byte[]>? _captureImage;
+
+        public StreamBackedPathAssemblyResolver(DotNetMetadataReferenceSet references, Action<Assembly, byte[]>? captureImage)
         {
+            _captureImage = captureImage;
             _pathsByIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _pathsBySimpleName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -91,10 +95,12 @@ internal static class DotNetMetadataContextFactory
             return null;
         }
 
-        private static Assembly LoadFromPath(MetadataLoadContext context, string path)
+        private Assembly LoadFromPath(MetadataLoadContext context, string path)
         {
             var bytes = File.ReadAllBytes(path);
-            return context.LoadFromStream(new MemoryStream(bytes));
+            var assembly = context.LoadFromStream(new MemoryStream(bytes));
+            _captureImage?.Invoke(assembly, bytes);
+            return assembly;
         }
     }
 }

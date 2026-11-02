@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Reflection;
 
@@ -10,13 +11,15 @@ namespace Raven.CodeAnalysis.Metadata;
 internal sealed class DotNetMetadataSession
 {
     private readonly MetadataLoadContext _context;
+    private readonly DotNetInterfaceMetadata _interfaceMetadata;
 
     private readonly DotNetMetadataInputSnapshot? _inputs;
     private readonly string? _coreAssemblyName;
 
-    private DotNetMetadataSession(MetadataLoadContext context, string? coreAssemblyName, DotNetMetadataInputSnapshot? inputs)
+    private DotNetMetadataSession(MetadataLoadContext context, string? coreAssemblyName, DotNetMetadataInputSnapshot? inputs, DotNetInterfaceMetadata interfaceMetadata)
     {
         _context = context;
+        _interfaceMetadata = interfaceMetadata;
         _coreAssemblyName = coreAssemblyName;
         _inputs = inputs;
     }
@@ -25,7 +28,14 @@ internal sealed class DotNetMetadataSession
         DotNetMetadataReferenceSet references,
         string? coreAssemblyName,
         DotNetMetadataInputSnapshot? inputs = null)
-        => new(DotNetMetadataContextFactory.Create(references, coreAssemblyName), coreAssemblyName, inputs);
+    {
+        var interfaces = new DotNetInterfaceMetadata();
+        return new(DotNetMetadataContextFactory.Create(references, coreAssemblyName, interfaces.Capture),
+            coreAssemblyName, inputs, interfaces);
+    }
+
+    internal ImmutableArray<DotNetInterfaceDeclaration> ReadInterfaces(System.Reflection.TypeInfo type)
+        => _interfaceMetadata.Read(type, _context);
 
     internal bool CanReuse(DotNetMetadataInputSnapshot inputs, string coreAssemblyName)
         => _coreAssemblyName == coreAssemblyName && _inputs?.Matches(inputs) == true;
@@ -40,7 +50,9 @@ internal sealed class DotNetMetadataSession
         try
         {
             var bytes = File.ReadAllBytes(fullPath);
-            return _context.LoadFromStream(new MemoryStream(bytes));
+            var assembly = _context.LoadFromStream(new MemoryStream(bytes));
+            _interfaceMetadata.Capture(assembly, bytes);
+            return assembly;
         }
         catch when (fallbackIdentity is not null)
         {

@@ -20,7 +20,7 @@ internal sealed class DotNetCompilationServices
         Emitter = new DotNetCompilationEmitter(compilation);
         // Allocation must not bind or load references: reflection queries may
         // request this projector before setup or during same-thread setup reentrancy.
-        _reflectionTypeLoader = new(() => new ReflectionTypeLoader(compilation));
+        _reflectionTypeLoader = new(() => new ReflectionTypeLoader(compilation, type => _metadataSession?.ReadInterfaces(type) ?? default));
     }
 
     internal ICompilationEmitter Emitter { get; }

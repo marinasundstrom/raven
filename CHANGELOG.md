@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nullable generic arguments on imported CLI interface declarations,
+  including inherited and constructed interfaces. StringComparer now retains its
+  nullable comparer contract. Metadata projection uses the loaded image snapshot;
+  Interfaces exposes declared edges and AllInterfaces includes inherited edges.
+
 - Resolve enum constants through a simple name that also denotes a value of the
   same enum type, including property assignments and optional parameter defaults.
   Such access does not evaluate the same-named property getter.

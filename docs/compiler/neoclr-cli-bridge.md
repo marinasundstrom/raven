@@ -18556,3 +18556,19 @@ This includes constructor assignments and optional defaults; a property getter
 is not evaluated. Two neoCLR semantic tests with host references cover cold/warm
 queries. Native enum metadata and constant emission retain their existing target
 ownership. No new CLI encoding or native guest execution capability is claimed.
+
+## Nullable interface-implementation metadata — 2026-11-02
+
+The CLI importer now reads NullableAttribute on InterfaceImpl rows from the
+session's captured metadata image, retaining nullable generic arguments on declared
+and inherited interface edges. Host-reference neoCLR semantic queries use this
+same path. This reads an existing CLI encoding; it does not add a bridge encoding
+or weaken shared nullable/variance rules. The modern .NET runtime tests exercise
+HashCode with StringComparer and null/non-null string values.
+
+NativeNamedTypeSymbol currently obtains GetDeclaredInterfaces/GetInterfaces views
+and maps their types without MapAnnotatedView. The native introspection interface
+edge APIs expose TypeInfo lists and no edge nullable-transform parameter. Native
+interface-edge annotation metadata plus projection is the capability needed to
+preserve the same foundational contract there. This is an implementation gap, not
+a neoCLR language restriction. No native core or guest execution is qualified.

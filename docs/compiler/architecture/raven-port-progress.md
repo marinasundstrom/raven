@@ -3323,3 +3323,53 @@ passes driver analysis against /tmp/raven-enum-name-seed. Whitespace formatting
 and diff checks pass. The prior full runtime analysis remains live at this
 checkpoint (session 40357, /tmp/node-runtime-array-contract.log); it uses the
 PORT-098 compiler and must be assessed independently before a new full run.
+
+## PORT-100 — nullable CLI interface declarations
+
+PORT-098 full analysis is terminal: 1,065 verified inputs produce three errors
+in /tmp/node-runtime-array-contract.log. SyntaxTree's array/enumerable error is
+gone; the comparer call and two enum-name errors remain in that older compiler.
+PORT-099 separately fixes the reduced enum case.
+
+InterfaceImpl NullableAttribute transforms cannot be recovered from reflection's
+ImplementedInterfaces enumeration. The .NET metadata session now captures each
+selected module's metadata bytes at load time, caches declaration facts without
+Compilation symbols, and decodes interface signatures through the selected
+MetadataLoadContext. Assembly scope, nested types and constructed arguments remain
+explicit. Projection neither reopens paths nor matches unqualified names or
+reflection order. The additional snapshot retains metadata only, not full PE
+images. Direct Interfaces uses declared rows; AllInterfaces retains transitive
+interface and base-class contracts. The existing nullable-transform projector
+applies row flags, or the nearest enclosing nullable context when absent.
+
+A 39-test metadata baseline passes before edits. The final focused set passes
+68 tests, including nested generic/array annotations, generic substitution,
+inherited nullable interfaces, a nonnullable control and a deleted-reference-path
+snapshot check. Two .NET runtime tests compare null/non-null HashCode results
+against C#. The adjacent metadata/reference suite passes 101 tests; all 439
+overload-resolution tests pass. One neoCLR semantic case uses host references.
+No native guest execution is claimed. Native interface-edge views currently lack
+an annotation projection contract; this is documented as a remaining gap in the
+CLI bridge notes, not a target language rule.
+
+Accurate imported annotations expose a separate shared inference defect:
+HashCode.Add with a non-null string and StringComparer infers string? in Raven,
+while a Roslyn oracle infers string. Nullable and explicit-type cases agree.
+The metadata acceptance tests assert binding and explicit/nullable uses; the
+separate ContravariantNullableInferenceTests oracle regression remains uncommitted
+and failing for the non-null inferred case. Do not call overall semantic parity
+complete. OverloadResolver currently merges all generic argument bounds without
+respecting parameter variance; fix that as the next inference slice rather than
+weakening metadata or nullable conversion rules.
+
+The metadata loader is not yet ported; this bootstrap correction enables the
+unchanged Raven Diagnostic source. Docs/changelog record the import and API
+behavior. Formatting and diff checks pass. A new full 1,065-input driver analysis
+is active in session 60859, /tmp/node-runtime-interface-metadata.log, using the
+immutable /tmp/raven-interface-metadata-seed with PORT-099 and this importer.
+Its result is not yet known, and full compilation/emission/parity remains open.
+
+The compiler library builds for both net11.0 and net10.0. The tests above execute
+on modern .NET 11; the net10.0 result is a build check only. The isolated Roslyn
+oracle set is terminal with one failure and three passing cases in
+/tmp/contravariant-nullable-before.log, confirming the next task independently.

@@ -6,6 +6,30 @@ projector and host handles. Native-only import does not open a .NET session.
 See [bootstrap target boundaries](architecture/bootstrap-target-boundaries.md).
 Historical checkpoints below retain their original implementation names.
 
+## Nullable interface declarations
+
+The .NET metadata session captures each selected module's metadata image when it
+loads the assembly. InterfaceImpl rows are decoded from that snapshot, including
+NullableAttribute transforms and the enclosing NullableContext fallback. The
+session caches reflection declaration facts only; compiler symbols stay owned by
+each Compilation. Reopening a mutable reference path is not part of projection.
+
+Interface type signatures resolve through the same MetadataLoadContext, respecting
+assembly scope, nested names, generic substitution and forwarding. No interface
+is paired by an unqualified name or reflection enumeration position. Only metadata
+bytes are retained in the additional image store, rather than complete PE files.
+
+PE Interfaces now exposes the declared rows; AllInterfaces adds interface and
+base-class inheritance. Nullable arguments survive both paths, including nested
+generic/array annotations and constructed type parameters. StringComparer therefore
+exposes IEqualityComparer<string?>, allowing HashCode.Add with nullable strings.
+This does not weaken nullable conversions or variance checking in binding.
+
+The host-reference CLI path under neoCLR uses the same importer. The native adapter
+currently maps interface TypeInfo edges without an edge-specific nullable transform;
+its metadata contract needs a separate extension to represent those annotations.
+Native guest behavior is not validated by the host-reference tests.
+
 ## Nullable generic declaration contexts
 
 CLI import reads explicit NullableAttribute flags first, then the nearest

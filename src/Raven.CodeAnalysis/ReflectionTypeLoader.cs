@@ -5,11 +5,12 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal class ReflectionTypeLoader(Compilation compilation)
+internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflection.TypeInfo, ImmutableArray<DotNetInterfaceDeclaration>>? readInterfaces = null)
 {
     private readonly ConcurrentDictionary<Type, ITypeSymbol> _cache = new();
     private readonly ConcurrentDictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
@@ -19,6 +20,41 @@ internal class ReflectionTypeLoader(Compilation compilation)
     private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
     internal Compilation Compilation => compilation;
+
+    internal ImmutableArray<INamedTypeSymbol> ResolveInterfaces(System.Reflection.TypeInfo type)
+    {
+        var declarations = readInterfaces?.Invoke(type) ?? default;
+        if (declarations.IsDefault)
+            return type.ImplementedInterfaces.Select(ResolveType).OfType<INamedTypeSymbol>().ToImmutableArray();
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        foreach (var declaration in declarations)
+        {
+            var resolved = ResolveType(declaration.Type);
+            if (resolved is null)
+                continue;
+            if (!declaration.NullableFlags.IsDefaultOrEmpty)
+                resolved = ApplyExplicitNullableFlags(resolved, new NullableTransformFlags(declaration.NullableFlags, declaration.UniformFlags));
+            else
+            {
+                // InterfaceImpl attributes override the enclosing nullable context.
+                // NullableAttribute on the type itself describes its base type.
+                for (Type? scope = type; scope is not null; scope = scope.DeclaringType)
+                {
+                    var context = scope.GetCustomAttributesData().FirstOrDefault(attribute =>
+                        attribute.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+                    if (context?.ConstructorArguments is [{ Value: byte flag }])
+                    {
+                        resolved = ApplyExplicitNullableFlags(resolved, new NullableTransformFlags([flag], IsUniform: true));
+                        break;
+                    }
+                }
+            }
+            if (resolved is INamedTypeSymbol named)
+                builder.Add(named);
+        }
+        return builder.ToImmutable();
+    }
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {

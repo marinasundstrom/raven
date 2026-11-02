@@ -847,10 +847,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
 
     private ImmutableArray<INamedTypeSymbol> ComputeDirectInterfaces()
     {
-        var declared = _typeInfo.ImplementedInterfaces
-            .Select(i => _reflectionTypeLoader.ResolveType(i))
-            .OfType<INamedTypeSymbol>()
-            .ToImmutableArray();
+        var declared = _reflectionTypeLoader.ResolveInterfaces(_typeInfo);
 
         if (declared.IsDefaultOrEmpty)
             return ImmutableArray<INamedTypeSymbol>.Empty;
