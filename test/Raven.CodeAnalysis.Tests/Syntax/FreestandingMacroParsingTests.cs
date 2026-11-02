@@ -10,6 +10,7 @@ public sealed class FreestandingMacroParsingTests
 {
     [Theory]
     [InlineData("if !flag { 1 } else { 2 }")]
+    [InlineData("if !foo() { 1 } else { 2 }")]
     [InlineData("if /* condition */ !flag { 1 } else { 2 }")]
     [Trait("Target", "Shared")]
     public void NegatedIfConditionDoesNotBecomeKeywordMacro(string expression)
@@ -28,6 +29,51 @@ public sealed class FreestandingMacroParsingTests
         Assert.Empty(tree.GetDiagnostics());
         var invocation = Assert.Single(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
         Assert.Equal("if", invocation.Name.ToString());
+    }
+
+    [Theory]
+    [InlineData("foo !(true)")]
+    [InlineData("foo\t!(true)")]
+    [InlineData("foo /* gap */ !(true)")]
+    [InlineData("M.foo !(true)")]
+    [InlineData("M.foo/* gap */!(true)")]
+    [Trait("Target", "Shared")]
+    public void SeparatedNameAndBangDoesNotParseAsMacro(string expression)
+    {
+        var source = $"func Pick() => {expression}";
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+    }
+
+    [Theory]
+    [InlineData("marker ! GeneratedMember")]
+    [InlineData("marker/* gap */! GeneratedMember")]
+    [InlineData("class C { marker ! GeneratedMember }")]
+    [InlineData("class C { M.marker /* gap */ ! GeneratedMember }")]
+    [Trait("Target", "Shared")]
+    public void SeparatedNameAndBangDoesNotParseAsDeclarationMacro(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        // A separated name/bang is not a declaration carrier. Ordinary recovery
+        // may report errors in a type body, but must not invoke macro parsing.
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroDeclarationSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroMemberDeclarationSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+    }
+
+    [Theory]
+    [InlineData("if! foo()", "if")]
+    [InlineData("foo! (true)", "foo")]
+    [InlineData("M.foo! (true)", "M.foo")]
+    [Trait("Target", "Shared")]
+    public void AttachedBangAllowsWhitespaceBeforeCarrier(string expression, string name)
+    {
+        var tree = SyntaxTree.ParseText($"func Pick() => {expression}");
+        Assert.Empty(tree.GetDiagnostics());
+        var macro = Assert.Single(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.Equal(name, macro.Name.ToString());
     }
 
     [Fact]

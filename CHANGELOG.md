@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Require `!` to be attached to every freestanding macro name. Whitespace or
+  comments before the bang preserve ordinary syntax, including `if !foo()`;
+  `if! foo()` remains an expression-header macro candidate.
+
 - Compare and hash nullable types structurally through their underlying types,
   preserving alias identity in nullable arrays and generic signatures. Overrides
   using aliased nullable array parameters now match their base declarations.

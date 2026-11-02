@@ -765,11 +765,16 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
-(* Keyword macro aliases require an adjacent bang: if!(...) is a macro,
-   while if !condition retains ordinary conditional syntax. *)
+(* All freestanding macro names require an adjacent bang, including qualified
+   names and keyword aliases. Whitespace/comments before ! prevent macro
+   recognition: if! foo() is a macro candidate; if !foo() is a conditional.
+   Whitespace after the attached bang is allowed by the carrier rules. *)
 FreestandingMacroExpression ::= QualifiedName '!'
                              ( ArgumentList
-                             | [ArgumentList] MacroTokenTree ) ;
+                             | [ArgumentList] MacroTokenTree
+                             | Expression MacroTokenTree? ) ;
+(* Expression-header carriers stop their header before an opening token-tree
+   brace; carrier availability also depends on the containing syntax position. *)
 
 MacroTokenTree           ::= '{' /* lossless raw source with balanced braces */ '}' ;
 

@@ -16,7 +16,7 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         var checkpoint = CreateCheckpoint("freestanding-macro-lookahead");
         var name = ParseMacroName();
         var isStart = !name.IsMissing &&
-            !HasLineBreakBeforePeekToken() &&
+            HasAttachedBang(name) &&
             ConsumeToken(SyntaxKind.ExclamationToken, out _);
 
         if (!isStart)
@@ -66,7 +66,7 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         var checkpoint = CreateCheckpoint("declaration-macro-lookahead");
         var name = ParseMacroName();
         var isStart = !name.IsMissing &&
-            !HasLineBreakBeforePeekToken() &&
+            HasAttachedBang(name) &&
             ConsumeToken(SyntaxKind.ExclamationToken, out _) &&
             !HasLineBreakBeforePeekToken() &&
             CanTokenBeIdentifier(PeekToken());
@@ -229,6 +229,12 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
 
         return new InvocationParts(name, exclamationToken, carrier);
     }
+
+    private bool HasAttachedBang(NameSyntax name)
+        => name.GetLastToken() is { } lastToken &&
+           lastToken.TrailingTrivia.Width == 0 &&
+           PeekToken().LeadingTrivia.Width == 0 &&
+           PeekToken().IsKind(SyntaxKind.ExclamationToken);
 
     private bool CanStartMacroName()
     {

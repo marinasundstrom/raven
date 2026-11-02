@@ -21,7 +21,13 @@ The distinction is syntactic. A nullable local variable, parameter or member nam
 `foo` does not make `foo!(args)` or `foo![items]` an ordinary value expression.
 Use conditional access to skip the operation when the receiver is null, or
 parenthesize the explicitly unwrapped/suppressed value to select ordinary access.
-Whitespace alone is not a disambiguation mechanism.
+The bang must be immediately adjacent to the macro name: whitespace or comments
+between the name and `!` prevent macro recognition. Thus `if !foo()` is an
+ordinary conditional with a negated call, while `if! foo()` is a macro candidate.
+The same rule applies to ordinary and qualified names, using the final token of
+the name. Whitespace after an attached bang is governed by the carrier rules.
+A separated bang follows ordinary expression grammar; this does not guarantee
+that the resulting expression is semantically valid.
 
 Postfix `!` retains its existing semantics: suppression for nullable references,
 value extraction for nullable value types, and unwrap-or-fail for propagation

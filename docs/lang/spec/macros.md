@@ -337,10 +337,12 @@ Suffix lookup uses the exported macro name, independently of the provider class
 name, so previously compiled providers remain discoverable without rebuilding.
 Explicitly authored provider classes retain their authored class names.
 
-A macro alias spelled as a language keyword requires an adjacent bang:
+Every freestanding macro name requires an adjacent bang, including keyword aliases:
 `if!(condition)` is a macro invocation, while `if !condition { ... }` is an
-ordinary conditional with a negated condition. Whitespace or comments between
-the keyword and bang preserve the keyword's language meaning.
+ordinary conditional with a negated condition. `if! foo()` is an expression-header
+macro candidate, while `if !foo()` is an ordinary conditional. Whitespace or
+comments between any name and its bang prevent macro recognition. For keyword
+names, this preserves the keyword's language meaning.
 
 Aliases do not become lexical keywords. They resolve contextually through the
 macro registry and can be shadowed by an ordinary local name. However, scope does
