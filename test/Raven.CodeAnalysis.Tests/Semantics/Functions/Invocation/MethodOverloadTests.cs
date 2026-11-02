@@ -13,6 +13,35 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("new", false)]
+    [InlineData("", false)]
+    [InlineData("new", true)]
+    [InlineData("", true)]
+    [Trait("Target", "Shared")]
+    public void HiddenSameSignatureMethod_PrefersDerivedDeclaration(string modifier, bool reverse)
+    {
+        var baseTree = SyntaxTree.ParseText("""
+            open class Base {
+                virtual func Visit(value: int) -> object => value
+                func Visit(value: string) -> int => 7
+            }
+            """);
+        var derivedTree = SyntaxTree.ParseText($$"""
+            class Derived : Base {
+                {{modifier}} func Visit(value: int) -> int => value
+                func Run() -> int => Visit(42) + Visit("base overload")
+            }
+            """);
+        var compilation = Compilation.Create("HiddenSignature", reverse ? [derivedTree, baseTree] : [baseTree, derivedTree],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(derivedTree);
+        var calls = derivedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
+        Assert.Equal("Derived", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol).ContainingType.Name);
+        Assert.Equal("Base", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol).ContainingType.Name);
+    }
+
+    [Theory]
     [InlineData("int", SpecialType.System_Int32, false)]
     [InlineData("int", SpecialType.System_Int32, true)]
     [InlineData("long", SpecialType.System_Int64, false)]

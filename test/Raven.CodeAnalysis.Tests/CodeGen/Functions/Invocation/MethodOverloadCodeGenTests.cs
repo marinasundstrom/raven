@@ -11,6 +11,30 @@ public class MethodOverloadCodeGenTests
 {
     [Fact]
     [Trait("Target", "DotNet")]
+    public void HiddenMethod_ExecutesDerivedBodyAndRetainsOtherBaseOverloads()
+    {
+        var tree = SyntaxTree.ParseText("""
+            open class Base {
+                virtual func Visit(value: int) -> object => -value
+                func Visit(value: string) -> int => 7
+            }
+            class Derived : Base {
+                new func Visit(value: int) -> int => value
+                func Run() -> int => Visit(42) + Visit("base overload")
+            }
+            """);
+        var compilation = Compilation.Create("HiddenMethod", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var type = loaded.Assembly.GetType("Derived")!;
+        Assert.Equal(49, type.GetMethod("Run")!.Invoke(Activator.CreateInstance(type), null));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
     public void NumericSumSelectors_ExecuteWithIntegerResults()
     {
         var tree = SyntaxTree.ParseText("""

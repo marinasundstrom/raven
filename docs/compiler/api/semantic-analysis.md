@@ -242,3 +242,8 @@ arguments before binding the callback body, reusing each argument's natural
 binding within the pre-inference pass. A type-qualified static extension call
 has no implicit receiver argument. These choices belong to compiler binding, so
 semantic-model queries and one-shot compilation use the same selected signature.
+
+Same-signature class methods are ranked by their declaring-type inheritance
+when argument conversions are otherwise tied: a derived declaration takes
+precedence over its inherited counterpart, including different result types.
+Inherited methods with different parameter signatures remain available.

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Prefer a derived class's same-signature method over its inherited declaration
+  during overload selection, retaining inherited overloads with other parameters.
+
 - Clarify required typed-list elements and nullable green-rewriter copy buffers
   in both compiler sources, preserving existing list access and rewrite behavior.
 

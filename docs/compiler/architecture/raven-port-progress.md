@@ -2259,3 +2259,29 @@ analysis is running in `/tmp/node-runtime-analysis-typed-list-slots.log`,
 including PORT-070 and this slice. The mirrored Raven runtime remains
 uncommitted until its dependency closure compiles. The previous PORT-069 analysis completed with
 **34 errors**; it did not include PORT-070's span correction.
+
+
+## PORT-072 — inherited same-signature method ambiguity
+
+The PORT-071 analysis completed with **25 errors**, down from 34, including the
+still-ambiguous green rewriter calls. A reduced derived/base method pair reproduces
+RAV0121 independently. Shared overload ranking now prefers the derived class
+declaration when parameter signatures and generic arity agree and ordinary
+argument conversions are tied. Different base overloads remain available.
+
+The baseline passed **79 tests**. Four new semantic regressions failed before
+the correction, varying source order and explicit `new`. A runtime regression
+checks derived dispatch alongside a different inherited overload. Post-change
+validation passes **84 focused tests**, including runtime execution on modern
+.NET. Broader tests and fresh 70-file analysis are running in
+`/tmp/derived-method-adjacent.log` and `/tmp/node-runtime-analysis-derived-method.log`.
+Native neoCLR was not executed. The shared resolver is not yet ported; preserve this rule
+in its future Raven translation. Logs: `/tmp/derived-method-before.log`,
+`/tmp/derived-method-after.log`.
+
+Final validation passed **527 adjacent overload/virtual/callback tests**. The
+70-file analysis now reports **23 errors**, with both green-rewriter RAV0121
+diagnostics resolved. Builds, formatting and diff checks pass. A follow-up
+reduction succeeds for `FirstOrDefault()` on a source record struct but fails
+for `FirstOrDefault(predicate)`; investigate overload inference rather than
+working around that difference in Raven runtime sources.

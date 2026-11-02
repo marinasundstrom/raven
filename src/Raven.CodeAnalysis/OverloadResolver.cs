@@ -2212,6 +2212,21 @@ internal sealed class OverloadResolver
             return !candidate.IsGenericMethod;
         }
 
+        // A same-signature declaration in a derived class hides the inherited
+        // declaration, including when their result types differ.
+        if (!better && !candidateIsExtension && !currentIsExtension &&
+            candidate.Arity == current.Arity &&
+            HaveEquivalentParameterTypes(candParams, currentParams, SymbolEqualityComparer.IgnoringNullability) &&
+            candidate.ContainingType is { TypeKind: TypeKind.Class } candidateOwner &&
+            current.ContainingType is { TypeKind: TypeKind.Class } currentOwner &&
+            !SymbolEqualityComparer.Default.Equals(candidateOwner, currentOwner))
+        {
+            if (GetInheritanceDistance(candidateOwner, currentOwner) != int.MaxValue)
+                return true;
+            if (GetInheritanceDistance(currentOwner, candidateOwner) != int.MaxValue)
+                return false;
+        }
+
         // When supplied arguments have equivalent parameter types, prefer the
         // overload that needs no default arguments. Two overloads that both
         // require defaults remain ambiguous; fewer omitted arguments is not a
