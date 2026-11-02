@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Expose implicit parameterless constructors for imported value types without a
+  declared one and zero-initialize their values. Preserve explicit constructor
+  bodies, initializers and generic constructor identity across semantic queries.
+
 - Preserve imported CLI init accessor kinds, rejecting ordinary writes to C# init
   properties while retaining object-initializer and derived-constructor access.
 

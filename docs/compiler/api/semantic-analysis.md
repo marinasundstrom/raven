@@ -321,3 +321,12 @@ Imported setters carrying the CLI `IsExternalInit` required return modifier expo
 `MethodKind.InitOnly`. Ordinary setters expose `PropertySet`. Metadata import must
 retain this distinction so assignment, compound updates, increments and pipeline
 writes use the same construction/receiver checks as source init properties.
+
+### Implicit metadata value construction
+
+Parameterless metadata value construction binds to a canonical synthesized
+constructor when no instance parameterless constructor was declared. Constructor
+symbols, type information and object-creation operations retain normal construction
+shape; lowering chooses value initialization. Constructed metadata member
+projections retain reference identity across named and all-member queries, while
+mutable declaration states continue through their existing refresh path.

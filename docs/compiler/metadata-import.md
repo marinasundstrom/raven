@@ -1244,3 +1244,25 @@ compatibility gap; this does not introduce `ParamCollectionAttribute` support.
 Validation: `ParamsMetadataTests` checks binding and emitted method, constructor
 and delegate metadata; the diagnostic port's shared C# tests exercise empty and
 expanded calls to the Raven-produced `DiagnosticInfo.Create`.
+
+## Implicit value-type constructors
+
+A metadata value type without a declared instance parameterless constructor
+exposes a public synthesized constructor with `IsImplicitlyDeclared = true`.
+`Constructors`, `GetMembers()` and `GetMembers(".ctor")` expose the same canonical
+symbol, including its constructed generic owner. `GetSymbolInfo` and
+`IObjectCreationOperation.Constructor` retain that constructor; the written
+creation operation remains explicit. A declared parameterless constructor retains
+its metadata symbol and execution behavior. The PE adapter does not synthesize a
+constructor for physical `System.Void`.
+
+The implicit constructor represents value initialization and has no physical CLI
+method row. .NET emission initializes the value rather than referencing a missing
+constructor. Shared linear lowering uses the existing DefaultValue capability;
+unsupported targets must reject that capability rather than emit a phantom method
+reference. Object-initializer lowering retains the subsequent member assignments.
+
+Stable constructed-type member lookups share projections keyed by the original
+member's reference identity. Named and all-member enumeration therefore agree,
+and stable all-member requests reuse their cached array. Mutable source declaration
+states keep the existing uncached substitution path, including source unions.

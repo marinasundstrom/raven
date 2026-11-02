@@ -17,6 +17,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     private readonly INamedTypeSymbol? _containingTypeOverride;
     private ImmutableArray<ISymbol>? _members;
     private readonly ConcurrentDictionary<string, ImmutableArray<ISymbol>> _membersByName = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<ISymbol, ISymbol> _substitutedMembers = new(ReferenceEqualityComparer.Instance);
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
@@ -765,6 +766,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
     public ImmutableArray<ISymbol> GetMembers()
     {
+        if (!HasMutableSourceDeclarationState() && _members is { } cachedMembers)
+            return cachedMembers;
+
         var substitutedMembers = _originalDefinition.GetMembers().Select(SubstituteMember).ToImmutableArray();
 
         if (HasMutableSourceDeclarationState())
@@ -939,7 +943,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         return false;
     }
 
-    private ISymbol SubstituteMember(ISymbol member) => member switch
+    private ISymbol SubstituteMember(ISymbol member)
+        => HasMutableSourceDeclarationState()
+            ? CreateSubstitutedMember(member)
+            : _substitutedMembers.GetOrAdd(member, static (original, owner) => owner.CreateSubstitutedMember(original), this);
+
+    private ISymbol CreateSubstitutedMember(ISymbol member) => member switch
     {
         IMethodSymbol m => new SubstitutedMethodSymbol(m, this),
         IFieldSymbol f => new SubstitutedFieldSymbol(f, this),

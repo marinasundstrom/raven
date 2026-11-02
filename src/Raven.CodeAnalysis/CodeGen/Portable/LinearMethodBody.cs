@@ -1869,7 +1869,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(tupleReceiver)) return false;
                     instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((ITupleTypeSymbol)tupleReceiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleMember.MetadataName), Type: tupleReceiver.Type));
                     return true;
+                case BoundObjectCreationExpression { Initializer: null, Receiver: null } creation when
+                    creation.Constructor.OriginalDefinition?.UnderlyingSymbol is Symbols.SynthesizedDefaultValueTypeConstructorSymbol &&
+                    TryType(creation.Type, false, out var defaultCreationType) &&
+                    (capabilities is null || capabilities.Allows(defaultCreationType) && capabilities.Allows(LinearInstructionKind.DefaultValue)):
+                    instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: creation.Type)); return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
+                    creation.Constructor.OriginalDefinition?.UnderlyingSymbol is not Symbols.SynthesizedDefaultValueTypeConstructorSymbol &&
                     (SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType, capabilities) && !createdType!.IsStatic ||
                      capabilities?.AllowsExternalConstructors == true && (creation.Constructor.DeclaredAccessibility == Accessibility.Public || capabilities.AllowsInternalExternalSymbols && creation.Constructor.DeclaredAccessibility == Accessibility.Internal) &&
                      creation.Constructor.ContainingType is { } externalOwner && (CallableSignature.IsExternalValue(externalOwner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) || CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true))) &&

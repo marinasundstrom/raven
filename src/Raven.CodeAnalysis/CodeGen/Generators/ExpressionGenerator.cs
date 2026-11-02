@@ -4897,6 +4897,20 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitObjectCreationExpression(BoundObjectCreationExpression objectCreationExpression)
     {
+        if (objectCreationExpression.Constructor.OriginalDefinition?.UnderlyingSymbol is SynthesizedDefaultValueTypeConstructorSymbol)
+        {
+            if (objectCreationExpression.Receiver is { } receiver)
+            {
+                EmitExpression(receiver, EmitContext.Address);
+                ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(objectCreationExpression.Type));
+            }
+            else
+            {
+                EmitDefaultValue(objectCreationExpression.Type);
+            }
+            return;
+        }
+
         var symbol = objectCreationExpression.Symbol;
 
         IMethodSymbol constructorSymbol = symbol switch

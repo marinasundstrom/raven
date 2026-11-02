@@ -92,6 +92,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
     private readonly HashSet<string> _memberNamesLoaded = new(StringComparer.Ordinal);
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
+    private SynthesizedDefaultValueTypeConstructorSymbol? _defaultValueTypeConstructor;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
     private ITypeSymbol? _enumUnderlyingType;
     private string? _name;
@@ -1223,6 +1224,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
                     [new MetadataLocation(ContainingModule!)]);
             }
 
+            EnsureDefaultValueTypeConstructor();
+
             foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
             {
                 if (_memberNamesLoaded.Contains(StripArity(nestedTypeInfo.Name)))
@@ -1233,6 +1236,19 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
                 _ = PEContainingModule.GetType(nestedTypeInfo.AsType());
             }
         }
+    }
+
+    private void EnsureDefaultValueTypeConstructor()
+    {
+        if (_defaultValueTypeConstructor is not null || !IsValueType ||
+            _typeInfo.FullName == "System.Void" ||
+            _typeInfo.DeclaredConstructors.Any(static constructor =>
+                !constructor.IsStatic && constructor.GetParameters().Length == 0))
+        {
+            return;
+        }
+
+        _defaultValueTypeConstructor = new SynthesizedDefaultValueTypeConstructorSymbol(this, _reflectionTypeLoader.Compilation);
     }
 
     private void EnsureMembersWithNameLoaded(string name)
@@ -1404,6 +1420,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
                         [new MetadataLocation(ContainingModule!)]);
                 }
             }
+
+            if (name == ".ctor")
+                EnsureDefaultValueTypeConstructor();
 
             foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
             {

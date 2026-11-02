@@ -18511,3 +18511,20 @@ changed it back to `PropertySet`, losing the construction restriction. Two furth
 neoCLR semantic cases with host metadata references validate self-construction and
 other-instance rejection. This fixes a loss in CLI metadata import; it introduces
 no new encoding. Native init-accessor metadata remains the replacing capability.
+
+## Implicit metadata value construction — 2026-11-02
+
+Shared semantic intent is zero-initializing a value type that has no declared
+parameterless constructor. A declared parameterless constructor executes normally.
+The PE importer now supplies a canonical implicit constructor symbol even though
+there is no corresponding CLI method row. This is a semantic symbol, not a new
+physical metadata encoding. .NET emission uses value initialization; shared linear
+lowering uses the target's existing DefaultValue capability and does not fall back
+to a phantom external constructor reference.
+
+Two neoCLR semantic cases using host references validate scalar and generic value
+construction. They do not qualify a native core or guest execution. Native value
+layout/default-initialization support owns executable admission and replaces CLI
+value initialization. The .NET execution fixture compares zero values, explicit
+and optional constructors, an initializer and HashCode behavior with C# oracles.
+No new native metadata/codegen capability is claimed by these checks.

@@ -15,6 +15,15 @@ when invoking a parameterless constructor.
 Constructor arguments follow the same positional, named, optional, and
 collector rules as other calls.
 
+## Default value-type construction
+
+A value type can be constructed without arguments even when its metadata has no
+explicit parameterless constructor. For example, `System.HashCode()` and
+`System.Guid()` produce the zero-initialized value. A declared parameterless
+constructor executes its body instead. Object initializers run after construction.
+`default(T)` always produces the default value, independently of a declared
+constructor. Classes continue to require an applicable accessible constructor.
+
 ## Generic constructor inference
 
 When a generic type is called without explicit type arguments, Raven can infer

@@ -2911,3 +2911,47 @@ name binding, conditional collection inference, lambda return inference, implici
 metadata value construction and a nullable comparer overload remain. The full
 source-runtime probe is still the older 21-error run and is not a current emission
 or parity-test result. Resolve these reduced gaps before another full run.
+
+## PORT-090 — implicit metadata value construction
+
+Diagnostic's direct `HashCode()` translation exposes absent implicit metadata value
+constructors. The **22-test constructor/symbol baseline passes**, but five new
+constructor symbol/operation cases fail for HashCode, Guid, Int32, DateTime and
+ValueTuple<int>. PE metadata has no actual zero-argument method for these defaults.
+Synthesizing a real method reference or rewriting the Raven algorithm to default
+syntax would lose the intended construction contract.
+
+Add a canonical synthesized constructor symbol to PE value types without a declared
+instance parameterless constructor, excluding physical System.Void. It is an
+identity-bearing symbol class, not a record value. All/named member enumeration,
+Constructors, symbol queries and object-creation operations retain the constructor;
+only execution lowers to default value initialization. Explicit constructors and
+object initializers retain their ordinary behavior. Shared linear lowering checks
+the existing DefaultValue capability and excludes fake external constructor calls.
+The PE/symbol/lowering components are not yet translated to Raven; preserve this
+contract when porting them. The pending Diagnostic translation stays direct.
+
+The generic case then identifies distinct substituted constructor instances across
+all-member and named queries. Three independent metadata method/property/field
+projection tests fail against an immutable pre-fix compiler. Stable projections
+now share a reference-keyed cache, and repeated stable all-member calls avoid
+rebuilding discarded arrays. Mutable source declaration states and source unions
+keep their existing uncached path. No caller-side semantic cache API is introduced.
+
+**All 128 final adjacent constructor, constructed-symbol and incremental checks
+pass**, including two explicit neoCLR semantic cases with host references. An
+earlier run reproduces the known intermittent reversed-tree method override failure;
+it remains open rather than being declared fixed by the later passing run.
+The **439-test overload-resolution feature suite passes**. A .NET execution fixture
+compares seven construction paths with C# results: generic zero and argument forms,
+an object initializer, an explicit default constructor, an optional-argument
+constructor, enum zero and mutable HashCode execution. It passes on modern .NET.
+Targeted builds pass; whitespace formatting and diff checks pass. No native guest
+execution or RavenDoc/site generation is performed.
+
+The focused pending Diagnostic/ParseOptions analysis now has **seven errors**
+(`/tmp/diagnostic-options-value-constructor-fixed.log`): HashCode construction no
+longer fails. Remaining reduced gaps are conditional collection inference,
+heterogeneous lambda returns, a nullable comparer overload and enum/member name
+binding. The full source-runtime build still has no current successful emission
+or shared C# parity result; keep its unfinished Raven source batch unstaged.
