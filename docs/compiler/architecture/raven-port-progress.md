@@ -2393,3 +2393,31 @@ the prelude can also resolve package macro assemblies. Do not claim the broad
 run fully green: **253 cases passed**, with the one duplicate-export failure
 tracked for separate scripting/reference-isolation work. Tuple feature checks,
 formatting and builds pass, and no documentation generation was run.
+
+
+## PORT-076 — class-constrained reference-type classification
+
+The remaining GetRed null return is not a nullable member-API issue: source and
+PE type parameters classified reference types only from the explicit class flag,
+ignoring named class constraints. Both now use shared TypeParameterFacts traversal
+for class and chained constraints, excluding object/ValueType/Enum roots and
+interface-only bounds. It is cycle-protected and avoids provisional-state caching.
+This foundational helper must be translated with both symbol implementations.
+
+The baseline passed **25 tests**. Four new source/metadata regressions failed
+before the fix; interface/value/enum negative cases already passed. Post-change
+validation includes execution of a suppressed-null return with a class-constrained
+generic return type. Logs: `/tmp/class-constraint-reference-before.log` and
+`/tmp/class-constraint-reference-after.log`. Checks are running.
+
+**33 focused checks pass**, including .NET runtime execution. Broader tests and
+full-source analysis are running in `/tmp/class-constraint-reference-adjacent.log`
+and `/tmp/node-runtime-analysis-class-reference.log`. Source tests are strengthened
+to request declared method symbols before diagnostics; rerun that cold-query
+filter after the broader test process completes. This slice remains uncommitted.
+
+Final validation passes **1,388 broader generic, constraint, nullable and conversion
+tests**, plus **eight strengthened cold/source/metadata/runtime checks**. The
+70-file analysis now reports **16 errors**, resolving GetRed's constrained null
+return. Builds, formatting and diff checks pass. Modern .NET was executed;
+native neoCLR was not. No documentation-site generation was run.

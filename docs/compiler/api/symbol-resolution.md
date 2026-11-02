@@ -209,3 +209,9 @@ and `GetDeclaredSymbol` return the same imported type regardless of whether a
 symbol, declaration or diagnostics query runs first, and regardless of source-file
 order. This remains compiler-owned lazy binding, with no language-service cache
 bypass or requirement to request diagnostics first.
+
+Type-parameter `IsReferenceType` follows effective class constraints and chained
+parameter constraints for both source and metadata symbols. Interface-only,
+value-type, object, ValueType and Enum constraints do not independently establish
+a known reference type. The traversal is cycle-protected and does not cache
+answers before source constraints have been resolved.

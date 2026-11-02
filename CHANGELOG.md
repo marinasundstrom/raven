@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Recognize known reference types through source and metadata class constraints,
+  including chained parameters, while keeping interface/value/enum constraints
+  distinct. Class-constrained suppressed-null returns now bind correctly.
+
 - Infer tuple element names from identifier and member-access expressions, with
   duplicate/reserved-name fallback and explicit target names preserved, for both
   .NET and neoCLR tuple representations.
