@@ -3428,3 +3428,36 @@ pending Raven syntax-runtime batch uncommitted until full compilation, emission
 and parity qualify it; this slice only commits the independently validated
 bootstrap fixes. The unrelated broad-baseline documentation-link failure recorded
 in PORT-098 remains unresolved, so no broad green baseline is claimed.
+
+## PORT-102 — ParseOptions execution contracts
+
+While full syntax-runtime analysis continues, the actual pending ParseOptions.rvn
+source now emits independently with the PORT-101 seed and bootstrap diagnostic
+and documentation-format dependencies. A reflection comparison first confirms
+defaults, normalization, snapshot isolation, equivalence and copying. Five new
+C# ParseOptionsContractTests lock those behaviors without depending on parsing.
+The adjacent pre-change options/directive baseline passes 11 tests; adding the
+contracts yields 16 passing C# tests.
+
+The exact test bodies also pass against the emitted Raven component (five tests)
+in /tmp/parseoptions-parity-tests. The temporary consumer only adds aliases for
+ParseOptions and SourceCodeKind to select Raven types; all assertions and inputs
+are unchanged. The component is emitted from the maintained ParseOptions.rvn and
+AssemblyInfo.rvn sources, preserving its normal friend-assembly access. Commands
+use /tmp/raven-variance-inference-seed/rvnc.dll with --framework net11.0,
+--output-type classlib, --emit-core-types-only and a reference to that seed's
+Raven.CodeAnalysis.dll. Logs: /tmp/ported-parse-options-friend-emit.log and
+/tmp/parse-options-raven-contract-tests.log.
+
+This is a reduced execution probe, not full Raven source ownership: Diagnostic
+and DocumentationFormat still come from the C# bootstrap in this probe. The
+Raven source and generator/runtime batch remain pending, and the shared parity
+project will link these tests when that complete dependency closure qualifies.
+The compiler reports existing default-initialization and null-suppression warnings
+in this source; emission succeeds and the tested default values match C#.
+No C# or Raven implementation algorithm was changed in this test slice.
+
+The full 1,065-input analysis remains live in session 28721, with PID 62222
+confirmed active after six minutes. Do not launch a replacement based on its
+quiet log. Its terminal result, full emission and source-owned parity are still
+required before committing the pending syntax-runtime translation.
