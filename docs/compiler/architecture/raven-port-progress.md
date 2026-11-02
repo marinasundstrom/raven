@@ -2605,3 +2605,62 @@ in their enclosing namespace (`Outer.Inner` cannot find `Outer.Root`). This may
 explain the generated `GreenNode` lookup group. Investigate the shared namespace
 lookup path against C# behavior before adding parent-namespace aliases to emitted
 Raven code. No generator changes have been made to mask it.
+
+## PORT-082 — enclosing namespace lookup and .NET lexical scope
+
+The PORT-081 full generated-runtime probe is terminal: **1,052 inputs** produce
+**1,573 errors**, with observed conversion diagnostics reduced from 971 to 51.
+Inputs include the diagnostic catalog omitted from the prior run; the aggregate
+count is not an identical-input comparison. Generated cast expressions were not
+changed to hide the compiler gap. The remaining GreenNode lookup group reduces
+to a dotted child namespace failing to see a type in its enclosing namespace.
+
+A **73-test namespace/import baseline** passes. Reduced source, framework, relative
+qualification and precedence tests then reproduce **13 failures**, with **two
+control cases passing**. The new scope-local lookup mode prevents premature
+global fallback. NamespaceBinder walks implicit enclosing namespace levels, then
+returns to the parent binder at its namespace boundary so lexical import precedence
+is retained. Explicit qualified segments remain direct member lookup. **88 focused
+checks pass**, including all 15 new cases and execution of a framework Type return.
+Workspace edit/reuse coverage and broader baseline validation follow.
+
+Author direction: Raven is a first-class .NET language. Common .NET/C# foundational
+behavior is the default, and native neoCLR should retain it when only runtime
+encoding differs. Diagnose compiler gaps before inserting translation workarounds;
+retain only deliberate Raven departures.
+
+The proposed inline control-flow review is **deferred until the direct port is
+stable**: examples include `if x > 10 return true`, expression bodies introduced
+by `then`, block bodies, value-producing `if ... then ... else`, and a possible
+`while x < 10 do Foo()` form. Current grammar remains authoritative during the
+port; this slice changes no if/while parser rule, token or highlighting grammar.
+
+Further validation passes **126 namespace/workspace/incremental checks**, including
+renaming and restoring an enclosing source type while the prior compilation stays
+valid. The same **1,052-input generated probe falls from 1,573 to 582 errors** after
+the namespace correction, removing the GreenNode lookup group without emitted
+aliases. Input hashes are `/tmp/node-runtime-full-generated-namespace-inputs.json`.
+The broad repository baseline is running from a temporary copy of the standard
+script with documentation tests and RavenDoc-related generation disabled; ordinary
+compiler XML/.docs sidecars remain enabled for existing metadata fixtures. Its
+output is `/tmp/enclosing-namespace-full-baseline.log`; no final baseline success
+is claimed while it remains active.
+
+A direct token-primitive translation is now prepared in
+`Syntax/SyntaxFactory.rvn` (MissingToken, Token including raw kind, Identifier,
+Literal overloads and EndOfFileToken). Parser entry points remain a later
+translation, with no stub parser behavior. The **71-file authored corpus parses
+with zero errors**. The unfinished runtime remains unstaged; the new complete
+probe has **1,053 inputs** and is running in
+`/tmp/node-runtime-full-generated-factories.log` against an immutable namespace-fix
+seed. Do not claim successful Raven runtime emission from parse-only evidence.
+
+Recovery-node inspection also reduces a preexisting green visitor bug:
+`ExpressionSyntax.Missing.Accept` calls `visitor.Visit(this)`, which redispatches
+back to Accept. A controlled C# probe stops on the second Visit and reports
+**Visits=2, defaults=0** (`/tmp/raven-missing-visitor-proof.log`). Correct both generic
+and non-generic dispatch and port the missing-expression nodes after the running
+baseline, rather than introducing a Raven-only workaround. The generated red
+MemberDeclaration already declares AttributeLists/Modifiers; remaining override
+errors therefore need a compiler/declaration-order investigation, not duplicate
+handwritten properties.

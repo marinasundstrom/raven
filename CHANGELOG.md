@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve enclosing namespace types and relative namespace names from dotted
+  namespace declarations, preserving lexical type/import precedence before global
+  fallback. This also restores ordinary access to enclosing framework namespaces.
+
 - Recognize explicit reference casts from nullable sources using their underlying
   nominal relationship, preserving C# null/identity/invalid-cast behavior. Keep
   nullable-reference narrowing explicit, including conversion to `object`.

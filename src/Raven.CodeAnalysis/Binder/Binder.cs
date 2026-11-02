@@ -344,19 +344,19 @@ internal abstract partial class Binder
 
     public virtual ITypeSymbol? LookupType(string name)
     {
-        var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
-            ? Compilation.SymbolLookup.LookupTypeSourceFirst(CurrentNamespace, name)
-            : CurrentNamespace?.LookupType(name)
-                ?? Compilation.SymbolLookup.LookupTypeSourceFirst(CurrentNamespace, name);
-        if (type != null)
-            return type;
-
-        return ParentBinder?.LookupType(name);
+        var type = LookupTypeInNamespace(CurrentNamespace, name, includeGlobalFallback: CurrentNamespace?.IsGlobalNamespace != false);
+        return type ?? ParentBinder?.LookupType(name);
     }
+
+    protected ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol? scope, string name, bool includeGlobalFallback)
+        => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+            ? Compilation.SymbolLookup.LookupTypeSourceFirst(scope, name, includeGlobalFallback)
+            : scope?.LookupType(name) ?? Compilation.SymbolLookup.LookupTypeSourceFirst(scope, name, includeGlobalFallback);
 
     public virtual INamespaceSymbol? LookupNamespace(string name)
     {
-        var currentNamespace = Compilation.SymbolLookup.LookupNamespaceSourceFirst(CurrentNamespace, name);
+        var currentNamespace = Compilation.SymbolLookup.LookupNamespaceSourceFirst(CurrentNamespace, name,
+            includeGlobalFallback: CurrentNamespace?.IsGlobalNamespace != false);
         if (currentNamespace is not null)
             return currentNamespace;
 

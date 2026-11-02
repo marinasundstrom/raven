@@ -226,3 +226,17 @@ source-tree order. Diagnostic-first queries must agree with cold `GetSymbolInfo`
 queries; a tooling query is not required to make compilation succeed. The rule is
 shared by both targets and preserves ordinary metadata-provider selection when
 there is no matching source declaration.
+
+### Enclosing namespace lookup
+
+Simple type and leading namespace-name lookup walks namespace levels omitted by
+a dotted declaration. Scope-local lookup does not fall back to global names before
+the enclosing namespace and its imports have been considered. The namespace binder
+walk stops at its parent binder's namespace boundary so outer imports retain their
+lexical position. Explicit qualified segments still use direct namespace members.
+
+The compiler admits indexed source types/namespaces lazily within the selected
+scope and preserves canonical metadata providers. Public symbol/type queries and
+normal diagnostic binding use this same path; callers need no namespace-cache or
+incremental-state API. These rules belong to shared binding before .NET/neoCLR
+metadata encoding.

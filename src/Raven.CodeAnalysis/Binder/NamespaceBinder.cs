@@ -26,6 +26,34 @@ class NamespaceBinder : Binder
 
     public override INamespaceSymbol? CurrentNamespace => _namespaceSymbol;
 
+    public override ITypeSymbol? LookupType(string name)
+    {
+        // Dotted namespace declarations need not have a binder for every part.
+        // Stop at the parent binder's namespace so its imports run before farther scopes.
+        var boundary = ParentBinder?.CurrentNamespace?.ToMetadataName();
+        for (INamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
+        {
+            if (LookupTypeInNamespace(scope, name, includeGlobalFallback: false) is { } type)
+                return type;
+            if (scope.ToMetadataName() == boundary)
+                break;
+        }
+        return ParentBinder?.LookupType(name);
+    }
+
+    public override INamespaceSymbol? LookupNamespace(string name)
+    {
+        var boundary = ParentBinder?.CurrentNamespace?.ToMetadataName();
+        for (INamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
+        {
+            if (Compilation.SymbolLookup.LookupNamespaceSourceFirst(scope, name, includeGlobalFallback: false) is { } result)
+                return result;
+            if (scope.ToMetadataName() == boundary)
+                break;
+        }
+        return ParentBinder?.LookupNamespace(name);
+    }
+
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
         if (node is BaseNamespaceDeclarationSyntax)

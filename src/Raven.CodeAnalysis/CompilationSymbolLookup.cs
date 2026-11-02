@@ -151,15 +151,16 @@ internal sealed class CompilationSymbolLookup
         }
     }
 
-    public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name)
+    public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
     {
         if (string.IsNullOrEmpty(name))
             return null;
 
-        if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+        if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed || !includeGlobalFallback)
         {
             _compilation.DeclareIndexedSourceNamespace(currentNamespace, name);
-            _compilation.DeclareIndexedSourceNamespace(null, name);
+            if (includeGlobalFallback)
+                _compilation.DeclareIndexedSourceNamespace(null, name);
         }
 
         var candidates = ImmutableArray.CreateBuilder<INamespaceSymbol>();
@@ -188,6 +189,8 @@ internal sealed class CompilationSymbolLookup
 
         if (MergeNamespaceCandidates(candidates) is { } scopedNamespace)
             return scopedNamespace;
+        if (!includeGlobalFallback)
+            return null;
 
         var sourceGlobal = _compilation.SourceGlobalNamespace?.LookupNamespace(name);
         if (sourceGlobal is not null)
@@ -202,12 +205,12 @@ internal sealed class CompilationSymbolLookup
         return MergeNamespaceCandidates(candidates);
     }
 
-    public ITypeSymbol? LookupTypeSourceFirst(INamespaceSymbol? currentNamespace, string name)
+    public ITypeSymbol? LookupTypeSourceFirst(INamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
     {
         if (string.IsNullOrEmpty(name))
             return null;
 
-        if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
+        if ((_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed || !includeGlobalFallback) &&
             _compilation.TryDeclareIndexedSourceType(currentNamespace, name, out var indexedSourceType))
         {
             return indexedSourceType;
@@ -231,6 +234,9 @@ internal sealed class CompilationSymbolLookup
         {
             return CanonicalMetadataType(metadataOrMergedType);
         }
+
+        if (!includeGlobalFallback)
+            return null;
 
         sourceType = _compilation.SourceGlobalNamespace?.LookupTypeDeclared(name);
         if (sourceType is not null)

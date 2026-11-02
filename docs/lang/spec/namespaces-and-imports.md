@@ -16,6 +16,14 @@ namespace Foo
 The namespace name may contain several dot-separated parts, such as
 `Acme.Payments.Models`.
 
+Simple type names and leading relative namespace names follow the enclosing
+namespace hierarchy. A dotted declaration such as `App.Syntax.Internal` can refer
+to a type in `App.Syntax` without importing that parent namespace. At each lexical
+scope, direct types and that scope's imports are considered before more distant
+namespace scopes; a global type does not hide a nearer enclosing type or import.
+Once a qualified namespace segment has been selected, its remaining segments are
+resolved within that namespace rather than by searching its parents.
+
 ## neoCLR module declarations
 
 neoCLR uses `module` declarations where .NET code uses `namespace` declarations:
