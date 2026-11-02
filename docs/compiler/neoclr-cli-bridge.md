@@ -18465,3 +18465,14 @@ restriction or target policy changes. Native attribute arrays must retain their
 ordered typed elements when replacing temporary CLI attribute encoding. Validation
 covers .NET source symbols and emitted type-array metadata; no native execution
 was performed for this correction.
+
+### Qualified source constructor ownership during declaration binding
+
+Shared expression lookup now admits the indexed source declaration before taking
+a same-named bootstrap metadata type during reentrant declaration binding.
+This aligns namespace-qualified construction with source type syntax and removes
+query-order-dependent accessibility diagnostics. There is no new CLI encoding or
+native metadata policy. Native source consumers use the shared binder correction;
+validation executes source/bootstrap collision fixtures on modern .NET, not the
+native runtime. Native metadata replaces the bridge without changing source
+ownership precedence.

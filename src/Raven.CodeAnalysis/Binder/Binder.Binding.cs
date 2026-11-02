@@ -15,13 +15,7 @@ internal abstract partial class Binder
     {
         var namespaceName = owner.ToMetadataName();
         var metadataName = (string.IsNullOrEmpty(namespaceName) ? "" : namespaceName + ".") + name;
-        if (arity > 0)
-            metadataName += "`" + arity;
-        var exact = Compilation.GetTypeByMetadataName(metadataName);
-        // Metadata-name lookup omits source types during reentrant declaration binding.
-        // Complete only the indexed type in this namespace before reporting it missing.
-        if (exact is null && Compilation.TryDeclareIndexedSourceType(owner, name, out var sourceType) && sourceType.Arity == arity)
-            exact = sourceType;
+        var exact = LookupExact(arity);
         if (exact is not null || arity != 0)
             return exact;
 
@@ -30,9 +24,17 @@ internal abstract partial class Binder
         // Keep metadata lookup exact and avoid choosing between distinct arities.
         var genericArities = owner.GetMembers(name).OfType<INamedTypeSymbol>()
             .Select(type => type.Arity).Where(candidate => candidate > 0).Distinct().Take(2).ToArray();
-        return genericArities.Length == 1
-            ? Compilation.GetTypeByMetadataName(metadataName + "`" + genericArities[0])
-            : null;
+        return genericArities.Length == 1 ? LookupExact(genericArities[0]) : null;
+
+        INamedTypeSymbol? LookupExact(int requestedArity)
+        {
+            // Metadata-name lookup omits source types during reentrant declaration binding,
+            // including the unsuppressed pass that completes field initializers. Admit the
+            // indexed source declaration before accepting a bootstrap metadata result.
+            if (Compilation.TryDeclareIndexedSourceType(owner, name, out var sourceType, requestedArity))
+                return sourceType;
+            return Compilation.GetTypeByMetadataName(requestedArity > 0 ? metadataName + "`" + requestedArity : metadataName);
+        }
     }
 
     // ---------------------------------

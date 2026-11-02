@@ -1417,7 +1417,8 @@ public partial class Compilation
     internal bool TryDeclareIndexedSourceType(
         INamespaceSymbol? namespaceSymbol,
         string name,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? type)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? type,
+        int? arity = null)
     {
         type = null;
         var namespaceMetadataName = namespaceSymbol is null
@@ -1427,7 +1428,8 @@ public partial class Compilation
         foreach (var declaration in SourceDeclarationIndex.GetNamespaceTypes(namespaceMetadataName, name))
         {
             if (!TryGetSemanticModelForDeclarationBinding(declaration.SyntaxTree, out var model) ||
-                !model.TryDeclareAvailableSourceTypeSymbol(declaration, out var declaredType))
+                !model.TryDeclareAvailableSourceTypeSymbol(declaration, out var declaredType) ||
+                (arity.HasValue && declaredType.Arity != arity.Value))
             {
                 continue;
             }

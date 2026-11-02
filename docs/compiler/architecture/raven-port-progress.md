@@ -2484,3 +2484,46 @@ attribute/closed-hierarchy tests** on modern .NET, including emitted type-array
 metadata. The targeted compiler build, whitespace formatting and diff checks
 pass. No RavenDoc/site generation or native execution was run. Complete generated
 runtime analysis continues separately; this correction is ready to commit.
+
+## PORT-079 — qualified constructor source ownership
+
+The reduced remaining list-construction error is not a translation issue. A private
+static field's declared type resolves to source `InternalSyntax.SyntaxList`, but
+its qualified constructor initializer can select inaccessible bootstrap metadata
+while declarations are incomplete. A cold constructor symbol query first avoids
+the error. The focused baseline passes **59 tests**; new query-order, tree-order
+and relative/full-qualification coverage reproduces **four diagnostic-first
+failures**, while **four symbol-first cases pass**.
+
+Canonical namespace expression lookup now admits the indexed source declaration
+before accepting a metadata result during declaration binding.
+Ordinary metadata-only provider selection remains unchanged. Both targets use the
+shared binder path; the Raven binder has not yet been translated. New fixtures
+also emit and execute the selected source constructor. Post-change validation is
+running; unfinished runtime translations remain unstaged.
+
+Tracing found a second declaration pass: field-initializer completion still runs
+inside reentrant source setup after namespace-lookup suppression has ended. A
+suppression-only change was insufficient (all eight cases then reported the stale
+accessibility error). The correction now admits the indexed source declaration
+before metadata selection in either pass. Temporary tracing was removed; focused
+and broader verification follow the corrected implementation.
+
+The non-generic correction passes **67 focused tests**, including all eight
+source-constructor runtime cases. An additional generic reduction finds that
+name-only indexed admission can choose a sibling source declaration with a
+different arity and then fall back to constrained bootstrap metadata. Indexed
+admission now optionally filters arity before signature completion; the namespace
+expression helper uses it for both exact and uniquely inferred generic lookup.
+Two regression cases vary source generic/non-generic declaration order. Final
+validation is running against this strengthened correction.
+
+Final validation passes **69 focused tests** and **621 broader lookup, alias,
+constructor, generic-method, incremental-binder and target-contract tests** on
+modern .NET. The final **70-file analysis reports seven errors**, down from nine;
+the two qualified list-constructor ownership errors are gone. Targeted builds,
+whitespace formatting and diff checks pass. .NET remains default. Native neoCLR
+execution and RavenDoc/site generation were not run. The 1,051-file generated
+runtime analysis remains live against the PORT-078 seed; managed stack snapshots
+confirm ongoing method/invocation binding. It must be inspected on completion
+before claiming any complete generated-runtime validation.

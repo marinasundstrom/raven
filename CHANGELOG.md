@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep namespace-qualified constructor lookup source-owned during declaration
+  binding, avoiding bootstrap metadata accessibility errors that depended on
+  whether diagnostics or symbol queries ran first.
+
 - Preserve array-valued attribute constants of arbitrary length without throwing
   during semantic queries or emission, including expanded `params` arguments.
 

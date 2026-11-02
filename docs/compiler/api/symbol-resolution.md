@@ -215,3 +215,14 @@ parameter constraints for both source and metadata symbols. Interface-only,
 value-type, object, ValueType and Enum constraints do not independently establish
 a known reference type. The traversal is cycle-protected and does not cache
 answers before source constraints have been resolved.
+
+### Qualified construction while declaring source signatures
+
+Namespace-qualified expression lookup admits an indexed source declaration of the requested arity before
+accepting a same-named bootstrap metadata type during reentrant declaration
+binding. This includes static field initializers. Declared types, constructor
+symbols and the emitted field receiver retain source assembly ownership in either
+source-tree order. Diagnostic-first queries must agree with cold `GetSymbolInfo`
+queries; a tooling query is not required to make compilation succeed. The rule is
+shared by both targets and preserves ordinary metadata-provider selection when
+there is no matching source declaration.
