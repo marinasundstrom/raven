@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve enum constants through a simple name that also denotes a value of the
+  same enum type, including property assignments and optional parameter defaults.
+  Such access does not evaluate the same-named property getter.
+
 - Include arrays' base and interface contracts in common-type inference.
   Coalescing an `IEnumerable<T>?` with a `T[]` fallback now preserves the
   generic enumerable contract, in either operand order.

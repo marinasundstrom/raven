@@ -3947,6 +3947,15 @@ partial class BlockBinder
             return new BoundTypeExpression(resolvedType);
         }
 
+        // A simple value name may also name its own enum type (for example,
+        // a Format property of type Format). Enum constants use the type meaning;
+        // do not evaluate an instance receiver or require a property getter.
+        if (TryBindSameNamedEnumReceiver(memberAccess, out var enumReceiver))
+        {
+            CacheBoundNode(memberAccess.Expression, enumReceiver);
+            return BindMemberAccessOnReceiver(enumReceiver, memberAccess.Name, preferMethods, allowEventAccess, suppressNullWarning: true, receiverTypeForLookup: null, forceExtensionReceiver: false);
+        }
+
         // Regular expression receiver binding.
         // IMPORTANT: Many name nodes (IdentifierName/GenericName/QualifiedName) also implement TypeSyntax.
         // We must NOT treat those as type receivers here, or ordinary member access like `handler.Handle`
@@ -4012,6 +4021,44 @@ partial class BlockBinder
             forceExtensionReceiver: false);
 
         return result;
+    }
+
+    private bool TryBindSameNamedEnumReceiver(
+        MemberAccessExpressionSyntax syntax,
+        out BoundTypeExpression receiver)
+    {
+        receiver = null!;
+        if (syntax.Expression is not IdentifierNameSyntax identifier ||
+            TryGetLaterLocalDeclaration(identifier, identifier.Identifier.ValueText, out _))
+        {
+            return false;
+        }
+
+        var name = identifier.Identifier.ValueText;
+        var valueType = LookupSymbol(name) switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null
+        };
+        if (valueType is not { TypeKind: TypeKind.Enum } ||
+            LookupType(name) is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType ||
+            !SymbolEqualityComparer.Default.Equals(valueType, enumType))
+        {
+            return false;
+        }
+
+        var lookupType = EnsureSourceMemberSignatureDeclaredForExactLookup(enumType, syntax.Name.Identifier.ValueText);
+        if (!new SymbolQuery(syntax.Name.Identifier.ValueText, lookupType, IsStatic: true)
+            .Lookup(this).OfType<IFieldSymbol>().Any(static field => field.IsConst))
+        {
+            return false;
+        }
+
+        receiver = new BoundTypeExpression(enumType);
+        return true;
     }
 
     private BoundExpression BindPointerMemberAccessExpression(

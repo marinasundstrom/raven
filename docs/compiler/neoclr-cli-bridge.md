@@ -18547,3 +18547,12 @@ array/enumerable coalescing in both orders. Array interface facts still belong t
 the selected target's symbol providers; this does not synthesize CLI collection
 contracts for a native array or establish native execution support. No encoding
 or native metadata/codegen capability changes in this correction.
+
+## Same-named enum value/type receivers — 2026-11-02
+
+Shared binding selects the enum type interpretation of a simple name when a
+same-typed value shadows that name and the selected member is an enum constant.
+This includes constructor assignments and optional defaults; a property getter
+is not evaluated. Two neoCLR semantic tests with host references cover cold/warm
+queries. Native enum metadata and constant emission retain their existing target
+ownership. No new CLI encoding or native guest execution capability is claimed.

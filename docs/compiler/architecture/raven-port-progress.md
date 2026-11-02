@@ -3289,3 +3289,37 @@ against the previous run; its result is recorded separately when terminal.
 A reduced enum/property-name repro in /tmp/parse-options-enum-probe.rvn also
 reproduces both ParseOptions errors with the enum declaration present. This is
 independent of the array correction and remains the next focused binding gap.
+
+## PORT-099 — same-named enum receiver binding
+
+ParseOptions uses DocumentationFormat both as an enum type name and as a
+property. A standalone reduced declaration reproduces the constructor assignment
+and optional-default failures with the enum present. C# permits the enum type
+meaning in this case; the bootstrap previously bound the value and searched only
+instance members. A 23-test enum/default/type-resolution baseline passes, while
+seven new cases fail and the differently typed shadow control passes.
+
+Shared member binding now recognizes matching simple enum type/value names and
+selects a type receiver for enum constants before evaluating the value. The
+correction is scoped to enum constants; it does not claim implementation of every
+C# identical-name rule for arbitrary static/instance method overload groups.
+Qualified values and differently typed shadows retain ordinary lookup. Parameter
+default evaluation uses the same binding path. Both member and receiver symbol
+queries are covered, including receiver-first cold queries and queries after
+diagnostics. The binder has not yet been ported, so the direct Raven ParseOptions
+source requires no workaround or duplicate binder edit.
+
+The focused semantic set passes 32 tests, and all nine collision cases pass again
+with receiver-first queries. Fifteen separately run .NET execution tests pass,
+including a getter counter and reflected optional enum default. Two of the
+semantic cases select neoCLR with host references; they query semantic-model
+diagnostics rather than validating an unconfigured native core. No guest
+execution is claimed. Specifications, compiler API notes and the C# transition
+website source document the enum rule; no grammar, TextMate or generator change
+is needed, and no RavenDoc/site generation is run.
+
+The 439-test overload-resolution suite passes. The standalone reduced case now
+passes driver analysis against /tmp/raven-enum-name-seed. Whitespace formatting
+and diff checks pass. The prior full runtime analysis remains live at this
+checkpoint (session 40357, /tmp/node-runtime-array-contract.log); it uses the
+PORT-098 compiler and must be assessed independently before a new full run.

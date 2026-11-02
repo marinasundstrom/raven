@@ -348,3 +348,14 @@ Cold type/symbol queries and queries after diagnostics expose the same typed
 contract. Runtime reference identity and coalescing short-circuit behavior are
 preserved. The shared normalization and binder components have not yet been ported;
 the pending Raven syntax-tree implementation benefits through its C# bootstrap.
+
+### Same-named enum values and types
+
+Member binding recognizes a simple receiver name whose value and type meanings
+have the same enum type when accessing a declared enum constant. It binds a type
+receiver without evaluating the value or requiring a property getter. Constant
+parameter defaults use that same binder path. Member and receiver symbol queries
+retain the enum field and enum type respectively, before or after diagnostics.
+Qualified value receivers and differently typed shadows retain ordinary lookup.
+This shared binder has not yet been ported; the C# bootstrap fix enables direct
+Raven translation of ParseOptions without a source workaround.

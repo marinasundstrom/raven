@@ -197,6 +197,11 @@ A union associates each alternative with the data it needs. Use an enum for
 named constants, a union for alternatives with payloads, and an open class or
 interface when external implementations should extend the model.
 
+Enum constant access also supports a value named after its enum type: a property
+`Format: Format` does not prevent `Format.Markdown` from naming the enum constant.
+The access does not evaluate the property getter. See
+[enum declarations](lang/spec/enum-declarations.md#enum-names-shared-with-values).
+
 Raven targets .NET 11's union and closed-hierarchy contracts and also supports
 .NET 10 through Raven.Core compatibility metadata. One difference is intentional:
 Raven supports closed interfaces, while C# 15 / .NET 11 RC 1 does not. A C# caller

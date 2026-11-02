@@ -45,6 +45,25 @@ metadata is matched against its declared members under the same rule. A future
 .NET closed-enum metadata contract may let Raven distinguish closed and open
 foreign enums without changing Raven-authored syntax.
 
+### Enum names shared with values
+
+A simple name can denote both an enum type and a value of that same type. In
+`Format.Markdown`, the enum constant uses the type interpretation even when a
+property, field, parameter, or local named `Format` is in scope with type `Format`:
+
+```raven
+enum Format { Xml, Markdown }
+class Options {
+    init(format: Format = Format.Markdown) { Format = format }
+    val Format: Format { get; init; }
+}
+```
+
+This follows C#'s identical-simple-name/type-name rule for enum constants. The
+property getter is not evaluated. The exception requires the same enum type;
+a differently typed value still follows ordinary value lookup. A qualified
+value expression such as `self.Format.Markdown` is not a type-name access.
+
 ### Underlying type
 
 An enum may optionally specify an explicit underlying type using a base list after
