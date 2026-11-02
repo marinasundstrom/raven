@@ -249,6 +249,22 @@ let span: System.Span<byte> = []
 With a target, Raven creates the corresponding empty array, initialized
 collection, or empty span.
 
+An `if` expression can obtain this target from its other branch when no
+surrounding target is available. This works in either branch order, including
+an empty collection as the final expression of a branch block:
+
+```raven
+func Select(flag: bool, values: int[]) -> int[] {
+    let selected = if flag { values } else { [] }
+    return selected
+}
+```
+
+Only the selected branch executes. Two empty branches still need an external
+target; neither supplies an independently known collection type. An explicit
+surrounding target takes precedence. This does not change the default collection
+kind for nonempty literals without a target.
+
 ## Element access
 
 Use brackets after a collection value to read an element through its array or

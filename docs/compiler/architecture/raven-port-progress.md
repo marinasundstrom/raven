@@ -3077,3 +3077,41 @@ formatting and diff checks pass. The .NET metadata suite is explicitly marked
 Target=DotNet; the two host-reference neoCLR semantic cases remain separately
 marked Target=NeoCLR. No native guest execution or full Raven runtime parity is
 claimed. The unfinished Raven runtime batch remains uncommitted.
+
+## PORT-094 — conditional empty-collection context
+
+Diagnostic.GetMessage directly translates a conditional object-array/empty
+collection argument to string.Format. A 39-case collection/incremental/target
+baseline passes, but four branch-order and cold/warm query cases fail. A local C#
+comparison confirms the analogous conditional inherits the other array type.
+
+BlockBinder now binds the independently typed branch first only when the other
+branch ends in an empty collection and no contextual target exists. It supplies
+that type to the empty branch, preserving explicit contexts and nonempty-literal
+defaults. When the else branch is bound first, condition pattern bindings are
+removed for that branch and restored for the successful branch. Both-empty
+conditionals still require an external target. No syntax, highlighting or public
+API is added. Direct collection-node type queries cover editor-facing semantics.
+
+**87 focused/adjacent tests pass**, including independent collection queries,
+pattern scope, string.Format overload context, incremental collection coverage,
+common interfaces and two neoCLR semantic cases with host references. A modern
+.NET runtime fixture proves selected-branch execution and array identity in both
+orders. The language-reference sources are also the website sources selected by
+docs/ravendoc.json; no RavenDoc/site generation is run.
+
+The reduced five-source Diagnostic/ParseOptions analysis now reports **five
+errors** in `/tmp/diagnostic-options-conditional-fixed.log`, using immutable seed
+`/tmp/raven-conditional-collection-seed`: mixed lambda returns (two), nullable
+comparer overload (one), and enum/member resolution (two). Both conditional-array
+errors are gone. This reduction deliberately uses bootstrap Location and is not
+full source-runtime ownership or emission qualification. BlockBinder is not yet
+ported; carry this behavior into its future Raven translation. Native guest
+execution remains unverified, and the unfinished Raven runtime batch stays
+uncommitted pending its remaining dependencies.
+
+Final PORT-094 validation: **439 overload-resolution tests pass**. Targeted
+compiler/test builds, whitespace formatting and diff checks pass. The runtime
+fixture passes both branch orders, including empty results without fallback
+calls and identity-preserving selection with exactly two total calls. No full
+1,065-input reanalysis or Raven-runtime emission has been claimed for this seed.

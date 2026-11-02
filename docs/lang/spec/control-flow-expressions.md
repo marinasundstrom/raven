@@ -51,7 +51,10 @@ Because `then` is contextual rather than reserved, it remains available as an
 identifier outside this position.
 
 When the result is used, an `else` branch is required and the branch values
-must have a compatible type. An `if` used only for its effects may omit `else`.
+must have a compatible type. An empty collection branch can take its target
+from the other branch's independently known type when there is no surrounding
+target; see [collection expressions](collection-expressions.md). An `if` used
+only for its effects may omit `else`.
 
 An `if let` header tests a pattern and introduces its bindings in the successful
 branch:

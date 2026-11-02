@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Infer an empty collection branch's target from the other `if` branch when no
+  surrounding target is available, in either branch order. Preserve pattern
+  scope, explicit targets and runtime branch evaluation.
+
 - Preserve nullable generic uses inherited from CLI declaration contexts. LINQ
   `FirstOrDefault<string>()` now retains its nullable result, while `First<string>()`
   and value-type invocation results retain their existing non-nullable behavior.

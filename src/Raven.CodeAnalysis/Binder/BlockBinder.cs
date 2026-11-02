@@ -6785,28 +6785,41 @@ partial class BlockBinder : Binder
     {
         var targetType = GetTargetType(ifExpression);
 
-        var thenBinder = SemanticModel.GetBinder(ifExpression, this);
-        var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
-        _allowReturnsInBlockExpressionsOnly = false;
+        var thenNeedsCollectionTarget = NeedsEmptyCollectionTarget(thenExpression);
+        var elseNeedsCollectionTarget = elseClause is not null && NeedsEmptyCollectionTarget(elseClause.Expression);
+        BoundExpression? earlierElse = null;
+        if (targetType is null && thenNeedsCollectionTarget && !elseNeedsCollectionTarget && elseClause is not null)
+        {
+            // Bind the branch with an independent type first, outside the condition's
+            // pattern bindings. Restore those bindings before entering the then branch.
+            Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? conditionBindings = null;
+            if (patternLocalShadows is not null)
+            {
+                conditionBindings = new(StringComparer.Ordinal);
+                foreach (var name in patternLocalShadows.Keys)
+                    conditionBindings[name] = _locals.TryGetValue(name, out var local) ? local : null;
+            }
+
+            RestorePatternLocals(patternLocalShadows);
+            try
+            {
+                earlierElse = BindBranchExpression(SemanticModel.GetBinder(elseClause, this), elseClause.Expression, null);
+            }
+            finally
+            {
+                RestorePatternLocals(conditionBindings);
+            }
+        }
+
         BoundExpression thenExpr;
         try
         {
-            thenExpr = BindBranchExpression(thenBinder, thenExpression);
+            thenExpr = BindBranchExpression(SemanticModel.GetBinder(ifExpression, this), thenExpression,
+                targetType ?? (thenNeedsCollectionTarget ? earlierElse?.Type : null));
         }
         finally
         {
-            _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
-        }
-
-        if (patternLocalShadows is not null)
-        {
-            foreach (var (name, shadowed) in patternLocalShadows)
-            {
-                if (shadowed is null)
-                    _locals.Remove(name);
-                else
-                    _locals[name] = shadowed.Value;
-            }
+            RestorePatternLocals(patternLocalShadows);
         }
 
         if (elseClause is null)
@@ -6815,18 +6828,8 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
         }
 
-        var elseBinder = SemanticModel.GetBinder(elseClause, this);
-        previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
-        _allowReturnsInBlockExpressionsOnly = false;
-        BoundExpression elseExpr;
-        try
-        {
-            elseExpr = BindBranchExpression(elseBinder, elseClause.Expression);
-        }
-        finally
-        {
-            _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
-        }
+        var elseExpr = earlierElse ?? BindBranchExpression(SemanticModel.GetBinder(elseClause, this), elseClause.Expression,
+            targetType ?? (elseNeedsCollectionTarget ? thenExpr.Type : null));
 
         var thenType = thenExpr.Type ?? Compilation.ErrorTypeSymbol;
         var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;
@@ -6899,20 +6902,47 @@ partial class BlockBinder : Binder
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
 
-        BoundExpression BindBranchExpression(Binder? branchScope, ExpressionSyntax expression)
+        BoundExpression BindBranchExpression(Binder? branchScope, ExpressionSyntax expression, ITypeSymbol? branchTarget)
         {
             var blockBinder = FindEnclosingBlockBinder(branchScope) ?? this;
-            return targetType is null
-                ? blockBinder.BindExpression(
+            var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
+            _allowReturnsInBlockExpressionsOnly = false;
+            try
+            {
+                return blockBinder.BindExpressionWithTargetType(
                     expression,
-                    allowReturn: _allowReturnsInExpression,
-                    allowReturnInBlockExpressionsOnly: false)
-                : blockBinder.BindExpressionWithTargetType(
-                    expression,
-                    targetType,
+                    branchTarget?.TypeKind == TypeKind.Error ? null : branchTarget,
                     allowReturn: _allowReturnsInExpression,
                     allowReturnInBlockExpressionsOnly: false);
+            }
+            finally
+            {
+                _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
+            }
         }
+
+        void RestorePatternLocals(Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? bindings)
+        {
+            if (bindings is null)
+                return;
+            foreach (var (name, binding) in bindings)
+            {
+                if (binding is null)
+                    _locals.Remove(name);
+                else
+                    _locals[name] = binding.Value;
+            }
+        }
+
+        static bool NeedsEmptyCollectionTarget(ExpressionSyntax expression)
+            => expression switch
+            {
+                CollectionExpressionSyntax collection => collection.Elements.Count == 0,
+                ParenthesizedExpressionSyntax parenthesized => NeedsEmptyCollectionTarget(parenthesized.Expression),
+                BlockSyntax block when block.Statements.LastOrDefault() is ExpressionStatementSyntax last
+                    => NeedsEmptyCollectionTarget(last.Expression),
+                _ => false
+            };
 
         static BlockBinder? FindEnclosingBlockBinder(Binder? binder)
         {
