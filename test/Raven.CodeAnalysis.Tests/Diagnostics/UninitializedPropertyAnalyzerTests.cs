@@ -6,6 +6,18 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UninitializedPropertyAnalyzerTests : AnalyzerTestBase
 {
     [Theory]
+    [InlineData("abstract val Value: int { get; }")]
+    [InlineData("abstract var Value: int { get; set; }")]
+    [InlineData("abstract val Value: int")]
+    [InlineData("abstract var Value: int")]
+    public void AbstractPropertyHasNoStorageToInitialize(string declaration)
+    {
+        CreateAnalyzerVerifier<UninitializedPropertyAnalyzer>(
+            "abstract class Contract { " + declaration + " }",
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
+    [Theory]
     [InlineData("init() { Name = \"ok\" }\ninit(value: int) { Name = \"other\" }", false)]
     [InlineData("init() { Name = \"ok\" }\ninit(value: int) { }", true)]
     [InlineData("init(value: bool) { if value { Name = \"ok\" } }", true)]

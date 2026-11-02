@@ -39,6 +39,9 @@ class Counter(name: string) {
 * `const` declarations are compile-time constants and map to CLR literal fields.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
+* Abstract properties declare accessor contracts without backing storage. This
+  applies both to explicit accessor lists and shorthand `abstract val`/`abstract
+  var` declarations; initialization requirements belong to stored implementations.
 * Members can be marked `static` to associate them with the type rather than an instance.
 * Members that intentionally hide inherited members should use the `new`
   modifier; otherwise the compiler reports `RAV0331`. Method and field hiding

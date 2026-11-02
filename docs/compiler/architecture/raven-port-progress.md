@@ -3503,3 +3503,35 @@ DocumentationFormat dependencies remain explicit limitations. The Raven consumer
 aliases bootstrap DocumentationFormat while selecting Raven syntax/runtime types.
 Full emission and Raven-side parity are still pending; the runtime source batch
 remains uncommitted.
+
+## PORT-104 — abstract properties are storage-free contracts
+
+The successful full analysis reports initialization warnings on generated
+abstract syntax-node properties. Inspection shows a compiler defect rather than
+a port problem: abstract accessor lists and shorthand abstract properties receive
+synthesized backing fields and auto-property classification. The initialization
+analyzer then treats the contract as stored state; emitted metadata also contains
+the unnecessary field.
+
+A 41-test initialization/override baseline passes. Seventeen new focused cases
+fail before the correction: eight cold/warm symbol checks, four analyzer cases,
+four emitted-metadata cases and one neoCLR host-reference symbol case. Shared
+property binding now excludes abstract members when creating storage. Accessor
+creation is unchanged. No analyzer suppression, generated-source workaround or
+target-specific implementation is introduced.
+
+After the correction, 116 semantic/analyzer/adjacent property tests and sixteen
+isolated metadata/runtime tests pass on .NET 11. The latter cover abstract field
+absence plus concrete accessor identity, auto-property stability and constructor
+initialization behavior. Compiler/test builds, whitespace formatting and diff
+checks pass. Spec/API docs, CLI bridge notes and changelog describe the shared
+contract and corrected metadata. Native guest execution and Framework/NanoFramework
+are not claimed; the neoCLR check uses host references. No syntax/highlighting
+change or RavenDoc/site generation is required.
+
+TypeMemberBinder is not yet translated. This C# bootstrap correction benefits
+the unchanged Raven generated abstract declarations when built with the updated
+compiler. The full emission in session 39453 still uses immutable PORT-101 and
+therefore predates PORT-103/104. Its result remains useful for exposing emission
+gaps, but final qualification must use the updated compiler. Source hashes remain
+unchanged; do not replace the active process. Its latest verified PID is 65774.

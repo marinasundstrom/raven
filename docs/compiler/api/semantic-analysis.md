@@ -391,3 +391,14 @@ accessibility, so both target frontends retain the same foundational rule. It
 does not alter emitted members, runtime dispatch or explicit override validation.
 The binder is not yet ported; generated Raven syntax-node caches benefit through
 the C# bootstrap without renaming their private fields.
+
+### Abstract properties have no backing storage
+
+An abstract property is not classified as an auto-property and has no synthesized
+backing field. This holds for explicit accessor lists and shorthand declarations,
+before and after diagnostics. Accessor symbols remain abstract. CLI metadata
+contains the abstract accessors without a storage field, and the uninitialized
+property analyzer therefore has no stored value to check. The shared binder owns
+this distinction for both targets; native storage/code-generation remains target
+owned. This binder has not yet been translated, so the bootstrap fix enables the
+unchanged generated Raven abstract syntax-node contracts.

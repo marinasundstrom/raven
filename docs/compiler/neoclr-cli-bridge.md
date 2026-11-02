@@ -18582,3 +18582,13 @@ CLI encoding is introduced: selected type arguments flow through existing target
 metadata and code-generation contracts. Native variance and nullable interface-edge
 projection must supply equivalent facts; the interface annotation gap above remains
 open. This evidence is semantic testing with host references, not native execution.
+
+## Abstract property storage — 2026-11-02
+
+Shared binding now represents abstract properties solely as accessor contracts,
+without synthesized backing fields. The CLI representation emits abstract
+accessors without storage, matching the native semantic intent. This removes
+accidental storage rather than introducing a bridge encoding or a target-specific
+restriction. A neoCLR host-reference symbol test verifies the contract; modern
+.NET metadata tests verify field absence and abstract accessors. Native metadata
+and guest execution are not qualified by those checks.

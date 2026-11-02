@@ -375,7 +375,8 @@ internal partial class TypeMemberBinder : Binder
             propertyDecl.ExpressionBody is null &&
             _containingType.TypeKind == TypeKind.Interface;
 
-        if (!isExtensionContainer &&
+        // Abstract accessors declare a contract; they never own instance storage.
+        if (!isAbstract && !isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
             sourcePropertySymbol is not null &&
             (hasAutoAccessorList || usesFieldKeyword || isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty))

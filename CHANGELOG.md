@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep abstract properties free of synthesized backing storage. Their metadata
+  contains abstract accessors without a backing field, and initialization analysis
+  no longer warns that the abstract contract needs a value.
+
 - Exclude inaccessible base methods and fields from hiding diagnostics. Derived
   types can reuse private base implementation names without spurious `RAV0331`
   warnings; accessible base members still require explicit hiding intent.
