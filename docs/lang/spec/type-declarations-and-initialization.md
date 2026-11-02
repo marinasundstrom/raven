@@ -41,7 +41,9 @@ class Counter(name: string) {
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 * Members that intentionally hide inherited members should use the `new`
-  modifier; otherwise the compiler reports `RAV0331`.
+  modifier; otherwise the compiler reports `RAV0331`. Method and field hiding
+  checks consider base members accessible from the declaring type; an inaccessible
+  private base member does not require `new`.
 * A member name cannot match its immediate containing type name.
 
 Delegate types are documented in [Delegate declarations](delegate-declarations.md).

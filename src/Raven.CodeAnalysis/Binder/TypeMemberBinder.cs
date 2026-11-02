@@ -4390,7 +4390,7 @@ internal partial class TypeMemberBinder : Binder
         {
             foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
             {
-                if (method.IsStatic != isStatic)
+                if (method.IsStatic != isStatic || !AccessibilityUtilities.IsAccessible(method, _containingType))
                     continue;
 
                 if (SignaturesMatch(method, parameters))
@@ -4407,7 +4407,7 @@ internal partial class TypeMemberBinder : Binder
         {
             foreach (var field in baseType.GetMembers(name).OfType<IFieldSymbol>())
             {
-                if (field.IsStatic != isStatic)
+                if (field.IsStatic != isStatic || !AccessibilityUtilities.IsAccessible(field, _containingType))
                     continue;
 
                 var existingType = StripNullableReference(field.Type);

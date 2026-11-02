@@ -3461,3 +3461,45 @@ The full 1,065-input analysis remains live in session 28721, with PID 62222
 confirmed active after six minutes. Do not launch a replacement based on its
 quiet log. Its terminal result, full emission and source-owned parity are still
 required before committing the pending syntax-runtime translation.
+
+## PORT-103 — accessible method and field hiding candidates
+
+The PORT-101 full 1,065-input analysis is terminal and successful: zero errors,
+1,817 warnings, 759.6 seconds. Source hashes match the original manifest. This
+clears the dictionary-copy and normalization diagnostics from PORT-100. The
+warning inventory contains 1,664 explicit null-suppression warnings and twelve
+member-hiding warnings, including generated private cache fields.
+
+Those cache warnings reduce to a shared binder defect: method/field candidate
+search ignored accessibility. A three-test baseline passes. New Roslyn-oracle
+private/protected/internal/public cases and a neoCLR host-reference case expose
+two failures before the fix (six controls pass). Candidate search now uses the
+existing AccessibilityUtilities rule from the declaring type and continues past
+inaccessible members. No field renaming or generator workaround is needed.
+
+All 48 focused and adjacent member-hiding, accessibility, inheritance and override
+contract tests pass on .NET 11 after the change. Compiler/test builds, formatting
+and diff checks pass. The source/interface semantic rule is shared with neoCLR;
+its focused check uses host references and claims no native execution. Runtime
+encoding and override validation are unchanged. The binder is not yet translated,
+so the correction belongs to the C# bootstrap and benefits generated Raven code.
+Spec/API docs and changelog describe the diagnostic correction. Existing syntax
+and highlighting are unchanged; no RavenDoc/site generation was run.
+
+Full syntax-runtime emission started from the same 1,065 source hashes and
+immutable PORT-101 seed in session 39453 (PID 65774), writing
+/tmp/node-runtime-variance-emit.log and, on success,
+/tmp/Raven.CodeAnalysis.Raven.dll. It deliberately does not include this later
+diagnostic-only fix. Do not restart it while active.
+
+The C# side of the prepared expanded parity corpus passes 322 tests using
+/tmp/syntax-runtime-parity/CSharp/Probe.csproj. The corresponding Raven consumer
+is /tmp/syntax-runtime-parity/Raven/Probe.csproj and must run after successful
+emission. It reuses SharedTests.props plus the existing statement/declaration
+factory tests and the ParseOptions contracts. Temporary identity checks verify
+syntax-runtime assembly ownership and that all emitted types load. The driver
+supplies a bootstrap compiler reference; unported IModuleSymbol and
+DocumentationFormat dependencies remain explicit limitations. The Raven consumer
+aliases bootstrap DocumentationFormat while selecting Raven syntax/runtime types.
+Full emission and Raven-side parity are still pending; the runtime source batch
+remains uncommitted.

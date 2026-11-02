@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Exclude inaccessible base methods and fields from hiding diagnostics. Derived
+  types can reuse private base implementation names without spurious `RAV0331`
+  warnings; accessible base members still require explicit hiding intent.
+
 - Respect contravariant, covariant and invariant generic inference bounds in
   either parameter order. A comparer that accepts nullable strings no longer
   makes an otherwise non-null string type argument nullable. This also preserves

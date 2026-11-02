@@ -381,3 +381,13 @@ before accepting a provisional overload failure. Rebind-root selection stops at
 function and method declarations: an arrow-body query binds the body expression,
 not a declaration that merely registers a signature. The existing re-entry guard
 protects contextual binding. Repeated queries and diagnostics-first queries agree.
+
+### Accessibility in method and field hiding diagnostics
+
+Type-member binding checks accessibility from the declaring type when searching
+base methods and fields for hiding candidates. Inaccessible members are skipped
+while lookup continues through the base hierarchy. This uses shared symbol
+accessibility, so both target frontends retain the same foundational rule. It
+does not alter emitted members, runtime dispatch or explicit override validation.
+The binder is not yet ported; generated Raven syntax-node caches benefit through
+the C# bootstrap without renaming their private fields.
