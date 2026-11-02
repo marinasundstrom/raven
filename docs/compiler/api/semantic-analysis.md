@@ -273,3 +273,14 @@ arguments. Binding does not require the array length to match an internal builde
 capacity. Cold symbol queries and diagnostic-first queries follow the same path;
 metadata emission consumes the resulting constants. This is shared attribute
 binding before target-specific metadata encoding.
+
+### Explicit nullable reference conversions
+
+`ClassifyConversion` recognizes ordinary reference casts from a nullable source
+through its underlying reference relationship. Annotation narrowing to a
+nonnullable reference is an explicit reference conversion, including an underlying
+identity/upcast; it is not an implicit or identity conversion. `GetTypeInfo` and
+conversion operations retain the written cast target. CLI emission already
+projects reference annotations to their underlying type, preserving null and
+object identity and throwing `InvalidCastException` for an incompatible runtime
+object. Nullable value, unboxing and user-defined conversion rules are unchanged.

@@ -319,3 +319,13 @@ func HasCount(value: int?) -> bool => value.HasValue
 `InvalidOperationException` when absent. These APIs do not apply to nullable
 references. Members of the contained value still require explicit handling.
 The neoCLR target owns its nullable representation and runtime APIs separately.
+
+## Explicit reference casts
+
+An ordinary `(T)value` cast accepts a nullable reference operand when its
+underlying reference type has the requested conversion. It retains the CLR
+behavior: null passes through, an incompatible runtime type throws
+`InvalidCastException`, and a compatible object retains identity. The written
+target is the expression's static type. Like reference suppression, an explicit
+cast can assert a nonnullable result without checking for null. This does not
+refine the original nullable storage or enable implicit annotation narrowing.

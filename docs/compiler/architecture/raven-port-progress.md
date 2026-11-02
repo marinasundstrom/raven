@@ -2561,3 +2561,47 @@ annotation and rewriter tests** on modern .NET. Targeted build, whitespace
 formatting and diff checks pass. The rule is target-independent syntax behavior;
 no target policy, source grammar or CLI metadata encoding changes. Native runtime
 execution, full Raven runtime execution and RavenDoc/site generation were not run.
+
+## PORT-081 — nullable reference casts retain C# semantics
+
+Author direction reiterates that direct translation should retain C# behavior;
+fix missing foundational semantics rather than adjusting ported expressions.
+The generator runtime probe's nullable cast failures reduce to `(Leaf)value`
+from `Node?`, `(Node)value` from `Node?` and `(Leaf)value` from `object?`. These
+ordinary reference casts were rejected, although nullable class-constrained
+parameter casts already worked. No deliberate Raven rule requires this gap.
+
+A **78-test baseline** passes. New semantic/cold-query/runtime tests reproduce
+**nine failures**, with four control cases passing. Shared conversion
+classification now consults the underlying reference relationship and returns an
+explicit reference conversion for annotation narrowing. A preexisting shortcut
+also implicitly accepted `Leaf?` as nonnullable `object`; it now follows Raven's
+existing explicit null-handling rule. Unrelated-class casts remain invalid.
+Runtime tests compare null, identity and invalid-type results with an equivalent
+C# cast. The generated cast expressions remain unchanged; no suppression
+workaround was introduced. Both target frontends use this shared classifier;
+its Raven translation is still a later dependency.
+
+**91 focused tests pass** after the correction. Broader nullable/conversion/
+overload checks are running. A new complete-syntax analysis uses the corrected
+seed and includes the previously omitted diagnostic catalog (**1,052 inputs**).
+Its input hashes are `/tmp/node-runtime-full-generated-casts-inputs.json`; the
+process must finish before a new full-source error count can be claimed.
+The generator production-contract baseline passes **21 C# / 21 Raven tests**;
+no generator input or emitter code has changed in this slice.
+
+The broader run passes **864 nullable, conversion, overload, generic-constraint and
+target-profile tests**. A follow-up nullable alias case exposes a missing alias
+marker in the new conversion path; the classifier now retains that marker.
+**149 final focused/alias/API/runtime tests pass**, including conversion-operation
+shape and cold type queries, after the marker correction. The in-flight complete
+source analysis uses the pre-marker seed; it is not final whole-runtime validation.
+No grammar or highlighting changes are needed for existing cast syntax. Modern
+.NET execution is validated; native neoCLR guest execution and RavenDoc/site
+generation were not performed.
+
+A reduced follow-up also confirms that dotted child namespaces fail to see types
+in their enclosing namespace (`Outer.Inner` cannot find `Outer.Root`). This may
+explain the generated `GreenNode` lookup group. Investigate the shared namespace
+lookup path against C# behavior before adding parent-namespace aliases to emitted
+Raven code. No generator changes have been made to mask it.

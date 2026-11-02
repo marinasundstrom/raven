@@ -445,7 +445,15 @@ public partial class Compilation
                             constructorSymbol: conv.ConstructorSymbol));
                     }
                 }
-
+                else if (nullableSource.UnderlyingType.IsReferenceType && destination.IsReferenceType)
+                {
+                    // An explicit reference cast may assert a nonnullable target,
+                    // while retaining the CLR cast's null-preserving behavior.
+                    // Do not let annotation narrowing become an implicit conversion.
+                    var referenceConversion = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined: false);
+                    if (referenceConversion.IsIdentity || referenceConversion.IsReference)
+                        return Finalize(new Conversion(isImplicit: false, isReference: true, isAlias: referenceConversion.IsAlias));
+                }
             }
             else
             {

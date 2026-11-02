@@ -534,8 +534,14 @@ let text = value as string
 ```
 
 `(T)expression` performs the requested conversion and throws
-`InvalidCastException` when a runtime reference conversion fails. `expression
-as T` attempts a reference or nullable conversion and produces `null` when it
+`InvalidCastException` when a runtime reference conversion fails. Nullable
+reference operands use the same underlying reference conversion as in C#:
+null remains null, and a successful cast preserves object identity. The written
+target determines the result's static type, so an explicit cast to nonnullable
+`T` is an assertion, not a runtime null check. The original storage remains
+nullable; implicit nullable-reference narrowing is still rejected.
+
+`expression as T` attempts a reference or nullable conversion and produces `null` when it
 fails. A nullable reference operand is valid: a null operand produces null, and
 the result remains nullable even when the written target type is non-nullable.
 The operand is evaluated once.

@@ -18476,3 +18476,15 @@ native metadata policy. Native source consumers use the shared binder correction
 validation executes source/bootstrap collision fixtures on modern .NET, not the
 native runtime. Native metadata replaces the bridge without changing source
 ownership precedence.
+
+### Explicit casts from nullable references during porting
+
+Shared conversion classification now recognizes underlying identity, upcast and
+downcast relationships for an explicit nullable-reference cast. This is common
+reference behavior, not a target capability: null passes through, successful
+casts retain identity, and incompatible runtime objects fail a type check. Raven
+keeps implicit reference-annotation narrowing disallowed. The CLI bridge uses its
+existing annotated-reference projection and cast encoding; no carrier, metadata
+format or target policy is added. Native reference casts must preserve those
+outcomes with native metadata/codegen. Modern .NET execution is checked against
+an equivalent C# cast; native guest execution was not performed for this slice.
