@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Prefer delegate hints with a compatible explicit lambda parameter count
+  during invocation argument binding. Conditional-access calls such as
+  `values?.Select(value => value)` no longer retain diagnostics from indexed
+  overloads that are not selected.
+
 - Retain nullable and non-nominal operands during common-type inference. Mixed
   `string`/`object?` lambda returns infer `object?`; array operands no longer
   disappear from the common-type search.

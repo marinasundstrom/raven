@@ -623,7 +623,7 @@ partial class BlockBinder
                 preboundExpression is null &&
                 arg.Expression is FunctionExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax)
             {
-                targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
+                targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType, arg.Expression);
             }
 
             if (targetType is null &&
@@ -1507,10 +1507,18 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods,
         int argumentIndex,
         BoundExpression? receiver,
-        ITypeSymbol? pipeReceiverType)
+        ITypeSymbol? pipeReceiverType,
+        ExpressionSyntax argumentExpression)
     {
         ITypeSymbol? firstConcreteDelegate = null;
+        ITypeSymbol? diagnosticDelegate = null;
         var sawSystemDelegateLike = false;
+        int? lambdaParameterCount = argumentExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax lambda => lambda.ParameterList.Parameters.Count,
+            SimpleFunctionExpressionSyntax { Parameter.Identifier.IsMissing: false } => 1,
+            _ => null
+        };
 
         foreach (var method in methods)
         {
@@ -1530,6 +1538,13 @@ partial class BlockBinder
             {
                 if (namedType.TypeKind == TypeKind.Delegate)
                 {
+                    diagnosticDelegate ??= type;
+                    if (lambdaParameterCount is { } count &&
+                        namedType.GetDelegateInvokeMethod()?.Parameters.Length != count)
+                    {
+                        continue;
+                    }
+
                     firstConcreteDelegate ??= type;
                     continue;
                 }
@@ -1542,7 +1557,9 @@ partial class BlockBinder
             }
         }
 
-        return sawSystemDelegateLike ? null : firstConcreteDelegate;
+        // If every delegate has the wrong arity, retain the original hint only
+        // to produce the existing conversion diagnostic for this invalid call.
+        return sawSystemDelegateLike ? null : firstConcreteDelegate ?? diagnosticDelegate;
     }
 
     private ITypeSymbol? TryGetFirstCollectionParameterType(

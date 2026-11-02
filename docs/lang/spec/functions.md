@@ -404,6 +404,12 @@ and explicit returns in blocks. A type parameter belonging to the enclosing
 lexical scope remains a real target type; an incompatible arm still reports a
 conversion error.
 
+Invocation parameter hints respect a lambda's explicit parameter count. This
+also applies to conditional-access calls: `values?.Select(value => value)` and
+`values?.Select((value, index) => value)` use compatible one- and two-parameter
+callback candidates, without inheriting errors from the other overload's hint.
+Final overload selection still checks the complete signature and conversions.
+
 Compatibility is based on the delegate's parameter types, `ref`/`out`
 modifiers, and return type. Delegate types themselves are not implicitly
 convertible to one another merely because their signatures match; converting

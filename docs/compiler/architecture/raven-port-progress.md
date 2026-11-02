@@ -3156,3 +3156,54 @@ pass**, in addition to the 120 focused/adjacent checks and runtime fixture.
 Targeted builds, whitespace formatting and diff checks pass. The pending Raven
 runtime source batch remains uncommitted; no full expanded-runtime success is
 claimed from this reduced probe.
+
+## PORT-096 — compatible delegate hints through conditional access
+
+After correcting common return inference, Diagnostic.ProcessArgs still reports
+object? -> object? incompatible with indexed Select's two-parameter callback.
+A 47-case conditional-access/mixed-return baseline passes. Four new conditional
+Select cases fail in cold/warm queries, with and without empty coalescing fallback:
+the selected method is already correct, but an incompatible hint leaves a diagnostic.
+
+TryGetFirstDelegateParameterType now considers the argument syntax and skips
+concrete delegates with a different explicit lambda parameter count. It keeps
+implicit-parameter forms, method groups and unshaped System.Delegate policy on
+their existing paths; final overload resolution remains authoritative. The rule
+is shared by targets, not a LINQ or nullable-receiver special case. Zero-, one-
+and two-parameter source overloads are tested in both declaration orders.
+
+The reduced Diagnostic/ParseOptions probe using immutable seed
+`/tmp/raven-conditional-select-seed` reports **three errors** in
+`/tmp/diagnostic-options-conditional-select-fixed.log`: nullable HashCode comparer
+inference and two enum/member-name failures. Conditional Select now binds without
+changing the direct Raven translation. This probe uses bootstrap Location and
+still does not qualify full source-owned runtime compilation or emission. The
+binder is not yet translated; preserve this hint rule in its eventual Raven port.
+Language-reference sources also feed the website. No syntax/highlighting or
+Runtime Contract change is needed, and RavenDoc/site generation is not run.
+
+The initial broad run has **438 passes / one failure**: an invalid callback with
+no matching signature loses its existing conversion diagnostic. Preserve the
+original first delegate as a diagnostic fallback only when no compatible delegate
+exists; valid calls still use an arity-compatible hint. System.Delegate's existing
+unshaped-handler policy takes precedence over either hint. The focused invalid
+callback regression remains authoritative rather than weakening its assertion.
+
+Final focused validation: **151 semantic/adjacent checks and 21 .NET runtime
+conditional-access checks pass**, including a separately identified neoCLR
+semantic case with host references. Runtime coverage proves single receiver
+evaluation, null short-circuiting, projection identity, and indexed callbacks.
+The final reduced probe at `/tmp/diagnostic-options-conditional-select-final.log`
+still has exactly the three remaining errors using immutable
+`/tmp/raven-conditional-select-final-seed`. Targeted builds and formatting pass.
+No native guest execution is claimed.
+
+A fresh **1,065-input full analysis** is running from that final seed with input
+hashes in `/tmp/node-runtime-conditional-select-inputs.json` and output in
+`/tmp/node-runtime-conditional-select.log`. It includes PORT-093 through PORT-096
+and is not yet evidence of full runtime compilation or emission success. Keep the
+unfinished Raven source batch uncommitted while its dependency gaps remain.
+
+The final **439-test overload-resolution suite passes** with diagnostic fallback
+retained. Whitespace formatting and diff checks pass. The full analysis remains
+live at this checkpoint; its future result must be inspected independently.

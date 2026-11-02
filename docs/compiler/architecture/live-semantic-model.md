@@ -385,3 +385,20 @@ The native line carries main `752d240b4`. Its `NeoClrMetadataProbe
 --native-function-inference <project>` check loads the project’s native references
 and verifies a cold `Task.Run(() => 41)` local and its awaited value. The compiler
 answer must be `Task<int>` and `int`, independently of editor rendering.
+
+### Delegate hints for conditional method-group calls
+
+Invocation argument binding must not target an explicitly parameterized lambda
+with a delegate of a different arity merely because that overload appears first.
+The fallback delegate hint filters by explicit parameter count; implicit-parameter
+forms and method groups retain their existing inference paths. System.Delegate
+and MulticastDelegate candidates retain their unshaped-handler policy. This is
+pre-binding guidance, not a replacement for authoritative overload resolution.
+If no delegate has a compatible arity, the original hint remains available solely
+to preserve the existing conversion diagnostic for the invalid call.
+
+Conditional access uses the same hint helper. Previously Select's one-parameter
+candidate could be selected correctly while argument binding retained a conversion
+diagnostic from the indexed overload's hint. Cold and post-diagnostics queries
+must agree on both the selected symbol and absence of that rejected-hint error.
+No Runtime Contract configuration or metadata representation changes.
