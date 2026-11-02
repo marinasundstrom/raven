@@ -70,19 +70,22 @@ public class SyntaxTriviaTest
         updated.Width.ShouldBe(1);
     }
 
-    [Fact]
-    public void TokenAttachedTrivia_HasCorrectPositions()
+    [Theory]
+    [InlineData("", 6)]
+    [InlineData("  ", 8)]
+    [InlineData("\t", 7)]
+    public void TokenAttachedTrivia_HasCorrectPositions(string leadingText, int trailingStart)
     {
         var token = ReturnKeyword
-            .WithLeadingTrivia(Whitespace("  "))
+            .WithLeadingTrivia(Whitespace(leadingText))
             .WithTrailingTrivia(LineFeed);
 
         var leading = token.LeadingTrivia.Single();
         var trailing = token.TrailingTrivia.Single();
 
         leading.SpanStart.ShouldBe(0);
-        leading.Span.Length.ShouldBe(2);
-        trailing.SpanStart.ShouldBe(6);
+        leading.Span.Length.ShouldBe(leadingText.Length);
+        trailing.SpanStart.ShouldBe(trailingStart);
         trailing.Span.Length.ShouldBe(1);
     }
 }
