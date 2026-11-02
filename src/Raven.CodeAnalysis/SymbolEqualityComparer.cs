@@ -87,6 +87,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return true;
         visited.Add(new SymbolPair(y, x));
 
+        // Nullable identity follows the underlying semantic type, not its display
+        // spelling or the container in which the wrapper was constructed.
+        if (x is NullableTypeSymbol || y is NullableTypeSymbol)
+            return x is NullableTypeSymbol nullableX && y is NullableTypeSymbol nullableY
+                && EqualsCore(nullableX.UnderlyingType, nullableY.UnderlyingType, visited);
+
         if (x is StructuralTupleTypeSymbol || y is StructuralTupleTypeSymbol)
         {
             if (x is not StructuralTupleTypeSymbol tupleX || y is not StructuralTupleTypeSymbol tupleY ||
@@ -499,6 +505,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is NullableTypeSymbol nullableType)
+        {
+            hash.Add(GetHashCodeCore(nullableType.UnderlyingType, visited));
+            return hash.ToHashCode();
         }
 
         if (obj is IFunctionReturnTypeSymbol projection)

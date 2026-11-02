@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Compare and hash nullable types structurally through their underlying types,
+  preserving alias identity in nullable arrays and generic signatures. Overrides
+  using aliased nullable array parameters now match their base declarations.
+
 - Correct trailing-trivia spans to include leading-trivia width and let
   `SyntaxNode.FindTrivia` find trailing trivia instead of treating it as token text.
 

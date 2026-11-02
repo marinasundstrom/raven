@@ -38,6 +38,16 @@ member, especially as incremental snapshots start reusing declaration descriptor
 and recreating snapshot-owned source symbols. Use `SymbolEqualityComparer.Default`
 when comparing or storing `ISymbol` values.
 
+Nullable wrappers compare and hash by their underlying semantic type. An alias
+therefore preserves identity inside a nullable type, including array and generic
+signatures: `Original?[]` and `Alias?[]` denote the same type when `Alias` targets
+`Original`. `Default` still distinguishes nullable from non-nullable types;
+`IgnoringNullability` ignores nullable reference decoration but preserves nullable
+value-type distinctions. Nullable ABI projections do not change language-level
+identity; inspect `GetNullableAbiProjection` separately when choosing runtime
+representations. These identity rules belong to the shared compiler for both
+.NET and neoCLR.
+
 ---
 
 ## At a glance
