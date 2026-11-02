@@ -194,3 +194,8 @@ existing behavior. Green trivia-list construction accepts a null array as empty,
 and its checked `GetSlot` override returns a non-null trivia or throws for an
 out-of-range index. These annotations are shared by the C# and Raven sources.
 Trivia-list construction computes the width once for both width properties.
+
+Green syntax lists preserve nullable child slots, including through `With`. Their
+constructor still requires the array itself. Empty slots contribute no width and
+are skipped by child traversal; indexed slot access can return null. Storage,
+constructor-element, and indexer annotations reflect this in both compiler sources.

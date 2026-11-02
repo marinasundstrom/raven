@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Align green syntax-list child annotations with existing nullable-slot behavior
+  in both compiler sources, preserving required arrays and empty-slot traversal.
+
 - Compare synchronous lambda result conversions when selecting callable
   overloads, fixing numeric LINQ selector choices. Infer callback inputs from
   ordinary arguments per overload, including static extension-method calls.

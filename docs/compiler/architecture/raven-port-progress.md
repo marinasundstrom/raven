@@ -2190,3 +2190,23 @@ final 70-file analysis reports **30 errors**, with the Sum selector conversion
 error resolved. Remaining failures belong to nullable runtime consumers and
 other existing translation/dependency gaps. Targeted builds and whitespace
 formatting completed. No documentation-site generation was run.
+
+
+## PORT-068 — nullable green-list slots
+
+Green list `With` already accepts `GreenNode?[]`, and traversal/width calculation
+already skip empty slots. Its constructor, storage and indexer incorrectly
+claimed non-null children. Those annotations now agree in C# and Raven while
+the array itself remains required. This removes the port's incompatible array
+constructor call without altering nullable-slot behavior or adding conversions.
+
+The baseline passed **29 tests**. New empty-slot traversal/width/update checks
+passed before the change; the metadata assertion failed. **48 focused and
+adjacent tests pass** after the correction; targeted build, whitespace formatting
+and Raven parser validation pass. The fresh full-source analysis is still running
+(`/tmp/node-runtime-analysis-green-list-slots.log`). The Raven runtime files
+remain uncommitted while their dependency slice is incomplete. Modern .NET was
+tested; native neoCLR was not executed. A separate reduced `out var` conditional probe succeeds, so the
+remaining scope diagnostics require more specific reductions. Logs:
+`/tmp/green-list-slots-before.log`, `/tmp/green-list-slots-after.log`, and
+`/tmp/raven-out-scope.log`.

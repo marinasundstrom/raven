@@ -7,9 +7,9 @@ internal class SyntaxList : GreenNode
 {
     public static readonly SyntaxList Empty = new([]);
 
-    private readonly GreenNode[] _items;
+    private readonly GreenNode?[] _items;
 
-    public SyntaxList(GreenNode[] items,
+    public SyntaxList(GreenNode?[] items,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
         : base(SyntaxKind.List, items is null ? 0 : items.Length, diagnostics, annotations)
@@ -21,7 +21,7 @@ internal class SyntaxList : GreenNode
 
     public override GreenNode? GetSlot(int index) => _items[index];
 
-    public GreenNode this[int index] => _items[index];
+    public GreenNode? this[int index] => _items[index];
 
     internal override GreenNode With(GreenNode?[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {

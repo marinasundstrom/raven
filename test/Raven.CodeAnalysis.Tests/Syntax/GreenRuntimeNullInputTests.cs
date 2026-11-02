@@ -8,6 +8,36 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public sealed class GreenRuntimeNullInputTests
 {
     [Fact]
+    public void GreenList_PreservesEmptySlotsAndSkipsThemDuringTraversal()
+    {
+        var token = new GreenSyntax.SyntaxToken(SyntaxKind.IdentifierToken, "name");
+        var list = new GreenSyntax.SyntaxList([null, token, null]);
+        Assert.Equal(3, list.SlotCount);
+        Assert.Null(list[0]);
+        Assert.Same(token, list[1]);
+        Assert.Null(list[2]);
+        Assert.Equal(4, list.Width);
+        Assert.Equal(4, list.FullWidth);
+        Assert.Same(token, Assert.Single(list.GetChildren()));
+        var updated = Assert.IsType<GreenSyntax.SyntaxList>(list.With([token, null]));
+        Assert.Equal(2, updated.SlotCount);
+        Assert.Null(updated[1]);
+        Assert.Same(token, Assert.Single(updated.GetChildren()));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void GreenList_AnnotatesNullableSlotsWithoutAllowingNullArray()
+    {
+        var context = new NullabilityInfoContext();
+        var items = context.Create(typeof(GreenSyntax.SyntaxList).GetConstructors().Single().GetParameters()[0]);
+        Assert.Equal(NullabilityState.NotNull, items.ReadState);
+        Assert.Equal(NullabilityState.Nullable, items.ElementType!.ReadState);
+        var indexer = context.Create(typeof(GreenSyntax.SyntaxList).GetProperty("Item")!);
+        Assert.Equal(NullabilityState.Nullable, indexer.ReadState);
+    }
+
+    [Fact]
     public void DefaultToken_HasNoGreenNodeAndBehavesAsEmpty()
     {
         var token = default(SyntaxToken);
