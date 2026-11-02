@@ -39,7 +39,7 @@ internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     }
     public virtual SyntaxList? VisitList(SyntaxList list)
     {
-        List<GreenNode>? rewritten = null;
+        List<GreenNode?>? rewritten = null;
         for (var i = 0; i < list.SlotCount; i++)
         {
             var item = list[i];
@@ -53,7 +53,7 @@ internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
             };
             if (rewritten is null && !ReferenceEquals(item, visited))
             {
-                rewritten = new List<GreenNode>(list.SlotCount);
+                rewritten = new List<GreenNode?>(list.SlotCount);
                 for (var previous = 0; previous < i; previous++)
                     rewritten.Add(list[previous]);
             }

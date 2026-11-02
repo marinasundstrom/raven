@@ -207,3 +207,8 @@ that invariant before casting the nullable general-slot result, in both sources.
 Green-list span calculation finds the first and last non-empty slot before
 trimming trivia. Lists with only empty slots have empty spans at their supplied
 position, matching their zero width.
+
+Typed node, token and separated lists require populated element slots; their
+accessors explicitly assert that invariant after indexing the general nullable
+green list. Green rewriter copy buffers permit null entries so existing empty
+slots can be retained when copying a prefix during a rewrite.

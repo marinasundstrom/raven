@@ -67,7 +67,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
             if (Green is null)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            var node = Green[index * 2];
+            var node = Green[index * 2]!;
             var parent = _parent;
             var position = _position + Green.GetChildStartPosition(index * 2);
 

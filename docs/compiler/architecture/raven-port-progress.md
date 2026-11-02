@@ -2244,3 +2244,18 @@ and Raven parser validation (zero errors). Modern .NET was tested. The mirrored
 Raven runtime remains uncommitted pending its dependency closure. The preceding
 PORT-069 full analysis is still running and does not include this span change.
 Logs: `/tmp/green-slot-spans-before.log`, `/tmp/green-slot-spans-after.log`.
+
+
+## PORT-071 — typed-list elements and green rewrite buffers
+
+Typed node/token/separated-list accessors now explicitly assert populated element
+slots after indexing a general green list. The green rewriter's copy buffer is
+`List<GreenNode?>`, matching its existing prefix-copy behavior for nullable slots.
+Both changes are mirrored in Raven and preserve runtime behavior. Existing list,
+slot, ownership and separated-list baselines passed **60 tests** across two runs.
+Post-change checks pass **60 tests**, targeted build, whitespace formatting and
+Raven parsing (zero errors). Validation is modern .NET only. A fresh full-source
+analysis is running in `/tmp/node-runtime-analysis-typed-list-slots.log`,
+including PORT-070 and this slice. The mirrored Raven runtime remains
+uncommitted until its dependency closure compiles. The previous PORT-069 analysis completed with
+**34 errors**; it did not include PORT-070's span correction.

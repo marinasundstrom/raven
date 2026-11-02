@@ -29,7 +29,7 @@ public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
     {
         get
         {
-            var childGreenNode = (InternalSyntax.SyntaxToken)Green[index];
+            var childGreenNode = (InternalSyntax.SyntaxToken)Green[index]!;
             var parent = _parent;
             var position = _position + Green.GetChildStartPosition(index);
 

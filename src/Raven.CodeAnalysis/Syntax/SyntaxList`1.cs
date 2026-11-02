@@ -86,7 +86,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         get
         {
             var greenList = GreenList;
-            var childGreenNode = greenList[index];
+            var childGreenNode = greenList[index]!;
             return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent,
                 _position + greenList.GetChildStartPosition(index));
         }

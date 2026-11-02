@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Clarify required typed-list elements and nullable green-rewriter copy buffers
+  in both compiler sources, preserving existing list access and rewrite behavior.
+
 - Compute green-list spans across empty boundary slots without throwing; lists
   containing only empty slots have empty spans in both compiler sources.
 
