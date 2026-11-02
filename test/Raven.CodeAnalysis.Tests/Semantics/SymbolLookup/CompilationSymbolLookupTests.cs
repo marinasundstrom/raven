@@ -13,6 +13,41 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    [Trait("Target", "Shared")]
+    public void CompilerPortAliases_PreserveSourceOwnershipInOverrideSignatures(
+        bool reverseTrees, bool fileScoped, bool sameName)
+    {
+        var alias = sameName ? "GreenNode" : "G";
+        var baseBody = "abstract class GreenNode { internal abstract func With(children: GreenNode?[]) -> GreenNode }";
+        var derivedBody = $"alias {alias} = Raven.CodeAnalysis.Syntax.GreenNode\n" +
+            $"class PortProbe : {alias} {{ internal override func With(children: {alias}?[]) -> {alias} => self }}";
+        string Namespace(string name, string body) => fileScoped
+            ? $"namespace {name}\n{body}"
+            : $"namespace {name} {{\n{body}\n}}";
+        var source = SyntaxTree.ParseText(Namespace("Raven.CodeAnalysis.Syntax", baseBody));
+        var consumer = SyntaxTree.ParseText(Namespace("Raven.CodeAnalysis.Syntax.InternalSyntax", derivedBody));
+        var references = TestMetadataReferences.Default.Append(
+            MetadataReference.CreateFromFile(typeof(Raven.CodeAnalysis.Syntax.GreenNode).Assembly.Location)).ToArray();
+        var compilation = Compilation.Create("PortSourceOwnership", reverseTrees ? [consumer, source] : [source, consumer],
+            references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var declaration = consumer.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(declaration));
+        Assert.Same(compilation.Assembly, method.ReturnType.ContainingAssembly);
+        var children = Assert.IsAssignableFrom<IArrayTypeSymbol>(method.Parameters[0].Type);
+        Assert.Same(compilation.Assembly, children.ElementType.GetNonNullableType().ContainingAssembly);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        Assert.True(method.IsOverride);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]

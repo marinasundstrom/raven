@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve source ownership of qualified non-generic aliases during ordinary
+  declaration setup as well as suppressed namespace lookup, preventing bootstrap
+  metadata types from leaking into Raven override signatures.
+
 - Align green-node slot and token-trivia nullable annotations with their existing
   null-as-empty behavior in both compiler sources. Preserve the green-list
   constructor's null-item-array rejection.

@@ -316,9 +316,9 @@ class BinderFactory
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            // Alias binders can be created while declaration completion is suppressed.
-            // Metadata found at that point is provisional: declare the exact indexed
-            // source candidate before retaining a bootstrap type in the alias target.
+            // Metadata found during declaration setup is provisional, even when
+            // namespace lookup completion is not explicitly suppressed. Resolve the
+            // exact indexed source candidate before retaining a bootstrap alias target.
             return ResolveIndexedSourceType(name)
                 ?? ResolveIndexedSourceType(Combine(current, name))
                 ?? ResolveMetadataTypeByName(name)
@@ -330,9 +330,6 @@ class BinderFactory
 
         INamedTypeSymbol? ResolveIndexedSourceType(string name)
         {
-            if (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
-                return null;
-
             var separator = name.LastIndexOf('.');
             var namespaceName = separator < 0 ? string.Empty : name[..separator];
             var typeName = name[(separator + 1)..];

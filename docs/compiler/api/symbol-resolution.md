@@ -38,6 +38,12 @@ member, especially as incremental snapshots start reusing declaration descriptor
 and recreating snapshot-owned source symbols. Use `SymbolEqualityComparer.Default`
 when comparing or storing `ISymbol` values.
 
+Qualified non-generic aliases prefer an exact indexed source declaration over a
+same-named bootstrap metadata type, including while source signatures are being
+declared. This applies both with and without suppressed namespace declaration
+completion. The alias target and its use in return/parameter types retain source
+assembly ownership independently of source-file order or namespace style.
+
 Nullable wrappers compare and hash by their underlying semantic type. An alias
 therefore preserves identity inside a nullable type, including array and generic
 signatures: `Original?[]` and `Alias?[]` denote the same type when `Alias` targets

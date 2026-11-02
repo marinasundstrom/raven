@@ -2014,3 +2014,42 @@ The strengthened null-input tests and existing symbol-lookup baseline pass
 **24 tests**. All **eight new source-ownership regressions fail** before the
 next alias fix, consistently finding bootstrap-owned types in derived signatures
 (`/tmp/source-port-alias-ownership-before.log`).
+
+
+## PORT-063 — source alias ownership during ordinary declaration setup
+
+The exact indexed-source lookup added in PORT-059 ran only when namespace
+completion was explicitly suppressed. During ordinary source declaration setup,
+metadata lookup can also return a provisional bootstrap type. Removing that
+narrow guard lets the existing exact-name declaration path select the source
+symbol before an alias retains metadata. Existing re-entry guards remain in
+charge; no public cache API or eager whole-compilation declaration pass is added.
+
+All eight new ownership regressions failed before the change. **39 focused
+symbol-lookup and nullable-alias tests pass** afterward, covering both source-file
+orders, block/file-scoped namespaces, matching/different alias names, source-owned
+return and nullable-array parameter types, and actual override matching.
+**648 adjacent namespace/import/alias/incremental tests pass**, excluding
+documentation-generation tests. The new 70-file semantic analysis uses
+`/tmp/raven-source-alias-seed` and writes
+`/tmp/node-runtime-analysis-source-alias.log` (results below). Validation ran on
+modern .NET; native neoCLR execution was not tested.
+This shared binder correction must be preserved when the binder itself is ported.
+
+The initial broad adjacent filter included `NamespaceDocumentationTests`, which
+can invoke documentation-site generation in temporary directories. That run was
+explicitly interrupted after this was detected; no pass is claimed for it. The
+replacement filter excludes `FullyQualifiedName~Documentation` and writes
+`/tmp/source-port-alias-ownership-adjacent-no-docs.log`. Keep that exclusion in
+future broad porting filters rather than assuming a namespace filter is docs-free.
+
+The refreshed analysis is terminal with **47 errors** across the same 70 Raven
+files. It contains **no RAV0307 override errors**, no RAV1504 assignment-type
+errors, and no scoped out-copy diagnostic. Source alias ownership is therefore
+materially improved in the real translation, not only the reduced fixture.
+Remaining failures include missing generated/runtime dependencies, nullable
+casts/annotations, method hiding, generic node conversion, and two newly exposed
+RAV0924 diagnostics for nullable `params IEnumerable<SyntaxTrivia>?` inputs.
+Nullable params-collection recognition needs stabilization; do not undo the
+correct null-input annotations to conceal that gap. The port still does not
+compile or execute as a complete syntax runtime.
