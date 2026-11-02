@@ -94,7 +94,16 @@ val Name: string { init; }
 ```
 
 Initialization includes inline initializers, constructors (`init(...)`),
-initializer blocks, and object initializers.
+initializer blocks, init accessors, and object initializers. Within an instance
+constructor, initializer block or init accessor, assignments through the implicit
+receiver, `self` or `base` may initialize properties declared on the current type
+or its base types. Assignment to another instance remains disallowed. Ordinary
+methods, nested lambdas and local functions do not acquire construction-time
+permission from an enclosing constructor.
+
+Assignments, compound updates and increment/decrement invoke an accessible init
+setter in these construction contexts, including computed setters with side
+effects. The same construction rule applies to imported .NET init properties.
 
 ## `field` and indexers
 

@@ -3697,17 +3697,13 @@ partial class BlockBinder
 
             var receiver = GetReceiver(left);
 
-            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext)
+            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext(propertySymbol, receiver))
             {
-                // IMPORTANT: reuse your *existing* “property has no setter / not writable” diagnostic path
-                // (same one you use when SetMethod is null), so you don’t need a new diagnostic.
-
-                // Example shape (adapt to your existing diag helpers):
                 _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {

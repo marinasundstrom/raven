@@ -18488,3 +18488,19 @@ existing annotated-reference projection and cast encoding; no carrier, metadata
 format or target policy is added. Native reference casts must preserve those
 outcomes with native metadata/codegen. Modern .NET execution is checked against
 an equivalent C# cast; native guest execution was not performed for this slice.
+
+## Shared init-property construction binding — 2026-11-02
+
+Native semantic intent is construction-time assignment through self/base, including
+inherited properties and calls from another init accessor. The shared binder now
+admits those contexts for ordinary assignment and updates while retaining receiver
+and callable restrictions. The .NET CLI path executes source init setter bodies
+and imported C# init setters with their existing accessor contracts. This correction
+introduces no additional temporary CLI encoding or target-specific language rule.
+
+Three neoCLR semantic cases using host references validate implicit/self writes and
+rejection of another instance. They exercise SemanticModel diagnostics, not a native
+core configuration, metadata emission or guest execution. Modern .NET runtime tests
+validate custom setter invocation and C# metadata interoperability. The native
+backend's init-accessor metadata/dispatch capability remains separately owned;
+these binding tests do not qualify that capability or remove its experimental gaps.

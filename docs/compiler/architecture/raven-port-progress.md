@@ -2843,3 +2843,42 @@ All authored sources parse with zero errors, but semantic compilation, emission
 and shared C# tests against this expanded Raven runtime remain unproven. Keep the
 pending Raven batch out of validated-slice commits until its closure works. Modern
 .NET host validation is not native guest execution. No RavenDoc/site generation.
+
+## PORT-088 — init-property construction contexts
+
+The 1,065-input source-owned runtime probe is terminal with **21 errors**. All
+seven errors from the preceding probe disappear: partial constructor admission,
+concrete class spelling, nullable token keys/casts and tree-reference identity now
+resolve. New Diagnostic/ParseOptions/SyntaxTree dependencies expose additional
+inference, construction, initialization and translation gaps; this is not a green
+Raven runtime build. Manifest/log are `/tmp/node-runtime-source-owner-closed-inputs.json`
+and `/tmp/node-runtime-source-owner-closed.log`.
+
+A separate source symbol probe passes: SyntaxReference.GetSyntax, SyntaxTree.GetRoot,
+SourceLocation.SourceTree and Diagnostic.Location all retain Raven assembly-owned
+return types. Red Missing and SyntaxReplacer are concrete/closed; green Missing is
+concrete/open. These are signature checks, not emission or parity-test evidence.
+
+Init-property assignment in ParseOptions constructors contradicts the existing
+language spec and C# construction semantics: BlockBinder allowed init setters only
+in object/with initializers. A **60-test feature baseline passes** but contains a
+stale test requiring the incorrect constructor diagnostic. Correct that expectation
+and retain ordinary-method rejection. After repairing two declaration separators
+in initial test fixtures, an immutable pre-fix compiler runs the final regression
+set: **10 failures / six rejecting controls pass**. This includes .NET/shared source
+cases and neoCLR semantic binding with host references.
+
+Binding now checks the innermost callable and receiver: instance constructors and
+init accessors can write current/base properties through implicit self, self or base.
+Initializer blocks use constructor ownership. Another instance, ordinary methods,
+lambdas and local functions remain rejected. Accessible init setters participate in
+assignment, compound updates, increments and pipeline property writes; computed
+setters keep their behavior. Shared target code owns this policy, with no duplicate
+init-assignment policy in the neoCLR target contracts. The binder is not yet ported;
+ParseOptions remains directly translated instead of changing its property contract.
+
+**All 76 focused/adjacent semantic tests pass**, including three explicitly neoCLR
+semantic cases. **All 43 adjacent property/runtime tests pass**, including three new
+.NET executions of custom init setter side effects and inherited C# metadata init
+properties. Targeted build passes. No native guest/core execution or RavenDoc/site
+generation is claimed. Remaining runtime gaps will be reduced independently.

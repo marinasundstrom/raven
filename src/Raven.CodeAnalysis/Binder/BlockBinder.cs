@@ -90,8 +90,27 @@ partial class BlockBinder : Binder
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
 
-    private bool IsInInitOnlyAssignmentContext =>
-        IsInObjectInitializer || IsInWithInitializer;
+    private bool IsInInitOnlyAssignmentContext(IPropertySymbol property, BoundExpression? receiver)
+    {
+        if (IsInObjectInitializer || IsInWithInitializer)
+            return true;
+
+        if (property.IsStatic ||
+            _containingSymbol is not IMethodSymbol { IsStatic: false } method ||
+            method.MethodKind is not (MethodKind.Constructor or MethodKind.InitOnly) ||
+            receiver is not (null or BoundSelfExpression or BoundBaseExpression))
+        {
+            return false;
+        }
+
+        for (var type = method.ContainingType; type is not null; type = type.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, property.ContainingType?.OriginalDefinition))
+                return true;
+        }
+
+        return false;
+    }
 
     protected override bool IsInUnsafeContext => _unsafeBlockDepth > 0 || base.IsInUnsafeContext;
 
@@ -3343,7 +3362,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, memberAccess.Receiver))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -3403,7 +3422,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver: null))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, propertyAccess, out backingField))
             {
@@ -7789,7 +7808,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7998,13 +8017,13 @@ partial class BlockBinder : Binder
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
-            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext)
+            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext(propertySymbol, receiver))
             {
                 _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -8134,7 +8153,7 @@ partial class BlockBinder : Binder
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -9913,7 +9932,7 @@ partial class BlockBinder : Binder
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering &&
-            !HasAccessibleOrdinarySetter(propertySymbol) &&
+            !HasAccessibleAssignmentSetter(propertySymbol, GetReceiver(target)) &&
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
@@ -13276,6 +13295,11 @@ partial class BlockBinder : Binder
 
     private bool HasAccessibleOrdinarySetter(IPropertySymbol property)
         => property.SetMethod is { MethodKind: MethodKind.PropertySet } setter && IsSymbolAccessible(setter);
+
+    private bool HasAccessibleAssignmentSetter(IPropertySymbol property, BoundExpression? receiver)
+        => property.SetMethod is { } setter && IsSymbolAccessible(setter) &&
+           (setter.MethodKind == MethodKind.PropertySet ||
+            setter.MethodKind == MethodKind.InitOnly && IsInInitOnlyAssignmentContext(property, receiver));
 
     private bool TryGetWritableAutoPropertyBackingField(
         IPropertySymbol propertySymbol,

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Honor init-property assignment on `self`/`base` during constructors, initializer
+  blocks and init accessors, including inherited and metadata properties. Invoke
+  init setters for assignment and updates while retaining construction-only writes.
+
 - Separate syntax-tree creation, navigation and diagnostics from parsing in the
   C# bootstrap to support the direct Raven runtime port, preserving existing APIs.
 

@@ -300,3 +300,19 @@ same rules. Modifier validation, override association and body binding remain ow
 by the full member binder. This is shared language binding before target-specific
 encoding; .NET remains the default. The corresponding Raven signature pass has
 not yet been ported and must preserve this contract when translated.
+
+### Init-only property assignment contexts
+
+Property assignment binding checks the receiver and the innermost callable.
+Constructors and init accessors may invoke accessible init setters on their
+implicit receiver, self or base, including inherited generic properties. Initializer
+blocks use the constructor context. Another instance, ordinary methods, lambdas
+and local functions retain read-only diagnostics. Init setters participate in
+ordinary assignment, compound updates and increments in the permitted context,
+so computed setters retain observable behavior rather than being replaced by
+backing-field writes. Imported CLI init setters follow the same binding rule.
+
+This policy is shared before .NET/neoCLR lowering. The binder has not yet been
+translated to Raven; its future translation must preserve this receiver-sensitive
+contract. The pending ParseOptions translation retains its direct init-property
+constructor assignments and benefits from the C# bootstrap correction.

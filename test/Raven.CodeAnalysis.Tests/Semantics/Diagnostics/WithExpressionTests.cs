@@ -116,7 +116,7 @@ class Person {
     }
 
     [Fact]
-    public void InitOnlyProperty_AssignedInConstructor_ReportsDiagnostic()
+    public void InitOnlyProperty_AssignedInConstructor_IsAllowed()
     {
         const string source = """
 class Person {
@@ -128,13 +128,7 @@ class Person {
 }
 """;
 
-        var verifier = CreateVerifier(
-            source,
-            [
-                new DiagnosticResult(CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly.Id)
-                    .WithAnySpan()
-                    .WithArguments("Name")
-            ]);
+        var verifier = CreateVerifier(source);
         verifier.Verify();
     }
 
