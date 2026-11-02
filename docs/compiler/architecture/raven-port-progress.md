@@ -2701,3 +2701,43 @@ whitespace formatting and diff checks pass. The C# correction is ready to commit
 the mirrored Raven nodes remain in the unfinished runtime source batch until
 its dependency closure compiles and executes. No native guest execution or
 RavenDoc/site generation was performed for this correction.
+
+## PORT-084 — preliminary property inheritance contracts
+
+The production syntax runtime exposes query-order-dependent property override
+failures across partial generic bases. Admitting the requested base signature,
+as method override lookup already does, is necessary but insufficient: the first
+broader run still reports one failing property case (**256 pass / one fail**).
+Tracing identifies preliminary accessors with false virtual/override flags before
+full binding later corrects them. Validation can retain a bogus RAV0307/RAV0331
+from that reentrant observation.
+
+Five direct preliminary-signature tests fail before correction while four
+query-order cases pass in that run. Preliminary accessors now preserve declared
+abstract/virtual/override/final flags, including implicit abstract interface
+properties. The SourceMethodSymbol constructor already normalizes abstract and
+override methods to virtual, so no method-specific normalization is added.
+Property candidate lookup also admits later partial source signatures. All **11
+focused tests pass**, including the existing two method override-order cases.
+Temporary trace instrumentation is removed. The signature pass itself is not yet
+translated; no Raven-only workaround or generated-property duplication is added.
+Control-flow syntax redesign remains deferred while the direct port stabilizes.
+
+Adjacent semantic/incremental validation reports **442 pass / one fail**. The
+failure is the same existing reversed-tree method override case seen before this
+slice (**181 pass / one fail** baseline), while the property regressions pass in
+the broader run. It remains a separate query-order investigation, not a clean
+baseline claim. Modern .NET host validation does not imply native execution.
+
+The 1,055-input analysis using the earlier admission-only compiler is terminal
+with **19 errors**: 12 property override failures, two implicit base-constructor
+failures in the new Missing partial declarations, two apparent abstract-type
+instantiations, token replacement overload/nullability and SyntaxReference source
+ownership. Its manifest is `/tmp/node-runtime-full-property-admission-inputs.json`;
+log `/tmp/node-runtime-full-property-admission.log`. This predates the accessor
+modifier correction and is not evidence of its full-runtime result.
+
+All **12 isolated adjacent runtime/accessor/override checks pass** on modern .NET.
+Targeted build, whitespace formatting and diff checks pass. No native guest
+execution or RavenDoc/site generation is performed. The unfinished Raven runtime
+source batch remains separate from this validated compiler correction.

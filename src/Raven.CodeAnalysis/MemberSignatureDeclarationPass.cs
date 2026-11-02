@@ -672,6 +672,12 @@ internal static class MemberSignatureDeclarationPass
         if (accessorDeclaration is null)
             return null;
 
+        var modifiers = propertyDeclaration.Modifiers;
+        var isAbstract = modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AbstractKeyword)
+            || containingType.TypeKind == TypeKind.Interface && propertyDeclaration.ExpressionBody is null
+                && propertyDeclaration.AccessorList is { } interfaceAccessors
+                && interfaceAccessors.Accessors.All(static accessor => accessor.Body is null && accessor.ExpressionBody is null);
+
         var methodSymbol = new SourceMethodSymbol(
             name,
             returnType,
@@ -682,6 +688,10 @@ internal static class MemberSignatureDeclarationPass
             [accessorDeclaration.GetLocation()],
             [accessorDeclaration.GetReference()],
             isStatic: propertySymbol.IsStatic,
+            isVirtual: modifiers.Any(static modifier => modifier.Kind == SyntaxKind.VirtualKeyword),
+            isOverride: modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword),
+            isSealed: modifiers.Any(static modifier => modifier.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword),
+            isAbstract: isAbstract,
             methodKind: methodKind,
             declaredAccessibility: accessibility);
 

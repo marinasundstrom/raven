@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve inheritance modifiers on preliminary property accessors and admit
+  later partial base signatures before override lookup, avoiding query-order
+  dependent rejection of valid property overrides.
+
 - Dispatch green missing-expression nodes to visitor defaults without recursively
   re-entering `Visit`, for generic and non-generic visitors.
 

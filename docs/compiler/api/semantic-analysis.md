@@ -284,3 +284,19 @@ conversion operations retain the written cast target. CLI emission already
 projects reference annotations to their underlying type, preserving null and
 object identity and throwing `InvalidCastException` for an incompatible runtime
 object. Nullable value, unboxing and user-defined conversion rules are unchanged.
+
+### Preliminary property override contracts
+
+Source property accessor signatures retain declared abstract, virtual, override
+and final modifiers before full property binding. Bodyless interface properties
+also expose abstract accessors at this stage. These facts must be available during
+reentrant binding; a later completion cannot undo an incorrect override diagnostic
+already produced by a derived declaration.
+
+Property override lookup admits the requested base member signature across partial
+declarations before enumerating candidates, retaining constructed generic base
+substitution. Cold `GetDeclaredSymbol` and diagnostics-first queries follow the
+same rules. Modifier validation, override association and body binding remain owned
+by the full member binder. This is shared language binding before target-specific
+encoding; .NET remains the default. The corresponding Raven signature pass has
+not yet been ported and must preserve this contract when translated.

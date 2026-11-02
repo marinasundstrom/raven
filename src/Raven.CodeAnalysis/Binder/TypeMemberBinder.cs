@@ -4220,7 +4220,8 @@ internal partial class TypeMemberBinder : Binder
     {
         for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
-            foreach (var property in baseType.GetMembers(name).OfType<IPropertySymbol>())
+            SemanticModel.TryEnsureSourceTypeMemberSignatureDeclared(baseType, name, out var lookupType);
+            foreach (var property in lookupType.GetMembers(name).OfType<IPropertySymbol>())
             {
                 if (property.IsIndexer != isIndexer)
                     continue;
