@@ -219,3 +219,11 @@ Typed node, token and separated lists require populated element slots; their
 accessors explicitly assert that invariant after indexing the general nullable
 green list. Green rewriter copy buffers permit null entries so existing empty
 slots can be retained when copying a prefix during a rewrite.
+
+### Missing-expression visitor dispatch
+
+A recovery expression's green node dispatches to `DefaultVisit` exactly once,
+matching its red counterpart. Both generic and non-generic visitors can inspect
+that leaf without redispatching through `Visit`; a generic default result is
+returned unchanged. Recovery-node child buffers retain the nullable green-slot
+contract, and an unattached red recovery node accepts a nullable parent.

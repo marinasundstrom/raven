@@ -2664,3 +2664,40 @@ baseline, rather than introducing a Raven-only workaround. The generated red
 MemberDeclaration already declares AttributeLists/Modifiers; remaining override
 errors therefore need a compiler/declaration-order investigation, not duplicate
 handwritten properties.
+
+## PORT-083 — missing-expression recovery dispatch
+
+The broad PORT-082 baseline is terminal: **7,350 passing test executions** include
+the C# compiler batches and **300 C# compiler-parity tests**. It stops while building
+Raven parity because the unfinished runtime project has **six compile errors**.
+This is not an all-green baseline. RavenDoc/site generation was excluded; ordinary
+compiler documentation sidecars were produced for fixture prerequisites.
+
+The expanded **1,053-input token-factory probe** is also terminal, with **19 errors**
+(down from 582). The factory primitives remain unfinished-runtime work rather
+than a claim that the whole Raven syntax runtime executes. Remaining errors are
+property override validation, Missing-expression dependencies, the rewriter's
+abstract status, nullable token replacement and SyntaxReference ownership.
+
+Two guarded C# tests reproduce recursive green Missing dispatch without allowing
+an uncatchable stack overflow. **47 adjacent checks pass / two new cases fail**
+before correction; **all 49 pass** afterwards. Both Accept overloads now use
+DefaultVisit, returning the generic default result. The corresponding red and
+green Missing nodes are translated in Raven with corrected behavior. C# annotations
+now reflect nullable parent/green-child storage. The authored corpus parses with
+zero errors; full Raven runtime emission is still unverified. No target policy,
+grammar or runtime encoding changes.
+
+Ordinary override-chain and source/bootstrap property probes pass in either file
+order. A larger signature-only inspection shows correctly virtual base getters,
+while some derived getters lose override flags after validation fails. The remaining
+property issue therefore needs further declaration/reentrancy reduction, not new
+virtual modifiers or duplicate generated properties. Inspection output is
+`/tmp/raven-property-signature-proof.log`.
+
+Final validation: **343 adjacent recovery, missing-node, incremental syntax-tree,
+rewriter and syntax-contract tests pass** on modern .NET. Targeted build,
+whitespace formatting and diff checks pass. The C# correction is ready to commit;
+the mirrored Raven nodes remain in the unfinished runtime source batch until
+its dependency closure compiles and executes. No native guest execution or
+RavenDoc/site generation was performed for this correction.

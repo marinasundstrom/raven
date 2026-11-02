@@ -11,7 +11,7 @@ public abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax
 
         internal Missing(
             InternalSyntax.ExpressionSyntax.Missing greenNode,
-            SyntaxNode parent = null,
+            SyntaxNode? parent = null,
             int position = 0)
             : base(greenNode, parent, position)
         {

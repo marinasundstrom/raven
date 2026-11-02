@@ -26,16 +26,16 @@ internal partial class ExpressionSyntax : ExpressionOrPatternSyntax
 
         internal override void Accept(SyntaxVisitor visitor)
         {
-            visitor.Visit(this);
+            visitor.DefaultVisit(this);
         }
 
         internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
         {
-            return visitor.Visit(this);
+            return visitor.DefaultVisit(this);
         }
 
         internal override Missing With(
-            GreenNode[] children,
+            GreenNode?[] children,
             DiagnosticInfo[]? diagnostics = null,
             SyntaxAnnotation[]? annotations = null)
             => new(

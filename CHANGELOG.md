@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Dispatch green missing-expression nodes to visitor defaults without recursively
+  re-entering `Visit`, for generic and non-generic visitors.
+
 - Resolve enclosing namespace types and relative namespace names from dotted
   namespace declarations, preserving lexical type/import precedence before global
   fallback. This also restores ordinary access to enclosing framework namespaces.
