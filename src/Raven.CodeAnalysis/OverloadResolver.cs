@@ -2096,6 +2096,33 @@ internal sealed class OverloadResolver
                     continue;
             }
 
+            // A lambda can target several delegates with identical input types.
+            // Compare their result conversions rather than the provisional delegate
+            // assigned while binding an earlier overload candidate.
+            if (arguments[i].Expression is BoundFunctionExpression { Symbol: not ILambdaSymbol { IsAsync: true } } &&
+                GetLambdaTargetInvoke(candParamType) is { } candidateInvoke &&
+                GetLambdaTargetInvoke(currentParamType) is { } currentInvoke &&
+                HaveEquivalentParameterTypes(candidateInvoke.Parameters, currentInvoke.Parameters, SymbolEqualityComparer.IgnoringNullability))
+            {
+                var candidateReturnsUnit = candidateInvoke.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+                var currentReturnsUnit = currentInvoke.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+                if (candidateReturnsUnit != currentReturnsUnit)
+                {
+                    if (candidateReturnsUnit)
+                        return false;
+                    better = true;
+                    continue;
+                }
+
+                var candidateReturnToCurrent = IsImplicitConversion(compilation, candidateInvoke.ReturnType, currentInvoke.ReturnType);
+                var currentReturnToCandidate = IsImplicitConversion(compilation, currentInvoke.ReturnType, candidateInvoke.ReturnType);
+                if (candidateReturnToCurrent && !currentReturnToCandidate)
+                    better = true;
+                else if (!candidateReturnToCurrent && currentReturnToCandidate)
+                    return false;
+                continue;
+            }
+
             var candidateIsSpanConversion = IsImplicitSpanConversion(compilation, argType, candParamType);
             var currentIsSpanConversion = IsImplicitSpanConversion(compilation, argType, currentParamType);
             if (candidateIsSpanConversion != currentIsSpanConversion)
@@ -2210,6 +2237,14 @@ internal sealed class OverloadResolver
         }
 
         return better;
+    }
+
+    private static IMethodSymbol? GetLambdaTargetInvoke(ITypeSymbol type)
+    {
+        type = type.GetNonNullableType();
+        if (TryGetExpressionTreeDelegateType(type, out var expressionDelegate))
+            return expressionDelegate.GetDelegateInvokeMethod();
+        return (type as INamedTypeSymbol)?.GetDelegateInvokeMethod();
     }
 
     private static bool HaveEquivalentParameterTypes(

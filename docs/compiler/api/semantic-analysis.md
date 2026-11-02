@@ -228,3 +228,17 @@ that context before using targetless argument pre-inference state; type and
 operation queries must agree with diagnostics-first binding. Suppression changes
 the reference's static type without adding a runtime null check. This is shared
 language behavior; CLI execution tests validate the .NET implementation.
+
+### Callable overload result comparison
+
+Synchronous lambda overload ranking compares result conversions when candidate
+callable input signatures agree. A provisional delegate attached during earlier
+candidate binding does not act as the lambda's natural type for this comparison.
+The shared path handles .NET delegates, expression-tree delegates, and neoCLR
+structural callables; async-specific ranking remains separate.
+
+Argument binding infers each generic overload's callback inputs from ordinary
+arguments before binding the callback body, reusing each argument's natural
+binding within the pre-inference pass. A type-qualified static extension call
+has no implicit receiver argument. These choices belong to compiler binding, so
+semantic-model queries and one-shot compilation use the same selected signature.

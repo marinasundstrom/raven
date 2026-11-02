@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Compare synchronous lambda result conversions when selecting callable
+  overloads, fixing numeric LINQ selector choices. Infer callback inputs from
+  ordinary arguments per overload, including static extension-method calls.
+
 - Align default-token and green trivia-list nullability annotations with runtime
   behavior in both compiler sources; retain checked non-null trivia slots and
   compute trivia-list width once during construction.

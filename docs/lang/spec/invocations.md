@@ -32,6 +32,24 @@ example, `numbers.Zip(words, (number, word) => word.Length + number)` infers the
 second parameter from `words`, even though `Zip` also offers overloads without a
 result selector.
 
+## Lambda result conversions
+
+For synchronous lambda arguments, applicable callable targets with the same input
+parameter signature are compared by their result conversions. For example, an
+integer-valued selector prefers `Func<T, int>` over `Func<T, long>` or
+`Func<T, decimal>`. A provisional delegate chosen while binding another candidate
+does not determine the winner. Unrelated result targets such as `double` and
+`decimal` remain ambiguous when neither is better. When both a value-returning
+and a unit-returning callback are applicable, the value-returning target is
+preferred. Unrelated nominal delegate types with identical signatures remain
+ambiguous. The same rule applies to
+neoCLR structural callable signatures.
+
+Generic callback input types can be inferred separately for each overload from
+ordinary arguments. A static call to an extension method supplies its first
+parameter explicitly: `Enumerable.Sum(items, item => item.Width)` and
+`items.Sum(item => item.Width)` retain the same selector semantics.
+
 ## Optional arguments
 
 When the target has optional parameters, omitted trailing arguments are filled

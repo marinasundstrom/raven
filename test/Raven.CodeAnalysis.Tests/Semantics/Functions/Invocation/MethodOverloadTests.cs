@@ -13,6 +13,34 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("int", SpecialType.System_Int32, false)]
+    [InlineData("int", SpecialType.System_Int32, true)]
+    [InlineData("long", SpecialType.System_Int64, false)]
+    [InlineData("float", SpecialType.System_Single, false)]
+    [InlineData("double", SpecialType.System_Double, false)]
+    [InlineData("decimal", SpecialType.System_Decimal, false)]
+    [Trait("Target", "DotNet")]
+    public void NumericSelector_SelectsMatchingSumOverload(string typeName, SpecialType expected, bool staticCall)
+    {
+        var call = staticCall ? "Enumerable.Sum(items, item => item.Width)" : "items.Sum(item => item.Width)";
+        var source = $$"""
+            import System.Linq.*
+            class Item {
+                val Width: {{typeName}} => 3
+            }
+            class Probe {
+                static func Sum(items: Item[]) -> {{typeName}} => {{call}}
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        Assert.Equal(expected, method.ReturnType.SpecialType);
+    }
+
+    [Theory]
     [InlineData("IEnumerable<KeyValuePair<K, V>>", "IEqualityComparer<K>")]
     [InlineData("string", "string")]
     public void MethodGroups_DoNotMatchUnrelatedConstructorParameters(string first, string second)

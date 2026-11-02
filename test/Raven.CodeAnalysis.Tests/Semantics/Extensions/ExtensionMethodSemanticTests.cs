@@ -1503,7 +1503,7 @@ namespace Sample.Extensions {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.Equal(CompilerDiagnostics.CallIsAmbiguous.Id, Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)).Id);
 
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot()
@@ -1515,7 +1515,7 @@ namespace Sample.Extensions {
         var lambda = Assert.IsAssignableFrom<FunctionExpressionSyntax>(argument.Expression);
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
 
-        Assert.NotEmpty(boundLambda.CandidateDelegates);
+        Assert.Contains(boundLambda.CandidateDelegates, candidate => candidate.Name == "Predicate");
         Assert.Contains(
             boundLambda.CandidateDelegates,
             candidate => candidate.Name == "Func" &&
@@ -1559,19 +1559,15 @@ let result = number.Apply(value => value > 0)
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.DoesNotContain(
-            diagnostics,
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+        Assert.Equal(CompilerDiagnostics.CallIsAmbiguous.Id,
+            Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)).Id);
 
         var counters = instrumentation.LambdaReplay;
         Assert.True(counters.ReplayAttempts >= 2);
         Assert.True(counters.ReplaySuccesses >= 2);
-        Assert.True(counters.ReplayFailures >= 0);
-        Assert.True(counters.CacheHits >= 0);
         Assert.True(counters.CacheMisses >= 2);
         Assert.True(counters.BindingInvocations >= 2);
         Assert.True(counters.BindingSuccesses >= 2);
-        Assert.True(counters.BindingFailures >= 0);
     }
 
     [Fact]

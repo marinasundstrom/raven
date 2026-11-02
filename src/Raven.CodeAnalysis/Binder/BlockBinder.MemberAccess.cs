@@ -531,6 +531,11 @@ partial class BlockBinder
         // substitution map. Those substitutions are then applied to every target type before use,
         // so that lambdas see concrete types (int -> bool) instead of open generics (T -> bool).
 
+        // A type qualifier names a static container; it is not an implicit
+        // first argument when an extension method is called in static form.
+        if (receiver is BoundTypeExpression)
+            receiver = null;
+
         hasErrors = false;
 
         // Pre-inference pass: infer type parameters from non-lambda arguments.
@@ -765,7 +770,7 @@ partial class BlockBinder
                 // For extension methods, the receiver occupies parameter 0.
                 // For non-extension pipe methods (pipeReceiverType != null), the pipe source
                 // also occupies parameter 0, so explicit argument i maps to parameter i+1.
-                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                var parameterIndex = ((method.IsExtensionMethod && invocationReceiver is not null) || pipeReceiverType is not null)
                     ? argumentIndex + 1
                     : argumentIndex;
 
@@ -806,7 +811,7 @@ partial class BlockBinder
                 return false;
             }
 
-            var firstVisibleParameter = method.IsExtensionMethod || pipeSourceType is not null ? 1 : 0;
+            var firstVisibleParameter = (method.IsExtensionMethod && receiver is not null) || pipeSourceType is not null ? 1 : 0;
             var fixedVisibleParameterCount = Math.Max(0, method.Parameters.Length - firstVisibleParameter - 1);
             return argumentCount > fixedVisibleParameterCount + 1;
         }
@@ -847,7 +852,7 @@ partial class BlockBinder
                 if (method is null)
                     continue;
 
-                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                var parameterIndex = ((method.IsExtensionMethod && invocationReceiver is not null) || pipeReceiverType is not null)
                     ? argumentIndex + 1
                     : argumentIndex;
 
@@ -937,7 +942,7 @@ partial class BlockBinder
                 }
                 else
                 {
-                    parameterIndex = (method.IsExtensionMethod || pipeSourceType is not null)
+                    parameterIndex = ((method.IsExtensionMethod && invocationReceiver is not null) || pipeSourceType is not null)
                         ? argumentIndex + 1
                         : argumentIndex;
                 }
@@ -1353,83 +1358,94 @@ partial class BlockBinder
             }
         }
 
-        // Only pre-infer when there is a single candidate with type parameters.
-        // With multiple overloads the "natural" types may not pick the right one.
-        if (methods.IsDefaultOrEmpty || methods.Length != 1)
-            return substitutions;
-
-        var method = methods[0];
-        if (method.TypeParameters.IsDefaultOrEmpty)
-            return substitutions;
-
-        // Seed from the implicit first argument (pipe source or extension receiver).
-        if (pipeReceiverType is not null && !method.Parameters.IsDefaultOrEmpty)
+        if (methods.IsDefaultOrEmpty ||
+            (methods.Length > 1 && !arguments.Any(argument => argument.Expression is FunctionExpressionSyntax)))
         {
-            TryUnifyExtensionReceiverType(method.Parameters[0].Type, pipeReceiverType, substitutions);
-        }
-        else if (method.IsExtensionMethod && receiver is not null && !method.Parameters.IsDefaultOrEmpty)
-        {
-            var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
-            if (extensionReceiverType is not null &&
-                extensionReceiverType.TypeKind != TypeKind.Error &&
-                receiver.Type is not null &&
-                receiver.Type.TypeKind != TypeKind.Error)
-            {
-                TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions);
-            }
+            return substitutions;
         }
 
-        for (int i = 0; i < arguments.Count; i++)
+        // Each overload owns distinct method type parameters. Infer its callback
+        // inputs from ordinary arguments without choosing an overload yet.
+        var naturalArguments = new Dictionary<ExpressionSyntax, BoundExpression>();
+        foreach (var method in methods)
         {
-            var arg = arguments[i];
-
-            // Lambdas consume inferred types; output discards have no input type.
-            if (arg.Expression is FunctionExpressionSyntax ||
-                (arg.RefKindKeyword.Kind == SyntaxKind.OutKeyword && arg.Expression is DiscardExpressionSyntax))
+            if (method.TypeParameters.IsDefaultOrEmpty)
                 continue;
 
-            int parameterIndex;
-            if (arg.NameColon is not null)
+            // Seed from the implicit first argument (pipe source or extension receiver).
+            if (pipeReceiverType is not null && !method.Parameters.IsDefaultOrEmpty)
             {
-                var argName = arg.NameColon.Name.Identifier.ValueText;
-                var param = method.Parameters.FirstOrDefault(p =>
-                    string.Equals(p.Name, argName, StringComparison.OrdinalIgnoreCase));
-                if (param is null) continue;
-                parameterIndex = method.Parameters.IndexOf(param);
+                TryUnifyExtensionReceiverType(method.Parameters[0].Type, pipeReceiverType, substitutions);
             }
-            else
+            else if (method.IsExtensionMethod && receiver is not null && !method.Parameters.IsDefaultOrEmpty)
             {
-                parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null) ? i + 1 : i;
-            }
-
-            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
-                continue;
-
-            var parameter = method.Parameters[parameterIndex];
-            var parameterType = parameter.Type;
-
-            // Only bother if this parameter type involves type parameters.
-            if (!ContainsAnyTypeParameter(parameterType, method.TypeParameters))
-                continue;
-
-            // Bind the argument without any target type to get its natural type.
-            var naturalBound = BindExpression(arg.Expression);
-            if (naturalBound.Type is null || naturalBound.Type.TypeKind == TypeKind.Error)
-                continue;
-
-            var argumentType = naturalBound.Type;
-            if (parameter.RefKind.IsByRef)
-            {
-                parameterType = parameter.GetByRefElementType();
-                argumentType = argumentType switch
+                var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
+                if (extensionReceiverType is not null &&
+                    extensionReceiverType.TypeKind != TypeKind.Error &&
+                    receiver.Type is not null &&
+                    receiver.Type.TypeKind != TypeKind.Error)
                 {
-                    IAddressTypeSymbol addressType => addressType.ReferencedType,
-                    RefTypeSymbol refType => refType.ElementType,
-                    _ => argumentType,
-                };
+                    TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions);
+                }
             }
 
-            TryUnifyExtensionReceiverType(parameterType, argumentType, substitutions);
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                var arg = arguments[i];
+
+                // Lambdas consume inferred types; output discards have no input type.
+                if (arg.Expression is FunctionExpressionSyntax ||
+                    (arg.RefKindKeyword.Kind == SyntaxKind.OutKeyword && arg.Expression is DiscardExpressionSyntax))
+                    continue;
+
+                int parameterIndex;
+                if (arg.NameColon is not null)
+                {
+                    var argName = arg.NameColon.Name.Identifier.ValueText;
+                    var param = method.Parameters.FirstOrDefault(p =>
+                        string.Equals(p.Name, argName, StringComparison.OrdinalIgnoreCase));
+                    if (param is null) continue;
+                    parameterIndex = method.Parameters.IndexOf(param);
+                }
+                else
+                {
+                    parameterIndex = ((method.IsExtensionMethod && receiver is not null) || pipeReceiverType is not null) ? i + 1 : i;
+                }
+
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    continue;
+
+                var parameter = method.Parameters[parameterIndex];
+                var parameterType = parameter.Type;
+
+                // Only bother if this parameter type involves type parameters.
+                if (!ContainsAnyTypeParameter(parameterType, method.TypeParameters))
+                    continue;
+
+                // Bind the argument without any target type to get its natural type.
+                if (!naturalArguments.TryGetValue(arg.Expression, out var naturalBound))
+                {
+                    naturalBound = BindExpression(arg.Expression);
+                    naturalArguments.Add(arg.Expression, naturalBound);
+                }
+                if (naturalBound.Type is null || naturalBound.Type.TypeKind == TypeKind.Error)
+                    continue;
+
+                var argumentType = naturalBound.Type;
+                if (parameter.RefKind.IsByRef)
+                {
+                    parameterType = parameter.GetByRefElementType();
+                    argumentType = argumentType switch
+                    {
+                        IAddressTypeSymbol addressType => addressType.ReferencedType,
+                        RefTypeSymbol refType => refType.ElementType,
+                        _ => argumentType,
+                    };
+                }
+
+                TryUnifyExtensionReceiverType(parameterType, argumentType, substitutions);
+            }
+
         }
 
         return substitutions;
@@ -1501,7 +1517,7 @@ partial class BlockBinder
             if (method is null)
                 continue;
 
-            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+            var parameterIndex = ((method.IsExtensionMethod && receiver is not null) || pipeReceiverType is not null)
                 ? argumentIndex + 1
                 : argumentIndex;
 
@@ -1540,7 +1556,7 @@ partial class BlockBinder
             if (method is null)
                 continue;
 
-            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+            var parameterIndex = ((method.IsExtensionMethod && receiver is not null) || pipeReceiverType is not null)
                 ? argumentIndex + 1
                 : argumentIndex;
 
@@ -1575,7 +1591,7 @@ partial class BlockBinder
             if (method is null || method.TypeParameters.IsDefaultOrEmpty)
                 continue;
 
-            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+            var parameterIndex = ((method.IsExtensionMethod && receiver is not null) || pipeReceiverType is not null)
                 ? argumentIndex + 1
                 : argumentIndex;
 

@@ -2145,3 +2145,48 @@ The mirrored runtime files remain uncommitted until the runtime dependency slice
 compiles. Validation is modern .NET only. Logs:
 `/tmp/runtime-null-contract-before.log`, `/tmp/runtime-null-contract-after.log`,
 and `/tmp/node-runtime-analysis-null-contract.log`.
+
+
+## PORT-067 — numeric selector overloads and static extension calls
+
+The direct `SyntaxTriviaList.CalculateFullWidth` translation exposed selection of
+LINQ's decimal Sum overload for an int-valued selector. A reduced probe reproduced
+it independently of the runtime sources. Overload ranking now compares callable
+result conversions for synchronous lambdas whose candidate input signatures
+agree, rather than treating an earlier candidate's provisional delegate as the
+argument's natural type. The same helper covers nominal and structural callables.
+
+The static form exposed an adjacent gap: type qualifiers were treated as implicit
+extension receivers, and callback pre-inference stopped with multiple generic
+candidates. Type qualifiers now contribute no implicit argument; ordinary
+arguments infer each candidate's own type parameters, with natural bindings reused
+within the pass. No Raven-port source workaround was introduced. The binder and
+overload resolver remain C# and must preserve this behavior in their future port.
+
+The initial overload baseline passed **71 tests**. Four of six new Sum cases
+failed before the fix. **26 focused tests pass** now, covering int/long/float/
+double/decimal results, static and extension calls, execution on .NET, declaration
+order, value versus unit results, and ambiguity between unrelated numeric callback results. NeoCLR checks
+exercise semantic binding of structural callables only, matching the existing
+fixture; they do not validate its CLI profile or execute a native runtime.
+Adjacent overload/pipe tests and a fresh 70-file analysis are running. Logs:
+`/tmp/sum-selector-before.log`, `/tmp/sum-selector-final-focused.log`,
+`/tmp/sum-selector-adjacent.log`, and `/tmp/node-runtime-analysis-sum-selector.log`.
+
+The first adjacent run found three failures (527 passed). One exposed a lost
+value-over-unit callback preference, now corrected and covered for both semantic
+targets. Two stale tests expected `Predicate<int>` versus `Func<int, bool>` to
+resolve without ambiguity; a reduced C# build reports CS0121 for that same call.
+Those tests now require RAV0121 while retaining delegate-target and replay checks;
+tautological non-negative counters were removed. See
+`/tmp/callback-ambiguity-csharp.log`. The refined pre-inference path only expands
+to multiple candidates when a lambda is present. **26 focused tests pass** in
+`/tmp/sum-selector-verified-focused.log`; final adjacent and full-port validation
+are running in `/tmp/sum-selector-adjacent-final.log` and
+`/tmp/node-runtime-analysis-sum-selector-final.log`.
+
+Final validation passed **534 adjacent overload, callback, and pipe tests**. The
+final 70-file analysis reports **30 errors**, with the Sum selector conversion
+error resolved. Remaining failures belong to nullable runtime consumers and
+other existing translation/dependency gaps. Targeted builds and whitespace
+formatting completed. No documentation-site generation was run.

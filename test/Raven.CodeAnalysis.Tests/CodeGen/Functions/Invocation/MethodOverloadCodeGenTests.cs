@@ -10,6 +10,29 @@ namespace Raven.CodeAnalysis.Tests;
 public class MethodOverloadCodeGenTests
 {
     [Fact]
+    [Trait("Target", "DotNet")]
+    public void NumericSumSelectors_ExecuteWithIntegerResults()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import System.Linq.*
+            class Item { val Width: int => 3 }
+            class Runner {
+                static func Run() -> int {
+                    let items = [Item(), Item()]
+                    return items.Sum(item => item.Width) + Enumerable.Sum(items, item => item.Width)
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NumericSumSelectors", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(12, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
     public void UnqualifiedOverrideCall_EmitsDerivedDispatchAndInheritedOverload()
     {
         const string code = """
