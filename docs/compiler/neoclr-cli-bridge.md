@@ -18540,3 +18540,10 @@ owns the equivalent hierarchy facts; no new native codegen capability is claimed
 An explicit neoCLR semantic case with host references validates typed coalescing,
 while modern .NET execution checks selected value identity and fallback laziness.
 These are not native-core or guest execution checks.
+
+Array operands now contribute their existing base/interface contracts to this
+shared search. Two additional neoCLR semantic cases with host references check
+array/enumerable coalescing in both orders. Array interface facts still belong to
+the selected target's symbol providers; this does not synthesize CLI collection
+contracts for a native array or establish native execution support. No encoding
+or native metadata/codegen capability changes in this correction.

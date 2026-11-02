@@ -3251,3 +3251,41 @@ library documentation sidecars are emitted by the builds; RavenDoc/site generati
 is not run. The final comparer repro set has **four failures / one passing control**,
 including a direct imported-interface nullability assertion. No metadata-loader
 correction has been committed yet.
+
+## PORT-098 — array contracts in common-type inference
+
+The pending SyntaxTree translation coalesces IEnumerable<DiagnosticInfo>? with
+Array.Empty<DiagnosticInfo>(). The previous conservative common-type search kept
+array operands but rejected nominal inference whenever any operand was not a named
+type. That lost arrays' existing base/interface contracts and inferred object.
+
+The shared normalization now consults ITypeSymbol contracts for every operand,
+starting non-named operands at their nominal base. No operand is discarded, and
+unique-interface selection and class/object fallbacks remain in place. Target
+array providers still own the applicable interface facts. The normalization has
+not yet been ported to Raven; this bootstrap correction enables the direct Raven
+source without introducing a workaround there. No syntax, TextMate grammar,
+language-server-specific path or generated model changes are required.
+
+The pre-change focused baseline passes 34 tests. Six new cases fail before the
+fix: both coalescing orders under cold/warm .NET semantic queries and two neoCLR
+semantic cases with host references. After the correction, 63 focused semantic
+tests and five separately run .NET execution tests pass. The execution cases
+verify reference identity, generic values and fallback short-circuiting. These
+are modern .NET tests, not native neoCLR guest execution.
+
+The broader pre-change baseline after PORT-097 stops in
+AttributedCustomUnionTests.TypedCaseCarrierLoadsAsUnionWithoutBoxedValue on a
+documentation-link assertion (Choice/index.html versus Choice/method__ctor.html).
+This remains a separate recorded failure; no full baseline success is claimed.
+The nullable-comparer metadata regressions and unfinished runtime files remain
+outside this slice.
+
+The 439-test overload-resolution suite and 189-test union suite also pass.
+Whitespace formatting and diff checks pass. Full runtime analysis is running
+against an immutable updated compiler seed with all 1,065 input hashes verified
+against the previous run; its result is recorded separately when terminal.
+
+A reduced enum/property-name repro in /tmp/parse-options-enum-probe.rvn also
+reproduces both ParseOptions errors with the enum declaration present. This is
+independent of the array correction and remains the next focused binding gap.

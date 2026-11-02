@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Include arrays' base and interface contracts in common-type inference.
+  Coalescing an `IEnumerable<T>?` with a `T[]` fallback now preserves the
+  generic enumerable contract, in either operand order.
+
 - Reconcile nullable `JsonSerializer.Deserialize<T>` results explicitly in
   Raven.Core's Optional and Result converters while preserving default/null
   payloads and existing case selection.

@@ -7,18 +7,21 @@ namespace Raven.CodeAnalysis.Tests;
 [Trait("Target", "DotNet")]
 public sealed class CommonInterfaceInferenceExecutionTests
 {
-    [Fact]
-    public void Coalescing_PreservesGenericValuesAndShortCircuitsFallback()
+    [Theory]
+    [InlineData("IReadOnlyList<int>", "IEnumerable<int>")]
+    [InlineData("int[]", "IEnumerable<int>")]
+    [InlineData("IEnumerable<int>", "int[]")]
+    public void Coalescing_PreservesGenericValuesAndShortCircuitsFallback(string leftType, string fallbackType)
     {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText($$"""
             import System.Collections.Generic.*
             class Probe {
                 var Calls: int
-                func Fallback() -> IEnumerable<int> {
+                func Fallback() -> {{fallbackType}} {
                     Calls++
                     return [7, 8]
                 }
-                func Pick(left: IReadOnlyList<int>?) -> IEnumerable<int> => left ?? Fallback()
+                func Pick(left: {{leftType}}?) -> IEnumerable<int> => left ?? Fallback()
                 func Choose(flag: bool, left: IList<int>, right: IReadOnlyList<int>) -> IEnumerable<int> {
                     let result = if flag { left } else { right }
                     return result

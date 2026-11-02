@@ -78,17 +78,15 @@ internal static class TypeSymbolNormalization
                 ? nullable.UnderlyingType
                 : type)
             .ToArray();
-        // Never infer from a subset: wrappers and structural operands still
-        // constrain the result even when this nominal search cannot model them.
-        if (candidates.Length == 0 || candidates.Any(static type => type is not INamedTypeSymbol))
+        // Keep every operand, including arrays, and consult its semantic contracts.
+        if (candidates.Length == 0)
             return null;
-        var namedTypes = candidates.Cast<INamedTypeSymbol>().ToArray();
 
-        INamedTypeSymbol? candidate = namedTypes[0];
+        INamedTypeSymbol? candidate = candidates[0] as INamedTypeSymbol ?? candidates[0].BaseType;
         INamedTypeSymbol? objectType = null;
         while (candidate is not null)
         {
-            if (namedTypes.All(t => SharesAncestor(t, candidate)))
+            if (candidates.All(t => SharesAncestor(t, candidate)))
             {
                 if (candidate.SpecialType == SpecialType.System_Object)
                     objectType = candidate;
@@ -98,8 +96,8 @@ internal static class TypeSymbolNormalization
             candidate = candidate.BaseType;
         }
 
-        var commonInterfaces = namedTypes[0].AllInterfaces
-            .Where(iface => namedTypes.All(type => SharesAncestor(type, iface)))
+        var commonInterfaces = candidates[0].AllInterfaces
+            .Where(iface => candidates.All(type => SharesAncestor(type, iface)))
             .ToArray();
         INamedTypeSymbol? commonInterface = null;
         foreach (var candidateInterface in commonInterfaces)
@@ -118,9 +116,9 @@ internal static class TypeSymbolNormalization
 
         return commonInterface ?? objectType;
 
-        static bool SharesAncestor(INamedTypeSymbol type, INamedTypeSymbol ancestor)
+        static bool SharesAncestor(ITypeSymbol type, INamedTypeSymbol ancestor)
         {
-            for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+            for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
                 if (SymbolEqualityComparer.Default.Equals(current, ancestor))
                     return true;
             foreach (var iface in type.AllInterfaces)

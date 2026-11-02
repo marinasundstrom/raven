@@ -14,6 +14,10 @@ public sealed class CommonInterfaceInferenceTests
     [InlineData("List<int>", "IEnumerable<int>", true)]
     [InlineData("IReadOnlyCollection<int>", "IEnumerable<int>", false)]
     [InlineData("IReadOnlyCollection<int>", "IEnumerable<int>", true)]
+    [InlineData("int[]", "IEnumerable<int>", false)]
+    [InlineData("int[]", "IEnumerable<int>", true)]
+    [InlineData("IEnumerable<int>", "int[]", false)]
+    [InlineData("IEnumerable<int>", "int[]", true)]
     public void Coalescing_PreservesMostSpecificCommonInterface(string left, string right, bool diagnosticsFirst)
     {
         var tree = SyntaxTree.ParseText($$"""
@@ -114,12 +118,15 @@ public sealed class CommonInterfaceInferenceTests
 [Trait("Target", "NeoCLR")]
 public sealed class NeoClrCommonInterfaceInferenceTests
 {
-    [Fact]
-    public void NeoClrSemanticInferenceWithHostReferences_PreservesGenericInterface()
+    [Theory]
+    [InlineData("IReadOnlyList<int>", "IEnumerable<int>")]
+    [InlineData("int[]", "IEnumerable<int>")]
+    [InlineData("IEnumerable<int>", "int[]")]
+    public void NeoClrSemanticInferenceWithHostReferences_PreservesGenericInterface(string left, string right)
     {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText($$"""
             import System.Collections.Generic.*
-            func Pick(left: IReadOnlyList<int>?, right: IEnumerable<int>) -> IEnumerable<int> {
+            func Pick(left: {{left}}?, right: {{right}}) -> IEnumerable<int> {
                 let result = left ?? right
                 return result
             }

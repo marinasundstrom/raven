@@ -335,7 +335,11 @@ mutable declaration states continue through their existing refresh path.
 
 Nominal inference includes an interface operand itself when testing shared
 contracts, retains a unique most-specific common interface and preserves generic
-arguments. Incomparable surviving interfaces use the class/object fallback.
+arguments. Arrays participate through their semantic base type and implemented
+interfaces, so `IEnumerable<T>? ?? T[]` retains `IEnumerable<T>` rather than
+falling back to `object`. Every operand constrains inference; an array is never
+silently removed from the comparison. Incomparable surviving interfaces use the
+class/object fallback.
 Reference `if` branches consult the same nominal inference when ordinary operand
 conversion does not determine a more specific result. Existing valid interface
 operand conversions retain their inferred type, including variance conversions.
