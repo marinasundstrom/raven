@@ -58,7 +58,7 @@ internal sealed class ConditionalDirectiveTriviaSyntax : SyntaxNode
         SyntaxAnnotation[]? annotations = null)
         => new ConditionalDirectiveTriviaSyntax(
             Kind,
-            (SyntaxToken)children[0],
+            (SyntaxToken)children[0]!,
             DirectiveKind,
             ConditionText,
             IsBranchActive,

@@ -31,7 +31,7 @@ internal partial class SkippedTokensTrivia : SyntaxNode
         DiagnosticInfo[]? diagnostics = null,
         SyntaxAnnotation[]? annotations = null)
         => new(
-            (SyntaxList)children[0],
+            (SyntaxList)children[0]!,
             diagnostics ?? _diagnostics,
             annotations ?? _annotations);
 }

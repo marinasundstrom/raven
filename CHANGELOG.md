@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Make required structured-trivia child-slot assumptions explicit in the C# and
+  Raven sources, preserving existing directive and skipped-token behavior.
+
 - Align green syntax-list child annotations with existing nullable-slot behavior
   in both compiler sources, preserving required arrays and empty-slot traversal.
 

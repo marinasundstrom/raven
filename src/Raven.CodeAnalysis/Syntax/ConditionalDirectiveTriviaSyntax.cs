@@ -20,7 +20,7 @@ public sealed class ConditionalDirectiveTriviaSyntax : StructuredTriviaSyntax
 
     public SyntaxToken DirectiveToken
         => new(
-            (InternalSyntax.SyntaxToken)Green.GetSlot(0),
+            (InternalSyntax.SyntaxToken)Green.GetSlot(0)!,
             this,
             Position + Green.GetChildStartPosition(0));
 

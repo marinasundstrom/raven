@@ -13,7 +13,7 @@ public sealed class SkippedTokensTrivia : StructuredTriviaSyntax
 
     }
 
-    public SyntaxTokenList Tokens => new SyntaxTokenList((InternalSyntax.SyntaxList)Green.GetSlot(0), this, Position + Green.GetChildStartPosition(0));
+    public SyntaxTokenList Tokens => new SyntaxTokenList((InternalSyntax.SyntaxList)Green.GetSlot(0)!, this, Position + Green.GetChildStartPosition(0));
 
     public override void Accept(SyntaxVisitor visitor)
     {

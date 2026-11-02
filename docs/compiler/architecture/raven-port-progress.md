@@ -2210,3 +2210,23 @@ tested; native neoCLR was not executed. A separate reduced `out var` conditional
 remaining scope diagnostics require more specific reductions. Logs:
 `/tmp/green-list-slots-before.log`, `/tmp/green-list-slots-after.log`, and
 `/tmp/raven-out-scope.log`.
+
+
+## PORT-069 — required structured-trivia child slots
+
+Directive trivia and skipped-token trivia require child zero, while the general
+green-slot API is nullable. Their red accessors and green `With` implementations
+now explicitly assert the required slot before the existing cast in C# and Raven.
+Reference suppression adds no runtime null check and preserves the existing
+required-child invariant. This is a direct translation clarification, with no
+new language behavior. The initial structured-trivia/ownership baseline passed
+**44 tests**; post-change checks are running.
+
+The PORT-068 analysis completed with **38 errors**. The incompatible green-list
+constructor call is resolved; nullable indexed slots expose nine diagnostics in
+span helpers, rewriters and red list accessors that previously assumed non-null
+items. Those consumers require explicit invariant handling. PORT-069 passes
+**53 focused/adjacent tests**, the targeted build, formatting, and Raven parser
+validation. Modern .NET was tested. Its refreshed analysis is running in
+`/tmp/node-runtime-analysis-required-trivia-slots.log`. The unfinished Raven
+runtime sources remain uncommitted.

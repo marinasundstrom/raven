@@ -199,3 +199,7 @@ Green syntax lists preserve nullable child slots, including through `With`. Thei
 constructor still requires the array itself. Empty slots contribute no width and
 are skipped by child traversal; indexed slot access can return null. Storage,
 constructor-element, and indexer annotations reflect this in both compiler sources.
+
+Structured directive trivia and skipped-token trivia require their first child
+slot. Their typed accessors and `With` reconstruction paths explicitly assert
+that invariant before casting the nullable general-slot result, in both sources.
