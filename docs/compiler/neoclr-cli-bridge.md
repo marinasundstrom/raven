@@ -18572,3 +18572,13 @@ edge APIs expose TypeInfo lists and no edge nullable-transform parameter. Native
 interface-edge annotation metadata plus projection is the capability needed to
 preserve the same foundational contract there. This is an implementation gap, not
 a neoCLR language restriction. No native core or guest execution is qualified.
+
+## Variance-aware generic inference — 2026-11-02
+
+Lower, upper and exact inference bounds are shared language behavior, driven by
+symbol variance rather than the target name. Host-reference neoCLR tests cover
+non-null string values with nullable comparers in both parameter orders. No new
+CLI encoding is introduced: selected type arguments flow through existing target
+metadata and code-generation contracts. Native variance and nullable interface-edge
+projection must supply equivalent facts; the interface annotation gap above remains
+open. This evidence is semantic testing with host references, not native execution.

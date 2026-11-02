@@ -555,7 +555,7 @@ internal sealed class OverloadResolver
         }
         else
         {
-            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var substitutions = new TypeInferenceBounds();
             if (!TryInferFromTypes(compilation, containingType, receiverType, substitutions, inferenceMethod: null))
                 return false;
 
@@ -649,7 +649,7 @@ internal sealed class OverloadResolver
             fixedArgs[offset + i] = NormalizeType(explicitTypeArguments[i]);
         }
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new TypeInferenceBounds();
 
         // Infer every position independently. Explicit arguments win when the final
         // constructed signature is produced, and ordinary applicability then checks
@@ -769,7 +769,7 @@ internal sealed class OverloadResolver
     {
         constraintFailure = null;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new TypeInferenceBounds();
         var parameters = method.Parameters;
         var parameterIndex = 0;
 
@@ -862,7 +862,7 @@ internal sealed class OverloadResolver
         Compilation compilation,
         IParameterSymbol paramsParameter,
         IReadOnlyList<BoundArgument> paramsArguments,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        TypeInferenceBounds substitutions,
         IMethodSymbol inferenceMethod)
     {
         if (paramsArguments.Count == 0)
@@ -918,7 +918,7 @@ internal sealed class OverloadResolver
         Compilation compilation,
         ITypeSymbol parameterType,
         BoundFunctionExpression lambda,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        TypeInferenceBounds substitutions,
         IMethodSymbol? inferenceMethod)
     {
         INamedTypeSymbol? delegateType = null;
@@ -953,7 +953,7 @@ internal sealed class OverloadResolver
             if (lambdaParameterType is ITypeParameterSymbol)
                 continue;
 
-            if (!TryInferFromTypes(compilation, parameter.Type, lambdaParameterType, substitutions, inferenceMethod))
+            if (!TryInferFromTypes(compilation, parameter.Type, lambdaParameterType, substitutions, inferenceMethod, TypeInferenceBounds.BoundKind.Exact))
                 return false;
         }
 
@@ -1068,7 +1068,7 @@ internal sealed class OverloadResolver
         Compilation compilation,
         ITypeSymbol parameterType,
         BoundMethodGroupExpression methodGroup,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        TypeInferenceBounds substitutions,
         IMethodSymbol? inferenceMethod,
         Binder? binder,
         out TypeArgumentConstraintFailure? constraintFailure)
@@ -1117,8 +1117,7 @@ internal sealed class OverloadResolver
                 continue;
 
             // Backtrackable inference: try candidate against a copy, then commit.
-            var temp = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(substitutions, SymbolEqualityComparer.Default);
-            var priorSubstitutions = substitutions.ToArray();
+            var temp = new TypeInferenceBounds(substitutions);
 
             var ok = true;
 
@@ -1134,7 +1133,7 @@ internal sealed class OverloadResolver
                     break;
                 }
 
-                if (!TryInferFromTypes(compilation, expectedParam.Type, candidateParam.Type, temp, inferenceMethod))
+                if (!TryInferFromTypes(compilation, expectedParam.Type, candidateParam.Type, temp, inferenceMethod, TypeInferenceBounds.BoundKind.Upper))
                 {
                     ok = false;
                     break;
@@ -1153,13 +1152,10 @@ internal sealed class OverloadResolver
             // widen an inference already established by an ordinary argument. The
             // final applicability pass validates the adapted method group against
             // the resulting delegate type.
-            foreach (var (typeParameter, inferredType) in priorSubstitutions)
-                temp[typeParameter] = inferredType;
+            temp.PreserveExistingFrom(substitutions);
 
-            // Commit inferred substitutions.
-            substitutions.Clear();
-            foreach (var kv in temp)
-                substitutions[kv.Key] = kv.Value;
+            // Commit inferred substitutions and their bounds.
+            substitutions.ReplaceWith(temp);
 
             return true;
         }
@@ -1266,8 +1262,9 @@ internal sealed class OverloadResolver
         Compilation compilation,
         ITypeSymbol parameterType,
         ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        IMethodSymbol? inferenceMethod)
+        TypeInferenceBounds substitutions,
+        IMethodSymbol? inferenceMethod,
+        TypeInferenceBounds.BoundKind boundKind = TypeInferenceBounds.BoundKind.Lower)
     {
         parameterType = NormalizeType(parameterType);
         argumentType = NormalizeType(argumentType);
@@ -1286,7 +1283,7 @@ internal sealed class OverloadResolver
                 nullableParameterType,
                 nullableArgumentType,
                 substitutions,
-                inferenceMethod);
+                inferenceMethod, boundKind);
         }
 
         if (TryGetTupleInferenceElementTypes(parameterType, out var parameterTupleElements) &&
@@ -1302,7 +1299,7 @@ internal sealed class OverloadResolver
                         parameterTupleElements[i],
                         argumentTupleElements[i],
                         substitutions,
-                        inferenceMethod))
+                        inferenceMethod, boundKind))
                 {
                     return false;
                 }
@@ -1316,35 +1313,20 @@ internal sealed class OverloadResolver
             typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
             argumentType = NormalizeType(argumentType);
 
+            // Contextual callback hints can still contain this method's own
+            // parameter. Such a placeholder supplies no new inference evidence.
+            if (argumentType is ITypeParameterSymbol argumentParameter &&
+                AreEquivalentTypeParameters(typeParameter, argumentParameter))
+            {
+                return true;
+            }
+
             // A null literal does not provide a concrete type for type-parameter inference.
             // Keep existing substitutions (if any), but do not infer a new substitution from null.
             if (argumentType.TypeKind == TypeKind.Null)
                 return true;
 
-            if (substitutions.TryGetValue(typeParameter, out var existing))
-            {
-                existing = NormalizeType(existing);
-
-                if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
-                    return true;
-
-                // Keep the narrower inferred type when the new argument converts to it.
-                if (compilation.ClassifyConversion(argumentType, existing).IsImplicit)
-                    return true;
-
-                // Widen an inferred bound when the existing bound converts to the new
-                // argument type. This makes inference independent of argument order for
-                // a base/derived pair such as Choose(derived, baseValue).
-                if (compilation.ClassifyConversion(existing, argumentType).IsImplicit)
-                {
-                    substitutions[typeParameter] = argumentType;
-                    return true;
-                }
-
-                return false;
-            }
-
-            substitutions[typeParameter] = argumentType;
+            substitutions.AddBound(compilation, typeParameter, argumentType, boundKind);
             return true;
         }
 
@@ -1352,8 +1334,8 @@ internal sealed class OverloadResolver
         {
             if (!parameterFunction.ParameterRefKinds.SequenceEqual(argumentFunction.ParameterRefKinds)) return false;
             for (var i = 0; i < parameterFunction.ParameterTypes.Length; i++)
-                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod)) return false;
-            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod);
+                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod, TypeInferenceBounds.Reverse(boundKind))) return false;
+            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod, boundKind);
         }
 
         if (parameterType is INamedTypeSymbol paramNamed)
@@ -1366,7 +1348,7 @@ internal sealed class OverloadResolver
                     parameterElementType,
                     argumentElementType,
                     substitutions,
-                    inferenceMethod);
+                    inferenceMethod, boundKind);
             }
 
             if (argumentType is INamedTypeSymbol argNamed)
@@ -1396,7 +1378,7 @@ internal sealed class OverloadResolver
                     IsGenericCollectionInterface(paramNamed, "IReadOnlyList"))
                 {
                     return !parameterArguments.IsDefaultOrEmpty &&
-                        TryInferFromTypes(compilation, parameterArguments[0], arrayArgument.ElementType, substitutions, inferenceMethod);
+                        TryInferFromTypes(compilation, parameterArguments[0], arrayArgument.ElementType, substitutions, inferenceMethod, boundKind);
                 }
 
                 foreach (var iface in arrayArgument.AllInterfaces)
@@ -1408,7 +1390,7 @@ internal sealed class OverloadResolver
         }
 
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
-            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod);
+            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod, boundKind);
 
         return true;
 
@@ -1461,7 +1443,16 @@ internal sealed class OverloadResolver
 
             for (int i = 0; i < paramArguments.Length; i++)
             {
-                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions, inferenceMethod))
+                var variance = parameterDefinition.TypeParameters[i].Variance;
+                var argumentBound = boundKind == TypeInferenceBounds.BoundKind.Exact
+                    ? boundKind
+                    : variance switch
+                    {
+                        VarianceKind.Out => boundKind,
+                        VarianceKind.In => TypeInferenceBounds.Reverse(boundKind),
+                        _ => TypeInferenceBounds.BoundKind.Exact
+                    };
+                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions, inferenceMethod, argumentBound))
                     return false;
             }
 
@@ -1842,7 +1833,7 @@ internal sealed class OverloadResolver
 
     private static bool TryGetInferredTypeArgument(
         ITypeParameterSymbol typeParameter,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
         out ITypeSymbol inferredType)
     {
         if (substitutions.TryGetValue(typeParameter, out inferredType!))

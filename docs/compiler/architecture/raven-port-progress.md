@@ -3373,3 +3373,58 @@ The compiler library builds for both net11.0 and net10.0. The tests above execut
 on modern .NET 11; the net10.0 result is a build check only. The isolated Roslyn
 oracle set is terminal with one failure and three passing cases in
 /tmp/contravariant-nullable-before.log, confirming the next task independently.
+
+## PORT-101 — variance-aware inference and contextual callback queries
+
+The PORT-100 full driver analysis is terminal with two errors in the unchanged
+Raven ParseOptions translation: dictionary-copy overload selection and a nullable
+string-array result from its normalization pipeline. The preceding comparer and
+enum diagnostics are gone. Accurate imported nullable interfaces exposed shared
+generic inference that treated every argument as a widening lower bound.
+
+Inference now retains candidate-local lower, upper and exact bounds, composes
+declared variance (including nested contravariance), and fixes the candidate from
+all evidence. Reference annotations follow exact/lower evidence before upper-only
+evidence. Method-group trials copy bounds along with provisional substitutions.
+Contextual callback placeholders equal to the inference variable contribute no
+evidence; this preserves the existing nullable property-builder callback case.
+No comparer-name or target-specific workaround is introduced.
+
+The reduced ParseOptions source also exposed a cold semantic-query defect. A
+callback query selected the enclosing function declaration as its rebind root,
+which registered a signature without binding the arrow body. Contextual roots
+now stop at function/method declarations and bind executable expressions under
+the existing re-entry guard. Candidate-only callback failures receive contextual
+binding before being treated as final. Forward/reverse query order, repeated
+queries and diagnostics-first queries agree in the reduced port fixture.
+
+Validation on modern .NET 11:
+
+- 439 overload-resolution tests pass, including the property-builder regression.
+- 137 adjacent semantic-query/caching/callback tests pass. Four stale expected
+  JsonSerializer result annotations now reflect the nullable metadata return
+  already imported by PORT-093; input argument annotations are unchanged.
+- 147 focused inference tests pass, including Roslyn comparisons of nullable and
+  nominal arguments in either parameter order, nested contravariance, covariance,
+  invariance, and all four ParseOptions query-order cases. These sets overlap.
+- Five isolated execution tests pass, including C# comparisons of selected generic
+  runtime types, nullable comparer hashing and adjacent Select behavior.
+- Compiler library builds pass for net11.0 and net10.0; net10.0 is a build check.
+  Formatting and diff checks pass.
+
+Two neoCLR semantic cases use host references. Native execution, .NET Framework
+and NanoFramework are not qualified by these results. The native nullable
+interface-edge projection gap remains documented in the CLI bridge notes. The
+inference and semantic-model components are not yet translated; these C# fixes
+enable the Raven source without changing its algorithm. Language/API docs, the
+C# developer guide and changelog are updated; no syntax or highlighting changes
+are required, and RavenDoc/site generation was not run.
+
+The full 1,065-input analysis is running in session 28721 using immutable
+/tmp/raven-variance-inference-seed; source hashes match
+/tmp/node-runtime-conditional-select-inputs.json. Its log is
+/tmp/node-runtime-variance-inference.log. Its result is not yet known. Keep the
+pending Raven syntax-runtime batch uncommitted until full compilation, emission
+and parity qualify it; this slice only commits the independently validated
+bootstrap fixes. The unrelated broad-baseline documentation-link failure recorded
+in PORT-098 remains unresolved, so no broad green baseline is claimed.

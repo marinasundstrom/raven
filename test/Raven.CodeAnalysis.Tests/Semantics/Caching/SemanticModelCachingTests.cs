@@ -1396,7 +1396,7 @@ record Foo(Name: string)
 
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
 
-        Assert.Equal("Foo", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Foo?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Theory]
@@ -1450,7 +1450,7 @@ func Main() -> () {
             declarators.Single(static declarator => declarator.Identifier.ValueText == "obj")));
 
         Assert.Equal("string", str.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.Equal("Foo", obj.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Foo?", obj.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -1556,7 +1556,7 @@ record Foo(Name: string)
         var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
         method.Name.ShouldBe("Deserialize");
         method.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
-        method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo");
+        method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo?");
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
         delta.BoundNodeBindFallbacks.ShouldBe(0);
         delta.BoundNodeContextualCacheHits.ShouldBe(0);

@@ -359,3 +359,25 @@ retain the enum field and enum type respectively, before or after diagnostics.
 Qualified value receivers and differently typed shadows retain ordinary lookup.
 This shared binder has not yet been ported; the C# bootstrap fix enables direct
 Raven translation of ParseOptions without a source workaround.
+
+### Variance-aware generic inference
+
+Overload inference retains lower, upper and exact bounds per candidate instead
+of destructively widening one substitution. Declared generic variance determines
+the bound direction, including nested contravariance. Candidate fixing preserves
+all nominal constraints. For the selected reference type, exact annotation bounds
+take precedence over lower annotation bounds; upper-only annotations admit null
+only when all matching upper bounds do. Method-group trials copy their evidence
+and preserve already established ordinary-argument substitutions. Contextual
+callback hints containing the inference variable itself supply no new bound.
+
+The source and imported symbol contracts drive this shared algorithm; no target
+name checks or metadata-specific comparer exceptions are used. The inference
+component has not yet been translated, so the C# bootstrap correction enables
+the unchanged Raven source.
+
+Cold symbol queries inside callbacks resolve the enclosing executable context
+before accepting a provisional overload failure. Rebind-root selection stops at
+function and method declarations: an arrow-body query binds the body expression,
+not a declaration that merely registers a signature. The existing re-entry guard
+protects contextual binding. Repeated queries and diagnostics-first queries agree.

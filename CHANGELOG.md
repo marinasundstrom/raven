@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Respect contravariant, covariant and invariant generic inference bounds in
+  either parameter order. A comparer that accepts nullable strings no longer
+  makes an otherwise non-null string type argument nullable. This also preserves
+  the element types in dictionary-copy and string-normalization pipelines.
+  Cold symbol queries inside their callbacks bind the enclosing executable body
+  and agree with queries made after diagnostics.
+
 - Preserve nullable generic arguments on imported CLI interface declarations,
   including inherited and constructed interfaces. StringComparer now retains its
   nullable comparer contract. Metadata projection uses the loaded image snapshot;

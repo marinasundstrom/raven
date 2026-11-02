@@ -3253,6 +3253,16 @@ public partial class SemanticModel
         if (!TryGetInvocationTargetSymbolInfo(invocation, out info, cancellationToken))
             return false;
 
+        // A candidate-only failure can come from a provisional callback body.
+        // Resolve its enclosing context before treating that failure as final.
+        if (info.Symbol is null && info.CandidateReason == CandidateReason.OverloadResolutionFailure &&
+            TryRebindExpressionFromEnclosingFunctionContext(invocation, out var contextualInfo) &&
+            contextualInfo.Symbol is IMethodSymbol)
+        {
+            info = contextualInfo;
+            CacheInvocationTargetSymbolInfo(invocation, info);
+        }
+
         if (TryGetInvokedName(node, invocation) is { } invokedName &&
             info.Symbol is IMethodSymbol { Name: "Invoke" } &&
             TryGetInvokedExpressionSymbolInfo(GetBoundNode(invocation), invokedName, out var invokedExpressionInfo))
@@ -9257,21 +9267,31 @@ public partial class SemanticModel
             return false;
 
         var rebindRoot = GetFunctionExpressionRebindRoot(enclosingFunctionExpression);
-        ClearCachedSemanticState(rebindRoot);
+        if (!_functionExpressionRebindInProgress.TryAdd(rebindRoot, 0))
+            return false;
 
-        var reboundRoot = GetBoundNode(rebindRoot, BoundTreeView.Original);
-        if (!TryFindBoundNodeBySyntax(reboundRoot, expression, out var reboundNode) ||
-            reboundNode is not BoundExpression reboundExpression)
+        try
         {
-            return false;
+            ClearCachedSemanticState(rebindRoot);
+
+            var reboundRoot = BindContextualRootForSemanticQuery(rebindRoot);
+            if (!TryFindBoundNodeBySyntax(reboundRoot, expression, out var reboundNode) ||
+                reboundNode is not BoundExpression reboundExpression)
+            {
+                return false;
+            }
+
+            var reboundInfo = reboundExpression.GetSymbolInfo();
+            if (reboundInfo.Symbol is null && reboundInfo.CandidateSymbols.IsDefaultOrEmpty)
+                return false;
+
+            info = reboundInfo;
+            return true;
         }
-
-        var reboundInfo = reboundExpression.GetSymbolInfo();
-        if (reboundInfo.Symbol is null && reboundInfo.CandidateSymbols.IsDefaultOrEmpty)
-            return false;
-
-        info = reboundInfo;
-        return true;
+        finally
+        {
+            _functionExpressionRebindInProgress.TryRemove(rebindRoot, out _);
+        }
     }
 
     private static bool InvocationContainsFunctionArguments(InvocationExpressionSyntax invocation)
@@ -14428,6 +14448,11 @@ public partial class SemanticModel
                 return rebindRoot;
             }
 
+            // Binding a function declaration registers its signature, not its
+            // executable body. Keep an arrow-body expression inside that scope.
+            if (current is FunctionStatementSyntax or BaseMethodDeclarationSyntax)
+                break;
+
             if (current is StatementSyntax statement)
             {
                 Compilation.StoreFunctionExpressionRebindRootDescriptor(
@@ -14479,6 +14504,11 @@ public partial class SemanticModel
             if (current is FunctionExpressionSyntax)
                 break;
 
+            // Binding a function declaration registers its signature, not its
+            // executable body. Keep an arrow-body expression inside that scope.
+            if (current is FunctionStatementSyntax or BaseMethodDeclarationSyntax)
+                break;
+
             if (current is StatementSyntax statement)
                 return statement;
         }
@@ -14502,6 +14532,11 @@ public partial class SemanticModel
         {
             if (current is FunctionExpressionSyntax)
                 continue;
+
+            // Binding a function declaration registers its signature, not its
+            // executable body. Keep an arrow-body expression inside that scope.
+            if (current is FunctionStatementSyntax or BaseMethodDeclarationSyntax)
+                break;
 
             if (current is StatementSyntax statement)
                 return statement;

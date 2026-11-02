@@ -29,6 +29,11 @@ Records, pattern matching, function-valued dependencies, and top-level code
 are useful in C# too. Choose them for what they model. Their presence alone
 is not a reason to redesign a working application when moving to Raven.
 
+Generic method inference respects declared variance. Passing a non-null string
+alongside `IComparer<string?>` does not by itself make the inferred value type
+nullable; swapping the parameter order preserves the result. See
+[variance and inference](lang/spec/type-system.md#variance).
+
 ## Entry points do not require a `Program` class
 
 As with C# top-level statements, a small Raven program can start directly:

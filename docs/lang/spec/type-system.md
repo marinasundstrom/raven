@@ -492,6 +492,13 @@ The rules apply equally to Raven declarations and imported .NET metadata. For
 example, `IEnumerable<string>` converts to `IEnumerable<object>`, while
 `IComparer<object>` can be used where `IComparer<string>` is required.
 
+Generic method inference also respects these variance positions. For example,
+if `Pick<T>(value: T, comparer: IComparer<T>)` receives a non-nullable `string`
+and an `IComparer<string?>`, it infers `T` as `string`. The comparer accepting
+null does not make the value nullable. Reversing the parameter order gives the
+same result. Covariant inputs and invariant constraints still contribute their
+own type and nullability requirements.
+
 ## Target typing and inference
 
 Target typing lets surrounding code determine a type. It is used by literals,
