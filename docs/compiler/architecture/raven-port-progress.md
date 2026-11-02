@@ -2882,3 +2882,32 @@ semantic cases. **All 43 adjacent property/runtime tests pass**, including three
 .NET executions of custom init setter side effects and inherited C# metadata init
 properties. Targeted build passes. No native guest/core execution or RavenDoc/site
 generation is claimed. Remaining runtime gaps will be reduced independently.
+
+## PORT-089 — preserve imported init accessor classification
+
+Inspection while reducing metadata value construction identifies a second init
+interop defect: PEMethodSymbol detects IsExternalInit, then unconditionally assigns
+PropertySet. The PORT-088 metadata constructor execution therefore passed without
+proving that later writes were restricted. A **38-test baseline passes**; new
+metadata shape, ordinary update and receiver cases produce **seven failures and
+five control passes** before correction.
+
+Initialize ordinary setter kind before detecting the required modifier, retaining
+InitOnly when present. No new accessor encoding or target policy is introduced.
+The PE symbol component has not been ported; preserve this classification in its
+future Raven translation. Existing source ParseOptions assignments retain the
+PORT-088 binding correction.
+
+**All 53 focused cases pass**, covering metadata shape, assignment/compound/
+increment/pipeline rejection, mutable setter controls, object initialization,
+self/base construction and foreign-receiver rejection. They include five explicit
+neoCLR semantic cases using host references, not a native core/runtime. **16
+adjacent record-copy, required-member and accessor interop checks pass** on modern
+.NET. Targeted build, whitespace formatting and diff checks pass. No native guest execution or RavenDoc/site generation.
+
+The focused pending Diagnostic/ParseOptions analysis after PORT-088 has **eight
+errors**, down from 16: init-property constructor assignments are admitted; enum
+name binding, conditional collection inference, lambda return inference, implicit
+metadata value construction and a nullable comparer overload remain. The full
+source-runtime probe is still the older 21-error run and is not a current emission
+or parity-test result. Resolve these reduced gaps before another full run.

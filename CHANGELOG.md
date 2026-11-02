@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve imported CLI init accessor kinds, rejecting ordinary writes to C# init
+  properties while retaining object-initializer and derived-constructor access.
+
 - Honor init-property assignment on `self`/`base` during constructors, initializer
   blocks and init accessors, including inherited and metadata properties. Invoke
   init setters for assignment and updates while retaining construction-only writes.

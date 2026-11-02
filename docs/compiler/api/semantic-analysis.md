@@ -316,3 +316,8 @@ This policy is shared before .NET/neoCLR lowering. The binder has not yet been
 translated to Raven; its future translation must preserve this receiver-sensitive
 contract. The pending ParseOptions translation retains its direct init-property
 constructor assignments and benefits from the C# bootstrap correction.
+
+Imported setters carrying the CLI `IsExternalInit` required return modifier expose
+`MethodKind.InitOnly`. Ordinary setters expose `PropertySet`. Metadata import must
+retain this distinction so assignment, compound updates, increments and pipeline
+writes use the same construction/receiver checks as source init properties.

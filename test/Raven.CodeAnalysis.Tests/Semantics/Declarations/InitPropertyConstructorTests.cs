@@ -67,6 +67,28 @@ public sealed class InitPropertyConstructorTests
 public sealed class NeoClrInitPropertyConstructorTests
 {
     [Theory]
+    [InlineData("self.Value = 1", false)]
+    [InlineData("other.Value = 1", true)]
+    public void NeoClrMetadataInitBindingWithHostReferences_PreservesConstructionRules(string assignment, bool rejected)
+    {
+        var fixtureName = typeof(Semantics.Diagnostics.ImportedInitPropertyFixture).FullName!;
+        var tree = SyntaxTree.ParseText($$"""
+            class Child : {{fixtureName}} {
+                init(other: {{fixtureName}}) { {{assignment}} }
+            }
+            """);
+        var compilation = Compilation.Create("NeoClrMetadataInitConsumer", [tree],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(Semantics.Diagnostics.ImportedInitPropertyFixture).Assembly.Location)],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR));
+        var errors = compilation.GetSemanticModel(tree).GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (rejected)
+            Assert.Equal("RAV0200", Assert.Single(errors).Id);
+        else
+            Assert.Empty(errors);
+    }
+
+    [Theory]
     [InlineData("Value = value", false)]
     [InlineData("self.Value = value", false)]
     [InlineData("other.Value = value", true)]

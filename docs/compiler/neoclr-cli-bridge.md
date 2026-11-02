@@ -18504,3 +18504,10 @@ core configuration, metadata emission or guest execution. Modern .NET runtime te
 validate custom setter invocation and C# metadata interoperability. The native
 backend's init-accessor metadata/dispatch capability remains separately owned;
 these binding tests do not qualify that capability or remove its experimental gaps.
+
+The PE importer also retains `MethodKind.InitOnly` after detecting the existing
+CLI `IsExternalInit` required modifier. Previously a later unconditional assignment
+changed it back to `PropertySet`, losing the construction restriction. Two further
+neoCLR semantic cases with host metadata references validate self-construction and
+other-instance rejection. This fixes a loss in CLI metadata import; it introduces
+no new encoding. Native init-accessor metadata remains the replacing capability.

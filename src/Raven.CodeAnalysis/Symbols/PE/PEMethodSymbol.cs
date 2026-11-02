@@ -111,6 +111,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         }
         else if (name.StartsWith("set_"))
         {
+            MethodKind = MethodKind.PropertySet;
             if (methodBaseInfo is MethodInfo methodInfo)
             {
                 if (methodInfo.ReturnParameter.GetRequiredCustomModifiers().Any(x => x.Name == typeof(IsExternalInit).Name))
@@ -118,7 +119,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
                     MethodKind = MethodKind.InitOnly;
                 }
             }
-            MethodKind = MethodKind.PropertySet;
         }
         else if (name.StartsWith("add_"))
         {
