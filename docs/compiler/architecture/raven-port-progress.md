@@ -2527,3 +2527,37 @@ execution and RavenDoc/site generation were not run. The 1,051-file generated
 runtime analysis remains live against the PORT-078 seed; managed stack snapshots
 confirm ongoing method/invocation binding. It must be inspected on completion
 before claiming any complete generated-runtime validation.
+
+## PORT-080 — syntax rewriter token/trivia identity
+
+The larger generated-runtime analysis is terminal: **1,051 inputs** produce
+**2,524 errors**. This expands coverage beyond the previous 70-file subset and is
+not a regression count. Its seed is PORT-078, before the constructor ownership
+fix. Input hashes are saved in
+`/tmp/node-runtime-full-generated-analysis-arrays-inputs.json`. The runner also
+mistakenly excluded `Diagnostics/generated/CompilerDiagnostics.g.rvn` along with
+the syntax outputs being replaced; 29 inaccessible catalog diagnostics are input
+artifacts. Future runs must replace only syntax-generated directories and retain
+the diagnostic catalog. No complete generated-runtime validation is claimed.
+
+The main actionable groups are missing `GreenNode` qualification in generated
+green declarations, required-child null projections in constructors/rewriters,
+and missing authored red token factories. Generated fixture runtimes had hidden
+some production namespace/nullability differences. Align those fixtures and both
+emitter implementations before repeating the full runtime analysis.
+
+Separately, inspection found two unfinished base rewriter methods: nullable token
+visits always returned null, and trivia visits always returned default. A
+**32-test baseline** passes; all **three new identity/dispatch tests fail** before
+the fix. C# and the unfinished Raven rewriter now preserve trivia and dispatch
+present nullable tokens to the nonnullable override, retaining absent tokens and
+the distinction between absent and present-default tokens. The Raven syntax
+runtime remains uncommitted until its dependency closure compiles; this is not
+Raven-runtime execution evidence. The first post-change focused run passes
+**35 tests**. Broader formatting/code-fix/replacement checks are running.
+
+Final validation passes **184 adjacent formatter, code-fix, replacement,
+annotation and rewriter tests** on modern .NET. Targeted build, whitespace
+formatting and diff checks pass. The rule is target-independent syntax behavior;
+no target policy, source grammar or CLI metadata encoding changes. Native runtime
+execution, full Raven runtime execution and RavenDoc/site generation were not run.

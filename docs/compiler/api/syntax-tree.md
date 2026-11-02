@@ -167,6 +167,13 @@ node type, while `SyntaxRewriter` enables immutable transformations by producing
 updated nodes. The generator maintains these APIs so consumers can override only
 the members they care about and rely on default traversal for the rest.【F:docs/compiler/architecture/visitors-and-rewriters.md†L1-L40】
 
+The base nullable-token visitor preserves an absent token and dispatches each
+present value, including a present default token, through `VisitToken(SyntaxToken)`.
+The base trivia visitor preserves its input. Derived rewriters can override these
+hooks deliberately; ordinary list traversal does not erase whitespace or comments
+merely because the base trivia implementation ran. These syntax contracts are
+shared before target-specific lowering.
+
 ## Incremental updates
 
 `WithChangedText` rebuilds a tree from edited source and shares unchanged green

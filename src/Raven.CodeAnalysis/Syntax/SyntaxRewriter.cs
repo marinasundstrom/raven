@@ -30,17 +30,14 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return token;
     }
 
-    /// <summary>
-    /// Temporary
-    /// </summary>
     public virtual SyntaxToken? VisitToken(SyntaxToken? token)
     {
-        return default;
+        return token is SyntaxToken value ? VisitToken(value) : null;
     }
 
     public override SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
-        return default;
+        return trivia;
     }
     public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement>? list0)
         where TElement : SyntaxNode

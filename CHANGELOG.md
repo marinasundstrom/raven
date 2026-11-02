@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nullable tokens and trivia in the base syntax rewriter. Present nullable
+  tokens now dispatch to the ordinary token override; absent tokens remain absent.
+
 - Keep namespace-qualified constructor lookup source-owned during declaration
   binding, avoiding bootstrap metadata accessibility errors that depended on
   whether diagnostics or symbol queries ran first.
