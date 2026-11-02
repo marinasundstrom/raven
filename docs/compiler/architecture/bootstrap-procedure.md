@@ -89,6 +89,25 @@ the original API boundary, including explicit top-level type accessibility. Do n
 mechanically copy C# modifiers. This is an important porting convention, not a
 post-port style cleanup (author direction, 2026-11-01).
 
+### Symbol interface naming during the symbol port
+
+Author direction, 2026-11-02: remove the `I` prefix from compiler symbol
+interfaces when porting that component, in both the retained C# compiler and the
+Raven compiler. For example, `ISymbol`, `ITypeSymbol` and `IMethodSymbol` become
+`Symbol`, `TypeSymbol` and `MethodSymbol`. They remain interfaces; this is an
+intentional naming departure from the otherwise Roslyn-like compiler API.
+
+Perform the rename as a coordinated component migration, including compiler and
+target implementations, semantic APIs, generators/models, language services,
+tests, documentation and consumers in the repository. Resolve collisions with
+concrete implementation classes by giving those classes explicit role-based
+names. The current internal `Symbol` base and implementations such as
+`ArrayTypeSymbol`, `AliasSymbol` and `ErrorTypeSymbol` already occupy proposed
+interface names, so a blind prefix removal is insufficient. Preserve runtime
+representation, symbol identity/equality and behavior. Keep the existing names
+until this migration is implemented and validated at the symbol-porting boundary;
+do not rename unrelated .NET or Raven interfaces as part of this direction.
+
 ### Cleanup and stabilization are part of porting
 
 Raven is a .NET language foremost. Use foundational C#/.NET semantics as the

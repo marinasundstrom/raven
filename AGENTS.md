@@ -197,6 +197,17 @@ No external type-union analyzer project is part of this repository.
 - Do not run RavenDoc/site generation during compiler porting. Update the
   documentation and website sources and use focused source/link checks instead.
 
+### Symbol interface naming
+
+- When porting compiler symbol interfaces, remove the `I` prefix in both C# and
+  Raven (author direction, 2026-11-02): `ISymbol` becomes `Symbol`, `ITypeSymbol`
+  becomes `TypeSymbol`, and corresponding symbol interfaces follow the same rule.
+- This is an intentional exception to Roslyn-like API naming. Keep the types as
+  interfaces and preserve symbol semantics. Coordinate callers, both targets,
+  generators/models, tests and docs; resolve concrete-class name collisions with
+  explicit implementation-role names. Apply the migration at the symbol-porting
+  boundary, rather than renaming unrelated interfaces or leaving mixed APIs.
+
 ### Equality contracts
 
 - During each porting slice, decide whether each type has reference identity or

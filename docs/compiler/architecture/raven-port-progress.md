@@ -50,6 +50,13 @@ The independent generator support port lives in `tools/NodesShared.Raven`, besid
 run with `scripts/test-generator-parity.sh`; they remain separate from compiler
 component parity.
 
+Author direction, 2026-11-02: when the symbol interfaces are ported, remove their
+`I` prefixes in both C# and Raven. Keep them as interfaces, update consumers and
+generators together, and resolve collisions with concrete classes by naming their
+implementation roles explicitly. This is an intentional API naming departure;
+it is scheduled for the symbol component rather than the syntax-runtime slice.
+See the [symbol naming policy](bootstrap-procedure.md#symbol-interface-naming-during-the-symbol-port).
+
 ## Component map
 
 Raven sources preserve the corresponding C# namespace and relative directory.
