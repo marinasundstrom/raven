@@ -43,6 +43,33 @@ public sealed class CommonTypeInferenceTests : DiagnosticTestBase
             $"Expected {expectedName}, got {inferred.ToDisplayString()}.");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NullableOperand_ParticipatesInCommonNominalInference(bool reverse)
+    {
+        var compilation = Compilation.Create("NullableCommonType", [], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var text = compilation.GetSpecialType(SpecialType.System_String);
+        var value = compilation.GetSpecialType(SpecialType.System_Object).GetNullableType();
+        var inferred = TypeSymbolNormalization.GetBestCommonType(reverse ? [value, text] : [text, value]);
+        Assert.True(inferred.IsNullable);
+        Assert.Equal(SpecialType.System_Object, inferred.GetNonNullableType().SpecialType);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ArrayOperand_IsNotDroppedFromCommonNominalInference(bool reverse)
+    {
+        var compilation = Compilation.Create("ArrayCommonType", [], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var text = compilation.GetSpecialType(SpecialType.System_String);
+        var array = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
+        var inferred = TypeSymbolNormalization.GetBestCommonType(reverse ? [array, text] : [text, array]);
+        Assert.Equal(SpecialType.System_Object, inferred.SpecialType);
+    }
+
     [Fact]
     public void MatchExpression_WithAbruptArms_InfersNonAbruptValueType()
     {

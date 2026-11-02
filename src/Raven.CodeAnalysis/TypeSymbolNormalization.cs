@@ -53,25 +53,36 @@ internal static class TypeSymbolNormalization
             .Where(static member => member.TypeKind != TypeKind.Null)
             .ToImmutableArray();
 
+        var mayBeNull = filtered.Any(static member => member.IsNullable || member.TypeKind == TypeKind.Null);
+
         if (!nonNullMembers.IsDefaultOrEmpty)
         {
             var common = FindCommonNominalType(nonNullMembers);
             if (common is not null)
-                return NormalizeForInference(common);
+                return mayBeNull && !common.IsValueType
+                    ? common.GetNullableType()
+                    : NormalizeForInference(common);
         }
 
         var objectType = TryGetObjectType(filtered);
         if (objectType is not null)
-            return objectType;
+            return mayBeNull ? objectType.GetNullableType() : objectType;
 
         return errorTypeSymbol ?? NormalizeForInference(filtered[0]);
     }
 
     private static INamedTypeSymbol? FindCommonNominalType(IEnumerable<ITypeSymbol> types)
     {
-        var namedTypes = types.Select(Unalias).OfType<INamedTypeSymbol>().ToArray();
-        if (namedTypes.Length == 0)
+        var candidates = types.Select(Unalias)
+            .Select(static type => type is NullableTypeSymbol { UnderlyingType.IsValueType: false } nullable
+                ? nullable.UnderlyingType
+                : type)
+            .ToArray();
+        // Never infer from a subset: wrappers and structural operands still
+        // constrain the result even when this nominal search cannot model them.
+        if (candidates.Length == 0 || candidates.Any(static type => type is not INamedTypeSymbol))
             return null;
+        var namedTypes = candidates.Cast<INamedTypeSymbol>().ToArray();
 
         INamedTypeSymbol? candidate = namedTypes[0];
         INamedTypeSymbol? objectType = null;

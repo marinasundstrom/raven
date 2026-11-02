@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Retain nullable and non-nominal operands during common-type inference. Mixed
+  `string`/`object?` lambda returns infer `object?`; array operands no longer
+  disappear from the common-type search.
+
 - Infer an empty collection branch's target from the other `if` branch when no
   surrounding target is available, in either branch order. Preserve pattern
   scope, explicit targets and runtime branch evaluation.

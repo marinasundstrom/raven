@@ -3115,3 +3115,44 @@ compiler/test builds, whitespace formatting and diff checks pass. The runtime
 fixture passes both branch orders, including empty results without fallback
 calls and identity-preserving selection with exactly two total calls. No full
 1,065-input reanalysis or Raven-runtime emission has been claimed for this seed.
+
+## PORT-095 — retain all common-type operands
+
+The direct Diagnostic.ProcessArgs translation returns a display string for a
+symbol and the original object? otherwise. Two cold/warm LINQ Select regressions
+fail despite a passing 59-case lambda/early-return baseline. The defect is shared
+normalization, not lambda-specific: FindCommonNominalType silently filters out
+NullableTypeSymbol and arrays using OfType<INamedTypeSymbol>, then infers from the
+remaining string alone. A 27-case common-type/interface baseline passes; four
+new nullable/array order controls fail before correction.
+
+TypeSymbolNormalization now unwraps nullable reference operands for the nominal
+search, preserves nullable reference results, and declines the nominal search
+when it cannot represent every operand. Existing class/interface selection and
+object fallback remain authoritative rather than inferring from a subset. No
+lambda workaround is added. Neither the normalizer nor lambda binder has been
+ported to Raven yet; carry the shared rule into their eventual direct translation.
+
+**120 focused/adjacent tests pass**, including nullable and array operand order,
+cold/warm mixed-return Select, common interfaces, collection inference, early
+returns and a neoCLR host-reference semantic case. The language-reference source
+is also website input. There is no syntax or grammar change; public symbol/type
+queries carry the correction to language-service consumers. Native guest runtime
+execution remains unqualified.
+
+The modern .NET execution fixture matches C# LINQ and preserves nulls, original
+reference identity and boxed-value identity. The reduced five-source probe using
+immutable `/tmp/raven-mixed-return-seed` now reports **four errors** in
+`/tmp/diagnostic-options-mixed-return-fixed.log`. The lambda return conversion
+error is gone and its inferred signature is object? -> object?, but conditional
+access still reports conversion to the indexed Select delegate. That remaining
+overload/replay gap is separate and must not be hidden by changing the Raven
+translation. Nullable comparer and enum/member errors also remain. The reduced
+probe uses bootstrap Location; full Raven runtime ownership/emission/parity is
+still unqualified. No RavenDoc/site generation was run.
+
+Final PORT-095 validation: **439 overload-resolution and 189 union feature tests
+pass**, in addition to the 120 focused/adjacent checks and runtime fixture.
+Targeted builds, whitespace formatting and diff checks pass. The pending Raven
+runtime source batch remains uncommitted; no full expanded-runtime success is
+claimed from this reduced probe.

@@ -73,6 +73,13 @@ class/object fallback instead of selecting an interface by metadata order. This
 also keeps typed contracts in null-coalescing expressions, such as an
 `IReadOnlyList<int>?` combined with an `IEnumerable<int>` fallback.
 
+Every operand participates in common-type inference, including nullable reference
+wrappers and arrays. A nullable reference operand contributes its underlying
+nominal type and makes the shared reference result nullable. For example, mixed
+lambda returns of `string` and `object?` infer `object?`; the nullable operand is
+not discarded. Operands outside nominal inheritance use the ordinary fallback
+rather than allowing a result inferred from only some branches.
+
 A conditional also retains its contextual nullable target. For example,
 `let value: int? = if flag { 7 } else { null }` converts both branches to `int?`,
 producing `7` or `null` according to the condition. The same rule applies to
