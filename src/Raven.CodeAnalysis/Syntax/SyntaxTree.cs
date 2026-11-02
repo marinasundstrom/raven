@@ -71,10 +71,9 @@ public partial class SyntaxTree
 
         var syntaxTree = new SyntaxTree(sourceText, filePath ?? "file", options);
 
-        compilationUnit = compilationUnit
-            .WithSyntaxTree(syntaxTree);
+        var root = compilationUnit.WithSyntaxTree(syntaxTree);
 
-        syntaxTree.AttachSyntaxRoot(compilationUnit);
+        syntaxTree.AttachSyntaxRoot(root);
         syntaxTree.AttachDiagnostics(Array.Empty<InternalSyntax.DiagnosticInfo>());
 
         return syntaxTree;
@@ -91,10 +90,9 @@ public partial class SyntaxTree
     {
         var syntaxTree = new SyntaxTree(sourceText, filePath ?? string.Empty, options, isGenerated);
 
-        compilationUnit = compilationUnit
-            .WithSyntaxTree(syntaxTree);
+        var root = compilationUnit.WithSyntaxTree(syntaxTree);
 
-        syntaxTree.AttachSyntaxRoot(compilationUnit);
+        syntaxTree.AttachSyntaxRoot(root);
         syntaxTree.AttachDiagnostics(diagnostics ?? Array.Empty<InternalSyntax.DiagnosticInfo>());
 
         return syntaxTree;

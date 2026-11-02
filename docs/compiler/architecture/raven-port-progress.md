@@ -2991,3 +2991,23 @@ both conditional branch identities as well as coalescing identity/laziness.
 Targeted builds, whitespace formatting and diff checks pass. Ordinary compiler
 fixture documentation sidecars were produced by the feature build; RavenDoc/site
 generation was not run. Native guest execution remains unqualified.
+
+## PORT-092 — local tree roots for direct translation
+
+The pending SyntaxTree translation reassigns its compilationUnit parameters in
+two factories. Raven parameters are immutable; this is a translation boundary,
+not a reason to change parameter semantics. Use a local root after WithSyntaxTree
+in both C# factories and mirror that local in Raven. Inputs, root attachment,
+text snapshot and diagnostics remain unchanged. This is bounded cleanup within
+two methods, with no public API or language rule change.
+
+**28 focused tree/rewriter/location checks pass before and after** the C# cleanup.
+Targeted build passes; all authored Raven inputs parse with zero errors. The Raven
+factory file remains in the pending runtime dependency batch until semantic
+compilation and execution are validated. A new 1,065-input analysis uses immutable
+seed `/tmp/raven-tree-root-locals-seed`, manifest
+`/tmp/node-runtime-tree-root-locals-inputs.json` and log
+`/tmp/node-runtime-tree-root-locals.log`; it is live at this checkpoint. It includes
+PORT-088/089 init fixes, PORT-090 metadata defaults, PORT-091 generic interface
+inference and these locals. Do not infer emission success from its syntax checks.
+No native guest execution or RavenDoc/site generation is performed.
