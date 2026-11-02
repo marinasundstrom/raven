@@ -36,3 +36,13 @@ and case-sensitive; unknown or null IDs return no descriptor. This work does not
 change the existing mutable array/set API or claim thread-safe first access.
 The retained C# generator supplies both outputs during bootstrapping; descriptor
 parity tests compare the resulting assemblies rather than only generated text.
+
+### External file locations
+
+`Location.Create(path, textSpan, lineSpan)` preserves the supplied `SourceSpan`
+and reports an external source location without an attached `SourceTree`.
+Equality compares the source span and the file/line span; locations in distinct
+files or at distinct line positions remain distinct even when their absolute
+source offsets match. Equal external locations have equal hashes. Source-tree
+and metadata location contracts retain their existing behavior. This is shared
+compiler API behavior before target-specific diagnostic presentation.

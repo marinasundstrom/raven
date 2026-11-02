@@ -104,7 +104,8 @@ public abstract class Location : IComparable<Location>, IEquatable<Location>
 
         // Compare spans and trees (simplest for source locations)
         return SourceSpan == other.SourceSpan &&
-               Equals(SourceTree, other.SourceTree);
+               Equals(SourceTree, other.SourceTree) &&
+               (Kind != LocationKind.ExternalFile || GetLineSpan().Equals(other.GetLineSpan()));
     }
 
     public override int GetHashCode()
@@ -115,6 +116,9 @@ public abstract class Location : IComparable<Location>, IEquatable<Location>
 
             hash = hash * 31 + SourceSpan.GetHashCode();
             hash = hash * 31 + (SourceTree?.GetHashCode() ?? 0);
+
+            if (Kind == LocationKind.ExternalFile)
+                hash = hash * 31 + GetLineSpan().GetHashCode();
 
             return hash;
         }

@@ -6,7 +6,6 @@ namespace Raven.CodeAnalysis;
 internal class ExternalFileLocation : Location
 {
     private readonly string _filePath;
-    private readonly TextSpan _textSpan;
     private readonly LinePositionSpan _lineSpan;
 
     internal ExternalFileLocation(string filePath, TextSpan textSpan, LinePositionSpan lineSpan)
@@ -14,7 +13,7 @@ internal class ExternalFileLocation : Location
         Kind = LocationKind.ExternalFile;
 
         _filePath = filePath;
-        _textSpan = textSpan;
+        SourceSpan = textSpan;
         _lineSpan = lineSpan;
     }
 

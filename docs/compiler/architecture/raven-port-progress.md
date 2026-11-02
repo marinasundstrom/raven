@@ -2774,3 +2774,21 @@ value for explicit and primary constructors in either tree order. Together with
 the 78 semantic checks, these validate the local correction without claiming full
 Raven runtime emission. Targeted build, whitespace formatting and diff checks pass.
 No native guest execution or RavenDoc/site generation is performed.
+
+## PORT-086 — external location value identity
+
+Dependency work for the source-owned Raven SyntaxTree requires porting locations,
+diagnostics and parse options. A focused C# API regression identifies an existing
+external-location defect: the constructor stores textSpan in an unused private
+field, leaving SourceSpan as `[0..0]`; equality also ignores the external path and
+line span. The new regression fails before correction (**22 existing pass**) and
+checks span preservation, source shape, equivalent hashes and distinct file,
+source-span and line-span identities.
+
+ExternalFileLocation now initializes SourceSpan directly. External Location
+equality/hash include the file/line span while source-tree and metadata equality
+remain unchanged. Both corrections are mirrored in the pending Raven location
+translation. **All 25 focused/adjacent location, diagnostic equality and syntax-tree
+contract checks pass** on modern .NET. The new Raven dependency files parse with
+zero errors, but full semantic/runtime validation is not yet established. No
+native guest execution or RavenDoc/site generation is performed.
