@@ -56,6 +56,12 @@ By-value `scoped` parameters and locals must be ref-like. `scoped ref`,
 As in C#, `out` parameters and `ref` parameters whose type is ref-like are
 implicitly scoped even when the keyword is omitted.
 
+A scoped reference restricts the lifetime of the reference, not an ordinary
+value read through it. Copying an `int`, an ordinary struct, or an object reference
+from a scoped parameter into another `ref`/`out` destination is allowed. Copying
+a ref-like value such as `Span<T>` can carry a scoped lifetime and remains subject
+to escape checks.
+
 Consumed .NET parameters annotated with
 `System.Runtime.CompilerServices.ScopedRefAttribute` expose the same
 classification. Constructed generic symbols preserve it.

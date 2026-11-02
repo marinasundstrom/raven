@@ -203,6 +203,43 @@ public sealed class ScopedParameterTests : CompilationTestBase
             diagnostic => diagnostic.Descriptor.Id == "RAV0358");
     }
 
+    [Theory]
+    [InlineData("out", "source = 1", "source")]
+    [InlineData("out", "source = 1; let copy = source", "copy")]
+    [InlineData("scoped ref", "", "source")]
+    [InlineData("scoped ref", "let copy = source", "copy")]
+    [InlineData("scoped in", "", "source")]
+    [InlineData("scoped in", "let copy = source", "copy")]
+    [Trait("Target", "Shared")]
+    public void ScopedReference_AllowsOrdinaryValueCopyThroughOutParameter(
+        string modifier, string setup, string value)
+    {
+        var (compilation, _) = CreateCompilation($$"""
+            func Copy({{modifier}} source: int, out destination: int) {
+                {{setup}}
+                destination = {{value}}
+            }
+            """);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData("string", "\"value\"")]
+    [InlineData("System.DateTime", "System.DateTime(2026, 1, 1)")]
+    [Trait("Target", "Shared")]
+    public void OutParameter_AllowsReferenceAndStructValueCopies(string type, string value)
+    {
+        var (compilation, _) = CreateCompilation($$"""
+            func Copy(out source: {{type}}, out destination: {{type}}) {
+                source = {{value}}
+                destination = source
+            }
+            """);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void ScopedValue_CannotBeAssignedThroughRefParameter()
     {

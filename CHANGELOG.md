@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow ordinary value copies from scoped references into `ref`/`out` storage,
+  including assigned `out` parameters. Continue rejecting scoped ref-like values
+  that would escape through those assignments.
+
 - Require `!` to be attached to every freestanding macro name. Whitespace or
   comments before the bang preserve ordinary syntax, including `if !foo()`;
   `if! foo()` remains an expression-header macro candidate.

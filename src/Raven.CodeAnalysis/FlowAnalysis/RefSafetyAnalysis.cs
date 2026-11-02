@@ -106,11 +106,14 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         {
             _scopedBackedLocals[scopedAssignment.Local] = scopedOrigin;
         }
+        // Writing through a reference copies its value. Only a ref-like value
+        // can carry the scoped lifetime into the destination storage.
         if (node is BoundParameterAssignmentExpression
             {
                 Parameter.RefKind: not RefKind.None,
                 Right: { } parameterValue,
             } &&
+            SemanticFacts.MayBeRefLike(parameterValue.Type) &&
             TryGetScopedOrigin(parameterValue) is { } parameterScopedOrigin)
         {
             AddScopedEscape(parameterValue, parameterScopedOrigin);
@@ -119,6 +122,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
             {
                 Right: { } byRefValue,
             } &&
+            SemanticFacts.MayBeRefLike(byRefValue.Type) &&
             TryGetScopedOrigin(byRefValue) is { } byRefScopedOrigin)
         {
             AddScopedEscape(byRefValue, byRefScopedOrigin);

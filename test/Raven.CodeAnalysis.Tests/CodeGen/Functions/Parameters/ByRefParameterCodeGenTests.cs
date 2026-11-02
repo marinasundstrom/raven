@@ -11,6 +11,28 @@ namespace Raven.CodeAnalysis.Tests.CodeGen.Functions.Parameters;
 public sealed class ByRefParameterCodeGenTests
 {
     [Fact]
+    [Trait("Target", "DotNet")]
+    public void AssignedOutParameter_CopiesValueWithoutAliasingDestination()
+    {
+        const string code = """
+            class Program {
+                static func Copy(out first: int, out second: int) {
+                    first = 21
+                    second = first
+                    first = 100
+                }
+                static func Run() -> int {
+                    var first = 0
+                    var second = 0
+                    Copy(out first, out second)
+                    return first + second
+                }
+            }
+            """;
+        Assert.Equal(121, CompileAndInvokeRun<int>(code, "out-value-copy-runtime"));
+    }
+
+    [Fact]
     public void ForwardedOutParameters_AreAssignedBySourceAndMetadataCalls()
     {
         const string code = """

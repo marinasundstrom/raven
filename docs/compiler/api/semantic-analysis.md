@@ -185,6 +185,12 @@ lifetime. This includes compiler-created receiver captures in range slicing.
 Result blocks retain their final expression's origin; ref-like invocation results
 can retain the receiver and unscoped arguments. Stack allocations, local references
 and scoped values therefore remain restricted through slices and aliases.
+Writes through `ref`/`out` storage distinguish ordinary value copies from
+ref-like lifetime escapes. Reading an ordinary value from a scoped reference
+(including an implicitly scoped `out` parameter) does not make that value scoped;
+copying it to another destination does not report a scoped-escape diagnostic.
+The analysis remains shared by .NET and neoCLR; runtime validation is reported
+separately from target-independent diagnostic tests.
 Non-ref-like call results do not inherit these lifetime restrictions. The runtime
 contract selects slice members; shared flow analysis owns escape diagnostics.
 
