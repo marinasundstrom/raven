@@ -1,101 +1,67 @@
-# Resolving bang expressions and macro invocations
+# Bang syntax and macro resolution
 
-This is the resolution contract adopted during the compiler port. Implementation
-is in progress: current binding rejects some shadowed expression forms rather
-than interpreting their ordinary value meaning. This document does not claim
-that every example below already compiles.
+Raven reserves macro-shaped bang forms for macro syntax. Scope lookup does not
+reinterpret a macro-shaped form as an ordinary postfix operator expression.
+This avoids ambiguity as more macro carrier styles are introduced.
 
-## Syntax position selects the possible interpretations
-
-The parser determines which interpretations the syntax and containing position
-permit. Semantic resolution selects between those interpretations only when
-there is a real ambiguity. A bang token alone does not establish that a name
-refers to a macro.
-
-| Form and position | Resolution |
+| Form | Meaning |
 | --- | --- |
-| Prefix `!value` | Ordinary unary operator. |
-| Bare postfix `value!` | Ordinary nullable suppression or carrier unwrap. |
-| `(value!)(args)` or `(value!)[index]` | Ordinary call or indexing of the explicitly parenthesized value. |
-| `name!(args)` in expression position | Ordinary value interpretation wins when normal scope lookup resolves `name` as a value; otherwise resolve a macro. |
-| `name![items]` in expression position | The same scope rule selects value indexing. If no value resolves, a macro interpretation requires a supported sequence carrier; reserving a future carrier must not reserve this spelling away from ordinary indexing. |
-| Macro-only token-tree/expression-header syntax, such as `name! { ... }` | Resolve a macro. A value name does not turn this macro-only carrier into a value expression. |
-| Declaration-shaped macro invocation in a declaration position | Resolve a declaration macro and validate its output for that declaration position. Ordinary operator expressions are not candidates. |
+| `!value` | Ordinary prefix operator. |
+| Bare `value!` | Postfix nullable suppression or carrier unwrap. |
+| `foo!(args)` | Macro invocation syntax, not suppression followed by invocation. |
+| `foo![items]` | Reserved macro sequence syntax, not suppression followed by indexing. The macro sequence carrier is not implemented yet. |
+| `foo! { ... }` and other macro carriers | Macro syntax, subject to the carrier and containing-position rules. |
+| `foo?(args)` | Conditional invocation. |
+| `foo?[index]` | Conditional element access. |
+| `(foo!)(args)` | Explicit suppression/unwrap, then ordinary invocation. |
+| `(foo!)[index]` | Explicit suppression/unwrap, then ordinary indexing. |
+| `foo!.Member` | Suppression/unwrap, then ordinary member access. |
 
-These rules are shared by .NET and neoCLR. They do not depend on runtime
-representation or on whether the receiver happens to be nullable.
+The distinction is syntactic. A nullable local variable, parameter or member named
+`foo` does not make `foo!(args)` or `foo![items]` an ordinary value expression.
+Use conditional access to skip the operation when the receiver is null, or
+parenthesize the explicitly unwrapped/suppressed value to select ordinary access.
+Whitespace alone is not a disambiguation mechanism.
 
-## Scope decides genuinely ambiguous expression forms
+Postfix `!` retains its existing semantics: suppression for nullable references,
+value extraction for nullable value types, and unwrap-or-fail for propagation
+carriers. Parentheses change the syntax grouping, not these semantics. An invalid
+ordinary call or index reports an ordinary diagnostic; it does not fall back to
+macro expansion. An unknown, shadowed or unsupported macro-shaped invocation
+likewise does not fall back to ordinary postfix access.
 
-Use ordinary Raven name lookup, including its existing rules for locals,
-parameters, pattern bindings, local functions, and members. Do not introduce a
-second notion of scope for macros. A lookup result denoting an ordinary value or
-callable expression selects the value interpretation. A namespace or type name
-alone is not a value binding.
+## Position and scope
 
-For a qualified name, resolving its receiver to a value commits to ordinary
-member lookup. A missing or inaccessible member is then a value-resolution
-error, not a reason to retry the complete spelling as a macro name. A qualified
-macro name whose prefix resolves as a namespace can bypass an unqualified local
-name collision. Qualification must itself obey normal lookup; it is not an
-unconditional escape from shadowing.
+Syntax position still determines which macro carriers are permitted and what
+output they can produce. Declaration-shaped invocations must resolve to macros
+valid in that declaration position. Expression and statement carriers retain
+their respective output requirements.
 
-Selection precedes operand type checking. For example, a local `array: int[]?`
-makes `array![0]` suppression followed by indexing, and a local delegate makes
-`callback!()` suppression followed by invocation. A local integer with the same
-name still wins lookup, but attempting to call or index it produces an ordinary
-type error. The compiler must not run a macro after that error. Accessibility,
-use-before-declaration, definite-assignment and overload errors likewise do not
-cause fallback to another interpretation.
+Scope participates in resolving the selected name within those rules, including
+existing macro imports, aliases and shadowing. It does not change the syntactic
+category. A parsed macro-shaped candidate is not permission to execute a provider
+before macro name and carrier validation succeed.
 
-Postfix `!` retains Raven's existing semantics: suppress nullable references,
-extract nullable values, and unwrap-or-fail for propagation carriers. This
-resolution rule does not redefine that operator or make it conditional on a
-macro being present.
+Shared compiler resolution must give compilation, cold symbol/type/operation
+queries, macro-expansion queries, highlighting and signature help the same answer.
+IDE layers must not independently reinterpret a rejected macro as value access.
+This rule is shared by .NET and neoCLR.
 
-## Compiler ownership
+## Future macro styles and porting
 
-Keep candidate syntax independent of symbol availability. The parser must not
-consult a macro registry or keep a parallel table of semantic local bindings.
-Shared binding owns one decision for each candidate: ordinary expression,
-macro invocation, or an error in the selected interpretation. The representation
-must retain enough authored syntax to bind either permitted reading without
-losing argument/index spans or changing source ownership.
+Every new macro style must specify its carrier syntax and permitted positions.
+In particular, future sequence carriers can use `Name![items]` without changing
+ordinary value-indexing precedence: ordinary explicit unwrap/index access is
+already written `(value!)[index]`.
 
-Use the same decision before expression/statement binding, macro expansion,
-`GetSymbolInfo`, `GetTypeInfo`, `GetOperation`, macro token classification,
-signature help and embedded-language tooling. A syntax node shaped like a macro
-candidate is not permission to invoke a provider. Cold semantic queries must
-agree with full compilation. IDE layers consume the compiler's answer rather
-than performing their own lookup or retrying failed macro resolution.
+During C# porting, translate `array![index]` to `(array!)[index]` and nullable
+delegate `callback!(args)` to `(callback!)(args)` where the intent is an asserted
+non-null value operation. Do not replace these with conditional access unless
+skipping the operation is the intended behavior. Bare suppression and ordinary
+member access need no added parentheses for this distinction.
 
-Cache resolution in binder-owned semantic state. Adding, removing or shadowing
-a value declaration can change the selected interpretation even if the bang
-expression's text remains unchanged. Incremental invalidation must account for
-that scope change before reusing a macro expansion or semantic result.
-
-## Adding macro styles
-
-Every new carrier/style must specify its allowed positions, whether it has an
-ordinary-expression interpretation, and how the syntax preserves both candidates
-when ambiguous. Carrier-shape validation runs after the name-resolution choice;
-a macro-only shape has no ordinary candidate, while an ambiguous shape follows
-the scope rule above. Whitespace must not become an undocumented escape hatch.
-
-In particular, implementing sequence carriers later must preserve value indexing
-for `array![i]`. It must not change existing value expressions into macro calls
-merely because a macro with that spelling has been imported.
-
-## Validation requirements
-
-- Same spelling with and without an imported macro; local/parameter, pattern,
-  local-function and member bindings; inner-scope shadowing and qualified names.
-- Nullable array indexing, nullable delegate invocation, carrier unwrap followed
-  by access, and nonnullable values using the existing postfix-operator rules.
-- Invalid ordinary calls/indexes report ordinary diagnostics and never execute a
-  macro provider; macro-only and declaration forms remain macro invocations.
-- Explicit parentheses, prefix bang, carrier delimiters and expression/statement/
-  declaration positions, with source spans and syntax round-tripping preserved.
-- Cold symbol/type/operation queries, macro-expansion queries and IDE features
-  agree with compilation; edits introducing/removing a shadow invalidate caches.
-- Runtime tests preserve evaluation order and evaluate each value receiver once.
+Existing runtime tests cover conditional delegate invocation and null/non-null
+conditional array indexing. A direct compiler analysis probe also accepts both
+conditional forms and both parenthesized explicit-suppression forms. Macro-style
+indexing remains reserved; these statements do not claim that sequence macros
+are implemented.

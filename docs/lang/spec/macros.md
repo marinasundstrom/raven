@@ -231,10 +231,11 @@ the declaration-shaped syntax carrier before macro resolution.
 
 ### 4.4 Future sequence carrier
 
-The macro sequence interpretation of `Name![item1, item2]` is reserved design
-direction and is not implemented. This reservation does not override ordinary
-postfix suppression followed by indexing when `Name` resolves to an in-scope
-value; see the [bang-resolution contract](../../compiler/architecture/bang-resolution.md).
+`Name![item1, item2]` is reserved macro syntax and is not implemented.
+It is not interpreted as suppression followed by indexing, even when `Name`
+resolves to a nullable variable. Write `(value!)[index]` for explicit
+suppression/unwrap followed by ordinary indexing, or `value?[index]` for
+conditional indexing. See the [bang syntax rules](../../compiler/architecture/bang-resolution.md).
 Its intended reading is a variable number of homogeneous items that the macro
 processes to produce a result. The application-model proposal associates it
 with a compiler-owned `MacroList<T>` input: ordinary `T` would request value
@@ -341,15 +342,13 @@ A macro alias spelled as a language keyword requires an adjacent bang:
 ordinary conditional with a negated condition. Whitespace or comments between
 the keyword and bang preserve the keyword's language meaning.
 
-Aliases do not become lexical keywords. Their resolution depends first on the
-syntax and containing position, then on scope where an ordinary value expression
-and a macro invocation are both possible. The adopted
-[bang-resolution contract](../../compiler/architecture/bang-resolution.md)
-requires ordinary in-scope value bindings to take precedence in ambiguous
-expression forms such as `name!()` and `name![index]`. Macro-only carriers and
-declaration-shaped forms resolve through macro lookup. Implementation of this
-contract is in progress; the current compiler still rejects some shadowed value
-forms instead of binding their ordinary interpretation. After successful
+Aliases do not become lexical keywords. They resolve contextually through the
+macro registry and can be shadowed by an ordinary local name. However, scope does
+not reinterpret a macro-shaped bang form as an ordinary value expression:
+`foo!(args)` is macro syntax, while `(foo!)(args)` explicitly invokes the
+suppressed/unwrapped value and `foo?(args)` conditionally invokes it. An invalid
+or shadowed macro invocation does not fall back to a value operation. See the
+[bang syntax rules](../../compiler/architecture/bang-resolution.md). After successful
 resolution, IDEs present the alias token with the contextual-keyword semantic
 classification. Canonical macro names retain the macro classification. This
 presentation rule applies equally to invocation and declaration-shaped forms
