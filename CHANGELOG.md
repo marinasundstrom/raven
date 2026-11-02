@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve generic contracts in common-interface inference, including interface
+  operands themselves. Prefer a unique most-specific shared interface and retain
+  the class/object fallback for incomparable contracts. Reference `if` branches
+  now use the same nominal inference rule.
+
 - Expose implicit parameterless constructors for imported value types without a
   declared one and zero-initialize their values. Preserve explicit constructor
   bodies, initializers and generic constructor identity across semantic queries.

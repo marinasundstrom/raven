@@ -18528,3 +18528,15 @@ layout/default-initialization support owns executable admission and replaces CLI
 value initialization. The .NET execution fixture compares zero values, explicit
 and optional constructors, an initializer and HashCode behavior with C# oracles.
 No new native metadata/codegen capability is claimed by these checks.
+
+## Shared common-interface inference — 2026-11-02
+
+Shared semantic inference includes each interface's own contract and retains a
+unique most-specific shared generic interface. Reference branches use the same
+nominal rule; incomparable common interfaces use the class/object fallback.
+This changes inferred semantic types before target-specific representation and
+introduces no temporary CLI encoding. Native interface inheritance/type metadata
+owns the equivalent hierarchy facts; no new native codegen capability is claimed.
+An explicit neoCLR semantic case with host references validates typed coalescing,
+while modern .NET execution checks selected value identity and fallback laziness.
+These are not native-core or guest execution checks.

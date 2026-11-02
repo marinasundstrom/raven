@@ -2955,3 +2955,39 @@ longer fails. Remaining reduced gaps are conditional collection inference,
 heterogeneous lambda returns, a nullable comparer overload and enum/member name
 binding. The full source-runtime build still has no current successful emission
 or shared C# parity result; keep its unfinished Raven source batch unstaged.
+
+## PORT-091 — common interface inference
+
+The direct syntax-tree port's `_diagnostics ?? Enumerable.Empty<Diagnostic>()`
+loses its generic contract and reports nongeneric IEnumerable instead. A **47-test
+inference/coalescing baseline passes**. Eleven focused cases then produce **nine
+failures / two controls pass** before correction, covering cold/diagnostic-first
+coalescing, interface self-contracts, derived contracts and reference branches.
+
+TypeSymbolNormalization now includes an interface itself in shared-contract checks,
+retains the unique most-specific interface and uses class/object fallback for
+incomparable survivors. This removes metadata-order-dependent choices. A reference
+branch regression exposes a separate class-only inference path and interface
+rejection in BlockBinder. Its reference fallback now consults the same normalizer,
+retaining valid existing operand conversions. Value-type inference restrictions,
+explicit contextual targets and user-defined conversion selection retain their
+own paths.
+
+Two older assertions accepted an arbitrary first common interface for mixed returns;
+one test's name already described object fallback. They now assert object for
+incomparable contracts. **71 focused/adjacent inference, return, analyzer and
+coalescing cases pass**, including cold/warm branch type queries and an explicit
+neoCLR semantic case using host references. Modern .NET runtime checks preserve
+selected branch/coalescing value identity, generic enumeration and fallback
+short-circuiting. The normalization/binder have not yet been ported; keep these
+rules in their future direct translation. The Raven runtime source remains
+uncompiled and unstaged pending its remaining dependency gaps.
+
+Final PORT-091 validation: the complete 16-case regression set produces **14
+failures / two controls pass** against the immutable pre-fix compiler. All cases
+pass with the correction as part of the 71-case adjacent run. The **439-test
+overload-resolution feature suite passes**, and the .NET execution fixture verifies
+both conditional branch identities as well as coalescing identity/laziness.
+Targeted builds, whitespace formatting and diff checks pass. Ordinary compiler
+fixture documentation sidecars were produced by the feature build; RavenDoc/site
+generation was not run. Native guest execution remains unqualified.

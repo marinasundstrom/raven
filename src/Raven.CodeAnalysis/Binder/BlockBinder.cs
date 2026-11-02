@@ -6835,6 +6835,25 @@ partial class BlockBinder : Binder
         var resultType = hasInferredResultType ? inferredResultType : Compilation.ErrorTypeSymbol;
         var usedReferenceFallbackResultType = false;
 
+        if (targetType is null && IsReferenceLike(thenType) && IsReferenceLike(elseType))
+        {
+            if (hasInferredResultType && resultType.TypeKind == TypeKind.Interface &&
+                IsAssignable(resultType, thenType, out _) && IsAssignable(resultType, elseType, out _))
+            {
+                usedReferenceFallbackResultType = true;
+            }
+            else if (!hasInferredResultType || resultType.SpecialType == SpecialType.System_Object)
+            {
+                var nominalType = TypeSymbolNormalization.GetBestCommonType([thenType, elseType]);
+                if (IsAssignable(nominalType, thenType, out _) && IsAssignable(nominalType, elseType, out _))
+                {
+                    resultType = nominalType;
+                    hasInferredResultType = true;
+                    usedReferenceFallbackResultType = true;
+                }
+            }
+        }
+
         if (targetType is null &&
             hasInferredResultType &&
             !SymbolEqualityComparer.Default.Equals(thenType, elseType) &&

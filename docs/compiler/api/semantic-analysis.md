@@ -330,3 +330,17 @@ symbols, type information and object-creation operations retain normal construct
 shape; lowering chooses value initialization. Constructed metadata member
 projections retain reference identity across named and all-member queries, while
 mutable declaration states continue through their existing refresh path.
+
+### Common interface inference
+
+Nominal inference includes an interface operand itself when testing shared
+contracts, retains a unique most-specific common interface and preserves generic
+arguments. Incomparable surviving interfaces use the class/object fallback.
+Reference `if` branches consult the same nominal inference when ordinary operand
+conversion does not determine a more specific result. Existing valid interface
+operand conversions retain their inferred type, including variance conversions.
+
+Cold type/symbol queries and queries after diagnostics expose the same typed
+contract. Runtime reference identity and coalescing short-circuit behavior are
+preserved. The shared normalization and binder components have not yet been ported;
+the pending Raven syntax-tree implementation benefits through its C# bootstrap.

@@ -121,7 +121,7 @@ class Foo {
 
         Assert.NotNull(inferred);
         Assert.IsAssignableFrom<INamedTypeSymbol>(inferred);
-        Assert.Equal(SpecialType.None, inferred.SpecialType);
+        Assert.Equal(SpecialType.System_Object, inferred.SpecialType);
     }
 
     [Fact]

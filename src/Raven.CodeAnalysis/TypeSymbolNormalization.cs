@@ -87,13 +87,25 @@ internal static class TypeSymbolNormalization
             candidate = candidate.BaseType;
         }
 
-        foreach (var iface in namedTypes[0].AllInterfaces)
+        var commonInterfaces = namedTypes[0].AllInterfaces
+            .Where(iface => namedTypes.All(type => SharesAncestor(type, iface)))
+            .ToArray();
+        INamedTypeSymbol? commonInterface = null;
+        foreach (var candidateInterface in commonInterfaces)
         {
-            if (namedTypes.All(t => t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default)))
-                return iface;
+            if (commonInterfaces.Any(other =>
+                !SymbolEqualityComparer.Default.Equals(other, candidateInterface) &&
+                SharesAncestor(other, candidateInterface)))
+            {
+                continue;
+            }
+
+            if (commonInterface is not null)
+                return objectType;
+            commonInterface = candidateInterface;
         }
 
-        return objectType;
+        return commonInterface ?? objectType;
 
         static bool SharesAncestor(INamedTypeSymbol type, INamedTypeSymbol ancestor)
         {

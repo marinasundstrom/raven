@@ -103,7 +103,7 @@ class C {
     }
 
     [Fact]
-    public void MethodWithoutAnnotation_WhenOnlyCommonTypeIsObject_SuggestsUnion()
+    public void MethodWithoutAnnotation_WhenSharedInterfacesAreAmbiguous_SuggestsObject()
     {
         const string code = """
 class C {
@@ -121,7 +121,7 @@ class C {
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
                     .WithSpan(2, 10, 2, 14)
-                    .WithArguments("Test", "IComparable")
+                    .WithArguments("Test", "object")
             ],
             disabledDiagnostics: ["RAV1503", CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 

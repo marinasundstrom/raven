@@ -65,6 +65,14 @@ those results. A shared base class may be abstract: the expression returns an
 existing derived instance rather than constructing the base class. Literal
 branches use or widen from their primitive types as needed.
 
+Common nominal inference prefers a shared class base more specific than `object`.
+Otherwise, a unique most-specific shared interface is retained with its generic
+arguments. An interface operand satisfies its own contract as well as its inherited
+contracts. If multiple incomparable shared interfaces remain, inference uses the
+class/object fallback instead of selecting an interface by metadata order. This
+also keeps typed contracts in null-coalescing expressions, such as an
+`IReadOnlyList<int>?` combined with an `IEnumerable<int>` fallback.
+
 A conditional also retains its contextual nullable target. For example,
 `let value: int? = if flag { 7 } else { null }` converts both branches to `int?`,
 producing `7` or `null` according to the condition. The same rule applies to
