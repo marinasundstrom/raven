@@ -162,6 +162,14 @@ Console.WriteLine(tuple.a)
 Console.WriteLine(tuple.Item1)
 ```
 
+Unlabelled identifier and member-access elements infer their final identifier as
+the element name: `(left, holder.Value)` exposes `left` and `Value`. Explicit
+labels take precedence. An inferred name is omitted if it duplicates another
+explicit or inferred name, or matches tuple infrastructure (`CompareTo`,
+`Deconstruct`, `Equals`, `GetHashCode`, `Rest`, `ToString`, or canonical `ItemN`).
+Such elements keep their positional name. Other expressions do not infer names.
+Explicitly annotated tuple targets retain their declared element names.
+
 Tuple types may nest or participate in other type constructs such as unions or
 nullability. On .NET they map to `System.ValueTuple`; neoCLR uses its structural
 tuple representation. This is a runtime mapping difference, not separate tuple

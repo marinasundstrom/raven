@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Infer tuple element names from identifier and member-access expressions, with
+  duplicate/reserved-name fallback and explicit target names preserved, for both
+  .NET and neoCLR tuple representations.
+
 - Recognize implicit reference conversions from generic parameters through class
   constraints and chained type-parameter constraints to their effective base types.
 

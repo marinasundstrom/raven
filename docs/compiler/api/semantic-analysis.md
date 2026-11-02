@@ -258,3 +258,9 @@ Reference-conversion classification follows a type parameter's class constraints
 including chains through other type parameters, to the effective class and its
 reference-convertible bases/interfaces. Constraint traversal is cycle-protected.
 Unrelated class conversions are not introduced by these constraints.
+
+Tuple expression binding infers element names from identifiers and member access,
+then removes duplicate or reserved inferred names before creating tuple symbols.
+GetTypeInfo and tuple member lookup expose those names on cold and warm queries;
+explicitly annotated target tuples keep their declared names. The same binding
+path creates .NET tuple projections and neoCLR structural tuple elements.

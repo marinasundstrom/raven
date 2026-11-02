@@ -12,6 +12,56 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class TupleTypeSemanticTests
 {
     [Fact]
+    [Trait("Target", "NeoCLR")]
+    public void NeoCLR_InferredTupleNames_AreStructuralElements()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Probe {
+                static func Run() -> int {
+                    let left = 1
+                    let right = 2
+                    let pair = (left, right)
+                    return pair.left + pair.right
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NativeTupleNames", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR));
+        var model = compilation.GetSemanticModel(tree);
+        Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tuple = tree.GetRoot().DescendantNodes().OfType<TupleExpressionSyntax>().Single();
+        var type = Assert.IsType<StructuralTupleTypeSymbol>(model.GetTypeInfo(tuple).Type);
+        Assert.Equal(new[] { "left", "right" }, type.TupleElements.Select(element => element.Name));
+    }
+
+    [Theory]
+    [InlineData("(left, right)", "left", "right")]
+    [InlineData("(holder.Value, right)", "Value", "right")]
+    [InlineData("(left, left)", "Item1", "Item2")]
+    [InlineData("(left: 0, left)", "left", "Item2")]
+    [InlineData("(Rest, Item3)", "Item1", "Item2")]
+    [InlineData("(left + 1, right)", "Item1", "right")]
+    [Trait("Target", "Shared")]
+    public void TupleExpression_InfersUniqueElementNames(string expression, string first, string second)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            class Holder { val Value: int => 1 }
+            let left = 1
+            let right = 2
+            let Rest = 3
+            let Item3 = 4
+            let holder = Holder()
+            let pair = {{expression}}
+            """);
+        var compilation = Compilation.Create("InferredTuple", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var tuple = tree.GetRoot().DescendantNodes().OfType<TupleExpressionSyntax>().Single();
+        var type = Assert.IsAssignableFrom<ITupleTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(tuple).Type);
+        Assert.Equal(new[] { first, second }, type.TupleElements.Select(element => element.Name));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void UnderlyingTupleType_IsOnlyPresentForTupleSymbols()
     {
         var source = """

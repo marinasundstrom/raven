@@ -2349,3 +2349,47 @@ repaired test, adjacent member-binding class and new constraint cases pass
 run is claimed fully green; the only failure was separately reproduced and
 repaired. The compiler correction and local fixture cleanup are committed as
 this slice. No documentation-site generation was run.
+
+
+## PORT-075 — inferred tuple element names
+
+The direct `(node, index)` translation lost names required by subsequent LINQ
+selectors. The shared tuple binder now infers unique identifier/member-access
+names, suppressing duplicate and reserved inferred names while retaining explicit
+labels and target tuple names. C# reference behavior was checked against the
+[tuple reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/value-tuples)
+and Roslyn's reserved-name classification. Tuple runtime mappings are unchanged.
+Existing field/symbol lookup and highlighting need no new syntax or API; grammar
+syntax is unchanged. The website reference index and type rules are updated
+without running documentation generation.
+
+The baseline passed **16 tests**. Three new name-inference cases failed and three
+fallback cases already passed before the change. The reduced LINQ query now
+compiles. Focused semantic/runtime checks, broader validation and full-source
+analysis are pending. The binder is not yet ported; retain this shared behavior
+when translating it. Logs: `/tmp/tuple-inferred-names-before.log`,
+`/tmp/tuple-inferred-names-focused-final.log`.
+
+The focused run passes **24 tests**, including .NET LINQ execution and neoCLR
+structural tuple semantic binding (no native execution). Broader validation and
+full analysis are running in `/tmp/tuple-inferred-names-adjacent.log` and
+`/tmp/node-runtime-analysis-inferred-tuple.log`. The six name tests now query
+GetTypeInfo before diagnostics to exercise cold binding; rerun that strengthened
+filter after the current broader run completes. This slice remains uncommitted.
+
+The broader run completed with **253 passing tests and one scripting failure**:
+`RunAsync_UsesDefaultPreludeForLinqCollectionExpression` loads both the local
+Raven.Macros assembly and NuGet version 0.1.16, reporting duplicate macro exports.
+This needs a preceding-compiler comparison before attribution. Cold tuple query
+checks are running in `/tmp/tuple-inferred-names-cold.log`; the full-source
+analysis remains active.
+
+All **six strengthened cold-query tests pass**. The full 70-file analysis completes
+with **17 errors**, resolving both tuple-label failures. The scripting case
+passes in isolation on both the preceding and current compiler; its broad-run
+failure is process/reference-state dependent. `RuntimeMetadataReferenceResolver`
+imports loaded host assemblies and ScriptOptions.Default captures them, while
+the prelude can also resolve package macro assemblies. Do not claim the broad
+run fully green: **253 cases passed**, with the one duplicate-export failure
+tracked for separate scripting/reference-isolation work. Tuple feature checks,
+formatting and builds pass, and no documentation generation was run.

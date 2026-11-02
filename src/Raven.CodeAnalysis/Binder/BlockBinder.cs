@@ -2848,6 +2848,22 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
     }
 
+    private static string? GetInferredTupleElementName(ExpressionSyntax expression)
+    {
+        var name = expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+            _ => null
+        };
+        if (name is null or "CompareTo" or "Deconstruct" or "Equals" or "GetHashCode" or "Rest" or "ToString")
+            return null;
+        if (name.StartsWith("Item", StringComparison.Ordinal) &&
+            int.TryParse(name.AsSpan(4), out var position) && position > 0 && name == $"Item{position}")
+            return null;
+        return name;
+    }
+
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)
     {
         var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
@@ -2885,6 +2901,16 @@ partial class BlockBinder : Binder
 
         var tupleElements = new List<(string? name, ITypeSymbol type)>();
 
+        var names = tupleExpression.Arguments.Select(argument =>
+            argument.NameColon?.Name.ToValueString() ?? GetInferredTupleElementName(argument.Expression)).ToArray();
+        var nameCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var name in names)
+        {
+            if (name is not null)
+                nameCounts[name] = nameCounts.GetValueOrDefault(name) + 1;
+        }
+
+        var elementIndex = 0;
         foreach (var node in tupleExpression.Arguments)
         {
             if (node is ArgumentSyntax arg)
@@ -2893,7 +2919,9 @@ partial class BlockBinder : Binder
                 elements.Add(boundExpr);
 
                 var type = boundExpr.Type ?? Compilation.ErrorTypeSymbol;
-                string? name = arg.NameColon?.Name.ToValueString();
+                var name = names[elementIndex++];
+                if (arg.NameColon is null && name is not null && nameCounts[name] > 1)
+                    name = null;
                 tupleElements.Add((name, type));
             }
         }
