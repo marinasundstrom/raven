@@ -97,3 +97,26 @@ conditional array indexing. A direct compiler analysis probe also accepts both
 conditional forms and both parenthesized explicit-suppression forms. Macro-style
 indexing remains reserved; these statements do not claim that sequence macros
 are implemented.
+
+## Open design: names and position-specific ambiguity
+
+The adjacency rule is a lexical prerequisite, not a complete macro-name policy.
+It does not establish that every reserved word or contextual keyword is a valid
+macro name in every position. Existing ordinary-language productions can remain
+unambiguous from their context; macro recognition must respect those productions.
+
+Before expanding macro carrier styles, define:
+
+- which reserved words or contextual keywords, if any, are prohibited as macro
+  names;
+- where keyword-shaped names may be accepted and which ordinary productions take
+  precedence in those positions;
+- how each carrier's lookahead distinguishes it from ordinary expressions,
+  declarations, and operators;
+- diagnostics for a syntactically plausible macro candidate whose name or carrier
+  is not permitted in that position.
+
+These are deferred design questions, not new restrictions introduced by the
+current porting work. Future decisions should preserve the established
+`if !foo()` versus `if! foo()` distinction and must not depend on executing a
+macro provider to determine the syntactic category.
