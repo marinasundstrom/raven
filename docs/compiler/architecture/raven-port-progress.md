@@ -2421,3 +2421,42 @@ tests**, plus **eight strengthened cold/source/metadata/runtime checks**. The
 70-file analysis now reports **16 errors**, resolving GetRed's constrained null
 return. Builds, formatting and diff checks pass. Modern .NET was executed;
 native neoCLR was not. No documentation-site generation was run.
+
+
+## PORT-077 — .NET nullable wrapper member lookup
+
+The direct GetValueOrDefault translation requires member lookup on the .NET
+nullable wrapper, rather than on its contained value. A new target contract
+provides a member lookup type only for genuine NullableValueType wrappers and
+only when the requested instance member belongs to that runtime wrapper. The
+base contract returns no mapping; DotNetRuntimeContract owns System.Nullable<T>
+construction. The binder retains normal nullable diagnostics for other members.
+
+Initial testing found a separate special-type mapping defect: System_Nullable_T
+resolved the non-generic System.Nullable helper because its metadata name omitted
+arity. The CLI contract now uses System.Nullable`1. A definition-arity regression
+locks this distinction. The baseline passed **69 tests**, and all three initial
+runtime-member cases failed before the changes. Follow-up runtime/special-type
+checks are running in `/tmp/nullable-runtime-members-after2.log`. This slice is
+uncommitted pending validation.
+
+The corrected generic definition binds members, but initial method runtime tests
+returned wrong values: invocation emission did not recognize the nullable wrapper
+and constructed Nullable<T> as the same value receiver shape and boxed an already
+loaded address. The CLI emitter now recognizes that exact representation pair.
+**Four runtime/special-type tests pass** after the fix, including absent/present
+values, fallback arguments, HasValue and Value's absent-value exception. Target
+policy checks were added to keep nullable reference behavior and neoCLR ownership
+explicit. Broader validation and cold semantic queries remain outstanding.
+
+Final validation: **14 focused tests** pass, including cold member-symbol queries,
+contained-member diagnostics and runtime execution of a nullable generic source
+struct. **589 broader nullable/member/conditional-access/target-contract tests**
+pass. The fresh **70-file port analysis falls from 16 to 9 errors**; fixing list
+wrapper lookup also removes downstream out-variable failures. The remaining
+errors involve generated-node dependency closure, source/bootstrap ownership,
+conditional token typing and explicit null handling in unfinished translations.
+Builds, whitespace formatting and diff checks pass. Modern .NET was executed;
+neoCLR validation is contract-only. No RavenDoc/site generation was run.
+The slice is ready to commit; unfinished syntax-runtime Raven files remain
+unstaged until their dependency closure compiles.

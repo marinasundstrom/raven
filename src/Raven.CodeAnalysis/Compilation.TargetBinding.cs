@@ -13,6 +13,9 @@ public partial class Compilation
         ITypeSymbol type, INamedTypeSymbol? definition)
         => _target.RuntimeContract.NormalizeResolvedType(this, type, definition);
 
+    internal INamedTypeSymbol? GetNullableValueMemberLookupType(ITypeSymbol type, string memberName)
+        => _target.RuntimeContract.GetNullableValueMemberLookupType(this, type, memberName);
+
     internal ITypeSymbol GetPointerElementTypeForTarget(ITypeSymbol type)
         => _target.RuntimeContract.GetPointerElementType(this, type);
 

@@ -48,7 +48,7 @@ result for the same expression.
 
 ## Nullable values must be handled explicitly
 
-A member cannot be accessed through `T?`:
+A member of the contained `T` cannot be accessed through `T?`:
 
 ```raven
 func PrintLength(value: string?) -> unit {
@@ -303,3 +303,19 @@ better expressed with `Optional`. Analyzer severity is configurable through
 Continue with [Pattern matching](features/patterns.md),
 [Raven.Core and `Optional`](../compiler/raven-core-library.md), and
 [Analyzer configuration](../compiler/analyzers/configuration.md).
+
+## Nullable runtime members (.NET only)
+
+For nullable value types, .NET's `System.Nullable<T>` instance APIs operate on
+the wrapper itself and do not require unwrapping:
+
+```raven
+func ReadCount(value: int?) -> int => value.GetValueOrDefault(7)
+func HasCount(value: int?) -> bool => value.HasValue
+```
+
+`GetValueOrDefault()` returns the contained value or `default(T)`;
+`GetValueOrDefault(fallback)` returns the fallback when absent. `Value` throws
+`InvalidOperationException` when absent. These APIs do not apply to nullable
+references. Members of the contained value still require explicit handling.
+The neoCLR target owns its nullable representation and runtime APIs separately.

@@ -26,6 +26,8 @@ internal abstract partial class CliRuntimeContract
         return (type, definition);
     }
 
+    internal virtual INamedTypeSymbol? GetNullableValueMemberLookupType(Compilation compilation, ITypeSymbol type, string memberName) => null;
+
     internal virtual ITypeSymbol GetPointerElementType(Compilation compilation, ITypeSymbol type) => type;
 
     // Source declaration shells have already been established by the binder.

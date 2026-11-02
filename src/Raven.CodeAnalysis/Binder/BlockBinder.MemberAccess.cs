@@ -3983,7 +3983,11 @@ partial class BlockBinder
                 forceExtensionReceiver: false);
         }
 
-        ReportNullableValueMemberAccess(receiver, memberAccess.Expression);
+        var nullableMemberLookupType = receiver.Type is { } memberReceiverType
+            ? Compilation.GetNullableValueMemberLookupType(memberReceiverType, memberAccess.Name.Identifier.ValueText)
+            : null;
+        if (nullableMemberLookupType is null)
+            ReportNullableValueMemberAccess(receiver, memberAccess.Expression);
 
         var result = BindMemberAccessOnReceiver(
             receiver,
@@ -3991,7 +3995,7 @@ partial class BlockBinder
             preferMethods,
             allowEventAccess,
             suppressNullWarning: true,
-            receiverTypeForLookup: null,
+            receiverTypeForLookup: nullableMemberLookupType,
             forceExtensionReceiver: false);
 
         return result;

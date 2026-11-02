@@ -8105,6 +8105,12 @@ internal partial class ExpressionGenerator : Generator
 
     private static bool HaveEquivalentValueTypeReceiverShape(ITypeSymbol receiverType, ITypeSymbol methodDeclaringType)
     {
+        if (receiverType is NullableTypeSymbol { AbiProjection: NullableAbiProjection.NullableValueType } nullable &&
+            methodDeclaringType is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T, TypeArguments.Length: 1 } nullableRuntime)
+        {
+            return SymbolEqualityComparer.Default.Equals(nullable.UnderlyingType, nullableRuntime.TypeArguments[0]);
+        }
+
         if (receiverType is INamedTypeSymbol receiverNamed &&
             methodDeclaringType is INamedTypeSymbol declaringNamed)
         {

@@ -4896,3 +4896,19 @@ and lookup are shared across targets, with .NET remaining the default. These
 components are not yet ported and their Raven translations must preserve the fix.
 Modern .NET tests validate semantic results, indexer execution and incremental
 binding limits; they do not establish native execution.
+
+### Nullable wrapper member lookup (.NET)
+
+`CliRuntimeContract.GetNullableValueMemberLookupType` supplies an optional runtime
+lookup type for a member of a nullable value wrapper. The default returns no
+mapping. `DotNetRuntimeContract` constructs `System.Nullable<T>` only for semantic
+`NullableValueType` receivers and declared instance wrapper members. The shared
+binder keeps the original receiver and ordinary contained-member diagnostics.
+The nullable special type uses metadata name ``System.Nullable`1``, distinguishing
+it from the non-generic helper. CLI call emission recognizes the semantic wrapper
+and constructed runtime type as equivalent value receiver layouts.
+
+Cold `GetSymbolInfo` queries use normal compiler binding; no language-service
+cache API or syntax/highlighting change is needed. Runtime tests exercise present
+and absent values, fallbacks and the `Value` exception on modern .NET. Target
+contract tests do not demonstrate native neoCLR execution.

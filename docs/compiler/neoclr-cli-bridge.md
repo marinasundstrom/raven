@@ -18443,3 +18443,15 @@ expression generators. Optional extraction resolves the receiver's `Some<T>`
 metadata, independently of the output `Some<U>` constructor. The native path
 must likewise distinguish input extraction from output wrapping; a payload-type
 change is not an unsupported language feature.
+
+### Nullable wrapper member ownership during compiler porting
+
+The .NET contract exposes `System.Nullable<T>` wrapper instance members for .NET
+nullable values. The native contract deliberately supplies no such member-lookup
+mapping: the CLI bridge must not silently turn .NET wrapper APIs into native
+language requirements. Shared nullable checking is unchanged. No new native CLI
+encoding is introduced; native nullable metadata, storage and runtime API support
+must provide any eventual corresponding mapping in the native target contract.
+The absence of a mapping is an implementation boundary, not a permanent ban on
+native nullable APIs. Validation includes a native-contract policy test with a
+.NET-created input symbol; native runtime execution was not performed.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind .NET nullable value wrapper APIs such as `GetValueOrDefault`, `HasValue`
+  and `Value` through an explicit target contract. Resolve the generic nullable
+  special type correctly and preserve its receiver representation during calls.
+
 - Recognize known reference types through source and metadata class constraints,
   including chained parameters, while keeping interface/value/enum constraints
   distinct. Class-constrained suppressed-null returns now bind correctly.

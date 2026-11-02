@@ -231,6 +231,11 @@ allocation](spans-and-memory.md).
 
 ## Nullable types
 
+The .NET nullable value wrapper exposes its own instance APIs, including
+`GetValueOrDefault`, `HasValue` and `Value` (**.NET only**). These operate on the
+wrapper without unwrapping; contained-value members still require explicit
+nullable handling. See [nullable runtime members](../nullability.md#nullable-runtime-members-net-only).
+
 Nullability is explicit and uniform. Append `?` when a reference or value type
 may contain `null`:
 
