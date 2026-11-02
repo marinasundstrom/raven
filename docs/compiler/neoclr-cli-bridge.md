@@ -18455,3 +18455,13 @@ must provide any eventual corresponding mapping in the native target contract.
 The absence of a mapping is an implementation boundary, not a permanent ban on
 native nullable APIs. Validation includes a native-contract policy test with a
 .NET-created input symbol; native runtime execution was not performed.
+
+### Array-valued source attribute constants during porting
+
+Shared attribute binding now materializes arbitrary-length constant arrays without
+requiring the immutable builder's count to equal its capacity. Both targets consume
+that semantic constant before their metadata encoders; no CLI encoding, native
+restriction or target policy changes. Native attribute arrays must retain their
+ordered typed elements when replacing temporary CLI attribute encoding. Validation
+covers .NET source symbols and emitted type-array metadata; no native execution
+was performed for this correction.

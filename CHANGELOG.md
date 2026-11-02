@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve array-valued attribute constants of arbitrary length without throwing
+  during semantic queries or emission, including expanded `params` arguments.
+
 - Bind .NET nullable value wrapper APIs such as `GetValueOrDefault`, `HasValue`
   and `Value` through an explicit target contract. Resolve the generic nullable
   special type correctly and preserve its receiver representation during calls.

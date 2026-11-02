@@ -264,3 +264,12 @@ then removes duplicate or reserved inferred names before creating tuple symbols.
 GetTypeInfo and tuple member lookup expose those names on cold and warm queries;
 explicitly annotated target tuples keep their declared names. The same binding
 path creates .NET tuple projections and neoCLR structural tuple elements.
+
+### Array-valued attribute constants
+
+Source attributes expose array arguments as `TypedConstantKind.Array`, preserving
+ordered `Values` for empty, short and larger arrays, including expanded `params`
+arguments. Binding does not require the array length to match an internal builder
+capacity. Cold symbol queries and diagnostic-first queries follow the same path;
+metadata emission consumes the resulting constants. This is shared attribute
+binding before target-specific metadata encoding.

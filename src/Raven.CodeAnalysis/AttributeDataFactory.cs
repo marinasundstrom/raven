@@ -112,7 +112,7 @@ internal static class AttributeDataFactory
                         elements.Add(elementConstant);
                     }
 
-                    constant = TypedConstant.CreateArray(arrayType, elements.MoveToImmutable());
+                    constant = TypedConstant.CreateArray(arrayType, elements.ToImmutable());
                     return true;
                 }
 

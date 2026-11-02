@@ -2460,3 +2460,27 @@ Builds, whitespace formatting and diff checks pass. Modern .NET was executed;
 neoCLR validation is contract-only. No RavenDoc/site generation was run.
 The slice is ready to commit; unfinished syntax-runtime Raven files remain
 unstaged until their dependency closure compiles.
+
+## PORT-078 — arbitrary-length array attribute constants
+
+The next dependency audit assembles all **985 generated Raven syntax files** with
+**66 authored runtime files** outside generated directories (1,051 inputs). This
+expands validation beyond the earlier 70-file partial runtime. The first analysis
+crashes in `AttributeDataFactory` while binding a closed-hierarchy attribute:
+`MoveToImmutable` requires count equal to capacity, but the builder has default
+capacity and accepts arbitrary input lengths.
+
+A **43-test attribute/hierarchy baseline** passes. New reduced source-query and
+metadata tests reproduce **six failures**, with one existing capacity-aligned
+case passing. Shared binding now uses `ToImmutable`, retaining the single-pass
+collection traversal and ordered typed constants. `AttributeDataFactory` has not
+yet been translated; future Raven translation must retain the corrected behavior.
+This is a shared correction for both target pipelines, with no new source syntax,
+editor grammar change or metadata encoding. Native execution is not claimed.
+The corrected complete-source analysis and regression checks are running.
+
+Validation passes **50 focused attribute/hierarchy tests** and **366 broader
+attribute/closed-hierarchy tests** on modern .NET, including emitted type-array
+metadata. The targeted compiler build, whitespace formatting and diff checks
+pass. No RavenDoc/site generation or native execution was run. Complete generated
+runtime analysis continues separately; this correction is ready to commit.
