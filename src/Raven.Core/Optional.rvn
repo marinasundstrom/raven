@@ -321,7 +321,7 @@ public class OptionalJsonConverter<T> : JsonConverter<Optional<T>> {
             return none
         }
 
-        val payload = JsonSerializer.Deserialize<T>(root, options)
+        val payload = JsonSerializer.Deserialize<T>(root, options) ?? default(T)
         val some: Optional<T> = Some(payload)
         some
     }

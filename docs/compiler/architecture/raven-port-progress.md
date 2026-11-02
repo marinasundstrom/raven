@@ -3207,3 +3207,47 @@ unfinished Raven source batch uncommitted while its dependency gaps remain.
 The final **439-test overload-resolution suite passes** with diagnostic fallback
 retained. Whitespace formatting and diff checks pass. The full analysis remains
 live at this checkpoint; its future result must be inspected independently.
+
+## PORT-097 — core JSON consumers of accurate nullable imports
+
+The nullable-comparer investigation establishes a separate metadata gap:
+StringComparer implements nullable-string generic comparer interfaces, with
+NullableAttribute transforms stored on InterfaceImpl rows. Reflection-only
+ImplementedInterfaces discards these attributes. Three of four HashCode.Add
+controls fail, including explicit string? type arguments; the nonnullable inferred
+control passes. Raw metadata inspection in `/tmp/interface-metadata-inspection.log`
+confirms interface transforms [0, 2]. MetadataLoadContext.Module.ResolveType throws
+NotSupportedException, so a future correction needs target-owned image/declaration
+facts rather than token resolution through reflection or weakening nullable variance.
+The new comparer regressions remain pending and uncommitted.
+
+A broader baseline was started before changing metadata loading, using a temporary
+copy of scripts/test-baseline.sh that excludes the known failing comparer repros
+and RavenDoc/site-generation classes. It stops during Raven.Core compilation,
+before test batches: three converter assignments reject newly accurate T? results
+from JsonSerializer.Deserialize<T>. `/tmp/interface-metadata-baseline.log` records
+this failed prerequisite; do not call it a green broad baseline.
+
+The three converter locals now explicitly coalesce to default(T)/default(E).
+This preserves null reference payloads and generic default storage, without
+asserting non-null or changing Optional's JSON-null-to-None rule. Source changes
+are local to Read methods. Raven.Core is already Raven-only; there is no C#
+implementation counterpart. C# regressions cover both Result tags with null
+payloads and Optional Some with a custom converter producing null from a non-null
+JSON token. **27 Optional/Result tests pass on .NET 10**, and the .NET 11 library
+build passes. No native guest JSON execution is claimed.
+
+The full 1,065-input analysis is terminal with **four errors** in
+`/tmp/node-runtime-conditional-select.log`: the known comparer and two enum/member
+errors, plus SyntaxTree's IEnumerable<DiagnosticInfo>? coalesced with an array
+falling back to object. The latter is a remaining common-inference gap: preserve
+all operands while using arrays' actual base/interface contracts. Earlier
+FirstOrDefault and conditional/mixed-lambda errors are absent. The runtime still
+has no successful full compilation/emission/parity result.
+
+Nine adjacent union tests also pass on .NET 10. Whitespace formatting completes
+(with workspace-loading warnings), and diff checks pass. Ordinary compiler
+library documentation sidecars are emitted by the builds; RavenDoc/site generation
+is not run. The final comparer repro set has **four failures / one passing control**,
+including a direct imported-interface nullability assertion. No metadata-loader
+correction has been committed yet.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Reconcile nullable `JsonSerializer.Deserialize<T>` results explicitly in
+  Raven.Core's Optional and Result converters while preserving default/null
+  payloads and existing case selection.
+
 - Prefer delegate hints with a compatible explicit lambda parameter count
   during invocation argument binding. Conditional-access calls such as
   `values?.Select(value => value)` no longer retain diagnostics from indexed

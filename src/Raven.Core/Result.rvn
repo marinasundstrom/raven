@@ -320,12 +320,12 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
         return @case match {
             "Ok" => {
-                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
+                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options) ?? default(T)
                 val result: Result<T, E> = Ok(payload)
                 result
             }
             "Failure" => {
-                val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options)
+                val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options) ?? default(E)
                 val result: Result<T, E> = Failure(payload)
                 result
             }

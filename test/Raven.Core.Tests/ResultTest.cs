@@ -10,6 +10,22 @@ namespace Raven.Core.Tests;
 
 public sealed class ResultTest : RavenCoreDiagnosticTestBase
 {
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData("Ok", "value")]
+    [InlineData("Failure", "data")]
+    public void JsonSerializer_TaggedNullPayload_PreservesCase(string caseName, string propertyName)
+    {
+        var resultType = GetConstructedType(LoadRavenCoreAssembly(), "System.Result`2", typeof(string), typeof(string));
+        var caseType = GetCaseTypeFromTryGetValue(resultType, caseName);
+        var parsed = JsonSerializer.Deserialize($"{{\"case\":\"{caseName}\",\"{propertyName}\":null}}", resultType);
+        Assert.NotNull(parsed);
+        object?[] arguments = [null];
+        Assert.Equal(true, GetTryGetValueMethod(resultType, caseType).Invoke(parsed, arguments));
+        Assert.NotNull(arguments[0]);
+        Assert.Null(caseType.GetProperty("Value")!.GetValue(arguments[0]));
+    }
+
     [Fact]
     public void Result_IsStructCarrier_WithDefaultUninitializedState()
     {

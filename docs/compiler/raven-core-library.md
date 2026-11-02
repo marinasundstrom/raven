@@ -16,6 +16,21 @@ Browse the generated
 for the public types and members extracted from Raven's Markdown documentation
 comments.
 
+## Nullable JSON payloads
+
+The Optional and Result converters reconcile the imported nullable return of
+`JsonSerializer.Deserialize<T>` with their generic payload through
+`?? default(T)`. For reference payloads the default remains null; this does not
+introduce a null assertion or replace null with an unrelated object. Result's
+explicit Ok/Failure tag stays intact when its payload is null. Optional continues
+to read a JSON null token as None, while a custom payload converter returning null
+for a non-null JSON token still produces Some with that null payload.
+
+These are .NET library integration paths. The source is already Raven-only, so
+there is no separate C# implementation to mirror. C# tests exercise the resulting
+library, including null payloads, ordinary values and case identity. This does not
+establish native neoCLR JSON API availability or execution.
+
 ## How Raven.Core is built
 
 The `src/Raven.Core` project builds directly from the Raven sources in

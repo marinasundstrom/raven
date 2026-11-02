@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Raven.CodeAnalysis.Testing;
 
@@ -9,6 +10,34 @@ namespace Raven.Core.Tests;
 
 public sealed class OptionTest : RavenCoreDiagnosticTestBase
 {
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void JsonSerializer_NonNullJsonWithNullPayload_PreservesSome()
+    {
+        var optionType = GetConstructedType(LoadRavenCoreAssembly(), "System.Optional`1", typeof(string));
+        var caseType = GetCaseTypeFromTryGetValue(optionType, "Some");
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new NullStringConverter());
+        var parsed = JsonSerializer.Deserialize("42", optionType, options);
+        Assert.NotNull(parsed);
+        object?[] arguments = [null];
+        Assert.Equal(true, GetTryGetValueMethod(optionType, caseType).Invoke(parsed, arguments));
+        Assert.NotNull(arguments[0]);
+        Assert.Null(caseType.GetProperty("Value")!.GetValue(arguments[0]));
+    }
+
+    private sealed class NullStringConverter : JsonConverter<string>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Skip();
+            return null;
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+            => writer.WriteNullValue();
+    }
+
     [Fact]
     public void Option_IsStructCarrier_WithDefaultUninitializedState()
     {
