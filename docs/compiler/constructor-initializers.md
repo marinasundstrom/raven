@@ -24,3 +24,12 @@ on .NET 10 and NeoCLR. This is not a claim of full test-suite coverage.
 
 The isolated main-based correction is commit `2416a1646`; the integration branch
 also passes its 22 existing EmissionCapabilityTests (34 focused tests total).
+
+## Constructors across partial declarations
+
+A partial type has one combined constructor set. An explicit instance constructor
+or primary constructor in any part suppresses implicit default constructor
+synthesis for the whole type. An empty part does not introduce another constructor
+or an implicit zero-argument base call. A static constructor alone does not suppress
+the ordinary instance default constructor. This shared declaration rule applies
+before .NET or neoCLR constructor encoding; .NET remains the default target.

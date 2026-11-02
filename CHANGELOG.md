@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Suppress implicit default constructors when another partial declaration supplies
+  an instance or primary constructor, preserving the combined type's constructor
+  contract and avoiding spurious zero-argument base-call diagnostics.
+
 - Preserve inheritance modifiers on preliminary property accessors and admit
   later partial base signatures before override lookup, avoiding query-order
   dependent rejection of valid property overrides.

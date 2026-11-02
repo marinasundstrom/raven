@@ -2741,3 +2741,36 @@ All **12 isolated adjacent runtime/accessor/override checks pass** on modern .NE
 Targeted build, whitespace formatting and diff checks pass. No native guest
 execution or RavenDoc/site generation is performed. The unfinished Raven runtime
 source batch remains separate from this validated compiler correction.
+
+## PORT-085 — constructor admission across partial declarations
+
+The new Missing-expression partials expose another shared gap. A minimal ordinary
+class repro has a parameterized base, an explicit constructor forwarding to it in
+one part, and an empty second part. The empty part invents a default constructor
+and reports RAV1501 for a zero-argument base call. Four C# regression cases fail
+before correction, covering explicit/primary constructors in either tree order.
+
+ClassDeclarationBinder now checks all declaring parts for primary and explicit
+instance constructors before synthesizing a default. The fix remains local to
+constructor admission and preserves existing constructor initializer validation.
+Two static-constructor controls confirm that a static constructor alone still
+permits the implicit instance default. **All 78 focused/adjacent semantic checks
+pass**, including missing-base diagnostics and source constructor ownership.
+The Raven binder has not yet been translated; its future direct translation must
+retain this combined-declaration contract. No target-specific workaround is added.
+
+The PORT-084 method trace rerun passes **all 443 semantic/incremental tests**;
+all observed VisitSample return/parameter matches are valid. This does not close
+the intermittent untraced reversed-tree failure. Trace instrumentation is removed.
+The expanded syntax-runtime analysis is live using the immutable PORT-084 seed,
+manifest `/tmp/node-runtime-full-property-modifiers-inputs.json` and log
+`/tmp/node-runtime-full-property-modifiers.log`. It excludes this constructor fix;
+do not claim a full-runtime result until the process is terminal.
+
+Final PORT-085 validation: **45 adjacent constructor runtime tests and four new
+.NET execution cases pass**. The new cases instantiate the combined partial type,
+verify its sole public parameterized constructor, and observe the base's supplied
+value for explicit and primary constructors in either tree order. Together with
+the 78 semantic checks, these validate the local correction without claiming full
+Raven runtime emission. Targeted build, whitespace formatting and diff checks pass.
+No native guest execution or RavenDoc/site generation is performed.

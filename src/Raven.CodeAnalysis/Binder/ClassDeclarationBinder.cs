@@ -25,12 +25,17 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                 return;
             }
 
-            var hasPrimaryConstructor = typeSyntax is ClassDeclarationSyntax { ParameterList: not null }
+            var declarations = named.DeclaringSyntaxReferences
+                .Select(static reference => reference.GetSyntax())
+                .OfType<TypeDeclarationSyntax>()
+                .ToArray();
+            var hasPrimaryConstructor = declarations.Any(static declaration => declaration is
+                ClassDeclarationSyntax { ParameterList: not null }
                 or RecordDeclarationSyntax { ParameterList: not null }
-                or StructDeclarationSyntax { ParameterList: not null };
-            var hasExplicitInstanceConstructor = typeSyntax.Members
+                or StructDeclarationSyntax { ParameterList: not null });
+            var hasExplicitInstanceConstructor = declarations.SelectMany(static declaration => declaration.Members)
                 .OfType<ConstructorDeclarationSyntax>()
-                .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
+                .Any(static ctor => !ctor.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword));
 
             var hasParameterlessCtor = named.Constructors
                 .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
