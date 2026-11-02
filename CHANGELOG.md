@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nullable generic uses inherited from CLI declaration contexts. LINQ
+  `FirstOrDefault<string>()` now retains its nullable result, while `First<string>()`
+  and value-type invocation results retain their existing non-nullable behavior.
+  Interface signature matching ignores annotation-only value substitutions while
+  retaining genuine nullable-value parameter distinctions.
+
 - Preserve generic contracts in common-interface inference, including interface
   operands themselves. Prefer a unique most-specific shared interface and retain
   the class/object fallback for incomparable contracts. Reference `if` branches

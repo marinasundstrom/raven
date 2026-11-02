@@ -38,7 +38,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (elementType is null)
                 return null;
 
-            if (TryGetExplicitNullableFlags(attributes, out var explicitFlags))
+            if (TryGetDeclaredNullableFlags(attributes, parameterInfo.Member, out var explicitFlags))
                 elementType = ApplyExplicitNullableFlags(elementType, explicitFlags);
             if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo))
                 elementType = ApplyNullability(elementType, nullInfo.ElementType ?? nullInfo, useWriteState);
@@ -49,7 +49,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         var declaredType = ResolveType(parameterType, methodContext);
 
         var type = declaredType;
-        if (TryGetExplicitNullableFlags(attributes, out var parameterFlags))
+        if (TryGetDeclaredNullableFlags(attributes, parameterInfo.Member, out var parameterFlags))
             type = ApplyExplicitNullableFlags(type!, parameterFlags);
 
         if (TryCreateNullabilityInfo(parameterInfo, out var parameterNullInfo))
@@ -61,7 +61,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var attributes = fieldInfo.GetCustomAttributesData();
         var type = ResolveType(fieldInfo.FieldType);
-        if (TryGetExplicitNullableFlags(attributes, out var fieldFlags))
+        if (TryGetDeclaredNullableFlags(attributes, fieldInfo, out var fieldFlags))
             type = ApplyExplicitNullableFlags(type!, fieldFlags);
 
         if (TryCreateNullabilityInfo(fieldInfo, out var nullInfo))
@@ -73,7 +73,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var attributes = propertyInfo.GetCustomAttributesData();
         var type = ResolveType(propertyInfo.PropertyType);
-        if (TryGetExplicitNullableFlags(attributes, out var propertyFlags))
+        if (TryGetDeclaredNullableFlags(attributes, propertyInfo, out var propertyFlags))
             type = ApplyExplicitNullableFlags(type!, propertyFlags);
 
         if (TryCreateNullabilityInfo(propertyInfo, out var nullInfo))
@@ -89,7 +89,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         var attributes = eventInfo.GetCustomAttributesData();
         var type = ResolveType(handlerType);
-        if (TryGetExplicitNullableFlags(attributes, out var eventFlags))
+        if (TryGetDeclaredNullableFlags(attributes, eventInfo, out var eventFlags))
             type = ApplyExplicitNullableFlags(type!, eventFlags);
 
         if (TryCreateNullabilityInfo(eventInfo, out var nullInfo))
@@ -532,6 +532,33 @@ internal class ReflectionTypeLoader(Compilation compilation)
             typeSymbol = typeSymbol.GetNullableType();
 
         return typeSymbol;
+    }
+
+    private static bool TryGetDeclaredNullableFlags(
+        IList<CustomAttributeData> attributes,
+        MemberInfo member,
+        out NullableTransformFlags flags)
+    {
+        if (TryGetExplicitNullableFlags(attributes, out flags))
+            return true;
+
+        // NullabilityInfo treats an unconstrained T as potentially null even when
+        // its use is unannotated. Preserve the declaration's T versus T? instead.
+        for (MemberInfo? scope = member; scope is not null; scope = scope.DeclaringType)
+        {
+            foreach (var attribute in scope.GetCustomAttributesData())
+            {
+                if (attribute.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute" &&
+                    attribute.ConstructorArguments is [{ Value: byte context }])
+                {
+                    flags = new NullableTransformFlags([context], IsUniform: true);
+                    return true;
+                }
+            }
+        }
+
+        flags = default;
+        return false;
     }
 
     private static bool TryGetExplicitNullableFlags(IList<CustomAttributeData> attributes, out NullableTransformFlags flags)

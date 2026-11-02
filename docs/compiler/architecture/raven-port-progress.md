@@ -3011,3 +3011,69 @@ seed `/tmp/raven-tree-root-locals-seed`, manifest
 PORT-088/089 init fixes, PORT-090 metadata defaults, PORT-091 generic interface
 inference and these locals. Do not infer emission success from its syntax checks.
 No native guest execution or RavenDoc/site generation is performed.
+
+## PORT-093 — nullable generic CLI declaration contexts
+
+The pending SyntaxTree runtime uses FirstOrDefault followed by nullable member
+access and reassignment. A reduced C# regression fails in both cold and
+post-diagnostics query orders: the imported constructed method returns string
+rather than string?. The existing 23-test metadata/substitution baseline passes.
+
+ReflectionTypeLoader now uses explicit nullable flags first, then the nearest
+member/enclosing-type NullableContextAttribute. Keep the generic-parameter
+exclusion in reflection-derived state: removing it incorrectly makes First<T>
+nullable too, because NullabilityInfo treats unconstrained T as potentially null
+regardless of its declaration annotation. Context flags distinguish those cases
+and feed the existing substitution-aware nullable representation. Parameter,
+return, field, property and event import use the same declaration-context helper.
+
+**95 focused/adjacent tests pass**, including cold/warm reference results,
+First/LastOrDefault/SingleOrDefault, value-result controls, existing nullable
+substitution and flow-attribute contracts, plus two neoCLR host-reference semantic
+cases. A modern .NET execution fixture matches C# LINQ for empty/nonempty string
+and int sequences, including conditional member access after local inference.
+NativeAssemblySymbol.MapAnnotatedView already applies explicit nullable flags to
+generic uses; it does not consume CLI context attributes. No native guest
+execution is claimed. The loader is not yet translated; carry this rule into its
+future Raven port rather than annotating around the defect in SyntaxTree.rvn.
+
+The 1,065-input full runtime analysis remains on its earlier immutable seed and
+does not contain this correction. Its result cannot qualify PORT-093. No full
+runtime emission or parity completion is claimed. No RavenDoc/site generation
+was run; the overload-suite build may produce ordinary fixture sidecars.
+
+The first 439-case overload run exposes **four failures / 435 passes**: newly
+accurate IEquatable<T>.Equals(T?) import reveals that interface signature matching
+only strips reference annotations. An annotation-only substitution for a struct
+must also match its underlying physical type. An 11-case abstract-member baseline
+passes before updating the existing signature helper to strip annotations based
+on ABI projection, preserving genuine Nullable<T> distinctions. **112 focused and
+adjacent cases pass** after correction, including the four record-struct failures
+and an int versus int? implementation control. This semantic-model helper is also
+shared with neoCLR; it has not yet been translated into Raven.
+
+The repeated **439-case overload suite passes** after the semantic signature
+correction. Runtime record equality then exposes the same assumption in shared
+synthesized method lookup and .NET TypeGenerator interface matching. Both now
+ignore annotation-only decorations, preserving genuine nullable-value storage.
+The first failure cannot resolve EqualityComparer<int>.Equals(int, int); after
+correcting lookup, interface method flags still fail CLR loading until the emitter
+comparison receives the same correction. Retain the interface-dispatched record
+equality runtime regression to cover the complete chain.
+
+The earlier 1,065-input analysis is now terminal: **nine errors** in
+`/tmp/node-runtime-tree-root-locals.log`. Seven are in Diagnostic/ParseOptions
+(collection target inference, mixed lambda returns, nullable comparer overload,
+and enum/member name resolution); two are the FirstOrDefault local-nullability
+errors addressed by this slice. Common-interface inference and tree local-root
+errors are absent. This immutable earlier seed does not include PORT-093, so a
+fresh expanded compilation still remains necessary; do not report seven as a
+measured full-runtime result.
+
+Final validation: **13 runtime/record checks pass**, covering conditional LINQ
+reference results, unlifted integer results, record equality through IEquatable,
+record copying/inheritance and text value records. Targeted builds, whitespace
+formatting and diff checks pass. The .NET metadata suite is explicitly marked
+Target=DotNet; the two host-reference neoCLR semantic cases remain separately
+marked Target=NeoCLR. No native guest execution or full Raven runtime parity is
+claimed. The unfinished Raven runtime batch remains uncommitted.

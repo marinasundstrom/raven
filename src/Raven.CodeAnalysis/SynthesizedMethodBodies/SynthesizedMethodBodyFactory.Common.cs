@@ -237,6 +237,11 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static bool ParameterTypesMatch(ITypeSymbol left, ITypeSymbol right)
     {
+        if (left.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+            left = left.GetNonNullableType();
+        if (right.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+            right = right.GetNonNullableType();
+
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 

@@ -5,8 +5,75 @@ using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
+[Trait("Target", "DotNet")]
 public sealed class NullableMetadataBindingTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FirstOrDefault_ReferenceResultRetainsNullability(bool diagnosticsFirst)
+    {
+        const string source = """
+import System.Collections.Generic.*
+import System.Linq.*
+
+func Find(values: IEnumerable<string>) -> string? {
+    var value = values.FirstOrDefault()
+    value = value?.Trim()
+    return value
+}
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().First();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.True(method.ReturnType.IsNullable, $"Method return: {method.ReturnType}");
+        Assert.True(model.GetTypeInfo(invocation).Type?.IsNullable);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData("First", "string", false)]
+    [InlineData("FirstOrDefault", "string", true)]
+    [InlineData("LastOrDefault", "string", true)]
+    [InlineData("SingleOrDefault", "string", true)]
+    [InlineData("FirstOrDefault", "int", false)]
+    public void GenericSequenceReturn_UsesSubstitutedNullability(string name, string elementType, bool nullable)
+    {
+        var source = $$"""
+import System.Collections.Generic.*
+import System.Linq.*
+func Inspect(values: IEnumerable<{{elementType}}>) -> unit {
+    let value = values.{{name}}()
+}
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        Assert.Equal(nullable, compilation.GetSemanticModel(tree).GetTypeInfo(invocation).Type?.IsNullable);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData("int", false)]
+    [InlineData("int?", true)]
+    public void InterfaceSignature_DistinguishesAnnotationFromNullableValue(string parameterType, bool missingMember)
+    {
+        var source = $$"""
+import System.*
+class Comparable : IEquatable<int> {
+    func Equals(other: {{parameterType}}) -> bool => true
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (missingMember)
+            Assert.Contains(errors, d => d.Descriptor == CompilerDiagnostics.TypeDoesNotImplementAbstractMember);
+        else
+            Assert.Empty(errors);
+    }
+
     [Fact]
     public void NotNullWhen_DoesNotRefineNullableArgument()
     {
@@ -169,5 +236,29 @@ let length = value.Length
         Assert.Contains(
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
+    }
+}
+
+[Trait("Target", "NeoCLR")]
+public sealed class NeoClrNullableGenericMetadataTests
+{
+    [Theory]
+    [InlineData("First", false)]
+    [InlineData("FirstOrDefault", true)]
+    public void NeoClrSemanticBindingWithHostReferences_PreservesDeclaredNullability(string name, bool nullable)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+import System.Collections.Generic.*
+import System.Linq.*
+func Inspect(values: IEnumerable<string>) -> unit {
+    let value = values.{{name}}()
+}
+""");
+        var compilation = Compilation.Create("NeoClrNullableGeneric", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        Assert.Equal(nullable, model.GetTypeInfo(invocation).Type?.IsNullable);
+        Assert.DoesNotContain(model.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 }

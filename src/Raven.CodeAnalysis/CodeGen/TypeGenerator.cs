@@ -2921,21 +2921,21 @@ internal class TypeGenerator
             if (candidateParameter.RefKind != interfaceParameter.RefKind)
                 return false;
 
-            if (!SymbolEqualityComparer.Default.Equals(StripNullableReference(candidateParameter.Type), StripNullableReference(interfaceParameter.Type)))
+            if (!SymbolEqualityComparer.Default.Equals(StripNullableAnnotation(candidateParameter.Type), StripNullableAnnotation(interfaceParameter.Type)))
                 return false;
         }
 
         return true;
     }
 
-    private static ITypeSymbol StripNullableReference(ITypeSymbol type)
-        => type is NullableTypeSymbol nullable && !nullable.UnderlyingType.IsValueType
-            ? StripNullableReference(nullable.UnderlyingType) : type;
+    private static ITypeSymbol StripNullableAnnotation(ITypeSymbol type)
+        => type is NullableTypeSymbol { AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType } nullable
+            ? StripNullableAnnotation(nullable.UnderlyingType) : type;
 
     private static bool ReturnTypesMatch(ITypeSymbol candidateReturnType, ITypeSymbol interfaceReturnType)
     {
-        candidateReturnType = StripNullableReference(candidateReturnType);
-        interfaceReturnType = StripNullableReference(interfaceReturnType);
+        candidateReturnType = StripNullableAnnotation(candidateReturnType);
+        interfaceReturnType = StripNullableAnnotation(interfaceReturnType);
         if (SymbolEqualityComparer.Default.Equals(candidateReturnType, interfaceReturnType))
             return true;
 

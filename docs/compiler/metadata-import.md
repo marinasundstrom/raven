@@ -6,6 +6,29 @@ projector and host handles. Native-only import does not open a .NET session.
 See [bootstrap target boundaries](architecture/bootstrap-target-boundaries.md).
 Historical checkpoints below retain their original implementation names.
 
+## Nullable generic declaration contexts
+
+CLI import reads explicit NullableAttribute flags first, then the nearest
+NullableContextAttribute on the declaring member or enclosing type. This keeps
+an unannotated generic `T` distinct from `T?`, including contexts used by LINQ's
+`FirstOrDefault`. Reflection's NullabilityInfo alone cannot distinguish these
+uses: it can report both as potentially nullable for an unconstrained parameter.
+Constructed reference results retain their annotation; annotation-only generic
+value results use the existing underlying-value invocation projection. Interface
+and abstract-member signature matching also ignores annotation-only decorations,
+including generic substitutions to structs, while preserving genuine Nullable<T>
+parameter distinctions. Synthesized method lookup and .NET interface-emission
+matching apply the same annotation-only rule, including record equality through
+IEquatable<T>.
+
+The same CLI importer serves explicit host-reference semantic queries under the
+neoCLR target. Native metadata uses its own explicit nullable-transform reader,
+which already preserves flag 2 on generic uses; it has no CLI context attribute
+to import. This change does not qualify native execution. The loader has not yet
+been translated to Raven and this rule must accompany its eventual direct port.
+No syntax, highlighting or language-server-specific protocol change is needed;
+semantic type queries expose the corrected imported type.
+
 ## Explicit interface members in CLI metadata
 
 Reflection-backed import matches explicit implementation names against the

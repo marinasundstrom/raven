@@ -7374,8 +7374,8 @@ public partial class SemanticModel
                 var expectedType = parameters[i];
                 if (methodKind == MethodKind.UserDefinedOperator)
                 {
-                    actualType = StripNullableReference(actualType);
-                    expectedType = StripNullableReference(expectedType);
+                    actualType = StripNullableAnnotation(actualType);
+                    expectedType = StripNullableAnnotation(expectedType);
                 }
                 if (!SymbolEqualityComparer.Default.Equals(actualType, expectedType))
                 {
@@ -7832,8 +7832,8 @@ public partial class SemanticModel
             return false;
 
         if (!SymbolEqualityComparer.Default.Equals(
-                StripNullableReference(candidate.Type),
-                StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceProperty.Type, implementingType))))
+                StripNullableAnnotation(candidate.Type),
+                StripNullableAnnotation(RuntimeSelfTypes.Substitute(Compilation, interfaceProperty.Type, implementingType))))
         {
             return false;
         }
@@ -7856,8 +7856,8 @@ public partial class SemanticModel
                 return false;
 
             if (!SymbolEqualityComparer.Default.Equals(
-                    StripNullableReference(candidateParameter.Type),
-                    StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceParameter.Type, implementingType))))
+                    StripNullableAnnotation(candidateParameter.Type),
+                    StripNullableAnnotation(RuntimeSelfTypes.Substitute(Compilation, interfaceParameter.Type, implementingType))))
             {
                 return false;
             }
@@ -7976,8 +7976,8 @@ public partial class SemanticModel
 
     private static bool SignatureTypesMatch(ITypeSymbol candidate, ITypeSymbol contract)
     {
-        candidate = StripNullableReference(candidate);
-        contract = StripNullableReference(contract);
+        candidate = StripNullableAnnotation(candidate);
+        contract = StripNullableAnnotation(contract);
 
         if (SymbolEqualityComparer.Default.Equals(candidate, contract))
             return true;
@@ -8020,10 +8020,10 @@ public partial class SemanticModel
         return false;
     }
 
-    private static ITypeSymbol StripNullableReference(ITypeSymbol type)
+    private static ITypeSymbol StripNullableAnnotation(ITypeSymbol type)
     {
-        if (type is NullableTypeSymbol nullableType && !nullableType.UnderlyingType.IsValueType)
-            return StripNullableReference(nullableType.UnderlyingType);
+        if (type is NullableTypeSymbol { AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType } nullableType)
+            return StripNullableAnnotation(nullableType.UnderlyingType);
 
         return type;
     }
