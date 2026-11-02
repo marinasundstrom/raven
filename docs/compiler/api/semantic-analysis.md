@@ -247,3 +247,9 @@ Same-signature class methods are ranked by their declaring-type inheritance
 when argument conversions are otherwise tied: a derived declaration takes
 precedence over its inherited counterpart, including different result types.
 Inherited methods with different parameter signatures remain available.
+
+Invocation result projection removes annotation-only nullable decoration from
+known value types when the return contract uses the underlying value ABI. Method
+symbols retain their declared annotation. Genuine nullable-value storage and
+nullable reference returns remain nullable; this distinguishes unconstrained
+generic `T?` annotations substituted with a struct from actual `Nullable<T>`.

@@ -2285,3 +2285,30 @@ diagnostics resolved. Builds, formatting and diff checks pass. A follow-up
 reduction succeeds for `FirstOrDefault()` on a source record struct but fails
 for `FirstOrDefault(predicate)`; investigate overload inference rather than
 working around that difference in Raven runtime sources.
+
+
+## PORT-073 — annotation-only struct invocation results
+
+`FirstOrDefault(predicate)` retained an annotation-only wrapper on a source
+record-struct return value, incorrectly requiring nullable unwrapping. The shared
+`NullableMetadataFacts.GetReturnType` invocation projection now returns the
+underlying known value type for AnnotatedUnderlyingType, preserving declared
+method annotations and genuine NullableValueType wrappers. This avoids changing
+symbol identity, conversion caching or runtime ABI. Preserve this helper rule
+when porting it to Raven.
+
+The initial baseline passed **17 tests**. The predicate regression failed before
+the correction while the parameterless form passed. Post-change checks include
+genuine nullable struct results and execution on empty/populated sequences.
+Logs: `/tmp/first-default-nullability-before.log` and
+`/tmp/first-default-nullability-after.log`. **22 focused tests pass**, including
+.NET runtime execution. Broader nullable/overload tests and refreshed full-source
+analysis are running in `/tmp/first-default-nullability-adjacent.log` and
+`/tmp/node-runtime-analysis-first-default.log`. Native neoCLR was not executed.
+
+Final validation passed **753 adjacent nullable, overload, virtual-member and
+runtime tests**. The 70-file analysis reports **22 errors**, with the predicate
+FirstOrDefault conversion resolved. Builds, formatting and diff checks pass.
+A separate reduced case still rejects `(Node)value` for `T where T: Node`,
+with Node explicitly open; see `/tmp/raven-generic-base-cast-open.log`. Investigate
+constraint conversions next rather than weakening the translated generic APIs.

@@ -11,6 +11,30 @@ public class MethodOverloadCodeGenTests
 {
     [Fact]
     [Trait("Target", "DotNet")]
+    public void FirstOrDefault_StructPredicate_ExecutesDefaultAndFoundValues()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import System.Linq.*
+            record struct Item(Value: int)
+            class Probe {
+                static func Run() -> int {
+                    let empty: Item[] = []
+                    let populated = [Item(42)]
+                    return empty.FirstOrDefault(item => true).Value + populated.FirstOrDefault(item => true).Value
+                }
+            }
+            """);
+        var compilation = Compilation.Create("FirstDefaultStruct", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.GetType("Probe")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
     public void HiddenMethod_ExecutesDerivedBodyAndRetainsOtherBaseOverloads()
     {
         var tree = SyntaxTree.ParseText("""

@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal static class NullableMetadataFacts
@@ -10,6 +12,15 @@ internal static class NullableMetadataFacts
     public static ITypeSymbol GetReturnType(IMethodSymbol method)
     {
         var declaredType = method.ReturnType;
+        if (declaredType is NullableTypeSymbol
+            {
+                AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType,
+                UnderlyingType.IsValueType: true
+            } annotatedValue)
+        {
+            return annotatedValue.UnderlyingType;
+        }
+
         if (declaredType.IsValueType || !HasAttribute(method.GetReturnTypeAttributes(), "MaybeNullAttribute"))
             return declaredType;
 

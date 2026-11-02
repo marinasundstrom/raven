@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Expose annotation-only generic struct return values as unlifted invocation
+  results, fixing `FirstOrDefault(predicate)` while preserving genuine nullable
+  value results and method-signature annotations.
+
 - Prefer a derived class's same-signature method over its inherited declaration
   during overload selection, retaining inherited overloads with other parameters.
 

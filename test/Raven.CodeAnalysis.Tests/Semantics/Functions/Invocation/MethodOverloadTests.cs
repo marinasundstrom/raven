@@ -13,6 +13,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Target", "DotNet")]
+    public void FirstOrDefault_GenuineNullableValue_RemainsNullable(bool predicate)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            import System.Linq.*
+            record struct Item(Value: int)
+            class Probe {
+                static func First(items: Item?[]) -> Item? => items.FirstOrDefault({{(predicate ? "item => true" : "")}})
+            }
+            """);
+        var compilation = Compilation.Create("FirstNullableValue", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var type = compilation.GetSemanticModel(tree).GetTypeInfo(invocation).Type!;
+        Assert.True(type.IsNullable);
+        Assert.Equal(NullableAbiProjection.NullableValueType, type.GetNullableAbiProjection());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Target", "DotNet")]
+    public void FirstOrDefault_SourceStruct_ReturnsUnliftedValue(bool predicate)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            import System.Linq.*
+            record struct Item(Value: int)
+            class Probe {
+                static func First(items: Item[]) -> Item => items.FirstOrDefault({{(predicate ? "item => item.Value > 0" : "")}})
+            }
+            """);
+        var compilation = Compilation.Create("FirstValue", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var model = compilation.GetSemanticModel(tree);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error),
+            $"{method.ToDisplayString()} projection={method.ReturnType.GetNullableAbiProjection()} expression={model.GetTypeInfo(invocation).Type?.GetNullableAbiProjection()}: {string.Join(Environment.NewLine, diagnostics)}");
+        Assert.False(model.GetTypeInfo(invocation).Type!.IsNullable);
+    }
+
+    [Theory]
     [InlineData("new", false)]
     [InlineData("", false)]
     [InlineData("new", true)]
