@@ -2053,3 +2053,71 @@ RAV0924 diagnostics for nullable `params IEnumerable<SyntaxTrivia>?` inputs.
 Nullable params-collection recognition needs stabilization; do not undo the
 correct null-input annotations to conceal that gap. The port still does not
 compile or execute as a complete syntax runtime.
+
+
+## PORT-064 — nullable collector parameters
+
+The translated green token methods intentionally accept nullable trivia
+collections. Shared parameter validation inspected the nullable wrapper instead
+of the collection, rejecting these methods with RAV0924; nullable local collectors
+also lost expanded-call behavior. Validation now examines the underlying type
+while retaining the declared nullable parameter type. Nullable value-type
+collections remain distinct: `ImmutableArray<int>? ...` still collects nullable
+values into `IList<ImmutableArray<int>?>`. Existing argument binding
+already handles the underlying element type. CLI parameter-array metadata now
+recognizes nullable arrays too.
+
+The baseline passed **15 tests**. Three new semantic regressions failed before
+the fix; **22 focused tests pass** afterward, including runtime checks for nullable
+arrays, IEnumerable and IList collectors. Omitted arguments produce empty
+collections, expanded arguments preserve element count, and normal-form null
+arguments remain null. The runtime test uses explicit suppression after its null
+guard, following Raven's existing explicit-unwrapping rules.
+
+This is shared binder behavior with a CLI metadata correction, not a neoCLR-only
+policy. Validation ran on modern .NET; native neoCLR execution was not tested.
+The binder and emitter are not yet translated, so the correction must accompany
+their future port. Existing Raven nullable-trivia signatures remain intact.
+**483 adjacent invocation/overload tests pass**, using the overload-resolution
+suite filter (including its runtime overlap) and excluding documentation tests.
+The refreshed analysis removed both RAV0924 errors but exposed two RAV0307
+failures in directive/skipped-token trivia, leaving **47 errors**. A same-order
+comparison against the preceding compiler confirmed that source order alone did
+not explain the difference. Further investigation is recorded in PORT-065.
+
+Validation artifacts: `/tmp/nullable-params-baseline.log` (15 pass),
+`/tmp/nullable-params-before.log` (three expected failures),
+`/tmp/nullable-params-final.log` (22 pass), `/tmp/nullable-params-adjacent.log`
+(483 pass before the final reference-only guard), and the two same-order full
+analyses `/tmp/node-runtime-analysis-source-alias-sorted.log` and
+`/tmp/node-runtime-analysis-nullable-params.log`. Formatting and targeted compiler
+build pass. No documentation-site generation was run for this slice.
+
+## PORT-065 — source ownership in preliminary imported signatures
+
+The apparent declaration-completion inconsistency came from the preliminary
+signature pass preferring metadata over an already-declared source type. A
+bootstrap `DiagnosticInfo` in the base signature temporarily disagreed with the
+source-owned parameter in its override. That caused the intermediate method to
+lose its virtual flag, and derived overrides then reported RAV0307. Later symbol
+queries completed the source signatures, obscuring the initial mismatch.
+
+The fix changes ownership precedence in `ResolveExactImportedSkeletonType`:
+registered source types precede metadata. Wildcard imports, exact imports and
+qualified names all use this path. No eager declaration traversal, diagnostic
+suppression, or Raven-source workaround is added. Broader experimental import
+lookup changes did not fix the problem and were reverted.
+
+The override baseline passed **18 tests**. Three focused preliminary-signature
+regressions fail before this correction, including nullable array element
+ownership. **65 focused tests pass** afterward. This is shared signature-binding
+behavior; the pass is not yet ported and must retain this rule in its Raven
+translation. Validation is on modern .NET, not native neoCLR. The refreshed
+70-file analysis has **45 errors**, with no RAV0307 or RAV0924 diagnostics; the
+remaining failures concern other runtime translation/dependency gaps. **1,187
+adjacent import, namespace, alias, incremental, invocation, and override tests
+pass**, excluding documentation-generation tests. The nullable-collector and
+signature-ownership corrections are committed together as this stabilization
+slice; the unfinished Raven syntax-runtime files remain uncommitted. Logs: `/tmp/skeleton-import-before.log`,
+`/tmp/skeleton-import-focused-after.log`, `/tmp/skeleton-import-adjacent.log`, and
+`/tmp/node-runtime-analysis-skeleton-import.log`.

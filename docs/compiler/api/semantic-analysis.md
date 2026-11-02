@@ -163,6 +163,12 @@ duplicate `Invoke` members. Public member queries and emitted signatures therefo
 observe one owned delegate signature. `ParamsMetadataTests` covers both declaration
 paths together with their exported array-collector metadata.
 
+Collector validation examines the underlying collection type without discarding
+the parameter's nullable annotation. Nullable arrays and collection interfaces
+retain `IsVarParams`; normal-form null arguments remain null, while expanded and
+omitted arguments construct collections. CLI array-collector metadata likewise
+recognizes an array under a nullable annotation.
+
 ### Null-coalescing assignment
 
 `??=` uses ordinary writable-location validation and assignment conversions,

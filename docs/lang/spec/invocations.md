@@ -57,6 +57,12 @@ not yet export collection-parameter metadata; foreign callers must pass the
 collection explicitly. This is an interop implementation gap, not a restriction
 on Raven calls.
 
+A nullable collection annotation does not disable collection of arguments. For
+example, `params items: int[]?` and `params items: IEnumerable<int>?` accept
+expanded arguments and an omitted argument (packed as an empty collection).
+Passing `null` explicitly uses the normal collection form and preserves null.
+Nullable array collectors also export parameter-array metadata.
+
 ## Named arguments
 
 Arguments may be named with `name: expression`. Named arguments may appear in

@@ -11,6 +11,50 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ParamsParameterSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("int[]?")]
+    [InlineData("System.Collections.Generic.IEnumerable<int>?")]
+    [InlineData("System.Collections.Generic.IList<int>?")]
+    [Trait("Target", "Shared")]
+    public void NullableCollection_PreservesCollectorAndNormalForm(string collectionType)
+    {
+        var source = $$"""
+            func Collect(params items: {{collectionType}}) -> int => 0
+            let empty = Collect()
+            let packed = Collect(1, 2)
+            let absent = Collect(null)
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        Assert.True(Assert.Single(method.Parameters).IsVarParams);
+        Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
+        var normal = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocations[2]));
+        Assert.IsNotType<BoundCollectionExpression>(Assert.Single(normal.Arguments));
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void NullableValueCollection_DotCollectorCollectsNullableValues()
+    {
+        const string source = """
+            func Collect(items: System.Collections.Immutable.ImmutableArray<int>? ...) -> int => 0
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
+        var parameter = Assert.Single(method.Parameters);
+        Assert.True(parameter.IsVarParams);
+        var collection = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        Assert.Equal("IList`1", collection.MetadataName);
+        Assert.IsType<NullableTypeSymbol>(Assert.Single(collection.TypeArguments));
+    }
+
     [Fact]
     public void Parser_RecognizesDotDotDotInParameterAndArgument()
     {

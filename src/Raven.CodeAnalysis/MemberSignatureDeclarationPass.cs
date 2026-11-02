@@ -1258,8 +1258,10 @@ internal static class MemberSignatureDeclarationPass
         string metadataName,
         int? arity)
     {
-        var resolved = compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName)
-            ?? compilation.Assembly.GetTypeByMetadataName(metadataName);
+        // Signature skeletons must preserve the same source ownership as full binding.
+        // A retained bootstrap assembly can contain these exact metadata names too.
+        var resolved = compilation.Assembly.GetTypeByMetadataName(metadataName)
+            ?? compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
 
         return MatchesArity(resolved, arity) ? resolved : null;
     }

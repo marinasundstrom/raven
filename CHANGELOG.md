@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep imported and qualified types source-owned in preliminary method
+  signatures when a bootstrap assembly defines the same metadata names, avoiding
+  false override diagnostics during declaration completion.
+
+- Preserve collector behavior for nullable `params` arrays and collection
+  interfaces, including empty/expanded calls and normal-form null arguments.
+  Nullable array collectors now retain .NET parameter-array metadata.
+
 - Preserve source ownership of qualified non-generic aliases during ordinary
   declaration setup as well as suppressed namespace lookup, preventing bootstrap
   metadata types from leaking into Raven override signatures.

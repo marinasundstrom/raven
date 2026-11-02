@@ -44,6 +44,12 @@ declared. This applies both with and without suppressed namespace declaration
 completion. The alias target and its use in return/parameter types retain source
 assembly ownership independently of source-file order or namespace style.
 
+Preliminary method signatures use the same source-first ownership rule for
+wildcard imports, exact type imports, and qualified names. An already-declared
+source type takes precedence over a same-named bootstrap metadata type. Otherwise
+a provisional base signature can incorrectly reject a valid override before full
+binding resolves the source-owned parameter types.
+
 Nullable wrappers compare and hash by their underlying semantic type. An alias
 therefore preserves identity inside a nullable type, including array and generic
 signatures: `Original?[]` and `Alias?[]` denote the same type when `Alias` targets

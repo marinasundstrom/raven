@@ -8,6 +8,37 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class ParamsMetadataTests
 {
     [Theory]
+    [InlineData("int[]?", true)]
+    [InlineData("System.Collections.Generic.IEnumerable<int>?", false)]
+    [InlineData("System.Collections.Generic.IList<int>?", false)]
+    public void NullableCollectors_PreserveNullAndPackArguments(string collectionType, bool array)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            import System.Linq.*
+            public class Collector {
+                static func Count(params values: {{collectionType}}) -> int {
+                    if values is null { return -1 }
+                    return values!.Count()
+                }
+                static func Empty() -> int => Count()
+                static func Packed() -> int => Count(1, 2)
+                static func Absent() -> int => Count(null)
+            }
+            """);
+        var compilation = Compilation.Create("NullableParams", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var type = loaded.Assembly.GetType("Collector")!;
+        Assert.Equal(array, type.GetMethod("Count")!.GetParameters()[0].GetCustomAttribute<ParamArrayAttribute>() is not null);
+        Assert.Equal(0, type.GetMethod("Empty")!.Invoke(null, null));
+        Assert.Equal(2, type.GetMethod("Packed")!.Invoke(null, null));
+        Assert.Equal(-1, type.GetMethod("Absent")!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ArrayCollectorsExposeParamArrayMetadata(bool nestedDelegate)

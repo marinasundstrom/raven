@@ -4639,6 +4639,10 @@ internal partial class TypeMemberBinder : Binder
 
     private static bool IsCollectionLikeType(ITypeSymbol type)
     {
+        // Reference annotations preserve collection identity; nullable value types do not.
+        if (!type.IsValueType)
+            type = type.GetNonNullableType();
+
         if (type is IArrayTypeSymbol { Rank: 1 })
             return true;
 
