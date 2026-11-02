@@ -2792,3 +2792,47 @@ translation. **All 25 focused/adjacent location, diagnostic equality and syntax-
 contract checks pass** on modern .NET. The new Raven dependency files parse with
 zero errors, but full semantic/runtime validation is not yet established. No
 native guest execution or RavenDoc/site generation is performed.
+
+## PORT-087 — source-owned syntax-tree runtime foundation
+
+Split C# SyntaxTree runtime responsibilities from parsing and incremental parsing.
+SyntaxTree.cs retains storage, creation, diagnostics, locations and navigation;
+SyntaxTree.Parsing.cs contains the moved parser/fallback members and parse
+factories. The public type/API and method bodies are preserved. **67 scoped tests
+pass before and after the split**, followed by **170 adjacent checks**; the final
+runtime-foundation build and broader **190 checks** also pass. SyntaxReplacer's
+C# green-token key annotation now admits nullable token greens, matching its
+existing default-token representation without changing runtime behavior.
+
+Translate the runtime partial, CompilationUnit tree attachment, Diagnostic,
+ParseOptions and all Location implementations directly into Raven alongside C#.
+Restore the Lexer ParseOptions constructor now that its source dependencies exist.
+Location retains explicit equality and the PORT-086 correction. Diagnostic's
+normalized message/property equality is preserved rather than replaced with
+record synthesis. SyntaxTree retains reference identity and ParseOptions retains
+its configuration/snapshot API. Fields and nonpublic helpers remain explicitly
+private/internal/protected as appropriate.
+
+The earlier 1,055-input PORT-084 analysis is terminal with **seven errors**, down
+from 19: all 12 property override errors disappear. This run predates PORT-085
+constructor admission and the new runtime dependencies. Its manifest/log are
+`/tmp/node-runtime-full-property-modifiers-inputs.json` and
+`/tmp/node-runtime-full-property-modifiers.log`.
+
+Two of those errors also expose translation mistakes: C# sealed classes were
+spelled sealed in SyntaxReplacer and the red Missing node. Raven sealed classes
+are deliberately abstract hierarchy roots; ordinary Raven classes are closed by
+default. Remove those two modifiers to preserve C# concrete sealed behavior.
+The source corpus contains no other authored sealed-class translations. This
+follows the existing inheritance spec; no language/target policy is changed.
+
+The first 1,065-input source-ownership probe is deliberately terminated after
+identifying those incorrect modifiers, not because of elapsed time. Its result
+is **superseded, not passed**. The corrected probe uses the immutable seed
+`/tmp/raven-syntax-runtime-owner-seed`, manifest
+`/tmp/node-runtime-source-owner-closed-inputs.json` and log
+`/tmp/node-runtime-source-owner-closed.log`. It remains live at this checkpoint.
+All authored sources parse with zero errors, but semantic compilation, emission
+and shared C# tests against this expanded Raven runtime remain unproven. Keep the
+pending Raven batch out of validated-slice commits until its closure works. Modern
+.NET host validation is not native guest execution. No RavenDoc/site generation.

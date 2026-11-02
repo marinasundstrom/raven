@@ -4,7 +4,7 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
 {
     private readonly IReadOnlyDictionary<SyntaxNode, SyntaxNode?>? _nodeMap;
     private readonly IReadOnlyDictionary<SyntaxToken, SyntaxToken?>? _tokenMap;
-    private readonly IReadOnlyDictionary<(InternalSyntax.SyntaxToken Green, int Position), SyntaxToken?>? _tokenMapByGreen;
+    private readonly IReadOnlyDictionary<(InternalSyntax.SyntaxToken? Green, int Position), SyntaxToken?>? _tokenMapByGreen;
     private readonly IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>? _triviaMap;
 
     public SyntaxReplacer(

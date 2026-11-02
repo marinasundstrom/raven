@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Separate syntax-tree creation, navigation and diagnostics from parsing in the
+  C# bootstrap to support the direct Raven runtime port, preserving existing APIs.
+
 - Preserve external diagnostic locations' supplied source spans and include file
   and line information in their equality and hashing.
 

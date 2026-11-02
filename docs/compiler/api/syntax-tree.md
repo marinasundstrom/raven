@@ -24,9 +24,9 @@ let root = tree.GetRoot()
 example, one produced by a rewriter) back into a tree so it can participate in a
 `Compilation`.
 
-Each tree retains its original `SourceText`. Calls to `GetText` and
-`TryGetText` either return the parsed text or lazily reconstruct it from the
-current root when the source was produced from a red tree.【F:src/Raven.CodeAnalysis/Syntax/SyntaxTree.cs†L8-L104】
+Each tree retains a `SourceText` snapshot. Parsing keeps the supplied text;
+`Create` reconstructs the text once from the red root. `GetText` and `TryGetText`
+return that snapshot.
 
 ## Separated syntax lists
 
@@ -227,3 +227,15 @@ matching its red counterpart. Both generic and non-generic visitors can inspect
 that leaf without redispatching through `Visit`; a generic default result is
 returned unchanged. Recovery-node child buffers retain the nullable green-slot
 contract, and an unattached red recovery node accepts a nullable parent.
+
+## Bootstrap source organization
+
+`SyntaxTree.cs` owns text/root storage, construction from an existing root,
+diagnostic attachment, locations and navigation. `SyntaxTree.Parsing.cs` owns
+parsing entry points, incremental replacement and fallback policy. Both are parts
+of the same C# type; existing APIs and incremental behavior are preserved.
+
+The Raven runtime translation follows this boundary so syntax nodes, tree
+references and source locations can share source-owned identities before the
+parser is translated. The runtime translation is still under validation; it does
+not yet provide the complete Raven compiler or its parsing entry points.
