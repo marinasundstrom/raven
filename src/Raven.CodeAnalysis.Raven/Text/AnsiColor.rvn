@@ -1,7 +1,6 @@
 namespace Raven.CodeAnalysis.Text
 
-public enum AnsiColor
-{
+public enum AnsiColor {
     Reset = 0,
     Black = 30,
     Red = 31,

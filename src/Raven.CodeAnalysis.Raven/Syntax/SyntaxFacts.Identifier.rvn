@@ -3,10 +3,8 @@ namespace Raven.CodeAnalysis.Syntax
 import System.*
 import System.Globalization.*
 
-public static partial class SyntaxFacts
-{
-    internal static func RequiresBacktickEscaping(identifier: string) -> bool
-    {
+public static partial class SyntaxFacts {
+    internal static func RequiresBacktickEscaping(identifier: string) -> bool {
         if identifier.Length == 0 { return false }
 
         if identifier == "_" || !IsIdentifierStartCharacter(identifier[0]) { return true }
@@ -20,28 +18,23 @@ public static partial class SyntaxFacts
         return false
     }
 
-    internal static func EscapeIdentifier(identifier: string) -> string
-    {
+    internal static func EscapeIdentifier(identifier: string) -> string {
         if RequiresBacktickEscaping(identifier) { return "`" + identifier + "`" }
         if TryParseKeyword(identifier, out _) { return "@" + identifier }
         return identifier
     }
 
-    static func CanBeIdentifier(kind: SyntaxKind) -> bool
-    {
+    static func CanBeIdentifier(kind: SyntaxKind) -> bool {
         return kind == SyntaxKind.IdentifierToken ||
                (IsKeywordKind(kind) && !IsReservedWordKind(kind))
     }
 
-    static func IsIdentifierStartCharacter(ch: char) -> bool
-    {
-        if (ch == '_' || ch == '$')
-        {
+    static func IsIdentifierStartCharacter(ch: char) -> bool {
+        if (ch == '_' || ch == '$') {
             return true
         }
 
-        if (ch <= 0x7F)
-        {
+        if (ch <= 0x7F) {
             return (ch >= 'A' && ch <= 'Z') ||
                    (ch >= 'a' && ch <= 'z')
         }
@@ -56,15 +49,12 @@ public static partial class SyntaxFacts
                category == UnicodeCategory.LetterNumber
     }
 
-    static func IsIdentifierPartCharacter(ch: char) -> bool
-    {
-        if (IsIdentifierStartCharacter(ch))
-        {
+    static func IsIdentifierPartCharacter(ch: char) -> bool {
+        if (IsIdentifierStartCharacter(ch)) {
             return true
         }
 
-        if (ch <= 0x7F)
-        {
+        if (ch <= 0x7F) {
             return ch >= '0' && ch <= '9'
         }
 

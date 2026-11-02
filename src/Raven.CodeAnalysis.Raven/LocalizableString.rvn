@@ -45,7 +45,9 @@ public open class LocalizableStringImpl : LocalizableString {
 
 public open class LocalizableResourceString : LocalizableString {
     private readonly field _nameOfLocalizableResource: string
+
     private readonly field _resourceManager: ResourceManager
+
     private readonly field _resourceSource: Type
 
     init(nameOfLocalizableResource: string, resourceManager: ResourceManager, resourceSource: Type) {

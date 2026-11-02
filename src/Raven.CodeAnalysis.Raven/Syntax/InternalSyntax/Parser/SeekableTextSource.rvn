@@ -6,10 +6,15 @@ import System.Collections.Generic.*
 
 internal class SeekableTextSource {
     private readonly field _buffer: List<char> = List<char>()
+
     private readonly field _reader: TextReader
+
     private field _position: int
+
     private field _absoluteStart: int
+
     private readonly field _maxBufferSize: int
+
     private readonly field _savedPositions: Stack<int> = Stack<int>()
 
     init(reader: TextReader, initialPosition: int = 0, maxBufferSize: int = int.MaxValue) {

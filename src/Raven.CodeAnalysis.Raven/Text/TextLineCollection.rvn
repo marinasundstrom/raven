@@ -21,6 +21,7 @@ public class TextLineCollection : IEnumerable<TextLine> {
     }
 
     val Count: int => _lines.Length
+
     val self[index: int]: TextLine => _lines[index]
 
     func GetEnumerator() -> IEnumerator<TextLine> => ((IEnumerable<TextLine>)_lines).GetEnumerator()

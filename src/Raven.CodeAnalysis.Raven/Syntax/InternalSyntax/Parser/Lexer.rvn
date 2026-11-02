@@ -13,15 +13,25 @@ import Raven.CodeAnalysis.Text.*
 
 internal open class Lexer : ILexer, IMacroBodyScanner {
     private readonly field _textSource: SeekableTextSource
+
     private readonly field _stringBuilder: StringBuilder = StringBuilder()
+
     private readonly field _lookaheadTokens: List<Token> = List<Token>()
+
     private field _lookaheadStart: int
+
     private field _currentPosition: int = 0
+
     private field _tokenStartPosition: int = 0
+
     private readonly field _definedSymbols: HashSet<string>
+
     private readonly field _conditionalStack: List<ConditionalFrame> = []
+
     private readonly field _conditionalStateSnapshots: Dictionary<int, ConditionalStateSnapshot> = []
+
     private field _reportedMissingEndIf: bool
+
     private readonly field _enableCharKeyword: bool
 
     var DiagnosticSink: Action<DiagnosticInfo>? { get; set; }

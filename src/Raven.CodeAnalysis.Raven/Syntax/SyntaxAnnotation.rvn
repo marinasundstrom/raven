@@ -10,6 +10,7 @@ public class SyntaxAnnotation : IEquatable<SyntaxAnnotation> {
     static readonly field ElasticAnnotation: SyntaxAnnotation = SyntaxAnnotation("Elastic")
 
     val Kind: string
+
     val Data: string?
 
     init(kind: string) : self(kind, null) {}
@@ -32,6 +33,7 @@ public class SyntaxAnnotation : IEquatable<SyntaxAnnotation> {
     }
 
     static func ==(left: SyntaxAnnotation?, right: SyntaxAnnotation?) -> bool => object.Equals(left, right)
+
     static func !=(left: SyntaxAnnotation?, right: SyntaxAnnotation?) -> bool => !object.Equals(left, right)
 
     private func GetDebuggerDisplay() -> string {

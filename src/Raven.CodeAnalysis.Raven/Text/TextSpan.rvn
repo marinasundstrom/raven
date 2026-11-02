@@ -13,7 +13,9 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
     }
 
     val Start: int
+
     val Length: int
+
     val End: int => Start + Length
 
     init(start: int, length: int) {
@@ -25,6 +27,7 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
     }
 
     private func GetDebuggerDisplay() -> string => "[${Start}..${End}]"
+
     override func ToString() -> string => "[${Start}..${End}]"
 
     func CompareTo(other: TextSpan) -> int {
@@ -49,5 +52,6 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan> {
     override func GetHashCode() -> int => HashCode.Combine(Start, Length)
 
     static func ==(left: TextSpan, right: TextSpan) -> bool => left.Equals(right)
+
     static func !=(left: TextSpan, right: TextSpan) -> bool => !(left == right)
 }

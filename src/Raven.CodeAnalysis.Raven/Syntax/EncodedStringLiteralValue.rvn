@@ -1,7 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax
 
-internal enum EncodedStringLiteralEncoding
-{
+internal enum EncodedStringLiteralEncoding {
     Utf8,
     Ascii
 }

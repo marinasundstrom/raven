@@ -12,10 +12,15 @@ public class TextLine {
     }
 
     val LineNumber: int
+
     val Start: int
+
     val End: int
+
     val EndIncludingLineBreak: int
+
     val Span: TextSpan => TextSpan.FromBounds(Start, End)
+
     val SpanIncludingLineBreak: TextSpan => TextSpan.FromBounds(Start, EndIncludingLineBreak)
 
     override func ToString() -> string => _text.ToString(Span)

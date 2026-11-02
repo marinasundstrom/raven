@@ -11,14 +11,21 @@ import System.Threading.*
 
 public class SourceText {
     private const ChangeRangeChainScanLimit: int = 32
+
     private readonly field _text: string
+
     private readonly field _encoding: Encoding
+
     private readonly field _lineStarts: List<int>
+
     private readonly field _previousText: WeakReference<SourceText>?
+
     private readonly field _changeRanges: IReadOnlyList<TextChangeRange>?
+
     private field _lines: TextLineCollection?
 
     val Encoding: Encoding => _encoding
+
     val Length: int => _text.Length
 
     private init(text: string, encoding: Encoding? = null, previousText: SourceText? = null, changeRanges: IReadOnlyList<TextChangeRange>? = null) {
@@ -181,9 +188,13 @@ public class SourceText {
     }
 
     func GetContentHash() -> ImmutableArray<byte> => GetChecksum()
+
     func GetSubText(span: TextSpan) -> string => _text.Substring(span.Start, span.Length)
+
     func GetSubText(start: int, length: int) -> string => _text.Substring(start, length)
+
     func Replace(span: TextSpan, newText: string) -> SourceText => WithChange(TextChange(span, newText))
+
     func Replace(start: int, length: int, newText: string) -> SourceText => Replace(TextSpan(start, length), newText)
 
     func GetLines() -> TextLineCollection {
@@ -208,5 +219,6 @@ public class SourceText {
     }
 
     override func ToString() -> string => _text.ToString()
+
     func ToString(span: TextSpan) -> string => GetSubText(span)
 }

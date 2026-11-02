@@ -20,6 +20,7 @@ internal static class ConditionalDirectiveParser {
 
     private class ExpressionParser {
         private readonly field _text: string
+
         private readonly field _definedSymbols: IReadOnlySet<string>
 
         init(text: string, definedSymbols: IReadOnlySet<string>) {
@@ -28,7 +29,9 @@ internal static class ConditionalDirectiveParser {
         }
 
         var Position: int { get; private set; }
+
         var Error: string? { get; private set; }
+
         val IsAtEnd: bool => Position >= _text.Length
 
         func ParseOrExpression() -> bool {

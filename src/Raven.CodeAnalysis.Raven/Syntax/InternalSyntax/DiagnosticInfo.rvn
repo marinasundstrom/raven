@@ -5,7 +5,9 @@ import Raven.CodeAnalysis.Text.*
 
 internal open class DiagnosticInfo {
     val Descriptor: DiagnosticDescriptor
+
     val Span: TextSpan
+
     val Args: object?[]
 
     private init(descriptor: DiagnosticDescriptor, span: TextSpan, args: object?[]) {

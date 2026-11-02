@@ -17,6 +17,7 @@ public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition>
     }
 
     val Character: int
+
     val Line: int
 
     func CompareTo(other: LinePosition) -> int {
@@ -36,12 +37,18 @@ public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition>
     }
 
     override func GetHashCode() -> int => HashCode.Combine(Line, Character)
+
     override func ToString() -> string => "Line ${Line}, Character ${Character}"
 
     static func ==(left: LinePosition, right: LinePosition) -> bool => left.Equals(right)
+
     static func !=(left: LinePosition, right: LinePosition) -> bool => !left.Equals(right)
+
     static func <(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) < 0
+
     static func >(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) > 0
+
     static func <=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) <= 0
+
     static func >=(left: LinePosition, right: LinePosition) -> bool => left.CompareTo(right) >= 0
 }

@@ -24,7 +24,10 @@ internal struct Token {
     }
 
     val Kind: SyntaxKind
+
     val Text: string
+
     val Value: object?
+
     val Length: int
 }

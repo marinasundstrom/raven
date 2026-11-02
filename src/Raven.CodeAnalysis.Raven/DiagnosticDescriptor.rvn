@@ -23,12 +23,19 @@ public open class DiagnosticDescriptor : IEquatable<DiagnosticDescriptor> {
     }
 
     val Id: string
+
     val Title: LocalizableString
+
     val Description: LocalizableString?
+
     val HelpLinkUri: string
+
     val MessageFormat: LocalizableString
+
     val Category: string
+
     val DefaultSeverity: DiagnosticSeverity
+
     val IsEnabledByDefault: bool
 
     override func Equals(obj: object?) -> bool {
