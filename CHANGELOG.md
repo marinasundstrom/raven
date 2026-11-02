@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow `null!` with an available reference target in returns, typed initializers,
+  assignments and arguments, preserving null at runtime. Cold semantic queries
+  resolve the contextual suppression type instead of reporting an untyped null.
+
 - Allow ordinary value copies from scoped references into `ref`/`out` storage,
   including assigned `out` parameters. Continue rejecting scoped ref-like values
   that would escape through those assignments.

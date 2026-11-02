@@ -10510,6 +10510,23 @@ public partial class SemanticModel
                 ComputeConversion(narrowedType, narrowedType)));
         }
 
+        if (expr is PostfixOperatorExpressionSyntax
+            {
+                Kind: SyntaxKind.SuppressNullableWarningExpression,
+                Expression: LiteralExpressionSyntax { Kind: SyntaxKind.NullLiteralExpression }
+            } &&
+            TryBindInterestRegion(expr, out var suppressedNullExpression) &&
+            suppressedNullExpression is BoundConversionExpression { IsNullableSuppression: true })
+        {
+            // Argument pre-inference can cache a targetless null before the
+            // enclosing assignment or invocation supplies its reference target.
+            var suppressedType = suppressedNullExpression.Type;
+            return Cache(new TypeInfo(
+                suppressedType,
+                suppressedType,
+                ComputeConversion(suppressedType, suppressedType)));
+        }
+
         if (TryGetAvailableTypeInfo(expr, out var availableTypeInfo))
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();

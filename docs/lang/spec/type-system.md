@@ -305,6 +305,16 @@ a runtime null check. For a nullable value type, it unwraps the value. The
 effect applies only to the annotated expression and reports warning `RAV0403`
 on that full expression.
 
+An explicitly suppressed null literal can use an available reference target:
+`func Missing() -> string => null!` is permitted and still returns null at
+runtime. The same rule applies to typed initializers, assignments, and arguments
+with a known reference parameter type. This does not make an ordinary `null`
+assignable to a non-null type or permit null as a non-nullable value type.
+
+Current implementation gap: an overloaded call whose candidates provide no
+common reference target does not yet resolve a `null!` argument correctly. This
+is an overload-resolution gap, not an intended restriction on null suppression.
+
 The reference-type behavior has the same runtime intent as C#'s null-forgiving
 operator: `!` does not validate a non-null assertion. A null reference remains
 null, and a later dereference can fail. Raven's nullable value-type behavior is

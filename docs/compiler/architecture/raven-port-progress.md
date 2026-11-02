@@ -1971,3 +1971,12 @@ errors**. The ordinary `out`-copy diagnostic is absent after its fix. Later test
 projects were not reached. This is not a clean repository-wide baseline or a
 successful Raven runtime port; it is validation of the compiler slice plus an
 explicit failure of the still-uncommitted dependency translation.
+
+The target-typed `null!` implementation passes **32 focused tests**, including
+runtime-null behavior and cold type/operation agreement after fixing two
+available-state query regressions. The two negative conversion cases and **439 adjacent tests pass** on .NET 11
+rc1 (overlapping the focused selection). The original `GreenNode` reduced
+CLI repro now succeeds with RAV0403. A separate overload probe (`Pick(string)` /
+`Pick(object)` with `Pick(null!)`) still reports RAV1501 when candidates supply no
+common reference target. This is a remaining compiler gap to fix, not a language
+restriction or a porting workaround. The `(null)!` parser gap remains separate.

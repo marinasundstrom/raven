@@ -213,3 +213,12 @@ that accesses the enclosing instance through `self` or an unqualified instance
 member. Binding records an explicit receiver for those accesses so shared
 capture analysis and target backends receive the same dependency. An explicitly
 static function or a static containing method prevents enclosing-instance capture.
+
+### Target-typed null suppression
+
+A suppressed null literal uses the reference target supplied by its enclosing
+return, initializer, assignment, or invocation. Cold `GetTypeInfo` queries bind
+that context before using targetless argument pre-inference state; type and
+operation queries must agree with diagnostics-first binding. Suppression changes
+the reference's static type without adding a runtime null check. This is shared
+language behavior; CLI execution tests validate the .NET implementation.
