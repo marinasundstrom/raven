@@ -19,8 +19,8 @@ internal class SyntaxToken : GreenNode
     public SyntaxToken(
         SyntaxKind kind,
         string text,
-        SyntaxTriviaList leadingTrivia = null,
-        SyntaxTriviaList trailingTrivia = null,
+        SyntaxTriviaList? leadingTrivia = null,
+        SyntaxTriviaList? trailingTrivia = null,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
     : this(kind, text, null, text.Length, leadingTrivia, trailingTrivia, diagnostics, annotations)
@@ -83,13 +83,13 @@ internal class SyntaxToken : GreenNode
 
     public override string? GetValueText() => _value?.ToString() ?? _text;
 
-    public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
+    public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia>? trivias)
     {
         var triviaArray = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>();
         return WithLeadingTrivia(SyntaxFactory.TriviaList(triviaArray));
     }
 
-    public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
+    public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia>? trivias)
     {
         var triviaArray = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>();
         return WithTrailingTrivia(SyntaxFactory.TriviaList(triviaArray));

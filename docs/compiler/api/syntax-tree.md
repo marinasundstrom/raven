@@ -176,3 +176,14 @@ callers to diff old and new trees or integrate with workspace features.【F:src/
 When used with `Compilation.With...` helpers, new syntax trees can be swapped in
 without mutating existing compilations. This workflow underpins the compiler's
 incremental model and keeps tree operations predictable for IDE scenarios.
+
+### Green runtime null-input contracts
+
+Internal green-node construction accepts a null slot array as an empty node.
+Token construction accepts omitted/null trivia lists, and the enumerable
+`WithLeadingTrivia` / `WithTrailingTrivia` helpers treat null as empty trivia.
+These inputs carry nullable annotations in the C# bootstrap and Raven translation.
+A green list's item array remains required: null still throws
+`ArgumentNullException` with parameter name `items`. The explicit null test in
+its base initializer preserves that guard while avoiding conditional access on a
+statically non-null input in Raven.

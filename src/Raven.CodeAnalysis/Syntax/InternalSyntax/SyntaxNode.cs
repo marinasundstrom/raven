@@ -8,7 +8,7 @@ internal abstract class SyntaxNode : GreenNode
 
     public SyntaxNode(
         SyntaxKind kind,
-        GreenNode?[] slots,
+        GreenNode?[]? slots,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
         : base(kind, slots?.Length ?? 0, diagnostics, annotations)

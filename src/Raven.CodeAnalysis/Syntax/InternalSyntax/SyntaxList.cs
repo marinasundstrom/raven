@@ -12,7 +12,7 @@ internal class SyntaxList : GreenNode
     public SyntaxList(GreenNode[] items,
         IEnumerable<DiagnosticInfo>? diagnostics = null,
         IEnumerable<SyntaxAnnotation>? annotations = null)
-        : base(SyntaxKind.List, items?.Length ?? 0, diagnostics, annotations)
+        : base(SyntaxKind.List, items is null ? 0 : items.Length, diagnostics, annotations)
     {
         _items = items ?? throw new ArgumentNullException(nameof(items));
 

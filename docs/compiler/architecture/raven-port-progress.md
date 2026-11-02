@@ -1980,3 +1980,37 @@ CLI repro now succeeds with RAV0403. A separate overload probe (`Pick(string)` /
 `Pick(object)` with `Pick(null!)`) still reports RAV1501 when candidates supply no
 common reference target. This is a remaining compiler gap to fix, not a language
 restriction or a porting workaround. The `(null)!` parser gap remains separate.
+
+
+## PORT-062 — green runtime null-input contracts
+
+The direct translation exposed nullable operations on inputs that were annotated
+non-null despite accepting null as empty. Green `SyntaxNode` slot arrays and
+`SyntaxToken` trivia-enumerable inputs now carry honest nullable annotations in
+both sources. The C# token convenience constructor's default-null trivia inputs
+are nullable too, matching the Raven translation. Green `SyntaxList` still
+requires an item array and throws `ArgumentNullException("items")`; its base
+initializer uses an explicit null test in both languages to preserve that behavior
+without nullable access on a statically non-null input.
+
+The initial syntax-runtime baseline passed **50 tests**. New tests confirmed
+three existing runtime behaviors and failed the nullable metadata check before
+the correction. **63 adjacent tests pass** after the change. A follow-up test
+strengthens null-trivia clearing coverage using a token with nonempty leading and
+trailing trivia, checking that the opposite side and original token are preserved.
+Raven parser validation reports zero errors; full Raven runtime compilation and
+parity are still pending, so its mirrored runtime files remain uncommitted.
+
+A full-source compiler-API probe now identifies the remaining override failure:
+`GreenNode.With` uses source-owned types, but derived `With` signatures retain
+aliases to the C# bootstrap `GreenNode` and `SyntaxAnnotation`. Nullable-array
+identity is no longer the issue. Four reduced CLI probes reproduce the collision
+for both namespace styles and both matching/different alias names. Permanent
+regressions additionally vary syntax-tree order and assert signature ownership,
+not just the absence of diagnostics. Logs: `/tmp/raven-port-signature-inspect.log`
+and `/tmp/raven-alias-ownership-matrix.log`.
+
+The strengthened null-input tests and existing symbol-lookup baseline pass
+**24 tests**. All **eight new source-ownership regressions fail** before the
+next alias fix, consistently finding bootstrap-owned types in derived signatures
+(`/tmp/source-port-alias-ownership-before.log`).

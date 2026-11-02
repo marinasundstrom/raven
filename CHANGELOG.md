@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Align green-node slot and token-trivia nullable annotations with their existing
+  null-as-empty behavior in both compiler sources. Preserve the green-list
+  constructor's null-item-array rejection.
+
 - Allow `null!` with an available reference target in returns, typed initializers,
   assignments and arguments, preserving null at runtime. Cold semantic queries
   resolve the contextual suppression type instead of reporting an untyped null.
