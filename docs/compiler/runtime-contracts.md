@@ -4960,3 +4960,37 @@ from Nullable<T> storage after substitution. The regression queries both shapes
 in one compilation, proving that an earlier identity result does not contaminate
 a later nullable wrapping/unwrapping query. Fourteen focused semantic and runtime
 tests pass on modern .NET.
+
+
+## Readonly value and generated-member metadata (2026-11-03)
+
+Relevant C#-emitted metadata is part of the .NET compatibility contract even when
+execution does not require the marker. Readonly record structs and union value
+carriers/immutable cases now expose IsReadOnly on source symbols and emit
+System.Runtime.CompilerServices.IsReadOnlyAttribute on their types. Union tag and
+payload fields are InitOnly and are written during construction.
+
+Mutable record structs mark generated non-mutating members individually. Auto
+property getters, equality, hashing and positional deconstruction are readonly;
+generated PrintMembers/ToString are readonly only when the getters they call are
+readonly. Mutating computed getters therefore retain the same behavior and marker
+shape as C#. Constructors, static methods and init accessors are not readonly
+instance methods. Generated record/union methods carry CompilerGeneratedAttribute;
+a generated method need not have an authored syntax reference to receive it.
+
+PE method import recognizes the method's IsReadOnlyAttribute or a readonly
+containing value type. A ref-readonly return modifier describes the returned
+reference and does not make the instance receiver readonly. Attribute lookup uses
+metadata names so metadata-only reflection contexts work correctly.
+
+The shared source symbol properties and InitOnly field state also reach portable
+target planning. These rules describe shallow value immutability. Attribute
+encoding is CLI metadata; native targets may use native flags for the same semantic
+contract. Native runtime execution has not been established by the .NET parity
+checks. Source record syntax already parses readonly; no syntax model or token
+changes are required, and existing grammar/highlighting recognizes the keyword.
+
+Validation: 301 adjacent record/union/struct tests and ten focused .NET metadata
+and runtime cases pass. The differential suite compares readonly/generated member
+markers with Roslyn output, including side effects of a mutable computed getter.
+Native execution, .NET Framework and NanoFramework are not covered by this run.

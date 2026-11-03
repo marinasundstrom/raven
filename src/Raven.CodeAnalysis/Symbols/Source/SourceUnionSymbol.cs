@@ -25,6 +25,8 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, UnionSymbol
     {
     }
 
+    public override bool IsReadOnly => IsValueType;
+
     public ImmutableArray<TypeSymbol> Variants => _variants;
 
     public ImmutableArray<UnionCaseTypeSymbol> DeclaredCaseTypes => _declaredCases;

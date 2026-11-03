@@ -18867,3 +18867,19 @@ CLI representation, not a requirement on its native encoding. Portable record
 planning tests pass within the 67-test focused cohort, but native execution and
 admission of the new equality-contract getter remain unvalidated. This limitation
 must be resolved before claiming complete neoCLR record compatibility.
+
+
+### Readonly record and union value metadata — 2026-11-03
+
+Readonly value semantics are shared: constructors initialize record/union storage,
+readonly receivers do not mutate that storage, and a readonly reference return is
+separate from receiver mutability. Source IsReadOnly now includes readonly record
+structs and union value carriers/immutable case types; generated union fields are
+readonly. Portable planning observes those shared symbols and field flags.
+
+The CLI bridge emits IsReadOnlyAttribute on types or individual readonly methods
+and CompilerGeneratedAttribute on synthesized record/union members. Native
+metadata/codegen should encode equivalent readonly type/member/field semantics,
+without depending on those CLI attribute classes. Native execution is unvalidated
+for this slice; no external runtime code was changed. The readonly getter/display
+selection deliberately preserves mutable getter behavior, as verified against C#.

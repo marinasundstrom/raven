@@ -44,6 +44,8 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCa
 
     public ImmutableArray<ParameterSymbol> ConstructorParameters { get; private set; } = ImmutableArray<ParameterSymbol>.Empty;
 
+    public override bool IsReadOnly => IsValueType && ConstructorParameters.All(parameter => !parameter.IsMutable);
+
     public int Ordinal { get; }
 
     public UnionSymbol Union => _union;

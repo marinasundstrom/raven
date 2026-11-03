@@ -4015,6 +4015,9 @@ public partial class SemanticModel
         if (typeName is null || typeKind is null || allowed is null)
             return;
 
+        if (declaration is RecordDeclarationSyntax recordDeclaration && recordDeclaration.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword))
+            allowed.Add(SyntaxKind.ReadonlyKeyword);
+
         var refModifierSeen = false;
         var readonlyModifierSeen = false;
         foreach (var modifier in modifiers)
@@ -4624,7 +4627,7 @@ public partial class SemanticModel
                 UnionFieldUtilities.GetPayloadFieldName(GetUnionMemberMetadataName(memberType)),
                 artifactType,
                 isStatic: false,
-                isMutable: true,
+                isMutable: false,
                 isConst: false,
                 constantValue: null,
                 unionSymbol,
@@ -4913,6 +4916,10 @@ public partial class SemanticModel
                     for (var parameterOrdinal = 0; parameterOrdinal < caseParameters.Length; parameterOrdinal++)
                     {
                         var parameterSyntax = caseParameters[parameterOrdinal];
+                        if (parameterSyntax.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                            _declarationDiagnostics.ReportParameterBindingKeywordNotAllowed(
+                                parameterSyntax.BindingKeyword.Text, parameterSyntax.Identifier.ValueText,
+                                parameterSyntax.BindingKeyword.GetLocation());
                         var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
                         var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
                         var parameterName = UnionFacts.GetCaseParameterName(
@@ -5400,7 +5407,7 @@ public partial class SemanticModel
             UnionFieldUtilities.TagFieldName,
             Compilation.GetSpecialType(SpecialType.System_Byte),
             isStatic: false,
-            isMutable: true,
+            isMutable: false,
             isConst: false,
             constantValue: 0,
             unionSymbol,
@@ -6749,6 +6756,9 @@ public partial class SemanticModel
         bool markRequired)
     {
         var propertyName = parameterSyntax.Identifier.ValueText;
+        if (classSymbol.IsReadOnly && parameterSymbol.IsMutable)
+            _declarationDiagnostics.ReportReadonlyStructMemberMustBeReadonly(propertyName, parameterSyntax.Identifier.GetLocation());
+
         // C#-compatible record inheritance semantics for primary-constructor properties:
         // if a derived record redeclares a parameter matching an inherited instance member,
         // reuse the inherited property to avoid shadowing.

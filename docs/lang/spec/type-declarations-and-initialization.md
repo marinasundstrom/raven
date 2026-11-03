@@ -374,6 +374,10 @@ record class Person(name: string, age: int);  // explicit record class
 record struct Point(x: int, y: int);          // explicit record struct
 ```
 
+`readonly record struct Point(x: int, y: int)` declares a readonly value type.
+Its instance fields and stored properties must be readonly; positional `var`
+parameters are rejected. `readonly` does not apply to record classes.
+
 Primary-constructor semantics differ between nominal types and records:
 
 * `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access. Access modifiers on primary-constructor parameters are valid only when the parameter is promoted.

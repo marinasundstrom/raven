@@ -61,7 +61,7 @@ internal partial class TypeMemberBinder : Binder
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
-        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } &&
+        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } and not SourceUnionSymbol &&
             !isStatic &&
             propertyDecl.BindingKeyword.IsKind(SyntaxKind.VarKeyword))
         {

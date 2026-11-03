@@ -4997,3 +4997,22 @@ mutable record structs mark generated getters, ToString, PrintMembers,
 GetHashCode, Equals and Deconstruct individually. CompilerGeneratedAttribute also
 appears on synthesized members. Match relevant metadata in the next slice, with
 separate consideration for union carriers/cases and imported readonly methods.
+
+
+Readonly metadata slice: a temporary codex/raven-readonly-metadata worktree isolates
+implementation from the running port baseline. C# differential probes found missing
+record struct type/member markers, missing generated method markers, and incorrect
+readonly method import based on return modifiers. Four of five initial parity cases
+failed. The implementation adds readonly record struct support, readonly/generated
+member metadata, correct import, immutable union storage metadata and diagnostics
+for ignored union case binding prefixes. Ten focused tests pass, including C# differential metadata and mutable getter
+behavior. All 301 adjacent record/union/struct tests pass. The validated slice is
+being integrated into codex/raven-compiler-port. RavenDoc was not run.
+
+The earlier full port baseline stopped with six nullable generic-inference failures
+in GenericMethodTests after the shared conversion correction. A Roslyn probe
+confirms Coalesce<T>(T? value, T fallback) called with int? and int infers T=int?,
+not int. Raven currently unwraps the nullable argument and then rejects the call.
+Fix inference and update the old int expectations against C# evidence next;
+do not restore the spurious nullable-to-nonnullable conversion. This failure is
+independent of readonly metadata and is not a clean full-baseline result.

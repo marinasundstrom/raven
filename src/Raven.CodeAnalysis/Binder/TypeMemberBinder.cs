@@ -502,7 +502,7 @@ internal partial class TypeMemberBinder : Binder
         var isExternalConstant = isConstDeclaration && modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
         var isReadonlyField = modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
         var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
-        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } &&
+        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } and not SourceUnionSymbol &&
             !isStatic &&
             !isReadonlyField)
         {

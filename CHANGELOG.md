@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Support readonly record structs and emit C#-compatible readonly/generated-member
+  metadata. Import readonly instance methods separately from ref-readonly returns.
+  Mark immutable union carriers/cases and their generated storage readonly.
+- Diagnose ignored binding prefixes in union case parameter lists (`RAV0342`);
+  case payload members remain getter-only.
+
 - Treat unconstrained generic nullable annotations substituted with value types as
   identity conversions, preserving actual nullable-value wrapping. This fixes
   emitted equality for records containing generic union values.

@@ -1905,7 +1905,7 @@ union Result<T, E> {
 
         var output = writer.ToString();
         Assert.Contains("SynthesizedMethod=virtual override Result<T, E>.ToString() -> string", output);
-        Assert.Contains("FieldAccess [Type=Result<T, E>.Ok<T>, Symbol=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>, Field=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>]", output);
+        Assert.Contains("FieldAccess [Type=Result<T, E>.Ok<T>, Symbol=readonly Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>, Field=readonly Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>]", output);
         Assert.Contains("<RavenFormatUnionValue>(value: object) -> string", output);
         Assert.DoesNotContain("<RavenUnionDisplayName>", output);
         Assert.DoesNotContain("<RavenFriendlyTypeName>", output);
@@ -2027,7 +2027,7 @@ union Result {
         Assert.Contains("SynthesizedMethod=Result.TryGetValue(out value: Result.Ok) -> bool", output);
         Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Result.Ok, UnitType=()]", output);
         Assert.Contains("ParameterAccess [Type=Result.Ok, Symbol=out value: Result.Ok, Parameter=out value: Result.Ok]", output);
-        Assert.Contains("FieldAccess [Type=Result.Ok, Symbol=Result.<OkPayload>: Result.Ok, Field=Result.<OkPayload>: Result.Ok]", output);
+        Assert.Contains("FieldAccess [Type=Result.Ok, Symbol=readonly Result.<OkPayload>: Result.Ok, Field=readonly Result.<OkPayload>: Result.Ok]", output);
     }
 
     [Fact]

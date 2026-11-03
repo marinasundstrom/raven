@@ -47,7 +47,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
     private int _signatureVersion;
 
     private bool IsAutoPropertyAccessor
-        => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
+        => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly
            && ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true };
 
     public SourceMethodSymbol(
@@ -142,7 +142,45 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
 
     public bool IsOverride => _isOverride;
 
-    public bool IsReadOnly { get; }
+    public bool IsReadOnly
+    {
+        get
+        {
+            if (IsStatic || ContainingType?.IsValueType != true ||
+                MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor or MethodKind.InitOnly)
+                return false;
+            if (ContainingType.IsReadOnly)
+                return true;
+            if (MethodKind == MethodKind.PropertyGet && IsAutoPropertyAccessor)
+                return true;
+            if (!IsSynthesizedValueMember)
+                return false;
+            return Name switch
+            {
+                "Equals" or "GetHashCode" => true,
+                "Deconstruct" => ContainingType.GetMembers().OfType<PropertySymbol>()
+                    .Where(property => Parameters.Any(parameter => parameter.Name == property.Name))
+                    .All(property => property.GetMethod?.IsReadOnly == true),
+                "ToString" when ContainingType is SourceNamedTypeSymbol { IsRecord: true } =>
+                    ContainingType.GetMembers("PrintMembers").OfType<MethodSymbol>().FirstOrDefault()?.IsReadOnly == true,
+                "PrintMembers" => ContainingType.GetMembers().OfType<PropertySymbol>()
+                    .Where(property => !property.IsStatic && property.DeclaredAccessibility == Accessibility.Public &&
+                        property.Parameters.IsEmpty && property.GetMethod?.DeclaredAccessibility == Accessibility.Public)
+                    .All(property => property.GetMethod!.IsReadOnly),
+                "ToString" when ContainingType is SourceUnionCaseTypeSymbol => true,
+                _ => false
+            };
+        }
+    }
+
+    private bool IsSynthesizedValueMember => ContainingType switch
+    {
+        SourceUnionCaseTypeSymbol => true,
+        SourceUnionSymbol => DeclaringSyntaxReferences.All(reference =>
+            reference.GetSyntax() is UnionDeclarationSyntax or CaseDeclarationSyntax),
+        SourceNamedTypeSymbol { IsRecord: true } => DeclaringSyntaxReferences.IsDefaultOrEmpty,
+        _ => false
+    };
 
     public bool IsFinal => _isSealed;
 
@@ -339,8 +377,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
     public override ImmutableArray<AttributeData> GetAttributes()
     {
         var addSetsRequiredMembers = ShouldAddSetsRequiredMembersAttribute();
+        var addCompilerGenerated = IsAutoPropertyAccessor || IsSynthesizedValueMember;
+        var addReadOnly = IsReadOnly && ContainingType?.IsReadOnly != true;
 
-        if (!_declaredInExtension && !IsAutoPropertyAccessor && !addSetsRequiredMembers)
+        if (!_declaredInExtension && !addCompilerGenerated && !addReadOnly && !addSetsRequiredMembers)
             return base.GetAttributes();
 
         if (_lazyAugmentedAttributes.IsDefault)
@@ -348,11 +388,19 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
             var baseAttributes = base.GetAttributes();
             var builder = ImmutableArray.CreateBuilder<AttributeData>();
 
-            if (IsAutoPropertyAccessor)
+            if (addCompilerGenerated)
             {
                 var compilerGenerated = CreateCompilerGeneratedAttribute();
                 if (compilerGenerated is not null)
                     builder.Add(compilerGenerated);
+            }
+
+            if (addReadOnly && !baseAttributes.Any(attribute => attribute.AttributeClass.ToFullyQualifiedMetadataName() ==
+                "System.Runtime.CompilerServices.IsReadOnlyAttribute"))
+            {
+                var readOnly = CreateIsReadOnlyAttribute();
+                if (readOnly is not null)
+                    builder.Add(readOnly);
             }
 
             if (_declaredInExtension && IsExtensionMethod)

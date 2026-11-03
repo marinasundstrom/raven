@@ -167,6 +167,12 @@ let missing: LookupResult = Missing
 ```
 
 * Each `case` declaration declares one synthesized case type.
+* Case payloads are getter-only values. `let`, `val` and `var` binding prefixes
+  are not allowed in case parameter lists (`RAV0342`); previously ignored
+  prefixes are now diagnosed.
+* Value-type carriers and immutable case types expose readonly semantics. Their
+  generated instance storage is initialized by constructors and cannot be
+  mutated afterwards. This does not make a reference-type payload deeply immutable.
 * A case-declaration union must declare at least one case. Other members do not
   count as variants.
 * A case payload uses either positional types (`case Pair(int, string)`) or

@@ -643,9 +643,10 @@ internal partial class PEMethodSymbol : PESymbol, MethodSymbol, IMethodLookupIde
         }
     }
 
-    public bool IsReadOnly =>
-        (_methodInfo as MethodInfo)?.ReturnParameter?.GetRequiredCustomModifiers()
-            .Contains(typeof(IsReadOnlyAttribute)) == true;
+    public bool IsReadOnly => !IsStatic &&
+        MethodKind is not (MethodKind.Constructor or MethodKind.StaticConstructor or MethodKind.InitOnly) &&
+        (ContainingType?.IsReadOnly == true || _methodInfo.CustomAttributes.Any(attribute =>
+            attribute.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute"));
 
     public bool IsFinal =>
         (_methodInfo as MethodInfo)?.IsFinal == true &&
