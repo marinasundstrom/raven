@@ -5048,3 +5048,13 @@ Validation used modern .NET. These are shared source-symbol contracts; native
 neoCLR execution, .NET Framework and NanoFramework were not tested. The C# owners
 have not yet been ported to Raven. MetadataImportOptions remains a validated draft
 until its shared tests and source are integrated after the PE helper slice.
+
+
+Workspace consolidation (author direction): keep porting and port-discovered
+compiler stabilization in the single Raven-compiler-port worktree on
+codex/raven-compiler-port. The temporary record-copy workspace has been removed;
+3a1db06ce and 34bbd0a07 are integrated, and pending metadata-import options and
+runtime-contract translations are consolidated beside the PE/readonly slice.
+Continue committing separately validated slices within this worktree. Long-running
+validation started before consolidation retains its original source/binary scope;
+it is not validation of newly added port files.
