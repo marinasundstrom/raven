@@ -9,6 +9,7 @@ public sealed class NamespaceDocumentationTests : CompilationTestBase
     [Theory]
     [InlineData(false, "Namespace")]
     [InlineData(true, "Module")]
+    [Trait("Profile", "documentation-e2e")]
     public void ModuleTerminologyRetainsAssemblyOwner(bool modules, string label)
     {
         var tree = SyntaxTree.ParseText("namespace Examples { public class Item {} }");
@@ -115,6 +116,7 @@ public sealed class NamespaceDocumentationTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Profile", "documentation-e2e")]
     public void NamespaceDocumentationRoundTripsThroughSidecarsAndRavenDoc(bool markdown)
     {
         var tree = SyntaxTree.ParseText("/// Namespace overview\nnamespace Samples\npublic class Widget { }",

@@ -3,6 +3,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Documentation;
 
+[Trait("Profile", "documentation-e2e")]
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
     [Theory]

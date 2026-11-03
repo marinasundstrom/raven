@@ -106,7 +106,8 @@ run_code_analysis_tests_in_batches() {
 # Some CodeGen tests still use older Raven.CodeAnalysis.Tests namespaces,
 # so derive the CodeGen exclusion set from the folder rather than relying
 # only on fully-qualified namespace substrings.
-common_filter="FullyQualifiedName!~Sample"
+# RavenDoc site generation is an explicit end-to-end scenario, not routine port validation.
+common_filter="FullyQualifiedName!~Sample&Profile!=documentation-e2e"
 code_analysis_filter="$common_filter$(build_codegen_exclusion_filter)$(build_heavy_exclusion_filter)"
 
 run_code_analysis_tests_in_batches

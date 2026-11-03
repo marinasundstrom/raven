@@ -73,3 +73,21 @@ separately instead of folding those tests into the fast baseline.
 Release and bootstrap-stage validation is broader than the ordinary change
 impact workflow. Follow [Release and bootstrap compatibility
 gates](release-and-bootstrap-gates.md) for that procedure.
+
+
+## RavenDoc end-to-end validation
+
+Routine baselines exclude `Profile=documentation-e2e`. These cases generate a
+RavenDoc site and should run only when deliberately validating that end-to-end
+scenario. Compiler documentation parsing, symbol documentation and sidecar
+metadata tests remain eligible for ordinary focused validation.
+
+To intentionally run the site-generation cases:
+
+```bash
+dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj --filter 'Profile=documentation-e2e' /property:WarningLevel=0
+```
+
+Building the RavenDoc project as a test dependency does not itself generate a
+site. Compiler XML/Markdown documentation emission is also separate from
+RavenDoc site generation.

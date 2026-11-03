@@ -3,6 +3,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests.Metadata;
 
+[Trait("Profile", "documentation-e2e")]
 public sealed class AttributedCustomUnionTests : CompilationTestBase
 {
     [Theory]
