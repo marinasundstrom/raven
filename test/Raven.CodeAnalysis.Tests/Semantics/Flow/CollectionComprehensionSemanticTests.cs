@@ -260,10 +260,15 @@ let lengths: ImmutableList<int> = [for text in [|"a", "bb", "ccc"|] => text.Leng
             .OfType<CollectionExpressionSyntax>()
             .Single(c => c.Elements.Any(e => e is CollectionComprehensionElementSyntax));
 
-        var bound = model.GetBoundNode(collection).ShouldBeOfType<BoundCollectionExpression>();
-        var spread = bound.Elements.Single().ShouldBeOfType<BoundSpreadElement>();
-        var comprehension = spread.Expression.ShouldBeOfType<BoundCollectionComprehensionExpression>();
-        comprehension.IterationLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        var textReference = collection.DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Single(name => name.Identifier.ValueText == "text" && name.Parent is MemberAccessExpressionSyntax);
+        var iterationLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(textReference).Symbol);
+        Assert.Equal(SpecialType.System_String, iterationLocal.Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, model.GetTypeInfo(textReference).Type!.SpecialType);
+
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(collection).ConvertedType);
+        Assert.Equal("ImmutableList", targetType.Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(targetType.TypeArguments).SpecialType);
     }
 
     [Fact]
