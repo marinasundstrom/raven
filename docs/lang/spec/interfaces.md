@@ -37,6 +37,11 @@ For example, `interface Child<T> : Parent<T> {}` passes Child's `T` to Parent.
 interface IAsyncLogger : ILogger, IDisposable {}
 ```
 
+Default interface bodies can refer to inherited accessible properties and methods
+by unqualified name, including members inherited through constructed generic
+interfaces. A shared ancestor in a diamond is one inherited contract. This does
+not make default interface members available as unqualified class members.
+
 ### Implementing interfaces
 
 Classes, structs, and union carriers implement interfaces by listing them in

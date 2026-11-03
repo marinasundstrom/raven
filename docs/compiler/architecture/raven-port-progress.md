@@ -4552,3 +4552,40 @@ uses the bootstrap contract, and its later direct translation must retain this
 correction. This is a separate stabilization commit after the naming-only pass.
 Logs: /tmp/macro-canonical-baseline.log, /tmp/macro-canonical-before.log,
 /tmp/macro-canonical-build.log and /tmp/macro-canonical-after.log.
+
+### Default interface bodies during symbol translation (2026-11-03)
+
+The direct draft of the 30 symbol interfaces and 10 associated enums exposed
+unqualified inherited-member lookup failures. The shared binder walked only
+`BaseType`, missing the separate interface inheritance graph. It now walks the
+constructed base interfaces for interface scopes, including diamond ancestors,
+without exposing default interface members as ordinary class members.
+
+Runtime regression coverage then exposed expression-bodied property/indexer
+getters being emitted as abstract interface methods. CLI method body recognition
+now includes both declaration forms. `SourceCallablePlan` already recognizes
+these bodies for portable lowering; no equivalent portable change is required.
+Neither binder nor method emitter has been translated to Raven yet, so these
+fixes live in the maintained C# bootstrap and must survive their direct port.
+
+Validation: 75 adjacent interface tests passed before the change; the reduced
+unqualified property/method repro failed with RAV0103. After the lookup fix,
+.NET runtime validation exposed a TypeLoadException for the abstract getter.
+After both fixes, 86 focused and adjacent tests pass. Coverage includes generic
+diamond lookup, semantic symbol/type queries, .NET runtime dispatch, inaccessible
+private helpers, and class lookup boundaries. The neoCLR case checks semantic
+binding with host references only, not native execution. The compiler core and
+driver built for net11.0; touched C# files passed whitespace formatting. No
+RavenDoc end-to-end generation was run. The normal test dependency build did
+build RavenDoc and emit compiler-owned XML/Markdown sidecars for Core/Macros;
+subsequent focused builds reused dependencies.
+
+The symbol-contract translation remains a draft, not an integrated replacement.
+Its next checks concern nullable property patterns and expression results, then
+the symbol/display dependency boundary and shared implementation tests. Existing
+Raven syntax, text and documentation components remain in place.
+
+Logs: /tmp/interface-lookup-baseline.log, /tmp/interface-lookup-before.log,
+/tmp/interface-lookup-after.log, /tmp/interface-body-after.log. The temporary
+translation is /tmp/raven-symbol-contract-port/Symbol.rvn, with its latest
+compiler diagnostics in /tmp/symbol-contract-port-second.log.

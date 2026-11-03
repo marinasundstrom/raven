@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve inherited interface properties and methods inside default interface
+  bodies by unqualified name, preserving generic substitutions and diamond
+  inheritance on the shared .NET/neoCLR semantic path. Emit expression-bodied
+  interface property/indexer getters with their default implementations rather
+  than abstract CLI methods.
+
 - Preserve every namespace/module segment in `MacroSymbol.CanonicalName` for
   source macro declarations. Nested macros now report `Outer.Inner.Identity`
   instead of `Inner.Identity` on both .NET and neoCLR semantic paths.

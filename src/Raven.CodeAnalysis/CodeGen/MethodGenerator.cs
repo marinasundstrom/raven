@@ -1005,6 +1005,10 @@ internal class MethodGenerator
                     return true;
                 case AccessorDeclarationSyntax accessorDecl when accessorDecl.Body is not null || accessorDecl.ExpressionBody is not null:
                     return true;
+                case PropertyDeclarationSyntax propertyDecl when methodSymbol.MethodKind == MethodKind.PropertyGet && propertyDecl.ExpressionBody is not null:
+                    return true;
+                case IndexerDeclarationSyntax indexerDecl when methodSymbol.MethodKind == MethodKind.PropertyGet && indexerDecl.ExpressionBody is not null:
+                    return true;
             }
         }
 
