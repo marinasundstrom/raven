@@ -201,7 +201,8 @@ class Foo {
         }
 
         let value = JsonSerializer.Deserialize<JsonObject>(Serialize(), options)
-        return value.Properties.Count
+        if value is JsonObject parsed { return parsed.Properties.Count }
+        throw JsonException("Expected a JSON object.")
     }
 }
 """;

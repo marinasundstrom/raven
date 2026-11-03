@@ -4624,3 +4624,38 @@ worked around in the direct translation.
 Logs: /tmp/property-capture-baseline.log, /tmp/property-capture-before.log,
 /tmp/property-capture-after2.log, /tmp/symbol-contract-port-fourth.log and
 /tmp/contract-conditional.log. Draft: /tmp/raven-symbol-contract-port/Symbol.rvn.
+
+### Collection-builder spreads with source element types (2026-11-03)
+
+The contract draft's `GetTypeMembers` spread into `ImmutableArray<NamedTypeSymbol>`
+reached a reflection fallback that could not inspect the still-emitting source
+interface type. Span-based collection-builder spreads now bind their factory
+invocation in the shared binder, with element conversion checks, before emission.
+This uses the ordinary call and array-to-span machinery for source element types.
+
+Runtime tests exposed a second defect: normal-form `ReadOnlySpan<T>` arguments to
+`params` factories became bound errors and emitted default spans. Argument
+conversion now checks the supplied argument's normal conversion before requiring
+an expanded-params element type. The direct-call and collection-spread regressions
+both preserve their elements at runtime. These binder sources remain C# bootstrap
+code until their dependency-ordered Raven translation.
+
+Baseline: 39 passed and one stale JSON test failed because it accessed a nullable
+deserialization result without unwrapping. That test now explicitly pattern-binds
+the object or throws. Both new source-element runtime cases reproduced the
+original emission crash. Final collection, builder, params, and conditional-
+collection coverage passes 86 tests. Validation includes modern .NET runtime
+execution, incompatible element diagnostics, and neoCLR semantic binding with
+host references only. Span metadata/runtime support on other targets remains
+required; native execution is not claimed. Core and driver net11.0 builds and
+whitespace formatting pass. No RavenDoc generation was run.
+
+The full contract draft advances to a separate emission failure in a lambda
+inside the default `GetTypeMembers(name, arity)` implementation (`Method body
+should not exist`); the same failure was also observed in `TypeSymbol.IsUnion`
+during the intermediate investigation.
+The nested conditional-expression analyzer false positives remain outstanding.
+The translation is still a draft, not yet an integrated replacement assembly.
+
+Logs: /tmp/contract-spread-baseline.log, /tmp/contract-spread-before.log,
+/tmp/contract-spread-after2.log, /tmp/symbol-contract-port-sixth.log.

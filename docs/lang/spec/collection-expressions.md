@@ -78,12 +78,14 @@ can supply a static factory accepting `ReadOnlySpan<T>`. Raven converts the
 literal elements to `T` and supplies one span argument; the factory parameter
 does not need a `params` annotation. Empty literals supply an empty span.
 Incompatible element types remain errors. This also applies when a method's
-parameter supplies the collection target type.
+parameter supplies the collection target type. Spreads are collected into the
+same span argument, including when `T` is a source-declared class or interface.
+An explicitly supplied span is a normal argument even when the factory parameter
+is marked `params`; it is not expanded into individual elements.
 
 This framework interop path is validated on .NET. Other targets require the
 corresponding metadata, collection and span contracts; the annotation alone does
-not establish runtime support. Spread support has its own binding paths and is
-not implied by support for a span factory.
+not establish runtime support.
 
 ## Spreading existing collections
 

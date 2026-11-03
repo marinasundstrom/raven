@@ -13772,12 +13772,6 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    if (!TryGetVarParamsElementType(parameter.Type, out var elementType))
-                    {
-                        converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
-                        continue;
-                    }
-
                     if (paramsArguments.Length == 1 &&
                         !paramsArguments[0].IsSpread &&
                         paramsArguments[0].Type is TypeSymbol singleParamsType &&
@@ -13792,6 +13786,12 @@ partial class BlockBinder : Binder
                         };
 
                         converted[i] = ApplyConversion(singleParamsArgument.Expression, paramsArrayTargetType, paramsArrayConversion, paramsSyntaxNode);
+                        continue;
+                    }
+
+                    if (!TryGetVarParamsElementType(parameter.Type, out var elementType))
+                    {
+                        converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
                         continue;
                     }
 
@@ -15347,9 +15347,6 @@ partial class BlockBinder : Binder
         if (!TryGetCollectionBuilderInfo(namedTarget, out var builderType, out var methodName))
             return false;
 
-        if (elements.Any(static element => element is BoundSpreadElement))
-            return false;
-
         var candidates = builderType
             .GetMembers(methodName)
             .OfType<MethodSymbol>()
@@ -15364,6 +15361,56 @@ partial class BlockBinder : Binder
             return false;
 
         accessibleCandidates = PreferCollectionBuilderTargetTypeCandidates(accessibleCandidates, namedTarget);
+
+        if (elements.Any(static element => element is BoundSpreadElement))
+        {
+            if (!TryGetCollectionBuilderElementType(namedTarget, out var spreadElementType))
+                return false;
+
+            // Bind the span factory before emission: source-defined type arguments
+            // cannot be inspected through runtime reflection on a TypeBuilder.
+            var spreadCandidates = accessibleCandidates.Where(candidate =>
+                candidate.Parameters.Length == 1 &&
+                candidate.Parameters[0].Type is NamedTypeSymbol { Name: "ReadOnlySpan" } &&
+                TryGetSpanElementType(candidate.Parameters[0].Type, out var spanElement) &&
+                SymbolEqualityComparer.Default.Equals(spanElement, spreadElementType) &&
+                SymbolEqualityComparer.Default.Equals(candidate.ReturnType, namedTarget)).ToImmutableArray();
+            if (spreadCandidates.IsDefaultOrEmpty)
+                return false;
+
+            var convertedElements = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var element = elements[i];
+                var sourceType = element is BoundSpreadElement spread
+                    ? GetSpreadElementType(spread.Expression.Type!)
+                    : element.Type!;
+                if (!IsAssignable(spreadElementType, sourceType, out var conversion))
+                {
+                    ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        spreadElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementNodes[i].GetLocation());
+                }
+                else if (element is not BoundSpreadElement)
+                {
+                    element = ApplyConversion(element, spreadElementType, conversion, elementNodes[i]);
+                }
+                convertedElements.Add(element);
+            }
+
+            var span = new BoundCollectionExpression(spreadCandidates[0].Parameters[0].Type, convertedElements.ToImmutable());
+            var spreadArguments = new[] { new BoundArgument(span, RefKind.None, null, syntax) };
+            var spreadResolution = OverloadResolver.ResolveOverload(spreadCandidates, spreadArguments,
+                Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+            if (!spreadResolution.Success)
+                return false;
+
+            var factory = spreadResolution.Method!;
+            result = new BoundInvocationExpression(factory, ConvertArguments(factory.Parameters, spreadArguments, syntax));
+            ReportObsoleteIfNeeded(factory, syntax.GetLocation());
+            return true;
+        }
 
         var arguments = CreateCollectionBuilderArguments(syntax, namedTarget, elements, elementNodes);
 

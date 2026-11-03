@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind collection-builder spreads through their span factory before emission,
+  supporting source-defined element types. Preserve explicitly supplied span
+  arguments to `params` factories instead of emitting a default value.
+
 - Infer non-nullable whole-value captures for successful property patterns,
   including empty patterns and nullable value-type inputs.
 
