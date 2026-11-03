@@ -1327,7 +1327,9 @@ CLI member matching compares generic definitions by nominal metadata name and
 assembly simple name before comparing constructed arguments. Definitions from
 separate reflection contexts must not recursively compare their own declaring
 type parameters. A definition remains distinct from a constructed type, and
-different constructed arguments remain distinct. Existing assembly-name matching
+different constructed arguments remain distinct. Array identity retains both rank
+and CLR array shape: a vector (`T[]`) is distinct from a rank-one multidimensional
+array (`T[*]`), even when their element types match. Existing assembly-name matching
 is unchanged. This helper is shared by CLI method, property and event import,
 including neoCLR host-reference import; native metadata does not use reflection.
 

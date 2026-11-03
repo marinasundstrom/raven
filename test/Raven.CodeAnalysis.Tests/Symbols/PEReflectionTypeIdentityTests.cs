@@ -26,6 +26,15 @@ public class PEReflectionTypeIdentityTests
     }
 
     [Fact]
+    public void VectorAndRankOneMultidimensionalArrayAreDistinct()
+    {
+        var vector = typeof(int[]);
+        var multidimensional = typeof(int).MakeArrayType(1);
+        Assert.False(PEReflectionTypeIdentity.AreEquivalent(vector, multidimensional));
+        Assert.False(PEReflectionTypeIdentity.AreEquivalent(multidimensional, vector));
+    }
+
+    [Fact]
     public void GenericDefinitionsAndArgumentsKeepTheirIdentity()
     {
         Assert.False(PEReflectionTypeIdentity.AreEquivalent(typeof(List<>), typeof(Dictionary<,>)));

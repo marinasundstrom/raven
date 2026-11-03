@@ -33,7 +33,7 @@ internal static class PEReflectionTypeIdentity
             if (!(left.IsArray && right.IsArray))
                 return false;
 
-            if (left.GetArrayRank() != right.GetArrayRank())
+            if (left.IsSZArray != right.IsSZArray || left.GetArrayRank() != right.GetArrayRank())
                 return false;
 
             return AreEquivalent(left.GetElementType(), right.GetElementType());

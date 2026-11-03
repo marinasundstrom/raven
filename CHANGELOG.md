@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve the distinction between CLR vectors and rank-one multidimensional
+  arrays when matching imported method, property and event signatures.
+
 - Terminate reflection identity comparisons of generic definitions across load
   contexts, while preserving definition and constructed-argument distinctions.
 
