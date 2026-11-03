@@ -39,7 +39,9 @@ Indexed source-type lookup declares the requested type without binding all membe
 signatures in its file. Resolving a parameter type must not recursively bind a
 derived override while its base method still has a temporary signature.
 Member lookup and override resolution request the required signatures through
-the semantic model instead. This preserves partial generic override binding
+the semantic model instead. Qualified expression lookup completes signatures for
+the selected source type before constructor or static-member selection, preserving
+source ownership when a bootstrap reference contains the same metadata name. This preserves partial generic override binding
 across syntax-tree orders and whether diagnostics or declared-symbol queries
 run first. The rule belongs to shared binding, before target-specific emission.
 

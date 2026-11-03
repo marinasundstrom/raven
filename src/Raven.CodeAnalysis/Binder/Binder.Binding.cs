@@ -32,7 +32,13 @@ internal abstract partial class Binder
             // including the unsuppressed pass that completes field initializers. Admit the
             // indexed source declaration before accepting a bootstrap metadata result.
             if (Compilation.TryDeclareIndexedSourceType(owner, name, out var sourceType, requestedArity))
+            {
+                // Expression lookup needs callable members, unlike type-only lookup
+                // while another declaration signature is still being constructed.
+                foreach (var reference in sourceType.DeclaringSyntaxReferences)
+                    Compilation.GetSemanticModel(reference.SyntaxTree).EnsureMemberSignaturesDeclared();
                 return sourceType;
+            }
             return Compilation.GetTypeByMetadataName(requestedArity > 0 ? metadataName + "`" + requestedArity : metadataName);
         }
     }

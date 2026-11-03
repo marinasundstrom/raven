@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 - Keep indexed type lookup from recursively binding unrelated member signatures,
   fixing partial generic overrides that depended on file or semantic-query order.
+  Qualified expression lookup still completes source members for constructor selection.
 
 - Port sixteen symbol, special-type and macro classification enums to the Raven
   compiler implementation, with C# metadata and implementation-ownership parity tests.
