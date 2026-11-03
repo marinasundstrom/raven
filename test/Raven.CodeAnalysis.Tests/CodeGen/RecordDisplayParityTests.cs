@@ -7,11 +7,11 @@ public class RecordDisplayParityTests
 {
     public static IEnumerable<object[]> Cases()
     {
-        yield return ["record class Empty", "public record Empty;", null!];
-        yield return ["record class Empty()", "public record Empty();", null!];
-        yield return ["record class Generic<T>(Value: T)", "public record Generic<T>(T Value);", new object[] { 42 }];
+        yield return ["record class Empty", "public sealed record Empty;", null!];
+        yield return ["record class Empty()", "public sealed record Empty();", null!];
+        yield return ["record class Generic<T>(Value: T)", "public sealed record Generic<T>(T Value);", new object[] { 42 }];
         yield return ["record struct Point(X: int, Y: int)", "public readonly record struct Point(int X, int Y);", new object[] { 1, 2 }];
-        yield return ["record class Data(Name: string, Count: int)", "public record Data(string Name, int Count);", new object[] { "Ada", 3 }];
+        yield return ["record class Data(Name: string, Count: int)", "public sealed record Data(string Name, int Count);", new object[] { "Ada", 3 }];
         yield return ["""
             record class Data {
                 private field _hidden: int = 9
@@ -21,7 +21,7 @@ public class RecordDisplayParityTests
                 static val Ignored: int = 7
             }
             """, """
-            public record Data {
+            public sealed record Data {
                 private int _hidden = 9;
                 public string Name { get; init; } = "Ada";
                 public string? Missing { get; init; }
@@ -46,7 +46,7 @@ public class RecordDisplayParityTests
             record class Derived(Name: string, Count: int) : Base(Name)
             """, """
             public abstract record Base(string Name);
-            public record Derived(string Name, int Count) : Base(Name);
+            public sealed record Derived(string Name, int Count) : Base(Name);
             """, new object[] { "Ada", 3 }];
         yield return ["""
             abstract record class Base {
@@ -60,7 +60,7 @@ public class RecordDisplayParityTests
             public abstract record Base {
                 protected virtual bool PrintMembers(System.Text.StringBuilder builder) { builder.Append("base"); return true; }
             }
-            public record Derived(int Count) : Base;
+            public sealed record Derived(int Count) : Base;
             """, new object[] { 2 }];
     }
 
@@ -94,7 +94,17 @@ public class RecordDisplayParityTests
         var expected = Activator.CreateInstance(expectedType, arguments ?? []);
         var actual = Activator.CreateInstance(actualType, arguments ?? []);
         Assert.Equal(expected!.ToString(), actual!.ToString());
+        Assert.Equal(EqualityMembers(expectedType), EqualityMembers(actualType));
         Assert.Equal(expectedType.GetMethods().Where(m => m.Name == "Deconstruct").Select(m => m.GetParameters().Length),
             actualType.GetMethods().Where(m => m.Name == "Deconstruct").Select(m => m.GetParameters().Length));
     }
+
+    private static string[] EqualityMembers(Type type)
+        => type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+            .Where(method => method.Name is "Equals" or "get_EqualityContract")
+            .Select(method => $"{method.Name}({string.Join(",", method.GetParameters().Select(parameter => parameter.ParameterType.Name))})" +
+                $" public={method.IsPublic} family={method.IsFamily} private={method.IsPrivate} virtual={method.IsVirtual} final={method.IsFinal}")
+            .OrderBy(value => value).ToArray();
+
 }

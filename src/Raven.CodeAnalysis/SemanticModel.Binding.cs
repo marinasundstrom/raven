@@ -6918,6 +6918,26 @@ public partial class SemanticModel
 
         var objectToString = GetObjectToStringMethod();
 
+        if (!recordSymbol.IsValueType && !recordSymbol.GetMembers("EqualityContract").OfType<PropertySymbol>().Any())
+        {
+            var baseGetter = recordSymbol.BaseType?.GetMembers("EqualityContract")
+                .OfType<PropertySymbol>().FirstOrDefault()?.GetMethod;
+            var accessibility = recordSymbol.IsClosed && baseGetter is null
+                ? Accessibility.Private : Accessibility.ProtectedAndProtected;
+            var contract = new SourcePropertySymbol("EqualityContract", systemType,
+                recordSymbol, recordSymbol, namespaceSymbol, [location], references,
+                declaredAccessibility: accessibility);
+            var getter = new SourceMethodSymbol("get_EqualityContract", systemType,
+                ImmutableArray<SourceParameterSymbol>.Empty, contract, recordSymbol,
+                namespaceSymbol, [location], references, isStatic: false,
+                methodKind: MethodKind.PropertyGet, declaredAccessibility: accessibility,
+                isVirtual: !recordSymbol.IsClosed || baseGetter is not null,
+                isOverride: baseGetter is not null);
+            if (baseGetter is not null)
+                getter.SetOverriddenMethod(baseGetter);
+            contract.SetAccessors(getter, null);
+        }
+
         var recordComparisonParameterType = recordSymbol.IsValueType
             ? (TypeSymbol)recordSymbol : recordSymbol.GetNullableType();
         if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol) &&
@@ -6933,6 +6953,7 @@ public partial class SemanticModel
                 [location],
                 references,
                 isStatic: false,
+                isVirtual: !recordSymbol.IsValueType && !recordSymbol.IsClosed,
                 methodKind: MethodKind.Ordinary,
                 declaredAccessibility: Accessibility.Public);
 
@@ -6945,6 +6966,23 @@ public partial class SemanticModel
                 [location],
                 references);
             equalsTyped.SetParameters(ImmutableArray.Create(otherParameter));
+        }
+
+        if (!recordSymbol.IsValueType && recordSymbol.BaseType is { SpecialType: not SpecialType.System_Object } recordBase &&
+            recordBase.GetMembers("Equals").OfType<MethodSymbol>().FirstOrDefault(candidate =>
+                !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type.GetNonNullableType(), recordBase)) is { } baseTypedEquals &&
+            !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, baseTypedEquals.Parameters[0].Type))
+        {
+            var baseEqualsOverride = new SourceMethodSymbol("Equals", boolType,
+                ImmutableArray<SourceParameterSymbol>.Empty, recordSymbol, recordSymbol,
+                namespaceSymbol, [location], references, isStatic: false,
+                methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public,
+                isOverride: true, isSealed: true);
+            baseEqualsOverride.SetParameters([new SourceParameterSymbol("other",
+                baseTypedEquals.Parameters[0].Type, baseEqualsOverride, recordSymbol,
+                namespaceSymbol, [location], references)]);
+            baseEqualsOverride.SetOverriddenMethod(baseTypedEquals);
         }
 
         if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType) &&

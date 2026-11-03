@@ -18850,3 +18850,20 @@ Validation: 65 focused record tests execute on modern .NET, including nine
 C# differential display/deconstruction cases. No native execution was performed
 for this extension. See record-inheritance-equality.md for remaining common
 compatibility gaps; no external neoCLR runtime files were changed in this slice.
+
+
+### Typed record equality contract — 2026-11-03
+
+Shared record declarations now expose C#-compatible EqualityContract and typed
+virtual equality slots. CLI bodies use a System.Type-valued contract and direct
+base typed equality calls; object equality and operators dispatch to typed
+Equals. Synthesized getters produce the declaring constructed type. This makes
+custom record payload equality visible to union comparisons too.
+
+Native semantic intent is the same typed customization and runtime-type identity.
+The native backend's separate equality implementation must preserve those rules
+using native type identity/metadata and virtual slots; System.Type is the current
+CLI representation, not a requirement on its native encoding. Portable record
+planning tests pass within the 67-test focused cohort, but native execution and
+admission of the new equality-contract getter remain unvalidated. This limitation
+must be resolved before claiming complete neoCLR record compatibility.

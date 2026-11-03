@@ -397,6 +397,12 @@ record class Person(Name: string, Age: int) {
 }
 ```
 
+Authored typed `Equals` controls generated object equality and equality operators.
+Open record classes expose virtual typed equality; derived records preserve
+derived-state comparison through base-typed references. The generated
+`EqualityContract` distinguishes reference-record types and participates in root
+hashing, following C#.
+
 Generated equality and hashing use stored instance state, not computed getters.
 Copying preserves that state without evaluating getters. Generated `ToString()`
 uses C# record formatting (`Person { Name = Ada, Age = 42, Description = Ada }`),

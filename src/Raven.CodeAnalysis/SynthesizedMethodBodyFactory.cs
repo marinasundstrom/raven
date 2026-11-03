@@ -205,6 +205,15 @@ internal static partial class SynthesizedMethodBodyFactory
             return true;
         }
 
+        if (method.Name == "get_EqualityContract" && method.MethodKind == MethodKind.PropertyGet &&
+            method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true, IsValueType: false })
+        {
+            body = new BoundBlockStatement([new BoundReturnStatement(
+                new BoundTypeOfExpression(method.ContainingType!, compilation.GetSpecialType(SpecialType.System_Type)))]);
+            return true;
+        }
+
         if (method.Name == nameof(object.Equals) &&
             method.Parameters.Length == 1 &&
             method.ReturnType.SpecialType == SpecialType.System_Boolean &&
@@ -220,6 +229,14 @@ internal static partial class SynthesizedMethodBodyFactory
             if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), method.ContainingType))
             {
                 body = CreateRecordTypedEqualsBody(compilation, method, equalsRecordType);
+                return true;
+            }
+
+            if (method.IsOverride && SymbolEqualityComparer.Default.Equals(
+                method.Parameters[0].Type.GetNonNullableType(), method.ContainingType?.BaseType))
+            {
+                body = new BoundBlockStatement([new BoundReturnStatement(CreateRecordVirtualEqualsInvocation(compilation,
+                    new BoundSelfExpression(method.ContainingType!), new BoundParameterAccess(method.Parameters[0])))]);
                 return true;
             }
         }

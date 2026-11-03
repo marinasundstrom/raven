@@ -122,6 +122,14 @@ internal static partial class SynthesizedMethodBodyFactory
                 new BoundLocalAccess(hashLocal), requiresReceiverAddress: true)));
         }
 
+        else if (!recordType.IsValueType)
+        {
+            statements.Add(CreateExpressionStatement(new BoundInvocationExpression(
+                addMethod.Construct(compilation.GetSpecialType(SpecialType.System_Type)),
+                [CreateRecordEqualityContractAccess(method.ContainingType!, new BoundSelfExpression(method.ContainingType!))],
+                new BoundLocalAccess(hashLocal), requiresReceiverAddress: true)));
+        }
+
         foreach (var field in GetRecordStorageFields(method.ContainingType, recordType))
         {
             statements.Add(CreateExpressionStatement(new BoundInvocationExpression(
@@ -146,12 +154,11 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var otherAccess = new BoundParameterAccess(method.Parameters[0]);
         var selfAccess = new BoundSelfExpression(method.ContainingType!);
-        var statements = recordType.IsValueType
-            ? new List<BoundStatement>()
-            : CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true);
-        statements.Add(new BoundReturnStatement(recordType.IsValueType
-            ? CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)
-            : CreateRecordVirtualEqualsInvocation(compilation, selfAccess, otherAccess)));
+        var statements = new List<BoundStatement>();
+        if (!recordType.IsValueType)
+            statements.Add(CreateNullGuardReturn(compilation, otherAccess, false));
+        statements.Add(new BoundReturnStatement(
+            CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)));
 
         return new BoundBlockStatement(statements);
     }
@@ -173,7 +180,7 @@ internal static partial class SynthesizedMethodBodyFactory
                 compilation.GetSpecialType(SpecialType.System_Boolean));
             return new BoundBlockStatement([
                 new BoundIfStatement(matches,
-                    new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType,
+                    new BoundReturnStatement(CreateRecordTypedEqualsInvocation(compilation, method.ContainingType!,
                         selfAccess, new BoundLocalAccess(otherLocal)))),
                 new BoundReturnStatement(CreateBoolLiteral(compilation, false))
             ]);
@@ -187,15 +194,8 @@ internal static partial class SynthesizedMethodBodyFactory
                 new BoundVariableDeclarator(otherLocal, factory.CreateAsExpression(objectParameter, invocationContainingType, asConversion))
             ])
         };
-        statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true));
-        var getType = compilation.GetSpecialType(SpecialType.System_Object).GetMembers(nameof(object.GetType))
-            .OfType<MethodSymbol>().Single(m => !m.IsStatic && m.Parameters.IsEmpty);
-        var sameType = CreateRecordVirtualEqualsInvocation(compilation,
-            new BoundInvocationExpression(getType, [], selfAccess),
-            new BoundInvocationExpression(getType, [], otherAccess));
-        statements.Add(new BoundIfStatement(CreateLogicalNotExpression(compilation, sameType),
-            new BoundReturnStatement(CreateBoolLiteral(compilation, false))));
-        statements.Add(new BoundReturnStatement(CreateNominalValueEqualityExpression(compilation, method, recordType, selfAccess, otherAccess)));
+        statements.Add(new BoundReturnStatement(CreateRecordTypedEqualsInvocation(compilation,
+            method.ContainingType!, selfAccess, otherAccess)));
 
         return new BoundBlockStatement(statements);
     }
@@ -210,11 +210,13 @@ internal static partial class SynthesizedMethodBodyFactory
         var statements = new List<BoundStatement>();
 
         if (!recordType.IsValueType)
-            statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, left, right, whenReferenceEqual: true));
+        {
+            statements.Add(CreateReferenceEqualsGuardReturn(compilation, left, right, true));
+            statements.Add(CreateNullGuardReturn(compilation, left, false));
+        }
 
-        statements.Add(new BoundReturnStatement(recordType.IsValueType
-            ? CreateNominalValueEqualityExpression(compilation, method, recordType, left, right)
-            : CreateRecordVirtualEqualsInvocation(compilation, left, right)));
+        statements.Add(new BoundReturnStatement(CreateRecordTypedEqualsInvocation(compilation,
+            method.ContainingType!, left, right)));
         return new BoundBlockStatement(statements);
     }
 
@@ -225,16 +227,23 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var left = new BoundParameterAccess(method.Parameters[0]);
         var right = new BoundParameterAccess(method.Parameters[1]);
-        var equality = recordType.IsValueType
-            ? CreateNominalValueEqualityExpression(compilation, method, recordType, left, right)
-            : CreateRecordVirtualEqualsInvocation(compilation, left, right);
-        var statements = new List<BoundStatement>();
+        var equalityOperator = method.ContainingType!.GetMembers("op_Equality").OfType<MethodSymbol>()
+            .Single(candidate => candidate.IsStatic && candidate.Parameters.Length == 2);
+        return new BoundBlockStatement([
+            new BoundReturnStatement(CreateLogicalNotExpression(compilation,
+                new BoundInvocationExpression(equalityOperator, [left, right])))
+        ]);
+    }
 
-        if (!recordType.IsValueType)
-            statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, left, right, whenReferenceEqual: false, whenNull: true));
-
-        statements.Add(new BoundReturnStatement(CreateLogicalNotExpression(compilation, equality)));
-        return new BoundBlockStatement(statements);
+    private static BoundExpression CreateRecordTypedEqualsInvocation(
+        Compilation compilation, NamedTypeSymbol type, BoundExpression left, BoundExpression right)
+    {
+        var equals = type.GetMembers("Equals").OfType<MethodSymbol>().Single(candidate =>
+            !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type.GetNonNullableType(), type));
+        return new BoundInvocationExpression(equals,
+            [CreateConversion(compilation, right, equals.Parameters[0].Type)], left,
+            requiresReceiverAddress: type.IsValueType);
     }
 
     private static BoundExpression CreateRecordVirtualEqualsInvocation(
@@ -256,8 +265,13 @@ internal static partial class SynthesizedMethodBodyFactory
         BoundExpression rightReceiver)
     {
         BoundExpression? current = GetRecordBaseMethod(method, recordType, nameof(object.Equals), 1) is { } baseEquals
-            ? new BoundInvocationExpression(baseEquals, [rightReceiver], new BoundBaseExpression(method.ContainingType!.BaseType!))
-            : null;
+            ? new BoundInvocationExpression(baseEquals,
+                [CreateConversion(compilation, rightReceiver, baseEquals.Parameters[0].Type)],
+                new BoundBaseExpression(method.ContainingType!.BaseType!))
+            : recordType.IsValueType ? null : CreateEqualityComparerEqualsInvocation(compilation,
+                compilation.GetSpecialType(SpecialType.System_Type),
+                CreateRecordEqualityContractAccess(method.ContainingType!, leftReceiver),
+                CreateRecordEqualityContractAccess(method.ContainingType!, rightReceiver));
 
         foreach (var field in GetRecordStorageFields(method.ContainingType, recordType))
         {
@@ -270,6 +284,9 @@ internal static partial class SynthesizedMethodBodyFactory
 
         return current ?? CreateBoolLiteral(compilation, true);
     }
+
+    private static BoundExpression CreateRecordEqualityContractAccess(NamedTypeSymbol type, BoundExpression receiver)
+        => CreatePropertyGetterAccess(receiver, type.GetMembers("EqualityContract").OfType<PropertySymbol>().Single());
 
     private static BoundExpression CreateEqualityComparerEqualsInvocation(
         Compilation compilation,
@@ -320,21 +337,6 @@ internal static partial class SynthesizedMethodBodyFactory
             new BoundReturnStatement(CreateBoolLiteral(compilation, whenEqual)));
     }
 
-    private static List<BoundStatement> CreateRecordReferenceEqualityPrelude(
-        Compilation compilation,
-        BoundExpression left,
-        BoundExpression right,
-        bool whenReferenceEqual,
-        bool whenNull = false)
-    {
-        return
-        [
-            CreateReferenceEqualsGuardReturn(compilation, left, right, whenReferenceEqual),
-            CreateNullGuardReturn(compilation, left, whenNull),
-            CreateNullGuardReturn(compilation, right, whenNull)
-        ];
-    }
-
     private static BoundBlockStatement CreateRecordCopyConstructorBody(
         Compilation compilation,
         MethodSymbol method,
@@ -374,7 +376,7 @@ internal static partial class SynthesizedMethodBodyFactory
             return null;
         return method.ContainingType?.BaseType?.GetMembers(name).OfType<MethodSymbol>()
             .FirstOrDefault(candidate => !candidate.IsStatic && candidate.Parameters.Length == parameterCount &&
-                (parameterCount == 0 || candidate.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object));
+                (parameterCount == 0 || SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type.GetNonNullableType(), method.ContainingType!.BaseType)));
     }
 
     private static BoundBlockStatement CreateNominalDeconstructBody(

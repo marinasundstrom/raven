@@ -1,23 +1,18 @@
 # Record inheritance equality
 
-Generated record-class typed equality and operators dispatch through virtual
-Object.Equals after identity/null guards. The generated Object override checks exact
-runtime type before component comparison. This prevents base-typed comparisons from
-ignoring derived state or comparing sibling/root instances as equal. Inherited
-positional properties participate in generated display/hash/equality, even when
-not repeated in the derived primary parameter list. Value-record paths are unchanged.
+Generated record-class object equality delegates to typed equality. Open records
+have a virtual typed Equals(R?) member. Derived records seal the base-typed
+override and route it through object dispatch so comparisons through base
+references still observe derived state. Generated typed equality compares own
+instance fields and calls the base typed equality nonvirtually. Root records
+compare their virtual EqualityContract property; root hashes include it.
 
-This describes the existing equality implementation, not the final C# compatibility
-contract. Native emission has its own selected-core implementation and requires
-separate validation.
-
-The failing emitted .NET baseline now passes through base-typed, interface and
-Object dispatch, sibling/root rejection and inherited display. All 37 record
-semantic tests also pass. No performance improvement is claimed.
-
-Generated copy constructors mark required members initialized. An explicit derived
-copy now compiles and retains both base and derived values; the 38-test focused
-cohort includes this execution check.
+Record structs use typed equality for object equality and generated operators as
+well. Authored typed equality therefore controls these paths consistently. The
+class equality operator preserves reference identity and left-null handling,
+then passes the right operand (including null) to typed equality. Inequality
+negates equality. This allows authored equality to decide how to handle null,
+as in C#.
 
 ## Record copying (2026-11-01)
 
@@ -70,9 +65,6 @@ binding supplies language-service symbols.
 
 These are implementation gaps to fix, not supported semantic divergences:
 
-- Replace the current Object.Equals-centered dispatch with the C# EqualityContract
-  and typed virtual equality hierarchy, including user-defined typed equality,
-  derived sealed base-typed overrides and hashing contracts.
 - Align copy-constructor accessibility, record-struct copying, required-member
   attributes and primary-constructor delegation diagnostics.
 - Audit record-struct property mutability/readonly rules and diagnostics for
@@ -89,3 +81,27 @@ property, struct, parser, sealed-hierarchy and portable-plan tests pass. These e
 use modern .NET, not native neoCLR, .NET Framework or NanoFramework. The
 MetadataImportOptions direct Raven draft also passed its four C# tests with the
 initial stored-state implementation; integration into the port remains separate.
+
+
+### Typed equality validation
+
+The typed equality extension passes 67 focused record/portable-plan tests. An
+additional 18-test run covers updated display/equality metadata comparisons and
+stored-state regressions: nine Roslyn comparisons now check equality member
+accessibility, virtual/final flags and overloads as well as display/deconstruction.
+Custom class/struct equality is exercised through object, IEquatable and operators,
+including null and custom base equality. A union payload regression proves the
+record correction propagates to union value comparison and hash consistency.
+
+Unions retain their own carrier/case representation and quoted payload display;
+they do not acquire the reference-record EqualityContract hierarchy. The relevant
+shared correction is that payload object equality now honors authored typed record
+equality. Union customization restrictions remain a separate language question.
+Readonly metadata is the next identified compatibility gap: source record struct
+IsReadOnly and imported method readonly markers require dedicated validation.
+
+Final combined validation: 329 record/union semantic, runtime, interoperability,
+completion and portable-plan tests pass. A malformed nested union fixture was
+corrected (missing closing parenthesis); the newly exposed generic annotation
+conversion bug was reproduced with the prior frozen compiler and fixed separately
+in 8c67db2cd. Its 14 focused nullable substitution/runtime tests also pass.

@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   identity conversions, preserving actual nullable-value wrapping. This fixes
   emitted equality for records containing generic union values.
 
+- Honor authored typed record equality through object/interface calls and generated
+  operators, including union record payloads. Generate the C#-compatible virtual
+  EqualityContract and typed equality hierarchy for reference records.
+
 - Allow record body storage and additional constructors. Generated equality,
   hashing and copies include private instance fields and property backing fields.
 - **Breaking:** align generated record display with C# (`Name { Value = text }`):

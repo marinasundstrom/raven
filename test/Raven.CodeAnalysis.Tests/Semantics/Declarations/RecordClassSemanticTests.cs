@@ -352,7 +352,6 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.True(compilation.TryGetSynthesizedMethodBody(objectEquals, BoundTreeView.Original, out var objectBody));
         Assert.NotNull(objectBody);
         Assert.Contains(objectBody!.Statements, static statement => statement is BoundLocalDeclarationStatement);
-        Assert.Contains(objectBody.Statements, static statement => statement is BoundIfStatement);
     }
 
     [Fact]
@@ -412,7 +411,6 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(inequalityOperator, BoundTreeView.Original, out var body));
         Assert.NotNull(body);
-        Assert.Contains(body!.Statements, static statement => statement is BoundIfStatement);
         Assert.IsType<BoundReturnStatement>(body.Statements.Last());
     }
 
@@ -589,7 +587,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
-        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
+        Assert.Equal(["Age", "EqualityContract", "Name"],
+            person.GetMembers().OfType<PropertySymbol>().Select(property => property.Name).OrderBy(name => name));
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -606,7 +605,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
-        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
+        Assert.Equal(["Age", "EqualityContract", "Name"],
+            person.GetMembers().OfType<PropertySymbol>().Select(property => property.Name).OrderBy(name => name));
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -624,7 +624,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
         Assert.Equal(TypeKind.Class, person.TypeKind);
-        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
+        Assert.Equal(["Age", "EqualityContract", "Name"],
+            person.GetMembers().OfType<PropertySymbol>().Select(property => property.Name).OrderBy(name => name));
         Assert.Empty(compilation.GetDiagnostics());
     }
 

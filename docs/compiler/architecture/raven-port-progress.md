@@ -4967,3 +4967,33 @@ website source now document these rules without running RavenDoc. Remaining C#
 compatibility work is explicit in docs/compiler/record-inheritance-equality.md,
 including typed equality customization, copy metadata/diagnostics and native
 backend parity. MetadataImportOptions integration remains a later port slice.
+
+
+Typed record equality follow-up: object equality and operators now call typed
+Equals; generated reference records have EqualityContract and derived sealed
+base-typed overrides. Two failing custom-equality regressions now pass. The
+67-test record/portable cohort and 18-test differential/stored-state cohort pass.
+Union payload coverage confirms custom record equality propagates. User direction:
+transfer foundational fixes to affected unions and other features, and audit
+IsReadOnlyAttribute metadata. The latter exposed pending record-struct source
+classification and imported-method marker issues; address in a separate slice.
+
+Metadata parity directive: relevant metadata emitted by C# (including optional
+IsReadOnlyAttribute markers) is part of Raven's .NET compatibility, not merely
+an optimization detail. Validate emitted and imported type/member metadata for
+records, union carriers and case types alongside runtime behavior. Transfer fixes
+to other affected features and target implementations where the same contract
+applies.
+
+Final combined validation: 329 record/union semantic, runtime, interoperability,
+completion and portable-plan tests pass. A malformed nested union fixture was
+corrected (missing closing parenthesis); the newly exposed generic annotation
+conversion bug was reproduced with the prior frozen compiler and fixed separately
+in 8c67db2cd. Its 14 focused nullable substitution/runtime tests also pass.
+
+C# metadata probe (/tmp/csharp-readonly-oracle.log) confirms type-level
+IsReadOnlyAttribute on readonly record structs and readonly ordinary structs;
+mutable record structs mark generated getters, ToString, PrintMembers,
+GetHashCode, Equals and Deconstruct individually. CompilerGeneratedAttribute also
+appears on synthesized members. Match relevant metadata in the next slice, with
+separate consideration for union carriers/cases and imported readonly methods.
