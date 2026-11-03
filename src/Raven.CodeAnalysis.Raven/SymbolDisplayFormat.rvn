@@ -1,0 +1,389 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public open class SymbolDisplayFormat : IEquatable<SymbolDisplayFormat> {
+    static val RavenSignatureFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        KindOptions = SymbolDisplayKindOptions.IncludeTypeKeyword | SymbolDisplayKindOptions.IncludeMemberKeyword,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeBinding,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeModifiers,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding
+    }
+
+    static val RavenTooltipFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = RavenSignatureFormat.DelegateStyle,
+        ExtensionMethodStyle = RavenSignatureFormat.ExtensionMethodStyle,
+        GenericsOptions = RavenSignatureFormat.GenericsOptions,
+        KindOptions = RavenSignatureFormat.KindOptions,
+        LocalOptions = RavenSignatureFormat.LocalOptions,
+        MemberOptions = RavenSignatureFormat.MemberOptions,
+        ParameterOptions = RavenSignatureFormat.ParameterOptions,
+        TypeQualificationStyle = RavenSignatureFormat.TypeQualificationStyle,
+        MiscellaneousOptions = RavenSignatureFormat.MiscellaneousOptions,
+        PropertyStyle = RavenSignatureFormat.PropertyStyle
+    }
+
+    static val RavenDebuggerFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.StaticMethod,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
+        GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included,
+        KindOptions = SymbolDisplayKindOptions.IncludeNamespaceKeyword | SymbolDisplayKindOptions.IncludeTypeKeyword | SymbolDisplayKindOptions.IncludeMemberKeyword,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeModifiers | SymbolDisplayLocalOptions.IncludeRef,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility |
+                    SymbolDisplayMemberOptions.IncludeModifiers |
+                    SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeContainingType,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                       SymbolDisplayParameterOptions.IncludeName |
+                       SymbolDisplayParameterOptions.IncludeDefaultValue |
+                       SymbolDisplayParameterOptions.IncludeOptionalBrackets |
+                       SymbolDisplayParameterOptions.IncludeExtensionThis,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.ExpandNullable,
+        PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+    }
+
+    static val RavenCodeGenerationFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeModifiers |
+                    SymbolDisplayMemberOptions.IncludeAccessibility,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.RemoveAttributeSuffix
+    }
+
+    static val RavenSymbolKeyFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeParameters |
+                        SymbolDisplayMemberOptions.IncludeContainingType,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes
+    }
+
+    static val RavenErrorMessageFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType
+    }
+
+    static val RavenShortErrorMessageFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+        GenericsOptions = SymbolDisplayGenericsOptions.None,
+        MemberOptions = SymbolDisplayMemberOptions.None
+    }
+
+    static val FullyQualifiedFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
+        GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included,
+        KindOptions = SymbolDisplayKindOptions.IncludeNamespaceKeyword | SymbolDisplayKindOptions.IncludeTypeKeyword,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeBinding,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+        PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeExtensionThis |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut
+    }
+
+    static val MinimallyQualifiedFormat: SymbolDisplayFormat = SymbolDisplayFormat() {
+            DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+            ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
+
+            // Minimal → show type parameters, but not constraints
+            GenericsOptions =
+                SymbolDisplayGenericsOptions.IncludeTypeParameters,
+
+            // Minimal → no global:: prefix
+            GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Omitted,
+
+            // Minimal → no "class", "namespace", etc.
+            KindOptions = SymbolDisplayKindOptions.None,
+
+            // Reasonable minimal → show the type of locals, but not binding info
+            LocalOptions = SymbolDisplayLocalOptions.IncludeType,
+
+            MemberOptions =
+                SymbolDisplayMemberOptions.IncludeParameters     // still show method signature
+                | SymbolDisplayMemberOptions.IncludeType         // include return type
+                | SymbolDisplayMemberOptions.IncludeModifiers,   // e.g. static
+
+            MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+
+            PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
+
+            // ⭐ Key difference: types *never* include namespaces
+            TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+
+            ParameterOptions =
+                SymbolDisplayParameterOptions.IncludeType
+                | SymbolDisplayParameterOptions.IncludeName
+                | SymbolDisplayParameterOptions.IncludeExtensionThis
+                | SymbolDisplayParameterOptions.IncludeDefaultValue
+                | SymbolDisplayParameterOptions.IncludeParamsRefOut
+        }
+
+    val DelegateStyle: SymbolDisplayDelegateStyle { get; private set; } = default
+
+    val ExtensionMethodStyle: SymbolDisplayExtensionMethodStyle { get; private set; } = default
+
+    val GenericsOptions: SymbolDisplayGenericsOptions { get; private set; } = default
+
+    val GlobalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle { get; private set; } = default
+
+    val KindOptions: SymbolDisplayKindOptions { get; private set; } = default
+
+    val LocalOptions: SymbolDisplayLocalOptions { get; private set; } = default
+
+    val MemberOptions: SymbolDisplayMemberOptions { get; private set; } = default
+
+    val MiscellaneousOptions: SymbolDisplayMiscellaneousOptions { get; private set; } = default
+
+    val ParameterOptions: SymbolDisplayParameterOptions { get; private set; } = default
+
+    val PropertyStyle: SymbolDisplayPropertyStyle { get; private set; } = default
+
+    val TypeQualificationStyle: SymbolDisplayTypeQualificationStyle { get; private set; } = default
+
+    func Equals(other: SymbolDisplayFormat?) -> bool
+        => other is not null && GetType() == other!.GetType()
+            && DelegateStyle == other!.DelegateStyle
+            && ExtensionMethodStyle == other!.ExtensionMethodStyle
+            && GenericsOptions == other!.GenericsOptions
+            && GlobalNamespaceStyle == other!.GlobalNamespaceStyle
+            && KindOptions == other!.KindOptions
+            && LocalOptions == other!.LocalOptions
+            && MemberOptions == other!.MemberOptions
+            && MiscellaneousOptions == other!.MiscellaneousOptions
+            && ParameterOptions == other!.ParameterOptions
+            && PropertyStyle == other!.PropertyStyle
+            && TypeQualificationStyle == other!.TypeQualificationStyle
+
+    override func Equals(obj: object?) -> bool => obj is SymbolDisplayFormat other && Equals(other)
+
+    override func GetHashCode() -> int {
+        var hash = HashCode()
+        hash.Add(GetType())
+        hash.Add(DelegateStyle)
+        hash.Add(ExtensionMethodStyle)
+        hash.Add(GenericsOptions)
+        hash.Add(GlobalNamespaceStyle)
+        hash.Add(KindOptions)
+        hash.Add(LocalOptions)
+        hash.Add(MemberOptions)
+        hash.Add(MiscellaneousOptions)
+        hash.Add(ParameterOptions)
+        hash.Add(PropertyStyle)
+        hash.Add(TypeQualificationStyle)
+        return hash.ToHashCode()
+    }
+
+    static func ==(left: SymbolDisplayFormat?, right: SymbolDisplayFormat?) -> bool
+        => Object.ReferenceEquals(left, right) || left is not null && left!.Equals(right)
+
+    static func !=(left: SymbolDisplayFormat?, right: SymbolDisplayFormat?) -> bool => !(left == right)
+
+    func WithDelegateStyle(value: SymbolDisplayDelegateStyle) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.DelegateStyle = value
+        return clone
+    }
+
+    func WithExtensionMethodStyle(value: SymbolDisplayExtensionMethodStyle) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.ExtensionMethodStyle = value
+        return clone
+    }
+
+    func WithGenericsOptions(value: SymbolDisplayGenericsOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.GenericsOptions = value
+        return clone
+    }
+
+    func WithGlobalNamespaceStyle(value: SymbolDisplayGlobalNamespaceStyle) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.GlobalNamespaceStyle = value
+        return clone
+    }
+
+    func WithKindOptions(value: SymbolDisplayKindOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.KindOptions = value
+        return clone
+    }
+
+    func WithLocalOptions(value: SymbolDisplayLocalOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.LocalOptions = value
+        return clone
+    }
+
+    func WithMemberOptions(value: SymbolDisplayMemberOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.MemberOptions = value
+        return clone
+    }
+
+    func WithMiscellaneousOptions(value: SymbolDisplayMiscellaneousOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.MiscellaneousOptions = value
+        return clone
+    }
+
+    func WithParameterOptions(value: SymbolDisplayParameterOptions) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.ParameterOptions = value
+        return clone
+    }
+
+    func WithPropertyStyle(value: SymbolDisplayPropertyStyle) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.PropertyStyle = value
+        return clone
+    }
+
+    func WithTypeQualificationStyle(value: SymbolDisplayTypeQualificationStyle) -> SymbolDisplayFormat {
+        let clone = (SymbolDisplayFormat)self.MemberwiseClone()
+        clone.TypeQualificationStyle = value
+        return clone
+    }
+}
+
+public enum SymbolDisplayPropertyStyle {
+    NameOnly = 0,
+    ShowReadWriteDescriptor = 1,
+}
+
+public enum SymbolDisplayTypeQualificationStyle {
+    NameOnly = 0,
+    NameAndContainingTypes = 1,
+    NameAndContainingTypesAndNamespaces = 2,
+}
+
+public enum SymbolDisplayDelegateStyle {
+    NameOnly = 0,
+    NameAndParameters = 1,
+    NameAndSignature = 2
+}
+
+public enum SymbolDisplayExtensionMethodStyle {
+    Default = 0,
+    InstanceMethod = 1,
+    StaticMethod = 2
+}
+
+[Flags]
+public enum SymbolDisplayGenericsOptions {
+    None = 0,
+    IncludeTypeParameters = 1,
+    IncludeTypeConstraints = 2,
+    IncludeVariance = 4
+}
+
+public enum SymbolDisplayGlobalNamespaceStyle {
+    Omitted = 0,
+    OmittedAsContaining = 1,
+    Included = 2
+}
+
+[Flags]
+public enum SymbolDisplayKindOptions {
+    None = 0,
+    IncludeNamespaceKeyword = 1,
+    IncludeTypeKeyword = 2,
+    IncludeMemberKeyword = 4
+}
+
+[Flags]
+public enum SymbolDisplayLocalOptions {
+    None = 0,
+    IncludeType = 1,
+    IncludeConstantValue = 2,
+    IncludeModifiers = 4,
+    IncludeRef = 4,
+    IncludeBinding = 8
+}
+
+[Flags]
+public enum SymbolDisplayMemberOptions {
+    None = 0,
+    IncludeType = 1,
+    IncludeModifiers = 2,
+    IncludeAccessibility = 4,
+    IncludeExplicitInterface = 8,
+    IncludeParameters = 16,
+    IncludeContainingType = 32,
+    IncludeConstantValue = 64,
+    IncludeRef = 128
+}
+
+[Flags]
+public enum SymbolDisplayMiscellaneousOptions {
+    None = 0,
+    UseSpecialTypes = 1,
+    EscapeIdentifiers = 2,
+    EscapeKeywordIdentifiers = 4,
+    UseAsterisksInMultidimensionalArrays = 8,
+    UseErrorTypeSymbolName = 16,
+    RemoveAttributeSuffix = 32,
+    ExpandNullable = 64,
+    IncludeNullableContextAttribute = 128,
+    AllowDefaultLiteral = 256,
+    IncludeNotNullableReferenceTypeModifier = 512,
+    CollapseTupleTypes = 1024,
+    ExpandedValueTuple = 2048,
+    ExpandAliases = 4096,
+    IncludeTupleElementNames = 8192,
+    IncludeUnionMemberTypes = 16384,
+    UseTargetTypedMemberBinding = 32768
+}
+
+[Flags]
+public enum SymbolDisplayParameterOptions {
+    None = 0,
+    IncludeExtensionThis = 1,
+    IncludeModifiers = 2,
+    IncludeParamsRefOut = 2,
+    IncludeType = 4,
+    IncludeName = 8,
+    IncludeDefaultValue = 16,
+    IncludeOptionalBrackets = 32,
+    IncludeBinding = 64,
+    IncludeGeneratedNames = 128
+}

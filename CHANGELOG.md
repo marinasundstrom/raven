@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port symbol display configuration to Raven and give both implementations value
+  equality across all display options while preserving clone-based customization.
+- Lower field and storage-property initializers before CLI emission, preserving
+  object-initializer assignments in static and instance constructors.
+
 - Store iterator pattern bindings in the hoisted fields read across `yield` resumes.
 
 - Infer enclosing generic type parameters from ordinary recursive-call arguments

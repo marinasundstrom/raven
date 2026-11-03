@@ -18800,3 +18800,12 @@ hoisted fields when storing pattern designators, alongside its existing async-fi
 handling. The temporary CLI state-machine encoding adds no native language rule;
 native code generation must provide the equivalent suspended-local storage.
 Validation here executes modern .NET, not native neoCLR.
+
+
+Field and storage-property initializers preserve object-initializer effects in
+both static and instance construction. The CLI constructor driver now lowers the
+shared field plan before emission; the portable body planner already performs
+this lowering. This is shared language semantics, not a neoCLR restriction or a
+new encoding. A native emitter must consume the lowered initialization effects
+with the same evaluation order. The regression executes modern .NET; inspection
+of the portable path is not a claim of native neoCLR execution.

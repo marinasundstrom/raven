@@ -2181,8 +2181,9 @@ internal partial class MethodBodyGenerator
 
     private void EmitFieldInitializers(bool isStatic)
     {
-        foreach (var statement in FieldInitializationPlan.Create(Compilation, MethodSymbol))
-            new StatementGenerator(baseGenerator, statement).Emit();
+        var initializers = new BoundBlockStatement(FieldInitializationPlan.Create(Compilation, MethodSymbol).ToArray());
+        var lowered = Lowerer.LowerBlock(MethodSymbol, initializers);
+        new StatementGenerator(baseGenerator, lowered).Emit();
     }
 
     private void EmitAutoEventAccessor(SourceEventSymbol eventSymbol, SourceFieldSymbol backingField)

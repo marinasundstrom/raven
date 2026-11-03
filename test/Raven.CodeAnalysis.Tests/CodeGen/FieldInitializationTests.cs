@@ -8,6 +8,34 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class FieldInitializationTests
 {
+    [Theory]
+    [InlineData("static val", "Holder.Value.Number")]
+    [InlineData("static field", "Holder.Value.Number")]
+    [InlineData("val", "Holder().Value.Number")]
+    [InlineData("field", "Holder().Value.Number")]
+    [Trait("Target", "DotNet")]
+    public void ObjectInitializersInFieldAndPropertyStorageAreLowered(string declaration, string access)
+    {
+        var code = $$"""
+            class Item {
+                var Number: int = 0
+            }
+            class Holder {
+                {{declaration}} Value: Item = Item() { Number = 42 }
+            }
+            public class Probe {
+                static func Run() -> int => {{access}}
+            }
+            """;
+        var compilation = Compilation.Create("StorageObjectInitializer", [SyntaxTree.ParseText(code)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(42, loaded.Assembly.GetType("Probe")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     [Fact]
     public void InstanceAndStaticFieldInitializers_AreEmitted()
     {

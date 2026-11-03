@@ -4388,3 +4388,43 @@ still unresolved and explicitly excluded from compiler-only acceptance. No websi
 publication was performed. C# remains the bootstrap implementation; semantic symbol
 contracts remain explicit dependencies of the Raven syntax project. Commit this
 syntax slice and pause the broader porting goal at the author's requested boundary.
+
+
+### Symbol display configuration slice (2026-11-03)
+
+After syntax acceptance and sync, the next dependency boundary is the semantic
+symbol API. Start with its independent SymbolDisplayFormat configuration and
+option enums, then port the symbol contracts with the coordinated I-prefix
+migration required by AGENTS.md. Symbol interfaces have not been renamed in this
+preparatory slice; neither mixed interface APIs nor bootstrap-owned implementations
+are being presented as a completed semantic port.
+
+SymbolDisplayFormat is translated directly, including all presets and With methods.
+Both implementations now have explicit value equality across all eleven options
+and exact runtime type, while retaining reference representation and private
+setters. Raven uses val/private-set properties with explicit default values.
+Records were evaluated: the current primary-parameter-only storage restriction
+would reshape this API, so this class implements the value contract explicitly.
+See ../symbol-display.md for the contract and test boundary.
+
+The focused baseline passed 47 existing display tests. The port then exposed a CLI
+bug: static and instance field/property object initializers discarded their member
+assignments. Four reduced runtime cases failed (expected42, actual0). The CLI
+constructor driver emitted the raw shared field plan; it now applies Lowerer first,
+as the portable constructor path already does. No Raven source workaround is used.
+The post-fix focused display/constructor run passed78 tests; isolated Raven value
+and cross-implementation preset/enum parity passed6 tests. Final permanent project
+parity is running. Logs: /tmp/storage-initializer-before.log,
+/tmp/symbol-display-initializers-after.log, /tmp/symbol-display-port-parity-after.log,
+/tmp/symbol-display-full-csharp-parity.log and /tmp/symbol-display-full-raven-parity.log.
+
+
+Symbol display slice acceptance: the permanent Raven project built successfully
+in 1,683.5 seconds and passed all 899 tests, with no failures or skips. The
+permanent C# parity project passed all 892 tests. The six isolated Raven checks
+cover value semantics, cloning/accessor boundaries and differential preset/enum
+configuration; the 78 focused C# tests cover display behavior and adjacent
+constructor initialization. The full Raven build reports compiler warnings, including explicit non-null
+assertions in the translation; this is not a warning-free qualification. No RavenDoc or website
+generation was run for this slice. Native neoCLR execution was not tested.
+The slice is ready for its own commit; the broader compiler port remains active.

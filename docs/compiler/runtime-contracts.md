@@ -4918,3 +4918,16 @@ Iterator pattern bindings use the same source-local-to-field mapping as iterator
 reads. CLI pattern assignment now resolves iterator fields as well as async fields;
 a successful declaration pattern must not leave the resumed field uninitialized.
 The syntax port exposed this through recursive structured-trivia enumeration.
+
+
+## Field initializer lowering
+
+CLI constructors lower the shared field-initialization plan before emitting it,
+including backing fields for storage properties. Object-initializer assignments
+must execute after object construction and before the object is stored. Emitting
+the original bound creation alone loses these assignments. The portable constructor
+path already lowers this plan. Constructor delegation and base-call placement
+remain the responsibility of each constructor driver.
+
+[Symbol display configuration](symbol-display.md) documents the value contract
+shared by the C# and Raven implementations.

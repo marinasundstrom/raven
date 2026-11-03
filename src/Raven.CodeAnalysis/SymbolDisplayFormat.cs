@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public class SymbolDisplayFormat
+public class SymbolDisplayFormat : IEquatable<SymbolDisplayFormat>
 {
     public static SymbolDisplayFormat RavenSignatureFormat { get; } = new SymbolDisplayFormat
     {
@@ -188,6 +188,45 @@ public class SymbolDisplayFormat
     public SymbolDisplayPropertyStyle PropertyStyle { get; private set; }
 
     public SymbolDisplayTypeQualificationStyle TypeQualificationStyle { get; private set; }
+
+    public bool Equals(SymbolDisplayFormat? other)
+        => other is not null && GetType() == other.GetType()
+            && DelegateStyle == other.DelegateStyle
+            && ExtensionMethodStyle == other.ExtensionMethodStyle
+            && GenericsOptions == other.GenericsOptions
+            && GlobalNamespaceStyle == other.GlobalNamespaceStyle
+            && KindOptions == other.KindOptions
+            && LocalOptions == other.LocalOptions
+            && MemberOptions == other.MemberOptions
+            && MiscellaneousOptions == other.MiscellaneousOptions
+            && ParameterOptions == other.ParameterOptions
+            && PropertyStyle == other.PropertyStyle
+            && TypeQualificationStyle == other.TypeQualificationStyle;
+
+    public override bool Equals(object? obj) => obj is SymbolDisplayFormat other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(GetType());
+        hash.Add(DelegateStyle);
+        hash.Add(ExtensionMethodStyle);
+        hash.Add(GenericsOptions);
+        hash.Add(GlobalNamespaceStyle);
+        hash.Add(KindOptions);
+        hash.Add(LocalOptions);
+        hash.Add(MemberOptions);
+        hash.Add(MiscellaneousOptions);
+        hash.Add(ParameterOptions);
+        hash.Add(PropertyStyle);
+        hash.Add(TypeQualificationStyle);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(SymbolDisplayFormat? left, SymbolDisplayFormat? right)
+        => ReferenceEquals(left, right) || left is not null && left.Equals(right);
+
+    public static bool operator !=(SymbolDisplayFormat? left, SymbolDisplayFormat? right) => !(left == right);
 
     public SymbolDisplayFormat WithDelegateStyle(SymbolDisplayDelegateStyle value)
     {
