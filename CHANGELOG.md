@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Make `TypedConstant` a readonly record struct with typed equality, equality
+  operators, init-only data properties, and deconstruction. Preserve existing
+  factory behavior, array storage equality, and `ToString()` output; avoid
+  reboxing array payloads when changing the associated type.
+
 - Evaluate enum bitwise constant initializers using their underlying integral
   type, including combined flags and width-correct complements.
 

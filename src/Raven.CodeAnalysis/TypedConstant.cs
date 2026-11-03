@@ -12,7 +12,7 @@ public enum TypedConstantKind
     Error
 }
 
-public readonly struct TypedConstant
+public readonly record struct TypedConstant
 {
     internal TypedConstant(TypeSymbol? type, object? value, TypedConstantKind kind)
     {
@@ -21,11 +21,11 @@ public readonly struct TypedConstant
         Kind = kind;
     }
 
-    public TypeSymbol? Type { get; }
+    public TypeSymbol? Type { get; init; }
 
-    public object? Value { get; }
+    public object? Value { get; init; }
 
-    public TypedConstantKind Kind { get; }
+    public TypedConstantKind Kind { get; init; }
 
     public bool IsNull => Kind == TypedConstantKind.Null;
 
@@ -62,11 +62,15 @@ public readonly struct TypedConstant
     internal static TypedConstant CreateError(TypeSymbol? type)
         => new(type, null, TypedConstantKind.Error);
 
-    internal TypedConstant WithType(TypeSymbol? type)
+    public void Deconstruct(out TypeSymbol? type, out object? value, out TypedConstantKind kind)
     {
-        if (Kind == TypedConstantKind.Array && Value is ImmutableArray<TypedConstant> array)
-            return new TypedConstant(type, array, Kind);
-
-        return new TypedConstant(type, Value, Kind);
+        type = Type;
+        value = Value;
+        kind = Kind;
     }
+
+    public override string ToString() => "Raven.CodeAnalysis.TypedConstant";
+
+    internal TypedConstant WithType(TypeSymbol? type)
+        => new(type, Value, Kind);
 }

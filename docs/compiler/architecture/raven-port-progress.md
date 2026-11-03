@@ -4747,3 +4747,32 @@ uses frozen compiler /tmp/symbol-enum-port-seed-v2 and log
 Logs: /tmp/enum-flags-baseline.log, /tmp/enum-flags-before.log,
 /tmp/enum-flags-after4.log, /tmp/enum-flags-final.log,
 /tmp/symbol-enum-component-build2.log and /tmp/symbol-enum-component-parity.log.
+
+### Typed constant value semantics (2026-11-03)
+
+The next symbol dependency draft includes TypedConstant, AttributeData and
+MacroParameterBinding. The isolated assembly compiles, but its remaining
+bootstrap dependencies still prevent treating it as an integrated symbol port.
+
+TypedConstant is now a readonly record struct in C#, with the equivalent Raven
+primary-constructor record prepared in the dependency draft. Typed equality,
+operators, init-only properties and deconstruction make its existing value role
+explicit. Equality retains boxed-value and ImmutableArray storage semantics;
+this does not introduce recursive array equality. Both implementations preserve
+the old ToString output explicitly. WithType no longer unboxes and reboxes array
+payloads. AttributeData and MacroParameterBinding have not changed equality
+semantics; their eventual port still requires a deliberate identity/value review.
+
+The permanent C# TypedConstantValueTests are reused against the isolated Raven
+assembly: all eight pass in both implementations. The focused C# attribute and
+constant set passes 40 tests after a 32-test baseline. Initial shared tests
+caught the getter-only C# versus init-only Raven property mismatch; both record
+APIs now expose init-only data consistently. No new language syntax or target
+policy was introduced, and no native neoCLR execution is claimed. No RavenDoc
+was run. The enum component build remains independent and in progress.
+
+Logs: /tmp/typed-constant-baseline.log, /tmp/typed-constant-after2.log,
+/tmp/typed-constant-raven-draft-tests2.log. Draft sources remain under
+/tmp/raven-symbol-contract-port/dependencies; integrate them with the symbol
+contract dependency closure, then link the permanent tests into the ordinary
+Raven parity project. Temporary isolated validation is not that integration.

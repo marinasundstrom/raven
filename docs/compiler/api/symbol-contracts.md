@@ -34,3 +34,23 @@ This naming pass is separate from the Raven symbol implementation port. Existing
 Raven sources reference the renamed bootstrap contracts until the corresponding
 implementations are ported and validated. It does not establish native neoCLR
 execution parity or complete the bootstrap compiler.
+
+
+## Attribute constant values
+
+`TypedConstant` is a readonly record struct. Its value consists of `Type`,
+`Value`, and `Kind`; typed equality, object equality, equality operators and
+hashing use those stored values. Array constants retain `ImmutableArray`
+storage identity equality, rather than comparing their elements recursively.
+A default array and an empty array remain distinct.
+
+The constructor and compiler factories remain internal. The three stored
+properties are init-only and support record copies, and deconstruction returns
+`(Type, Value, Kind)`. `IsNull` and `Values` are computed views, not additional
+record state. The existing `ToString()` result,
+`Raven.CodeAnalysis.TypedConstant`, is preserved. `WithType` preserves the boxed
+payload rather than allocating a new box for an array constant.
+
+These compiler API semantics are shared across target policies. Validation of
+the C# implementation and the isolated Raven translation runs on .NET; it does
+not establish native neoCLR execution or a completed symbol implementation port.
