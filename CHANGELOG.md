@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Give synthesized record-class copy constructors C#-compatible accessibility:
+  private for closed records and protected for inheritable records. Mark copies
+  with `SetsRequiredMembers` only when the record or a base has required members;
+  allow synthesized constructors to emit the marker without a source declaration.
+
 - Preserve nullable value arguments when inferring unconstrained generic `T?`
   parameters. Cold semantic queries now defer incomplete inferred candidates to
   ordinary binding, agreeing with queries made after diagnostics.

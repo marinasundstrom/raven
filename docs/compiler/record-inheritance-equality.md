@@ -25,9 +25,10 @@ are preserved. Record structs retain their existing copy path.
 
 The target Runtime Contract owns the metadata name (`<Clone>$` in the current
 contracts). This lets C# consume emitted Raven records with `with`, including
-base-typed, derived-typed and generic records. It does not establish support for
-C# declarations inheriting from Raven records: copy-constructor accessibility and
-other C# inheritance metadata remain a separate interoperability question.
+base-typed, derived-typed and generic records. The copy-constructor metadata follow-up also validates C# declarations inheriting
+from an emitted open Raven record, including base-typed copies and derived equality.
+This covers the tested non-generic hierarchy; broader inheritance combinations
+remain part of compatibility validation.
 
 The native declaration collector and portable callable planner explicitly include
 this operation, using the same synthesized body and copy constructor. Native
@@ -65,11 +66,11 @@ binding supplies language-service symbols.
 
 These are implementation gaps to fix, not supported semantic divergences:
 
-- Align copy-constructor accessibility, record-struct copying, required-member
-  attributes and primary-constructor delegation diagnostics.
+- Align record-struct copying, required-member attributes on non-copy constructors
+  and primary-constructor delegation diagnostics.
 - Audit record-struct property mutability/readonly rules and diagnostics for
   user-defined generated-member collisions and invalid custom signatures.
-- Validate C# inheritance from emitted Raven records, not only consumption via with.
+- Broaden C# inheritance validation beyond the tested non-generic open-record hierarchy.
 - Extend and execute the native neoCLR paths for body storage and C#-compatible
   display/equality. The shared binder change does not prove native backend support.
 
@@ -97,11 +98,36 @@ Unions retain their own carrier/case representation and quoted payload display;
 they do not acquire the reference-record EqualityContract hierarchy. The relevant
 shared correction is that payload object equality now honors authored typed record
 equality. Union customization restrictions remain a separate language question.
-Readonly metadata is the next identified compatibility gap: source record struct
-IsReadOnly and imported method readonly markers require dedicated validation.
+The subsequent readonly metadata slice validates source record-struct IsReadOnly,
+imported method markers and generated record/union metadata.
 
 Final combined validation: 329 record/union semantic, runtime, interoperability,
 completion and portable-plan tests pass. A malformed nested union fixture was
 corrected (missing closing parenthesis); the newly exposed generic annotation
 conversion bug was reproduced with the prior frozen compiler and fixed separately
 in 8c67db2cd. Its 14 focused nullable substitution/runtime tests also pass.
+
+
+### Copy-constructor metadata
+
+Synthesized reference-record copy constructors are private for closed records and
+protected for inheritable records. The shared clone operation remains the public
+copy entry point used by `with`. A copy constructor satisfies required members
+when its record or an ancestor declares them; the corresponding .NET attribute is
+omitted when there are none. Required-member discovery happens after record body
+members are completed rather than being frozen during early record synthesis.
+
+Generated constructors have no authored syntax reference. Their required-member
+marker must still be emitted, just like their compiler-generated metadata. These
+symbol contracts are shared by the targets; .NET metadata checks do not establish
+native neoCLR execution. Record-struct copy
+synthesis and the existing conservative required-member handling for other record
+constructors remain separate compatibility work.
+
+
+The five differential metadata cases cover closed, open and derived record
+classes, including own and inherited required properties. An additional runtime
+interop case compiles a C# derived record against Raven metadata and checks
+base-typed `with` copies and derived equality. Two diagnostic cases also reject
+direct calls from unrelated code to synthesized copy constructors. All eight
+focused tests pass on .NET.

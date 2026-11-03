@@ -31,6 +31,7 @@ public sealed class RecordCopyInteropTests
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         var consumer = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("RecordCopyConsumer",
             [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                public sealed record ExternalItem(int Id, string Name) : Entity(Id);
                 public static class Consumer {
                     public static bool Run() {
                         Entity original = new Item(1, "kept");
@@ -39,10 +40,16 @@ public sealed class RecordCopyInteropTests
                         var specificCopy = specific with { Name = "after" };
                         var box = new Box<int>(3);
                         var copiedBox = box with { Value = 4 };
+                        Entity external = new ExternalItem(7, "external");
+                        var externalCopy = external with { Id = 8 };
                         return changed is Item item && item.Id == 2 && item.Name == "kept"
                             && original.Id == 1 && box.Value == 3 && copiedBox.Value == 4
                             && specificCopy.Id == 5 && specificCopy.Name == "after" && specific.Name == "before"
-                            && !object.ReferenceEquals(original, changed);
+                            && !object.ReferenceEquals(original, changed)
+                            && externalCopy is ExternalItem { Id: 8, Name: "external" }
+                            && external.Id == 7
+                            && external.Equals(new ExternalItem(7, "external"))
+                            && !external.Equals(new ExternalItem(7, "different"));
                     }
                 }
                 """)],

@@ -39,6 +39,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
     private bool _setsRequiredMembers;
+    private bool _isRecordCopyConstructor;
     private SourceNamedTypeSymbol? _closureFrameType;
     private bool? _lazyIsUnsafe;
     private bool _isPartialDefinition;
@@ -238,7 +239,26 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
 
     internal bool DelegatesToSameTypeConstructor => ConstructorInitializer is { } initializer &&
         SymbolEqualityComparer.Default.Equals(initializer.Constructor.ContainingType, ContainingType);
-    public bool SetsRequiredMembers { get => _setsRequiredMembers; set => _setsRequiredMembers = value; }
+    public bool SetsRequiredMembers
+    {
+        get => _setsRequiredMembers || _isRecordCopyConstructor && HasRequiredRecordMembers();
+        set => _setsRequiredMembers = value;
+    }
+
+    internal void MarkRecordCopyConstructor() => _isRecordCopyConstructor = true;
+
+    private bool HasRequiredRecordMembers()
+    {
+        // Record synthesis precedes completion of body properties. Inspect the
+        // completed members when the constructor contract is queried.
+        for (var current = ContainingType; current is not null; current = current.BaseType)
+        {
+            if (current.GetMembers().Any(member => member is FieldSymbol { IsRequired: true } or PropertySymbol { IsRequired: true }))
+                return true;
+        }
+
+        return false;
+    }
 
     internal void MarkConstructorInitializerSyntax() => HasConstructorInitializerSyntax = true;
 
@@ -505,9 +525,6 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
             return null;
 
         var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxReference is null)
-            return null;
-
         return new AttributeData(
             attributeType,
             constructor,

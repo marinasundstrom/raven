@@ -5030,3 +5030,21 @@ reported above; a complete new baseline is still pending. The inference and
 semantic-model owners have not yet been ported, so the fix is in the shared C#
 bootstrap compiler, with no divergent Raven implementation to update. Native
 neoCLR execution was not tested.
+
+
+Record copy metadata follow-up: the MetadataImportOptions draft now passes nine
+C# tests against the Raven implementation, including copy-constructor metadata.
+The bootstrap compiler synthesizes private copy constructors for closed records
+and protected constructors for inheritable records. It determines the required
+member contract from completed own/base members and emits the marker for generated
+constructors without requiring authored syntax. Five Roslyn differential cases,
+two access-diagnostic cases and a C# derived-record runtime interoperability case
+pass; all 199 adjacent record/with/required-member/readonly/portable-plan tests pass.
+The old direct-copy fixture now uses the public `with` operation. A separate test
+cleanup retains zero-binding assertions while allowing cached semantic answers;
+its prior cache-hit failure was reproduced on d592b0355 before this fix.
+
+Validation used modern .NET. These are shared source-symbol contracts; native
+neoCLR execution, .NET Framework and NanoFramework were not tested. The C# owners
+have not yet been ported to Raven. MetadataImportOptions remains a validated draft
+until its shared tests and source are integrated after the PE helper slice.

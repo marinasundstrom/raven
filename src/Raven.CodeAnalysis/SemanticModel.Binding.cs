@@ -7201,7 +7201,8 @@ public partial class SemanticModel
                 references,
                 isStatic: false,
                 methodKind: MethodKind.Constructor,
-                declaredAccessibility: Accessibility.Internal);
+                declaredAccessibility: recordSymbol.IsValueType ? Accessibility.Internal :
+                    recordSymbol.IsClosed ? Accessibility.Private : Accessibility.ProtectedAndProtected);
 
             var otherParameter = new SourceParameterSymbol(
                 "other",
@@ -7212,7 +7213,7 @@ public partial class SemanticModel
                 [location],
                 references);
             copyConstructor.SetParameters(ImmutableArray.Create(otherParameter));
-            copyConstructor.MarkSetsRequiredMembers();
+            copyConstructor.MarkRecordCopyConstructor();
         }
 
         if (!recordSymbol.IsValueType &&
