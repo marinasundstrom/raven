@@ -747,7 +747,7 @@ func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> 
     [InlineData("string", "\"fallback\"", SpecialType.System_String, true)]
     [InlineData("int", "0", SpecialType.System_Int32, false)]
     [InlineData("int", "0", SpecialType.System_Int32, true)]
-    public void GenericInference_UnwrapsUnifiedNullableParameter(
+    public void GenericInference_PreservesNullableValueArgumentsForAnnotatedParameters(
         string typeName,
         string fallback,
         SpecialType expectedType,
@@ -775,11 +775,13 @@ func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> 
         var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         var invocationType = model.GetTypeInfo(invocation).Type;
 
-        Assert.Equal(expectedType, Assert.Single(method.TypeArguments).SpecialType);
-        Assert.Equal(expectedType, method.ReturnType.SpecialType);
+        var inferredArgument = Assert.Single(method.TypeArguments);
+        Assert.Equal(expectedType, inferredArgument.GetNonNullableType().SpecialType);
+        Assert.Equal(expectedType == SpecialType.System_Int32, inferredArgument.IsNullable);
+        Assert.True(SymbolEqualityComparer.Default.Equals(inferredArgument, method.ReturnType));
         var nullableParameter = Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
         Assert.Equal(expectedType, nullableParameter.UnderlyingType.SpecialType);
-        Assert.Equal(expectedType, invocationType?.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(inferredArgument, invocationType));
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -828,8 +830,10 @@ func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> 
         var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
 
-        Assert.Equal(expectedType, Assert.Single(method.TypeArguments).SpecialType);
-        Assert.Equal(expectedType, method.ReturnType.SpecialType);
+        var inferredArgument = Assert.Single(method.TypeArguments);
+        Assert.Equal(expectedType, inferredArgument.GetNonNullableType().SpecialType);
+        Assert.Equal(expectedType == SpecialType.System_Int32, inferredArgument.IsNullable);
+        Assert.True(SymbolEqualityComparer.Default.Equals(inferredArgument, method.ReturnType));
         var nullableParameter = Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
         Assert.Equal(expectedType, nullableParameter.UnderlyingType.SpecialType);
         Assert.Empty(compilation.GetDiagnostics());

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nullable value arguments when inferring unconstrained generic `T?`
+  parameters. Cold semantic queries now defer incomplete inferred candidates to
+  ordinary binding, agreeing with queries made after diagnostics.
+
 - Support readonly record structs and emit C#-compatible readonly/generated-member
   metadata. Import readonly instance methods separately from ref-readonly returns.
   Mark immutable union carriers/cases and their generated storage readonly.

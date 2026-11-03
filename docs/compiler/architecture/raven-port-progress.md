@@ -5007,7 +5007,7 @@ failed. The implementation adds readonly record struct support, readonly/generat
 member metadata, correct import, immutable union storage metadata and diagnostics
 for ignored union case binding prefixes. Ten focused tests pass, including C# differential metadata and mutable getter
 behavior. All 301 adjacent record/union/struct tests pass. The validated slice is
-being integrated into codex/raven-compiler-port. RavenDoc was not run.
+integrated into codex/raven-compiler-port as 80b21ece7. RavenDoc was not run.
 
 The earlier full port baseline stopped with six nullable generic-inference failures
 in GenericMethodTests after the shared conversion correction. A Roslyn probe
@@ -5016,3 +5016,17 @@ not int. Raven currently unwraps the nullable argument and then rejects the call
 Fix inference and update the old int expectations against C# evidence next;
 do not restore the spurious nullable-to-nonnullable conversion. This failure is
 independent of readonly metadata and is not a clean full-baseline result.
+
+
+Nullable inference follow-up: preserve an actual nullable value argument when
+inferring an unconstrained annotated `T?`. The overload binder and cold available
+semantic path now agree: the latter declines a partially inferred candidate when
+known argument conversions cannot establish applicability. Source and imported
+method tests cover query-first and diagnostics-first ordering. The 201-test cohort
+covering generic invocation, nullable substitution/runtime behavior, contravariant
+inference and incremental compilation reuse passes. All 439 overload-resolution
+feature-suite tests also pass. This fixes the six failures
+reported above; a complete new baseline is still pending. The inference and
+semantic-model owners have not yet been ported, so the fix is in the shared C#
+bootstrap compiler, with no divergent Raven implementation to update. Native
+neoCLR execution was not tested.

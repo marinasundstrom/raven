@@ -1275,7 +1275,12 @@ internal sealed class OverloadResolver
 
         if (TryGetNullableInferenceUnderlyingType(parameterType, out var nullableParameterType))
         {
-            var nullableArgumentType = TryGetNullableInferenceUnderlyingType(argumentType, out var underlyingArgumentType)
+            // An unconstrained T? is an annotation on T. A nullable value
+            // argument therefore contributes Nullable<V>, not V, as its bound.
+            var preserveNullableValueArgument = parameterType.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType &&
+                argumentType.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType;
+            var nullableArgumentType = !preserveNullableValueArgument &&
+                TryGetNullableInferenceUnderlyingType(argumentType, out var underlyingArgumentType)
                 ? underlyingArgumentType
                 : argumentType;
 

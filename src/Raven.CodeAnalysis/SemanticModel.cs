@@ -4611,7 +4611,30 @@ public partial class SemanticModel
             }
         }
 
-        return changed ? method.Construct(typeArguments) : method;
+        if (!changed)
+            return method;
+
+        var constructed = method.Construct(typeArguments);
+        var parameterOffset = IsAvailableExtensionReceiverInvocation(method, invocation) ? 1 : 0;
+        for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+        {
+            var argument = invocation.ArgumentList.Arguments[argumentIndex];
+            if (argument.Expression is FunctionExpressionSyntax)
+                continue;
+            var parameterIndex = argumentIndex + parameterOffset;
+            var argumentType = TryGetNonContextualAvailableArgumentType(argument.Expression);
+            if (argument.NameColon is not null || parameterIndex >= constructed.Parameters.Length ||
+                argumentType is null || argumentType.TypeKind == TypeKind.Error ||
+                !Compilation.ClassifyConversion(argumentType, constructed.Parameters[parameterIndex].Type).IsImplicit)
+            {
+                // Partial available-state inference must not become an authoritative
+                // answer. Leave this candidate unresolved so the owning binder can
+                // collect all bounds and perform ordinary overload resolution.
+                return method;
+            }
+        }
+
+        return constructed;
     }
 
     private void TryInferAvailableInvocationArgumentSubstitutions(

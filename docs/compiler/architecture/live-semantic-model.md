@@ -402,3 +402,19 @@ candidate could be selected correctly while argument binding retained a conversi
 diagnostic from the indexed overload's hint. Cold and post-diagnostics queries
 must agree on both the selected symbol and absence of that rejected-hint error.
 No Runtime Contract configuration or metadata representation changes.
+
+### Nullable generic invocation inference
+
+For an unconstrained `T?` parameter, the question mark annotates `T`; it does
+not require stripping a nullable value argument during inference. For example,
+`Coalesce<T>(value: T?, fallback: T) -> T` called with `int?` and `int` infers
+`T = int?`, matching C#. Struct-constrained nullable parameters retain their
+nullable-value projection and inference rules.
+
+An available-state generic candidate is only usable when its known argument
+conversions support the inferred substitution. Partial inference must leave the
+candidate unresolved when a conversion fails or applicability is unavailable,
+allowing ordinary binding to collect all bounds. `GetSymbolInfo` and `GetTypeInfo`
+therefore agree before and after diagnostics, for source and imported methods.
+This is shared inference and semantic-model logic; validation of .NET metadata
+and runtime behavior does not establish native neoCLR execution.

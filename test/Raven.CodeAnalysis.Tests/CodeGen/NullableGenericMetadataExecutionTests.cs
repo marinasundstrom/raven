@@ -8,6 +8,30 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class NullableGenericMetadataExecutionTests
 {
     [Fact]
+    public void InferredNullableValueArgumentPreservesNullAndFallbackAtRuntime()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Probe {
+                static func Coalesce<T>(value: T?, fallback: T) -> T {
+                    if let present: T = value { return present }
+                    return fallback
+                }
+                static func Run(value: int?) -> int? => Coalesce(value, 7)
+            }
+            """);
+        var compilation = Compilation.Create("NullableInferenceExecution", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var method = loaded.Assembly.GetType("Probe")!.GetMethod("Run")!;
+        Assert.Equal(typeof(int?), method.ReturnType);
+        Assert.Equal(7, method.Invoke(null, [null]));
+        Assert.Equal(3, method.Invoke(null, [3]));
+    }
+
+    [Fact]
     public void FirstOrDefault_ReferenceAndValueResultsMatchLinq()
     {
         var tree = SyntaxTree.ParseText("""
