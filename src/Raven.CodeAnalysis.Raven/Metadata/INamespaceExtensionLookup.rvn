@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.Collections.Immutable.*
+
+// A discovery capability, not a namespace origin marker. Composite namespaces
+// can aggregate providers without becoming metadata implementations themselves.
+internal interface INamespaceExtensionLookup {
+    // Returns indexed candidate containers for this namespace and method name.
+    // Source declaration traversal and receiver applicability are owned by binding.
+    func GetExtensionMethodContainers(methodName: string) -> ImmutableArray<NamedTypeSymbol>
+}

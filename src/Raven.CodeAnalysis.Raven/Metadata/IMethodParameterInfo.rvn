@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.Diagnostics.CodeAnalysis.*
+
+/// <summary>
+/// Optional provider access to parameter facts without materializing a full signature.
+/// Failed queries remain unavailable; consumers must not guess or force Parameters
+/// as a fallback. Types are returned in this method's semantic context.
+/// </summary>
+internal interface IMethodParameterInfo {
+    func TryGetParameterCount(out count: int) -> bool
+
+    func TryGetParameterType(index: int, [NotNullWhen(true)] out type: TypeSymbol?) -> bool
+
+    func TryGetParameterUsage(index: int, out isOptional: bool, out isVariadic: bool) -> bool
+}

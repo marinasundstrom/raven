@@ -64,3 +64,17 @@ ordinal before comparing return and parameter types, including constructed types
 such as `Box<T>`. Parameter names need not match. Generic arity and static versus
 instance shape must match; overloads with different arity are distinct. This
 mapping does not change symbol identity or make unrelated type parameters equal.
+
+
+## Macro binding values and attribute occurrences
+
+`MacroParameterBinding` is a sealed record class. Its parameter, source role,
+declaration ordinal and optional invocation argument ordinal determine equality
+and hashing. Init-only properties support immutable copies, and deconstruction
+returns those four values. Its internal constructor and original `ToString()`
+output remain unchanged. This is a value mapping stored as a reference type.
+
+`AttributeData` remains a sealed class with reference identity for bound attribute
+occurrences. Its immutable argument arrays and syntax reference are retained
+without copying. The Raven translation preserves this distinction instead of
+making all immutable reference containers use the same equality model.

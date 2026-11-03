@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+
+// Compiler-owned input identity, containing values only. Backends reconstruct their
+// own assembly references; no reader, resolver, token or reflection handle crosses.
+internal record class ResolvedAssemblyArtifact(
+    Name: string, Version: Version, Culture: string, PublicKeyToken: string, Flags: uint,
+    Sha256: string) { }

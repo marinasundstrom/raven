@@ -1,0 +1,27 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+public class AttributeData {
+    internal init(attributeClass: NamedTypeSymbol, attributeConstructor: MethodSymbol,
+        constructorArguments: ImmutableArray<TypedConstant>,
+        namedArguments: ImmutableArray<KeyValuePair<string, TypedConstant>>,
+        applicationSyntaxReference: SyntaxReference?) {
+        AttributeClass = attributeClass
+        AttributeConstructor = attributeConstructor
+        ConstructorArguments = constructorArguments
+        NamedArguments = namedArguments
+        ApplicationSyntaxReference = applicationSyntaxReference
+    }
+
+    val AttributeClass: NamedTypeSymbol { get; }
+
+    val AttributeConstructor: MethodSymbol { get; }
+
+    val ConstructorArguments: ImmutableArray<TypedConstant> { get; }
+
+    val NamedArguments: ImmutableArray<KeyValuePair<string, TypedConstant>> { get; }
+
+    val ApplicationSyntaxReference: SyntaxReference? { get; }
+}

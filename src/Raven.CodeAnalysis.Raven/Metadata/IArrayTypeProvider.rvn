@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.Collections.Immutable.*
+
+/// <summary>
+/// Target-owned semantic shape for arrays whose base type supplies this capability.
+/// Additional interfaces exclude those already inherited from the base type.
+/// Members retain their declaring owners for normal dispatch and emission.
+/// </summary>
+internal interface IArrayTypeProvider {
+    // Source-owned target shapes remain provisional during declaration binding.
+    val AreInterfacesComplete: bool { get; }
+
+    func GetAdditionalInterfaces(array: ArrayTypeSymbol) -> ImmutableArray<NamedTypeSymbol>
+
+    func GetMembers(array: ArrayTypeSymbol) -> ImmutableArray<Symbol>
+}

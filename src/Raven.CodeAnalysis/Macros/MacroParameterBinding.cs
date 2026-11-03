@@ -18,7 +18,7 @@ public enum MacroParameterSource
 /// Associates one canonical expansion-method parameter with its declaration
 /// and invocation positions.
 /// </summary>
-public sealed class MacroParameterBinding
+public sealed record MacroParameterBinding
 {
     internal MacroParameterBinding(
         ParameterSymbol parameter,
@@ -32,11 +32,22 @@ public sealed class MacroParameterBinding
         InvocationArgumentOrdinal = invocationArgumentOrdinal;
     }
 
-    public ParameterSymbol Parameter { get; }
+    public ParameterSymbol Parameter { get; init; }
 
-    public MacroParameterSource Source { get; }
+    public MacroParameterSource Source { get; init; }
 
-    public int DeclarationOrdinal { get; }
+    public int DeclarationOrdinal { get; init; }
 
-    public int? InvocationArgumentOrdinal { get; }
+    public int? InvocationArgumentOrdinal { get; init; }
+
+    public void Deconstruct(out ParameterSymbol parameter, out MacroParameterSource source,
+        out int declarationOrdinal, out int? invocationArgumentOrdinal)
+    {
+        parameter = Parameter;
+        source = Source;
+        declarationOrdinal = DeclarationOrdinal;
+        invocationArgumentOrdinal = InvocationArgumentOrdinal;
+    }
+
+    public override string ToString() => "Raven.CodeAnalysis.Macros.MacroParameterBinding";
 }

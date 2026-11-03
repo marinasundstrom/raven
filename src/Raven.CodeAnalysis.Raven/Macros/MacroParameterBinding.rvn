@@ -1,0 +1,23 @@
+namespace Raven.CodeAnalysis.Macros
+
+/// <summary>
+/// Identifies who supplies a parameter of a macro's designated expansion
+/// method.
+/// </summary>
+public enum MacroParameterSource {
+    Value,
+    SyntaxInput,
+    Context,
+    TokenBody,
+    AttachedTarget,
+    DeclarationInput,
+}
+
+/// <summary>
+/// Associates one canonical expansion-method parameter with its declaration
+/// and invocation positions.
+/// </summary>
+public record class MacroParameterBinding internal (Parameter: ParameterSymbol, Source: MacroParameterSource,
+    DeclarationOrdinal: int, InvocationArgumentOrdinal: int?) {
+    override func ToString() -> string => "Raven.CodeAnalysis.Macros.MacroParameterBinding"
+}

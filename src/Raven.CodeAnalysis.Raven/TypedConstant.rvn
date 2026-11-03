@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+public enum TypedConstantKind {
+    Primitive,
+    Enum,
+    Type,
+    Array,
+    Null,
+    Error,
+}
+
+public record struct TypedConstant internal (Type: TypeSymbol?, Value: object?, Kind: TypedConstantKind) {
+    val IsNull: bool => Kind == TypedConstantKind.Null
+
+    val Values: ImmutableArray<TypedConstant>
+        => if Kind == TypedConstantKind.Array && Value is ImmutableArray<TypedConstant> array {
+            array
+        } else {
+            ImmutableArray<TypedConstant>.Empty
+        }
+
+    internal static func CreatePrimitive(type: TypeSymbol?, value: object?) -> TypedConstant {
+        if value is null { return CreateNull(type) }
+        return TypedConstant(type, value, TypedConstantKind.Primitive)
+    }
+
+    internal static func CreateEnum(type: TypeSymbol?, value: object?) -> TypedConstant {
+        if value is null { return CreateNull(type) }
+        return TypedConstant(type, value, TypedConstantKind.Enum)
+    }
+
+    internal static func CreateNull(type: TypeSymbol?) -> TypedConstant
+        => TypedConstant(type, null, TypedConstantKind.Null)
+
+    internal static func CreateType(type: TypeSymbol?, value: TypeSymbol) -> TypedConstant
+        => TypedConstant(type, value, TypedConstantKind.Type)
+
+    internal static func CreateArray(type: TypeSymbol?, values: ImmutableArray<TypedConstant>) -> TypedConstant
+        => TypedConstant(type, values, TypedConstantKind.Array)
+
+    internal static func CreateError(type: TypeSymbol?) -> TypedConstant
+        => TypedConstant(type, null, TypedConstantKind.Error)
+
+    override func ToString() -> string => "Raven.CodeAnalysis.TypedConstant"
+
+    internal func WithType(type: TypeSymbol?) -> TypedConstant
+        => TypedConstant(type, Value, Kind)
+}

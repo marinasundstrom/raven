@@ -1,0 +1,21 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.Collections.Immutable.*
+
+// Compiler-owned discovery operations for an imported assembly. Implementations
+// return semantic symbols; metadata readers and indexing stay provider-private.
+internal interface ImportedAssemblySymbol : AssemblySymbol {
+    // Optional provider-owned immutable identity key. Native providers use exact
+    // artifact identity rather than the common simple-name fallback.
+    val DefinitionIdentity: object? => null
+
+    // Optional exact artifact identity for backends that require explicit input binding.
+    val ResolvedArtifact: ResolvedAssemblyArtifact? => null
+
+    // Includes nested types, matched by their own name and arity. Returns the
+    // provider's first matching type, or null when no match exists.
+    func GetTypeBySimpleName(name: string, arity: int) -> NamedTypeSymbol?
+
+    // Candidate containers only: applicability remains a binding decision.
+    func GetExtensionConversionContainers() -> ImmutableArray<NamedTypeSymbol>
+}

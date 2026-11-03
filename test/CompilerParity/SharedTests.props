@@ -6,6 +6,9 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/ResolvedAssemblyArtifactValueTests.cs" Link="ResolvedAssemblyArtifactValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/TypedConstantValueTests.cs" Link="TypedConstantValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolDataContainerTests.cs" Link="SymbolDataContainerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Documentation/DocumentationCommentValueTests.cs" Link="DocumentationCommentValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/DocumentationCommentTriviaTests.cs" Link="DocumentationCommentTriviaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolDisplayFormatValueTests.cs" Link="SymbolDisplayFormatValueTests.cs" />

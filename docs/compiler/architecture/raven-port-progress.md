@@ -4875,3 +4875,88 @@ and NotNullWhen metadata, and ownership checks ensuring provider signatures use
 local symbol types. These files remain a draft outside the production component;
 comparer/display dependencies and concrete symbol implementations still need
 porting before integrating the complete symbol contract set.
+
+### Integrated symbol data and metadata contracts (2026-11-03)
+
+The next production source slice adds TypedConstant/TypedConstantKind,
+AttributeData, MacroParameterBinding/MacroParameterSource,
+ResolvedAssemblyArtifact, ImportedAssemblySymbol, twelve metadata-provider
+capability interfaces and ParameterConversionKind. Each metadata contract keeps
+its own file. The full Raven component build completed in 37m47s with 2,027
+warnings and no errors.
+
+Unported symbol interfaces deliberately remain bootstrap dependencies in these
+signatures, as with the existing Location.MetadataModule port. The data types,
+artifact value and capability interfaces themselves are Raven-owned; tests state
+both sides of this ownership boundary explicitly. SyntaxReference and typed
+constant arrays used by AttributeData must come from the Raven implementation.
+The isolated full symbol draft separately verifies these same capability
+signatures can use local symbol interfaces when that dependency set is integrated.
+
+MacroParameterBinding is a value mapping, now represented as a sealed record class
+in both source versions, retaining reference storage, internal construction and
+its original string output. AttributeData keeps sealed reference identity for
+bound attribute occurrences. Shared C# tests cover these decisions, argument
+storage, immutable copies and artifact identity. The original helper baseline
+passed 12 tests and the adjacent macro baseline passed 7; the updated helper and
+macro set passes 19. Complete integrated parity passes 939 C# and 964 Raven
+tests, including ownership checks. The ownership test accounts for reflection
+returning the complete inherited interface closure. No native neoCLR execution
+is claimed.
+
+Frozen host: /tmp/symbol-data-port-seed/rvnc.dll. Full build log:
+/tmp/symbol-data-port-build.log. Other logs: /tmp/symbol-data-isolated-build.log,
+/tmp/symbol-data-csharp-after.log, /tmp/symbol-data-adjacent-tests.log.
+
+### Indexed lookup stabilization and next metadata slice (2026-11-03)
+
+The broader baseline exposed partial generic override binding that depended on
+syntax-tree/query order. Indexed type lookup had recursively completed unrelated
+member signatures while a base method still held its temporary signature.
+Type-only lookup now declares the type without that completion; qualified
+expression lookup explicitly completes source signatures for constructor/member
+selection. Fourteen override-order cases and the source-constructor ownership
+regressions pass. The combined focused metadata/lookup validation passed 73 tests.
+The resumed baseline completed its remaining 20 batches (1,671 passing cases).
+A fresh full core baseline is now running against the final fixes. These fixes belong
+to shared, not-yet-ported binding; no native execution is claimed.
+
+The next isolated metadata draft contains PEReflectionTypeIdentity and the
+PETypeIdentity/PETypeParameterIdentity records. Comparing distinct generic
+reflection definitions previously recursed through the same definitions; the
+C# fix now compares nominal definitions before constructed arguments. The direct
+Raven draft carries the fix, and 14 shared C# tests pass against both helper
+implementations (the isolated C# run also includes one temporary bounded-recursion
+repro). Tests cover separate load contexts, record equality/hash/copies and
+deconstruction. Explicit Raven ToString methods preserve C# record string output;
+Raven's synthesized output quotes strings. Null-guarded accesses use explicit
+suppression under Raven's documented static-nullability rules.
+
+The draft remains outside the production component until the preceding symbol
+data slice finishes integration. Sources: /tmp/raven-reflection-identity-port.
+Logs: /tmp/source-constructor-reflection-tests.log,
+/tmp/pe-identity-csharp-tests2.log, /tmp/pe-identity-raven-tests2.log.
+
+A further reflection-identity regression distinguished CLR vectors from rank-one
+multidimensional arrays. The new test failed before the correction; both the C#
+helper and the isolated Raven translation now retain IsSZArray as well as rank.
+The main compiler metadata selection passed 53 tests, and the isolated Raven
+metadata slice passed 14 shared tests. Commit: 2a863ff1b. Logs:
+/tmp/pe-array-identity-before.log, /tmp/pe-array-identity-adjacent.log,
+/tmp/pe-array-identity-raven-tests.log.
+
+Validation while the symbol-data component build runs: C# component parity passed
+939 tests; generator parity passed 72 C# and 78 Raven tests; Raven.Core passed 87,
+Raven.Editor passed 4 and AsyncEntryDiffRunner passed 1. Dependency builds were
+reused where available; the editor dependency needed a targeted build. The Raven
+component build has now completed and all 964 Raven parity tests pass.
+
+
+Author direction: Raven records will adopt C# record semantics, including stored
+body state and additional constructors. The MetadataImportOptions draft exposed
+the previous explicit restrictions (RAV0345/RAV0346); the language extension is a
+separate, unfinished feature slice. Its pre-change record baseline passed 66 tests.
+New runtime tests cover class/struct stored state, constructor chaining and private
+base state. Binding and synthesized equality/hash/copy implementation work is in
+progress; constructor/required-member propagation, inherited equality, record
+string output, semantic/API diagnostics, target validation and docs remain open.

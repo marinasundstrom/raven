@@ -14,6 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   fixing partial generic overrides that depended on file or semantic-query order.
   Qualified expression lookup still completes source members for constructor selection.
 
+- Give `MacroParameterBinding` record-class value semantics, init-only data and
+  deconstruction while preserving its reference-type storage and string output.
+
 - Port sixteen symbol, special-type and macro classification enums to the Raven
   compiler implementation, with C# metadata and implementation-ownership parity tests.
 
