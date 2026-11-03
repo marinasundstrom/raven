@@ -1434,7 +1434,9 @@ public partial class Compilation
                 continue;
             }
 
-            model.EnsureMemberSignaturesDeclared();
+            // Type lookup must not bind unrelated member signatures: resolving a
+            // parameter type can otherwise re-enter override binding while the
+            // original method signature is still being constructed.
             type = declaredType;
             return true;
         }

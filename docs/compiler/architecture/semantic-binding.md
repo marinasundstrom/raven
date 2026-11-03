@@ -33,6 +33,16 @@ Binders are chained together so that each scope can fall back to its parent. The
 | `LambdaBinder` | Binds lambda expressions. | Encountering a lambda expression. | `BlockBinder` or `MethodBinder` |
 | `FunctionBinder` | Binds function declarations inside other functions. | Encountering a function. | `BlockBinder` |
 
+### Indexed type lookup and signature binding
+
+Indexed source-type lookup declares the requested type without binding all member
+signatures in its file. Resolving a parameter type must not recursively bind a
+derived override while its base method still has a temporary signature.
+Member lookup and override resolution request the required signatures through
+the semantic model instead. This preserves partial generic override binding
+across syntax-tree orders and whether diagnostics or declared-symbol queries
+run first. The rule belongs to shared binding, before target-specific emission.
+
 ### Typical order
 From the outermost scope inward, binders typically appear in the following order:
 
