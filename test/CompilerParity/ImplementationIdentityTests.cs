@@ -18,6 +18,9 @@ public sealed class ImplementationIdentityTests
             .Single(attribute => attribute.Key == "CompilerImplementationAssembly").Value;
         Assert.Equal(expected, typeof(TextSpan).Assembly.GetName().Name);
         Assert.Same(typeof(TextSpan).Assembly, typeof(SymbolDisplayFormat).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Documentation.DocumentationComment).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Documentation.DocumentationTag).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Documentation.DocumentationTagKind).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(LinePosition).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(LinePositionSpan).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(FileLinePositionSpan).Assembly);

@@ -1,0 +1,277 @@
+namespace Raven.CodeAnalysis.Documentation
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Text.*
+import System.Text.RegularExpressions.*
+import Raven.CodeAnalysis.Syntax.*
+
+public class DocumentationComment : IEquatable<DocumentationComment> {
+    private init(format: DocumentationFormat, rawText: string, content: string, body: string,
+        tags: ImmutableArray<DocumentationTag>, isMultiline: bool) {
+        Format = format
+        RawText = rawText
+        Content = content
+        Body = body
+        Tags = tags
+        IsMultiline = isMultiline
+    }
+
+    val Format: DocumentationFormat { get; }
+
+    val RawText: string { get; }
+
+    val Content: string { get; }
+
+    val Body: string { get; }
+
+    val Tags: ImmutableArray<DocumentationTag> { get; }
+
+    val IsMultiline: bool { get; }
+
+    func Equals(other: DocumentationComment?) -> bool
+        => other is not null && Format == other!.Format && RawText == other!.RawText &&
+            Content == other!.Content && Body == other!.Body && IsMultiline == other!.IsMultiline &&
+            Tags.SequenceEqual(other!.Tags)
+
+    override func Equals(obj: object?) -> bool => obj is DocumentationComment other && Equals(other)
+
+    override func GetHashCode() -> int {
+        var hash = HashCode()
+        hash.Add(Format)
+        hash.Add(RawText)
+        hash.Add(Content)
+        hash.Add(Body)
+        hash.Add(IsMultiline)
+        for tag in Tags { hash.Add(tag) }
+        return hash.ToHashCode()
+    }
+
+    static func ==(left: DocumentationComment?, right: DocumentationComment?) -> bool
+        => Object.ReferenceEquals(left, right) || left is not null && left!.Equals(right)
+
+    static func !=(left: DocumentationComment?, right: DocumentationComment?) -> bool => !(left == right)
+
+    internal static func Create(format: DocumentationFormat, content: string, rawText: string? = null) -> DocumentationComment {
+        let normalizedContent = content ?? string.Empty
+        let normalizedRaw = rawText ?? normalizedContent
+        let isMultiline = normalizedContent.AsSpan().IndexOfAny('\n', '\r') >= 0
+        ParseStructuredParts(format, normalizedContent, out let body, out let tags)
+        return DocumentationComment(format, normalizedRaw, normalizedContent, body, tags, isMultiline)
+    }
+
+    internal static func Merge(format: DocumentationFormat, comments: IReadOnlyList<DocumentationComment>) -> DocumentationComment {
+        if comments.Count == 0 { throw ArgumentException("At least one comment is required to merge", nameof(comments)) }
+        if comments.Count == 1 { return comments[0] }
+        let raw = string.Join(Environment.NewLine, comments.Select(c => c.RawText))
+        let content = string.Join(Environment.NewLine, comments.Select(c => c.Content))
+        let body = string.Join(Environment.NewLine, comments.Select(c => c.Body))
+        let tags = comments.SelectMany(c => c.Tags).ToImmutableArray()
+        let isMultiline = comments.Any(c => c.IsMultiline)
+        return DocumentationComment(format, raw, content, body, tags, isMultiline)
+    }
+
+    static func TryParse(trivia: SyntaxTrivia, format: DocumentationFormat, out comment: DocumentationComment?) -> bool {
+        comment = null
+        if !IsDocumentationTrivia(trivia.Kind) { return false }
+        let raw = trivia.Text
+        // One documentation trivia kind covers both single and multiple lines.
+        let isMultiline = raw.AsSpan().IndexOfAny('\n', '\r') >= 0
+        let content = Normalize(raw)
+        ParseStructuredParts(format, content, out let body, out let tags)
+        comment = DocumentationComment(format, raw, content, body, tags, isMultiline)
+        return true
+    }
+
+    private static func ParseStructuredParts(format: DocumentationFormat, content: string,
+        out body: string, out tags: ImmutableArray<DocumentationTag>) {
+        if format != DocumentationFormat.Markdown || string.IsNullOrWhiteSpace(content) {
+            body = content
+            tags = ImmutableArray<DocumentationTag>.Empty
+            return
+        }
+        ParseMarkdownTags(content, out body, out tags)
+    }
+
+    private static func IsDocumentationTrivia(kind: SyntaxKind) -> bool => kind is SyntaxKind.DocumentationCommentTrivia
+
+    private static func Normalize(rawText: string) -> string {
+        if string.IsNullOrEmpty(rawText) { return string.Empty }
+        return TrimCommentLine(rawText)
+    }
+
+    private static func TrimCommentLine(rawText: string) -> string {
+        let lines = rawText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')
+        // Strip the marker but retain following indentation for normalization.
+        var stripped = List<string>(lines.Length)
+        for line in lines { stripped.Add(RemoveDocLinePrefix(line, "///")) }
+        stripped = TrimCommonIndentation(stripped, tabSize: 4)
+        let builder = StringBuilder()
+        for line in stripped { builder.AppendLine(line) }
+        return builder.ToString().TrimEnd()
+    }
+
+    private static func TrimCommonIndentation(lines: List<string>, tabSize: int) -> List<string> {
+        var minIndent = int.MaxValue
+        for line in lines {
+            if string.IsNullOrWhiteSpace(line) { continue }
+            let indentCols = GetIndentColumns(line, tabSize)
+            if indentCols < minIndent { minIndent = indentCols }
+        }
+        if minIndent == int.MaxValue || minIndent == 0 { return lines }
+        var i = 0
+        while i < lines.Count {
+            lines[i] = RemoveIndentColumns(lines[i], minIndent, tabSize)
+            i++
+        }
+        return lines
+    }
+
+    private static func GetIndentColumns(line: string, tabSize: int) -> int {
+        var col = 0
+        var i = 0
+        while i < line.Length {
+            let ch = line[i]
+            if ch == ' ' { col++ }
+            else if ch == '\t' { col = ((col / tabSize) + 1) * tabSize }
+            else { break }
+            i++
+        }
+        return col
+    }
+
+    private static func RemoveIndentColumns(line: string, columnsToRemove: int, tabSize: int) -> string {
+        var col = 0
+        var i = 0
+        while i < line.Length && col < columnsToRemove {
+            let ch = line[i]
+            if ch == ' ' { col++; i++ }
+            else if ch == '\t' {
+                let next = ((col / tabSize) + 1) * tabSize
+                if next > columnsToRemove {
+                    // Preserve the tab's leftover width as spaces.
+                    let rest = line.Substring(i + 1)
+                    return string(' ', next - columnsToRemove) + rest
+                }
+                col = next
+                i++
+            }
+            else { break }
+        }
+        return if i == 0 { line } else { line.Substring(i) }
+    }
+
+    private static func RemoveDocLinePrefix(line: string, prefix: string) -> string {
+        if string.IsNullOrEmpty(line) { return string.Empty }
+        var i = 0
+        while i < line.Length {
+            let ch = line[i]
+            if ch == ' ' || ch == '\t' { i++; continue }
+            break
+        }
+        if i >= line.Length { return string.Empty }
+        if !line.AsSpan(i).StartsWith(prefix.AsSpan(), StringComparison.Ordinal) { return line.Substring(i) }
+        i += prefix.Length
+        if i < line.Length && line[i] == ' ' { i++ }
+        return if i >= line.Length { string.Empty } else { line.Substring(i) }
+    }
+
+    private static func ParseMarkdownTags(content: string, out body: string, out tags: ImmutableArray<DocumentationTag>) {
+        let normalized = content.Replace("\r\n", "\n", StringComparison.Ordinal)
+        let lines = normalized.Split('\n')
+        let bodyLines = List<string>()
+        let tagBuilder = ImmutableArray.CreateBuilder<DocumentationTag>()
+        var currentTag: DocumentationTagBuilder? = null
+        for line in lines {
+            if TryParseTagHeader(line, out let header) {
+                if currentTag is not null { tagBuilder.Add(currentTag!.Build()) }
+                currentTag = header
+                continue
+            }
+            if currentTag is not null { currentTag!.AppendLine(line) }
+            else { bodyLines.Add(line) }
+        }
+        if currentTag is not null { tagBuilder.Add(currentTag!.Build()) }
+        body = TrimBlankLines(string.Join("\n", bodyLines))
+        tags = tagBuilder.ToImmutable()
+    }
+
+    private static func TryParseTagHeader(line: string, out tag: DocumentationTagBuilder?) -> bool {
+        tag = null
+        if string.IsNullOrWhiteSpace(line) { return false }
+        let matched = Regex.Match(line, "^\\s*@(?<name>[A-Za-z][A-Za-z0-9]*)\\b(?<rest>.*)$")
+        if !matched.Success { return false }
+        let name = matched.Groups["name"].Value
+        let rest = matched.Groups["rest"].Value.Trim()
+        let kind = GetTagKind(name)
+        var argument: string? = null
+        var content = rest
+        if kind is DocumentationTagKind.Param or DocumentationTagKind.TypeParam or DocumentationTagKind.Exception or DocumentationTagKind.See or DocumentationTagKind.SeeAlso {
+            SplitArgument(rest, out argument, out content)
+        }
+        tag = DocumentationTagBuilder(kind, name, argument, content)
+        return true
+    }
+
+    private static func GetTagKind(name: string) -> DocumentationTagKind {
+        return name match {
+            "param" or "parameter" => DocumentationTagKind.Param
+            "typeparam" or "typeparameter" => DocumentationTagKind.TypeParam
+            "return" or "returns" or "result" => DocumentationTagKind.Returns
+            "value" => DocumentationTagKind.Value
+            "remarks" or "notes" => DocumentationTagKind.Remarks
+            "example" or "examples" => DocumentationTagKind.Example
+            "exception" or "throws" => DocumentationTagKind.Exception
+            "see" => DocumentationTagKind.See
+            "seealso" => DocumentationTagKind.SeeAlso
+            "inheritdoc" or "inherit" => DocumentationTagKind.InheritDoc
+            _ => DocumentationTagKind.Unknown
+        }
+    }
+
+    private static func SplitArgument(rest: string, out argument: string?, out content: string) {
+        argument = null
+        content = string.Empty
+        if string.IsNullOrWhiteSpace(rest) { return }
+        let separatorIndex = rest.IndexOfAny([' ', '\t'])
+        if separatorIndex < 0 { argument = rest; return }
+        argument = rest[..separatorIndex].Trim()
+        content = rest[(separatorIndex + 1)..].Trim()
+    }
+
+    private static func TrimBlankLines(text: string) -> string {
+        if string.IsNullOrEmpty(text) { return string.Empty }
+        let lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')
+        var start = 0
+        var end = lines.Length
+        while start < end && string.IsNullOrWhiteSpace(lines[start]) { start++ }
+        while end > start && string.IsNullOrWhiteSpace(lines[end - 1]) { end-- }
+        return string.Join("\n", lines, start, end - start)
+    }
+
+    private class DocumentationTagBuilder {
+        private readonly field _contentBuilder: StringBuilder = StringBuilder()
+
+        init(kind: DocumentationTagKind, name: string, argument: string?, firstLineContent: string) {
+            Kind = kind
+            Name = name
+            Argument = if string.IsNullOrWhiteSpace(argument) { null } else { argument }
+            if !string.IsNullOrWhiteSpace(firstLineContent) { _contentBuilder.Append(firstLineContent.Trim()) }
+        }
+
+        val Kind: DocumentationTagKind { get; }
+
+        val Name: string { get; }
+
+        val Argument: string? { get; }
+
+        func AppendLine(line: string) {
+            if _contentBuilder.Length > 0 { _contentBuilder.Append('\n') }
+            _contentBuilder.Append(line)
+        }
+
+        func Build() -> DocumentationTag => DocumentationTag(Kind, Name, Argument, TrimBlankLines(_contentBuilder.ToString()))
+    }
+}

@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Documentation;
 
-public sealed class DocumentationComment
+public sealed class DocumentationComment : IEquatable<DocumentationComment>
 {
     private DocumentationComment(
         DocumentationFormat format,
@@ -38,6 +38,31 @@ public sealed class DocumentationComment
     public ImmutableArray<DocumentationTag> Tags { get; }
 
     public bool IsMultiline { get; }
+
+    public bool Equals(DocumentationComment? other)
+        => other is not null && Format == other.Format && RawText == other.RawText &&
+            Content == other.Content && Body == other.Body && IsMultiline == other.IsMultiline &&
+            Tags.SequenceEqual(other.Tags);
+
+    public override bool Equals(object? obj) => obj is DocumentationComment other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Format);
+        hash.Add(RawText);
+        hash.Add(Content);
+        hash.Add(Body);
+        hash.Add(IsMultiline);
+        foreach (var tag in Tags)
+            hash.Add(tag);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(DocumentationComment? left, DocumentationComment? right)
+        => ReferenceEquals(left, right) || left is not null && left.Equals(right);
+
+    public static bool operator !=(DocumentationComment? left, DocumentationComment? right) => !(left == right);
 
     internal static DocumentationComment Create(
         DocumentationFormat format,
@@ -202,7 +227,6 @@ public sealed class DocumentationComment
                 // replace the tab with spaces representing the remaining indent.
                 if (next > columnsToRemove)
                 {
-                    int remaining = columnsToRemove - col;
                     // Keep the tab’s leftover width as spaces at the front of the remainder
                     // (so relative alignment remains stable).
                     var rest = line.Substring(i + 1);
@@ -255,17 +279,6 @@ public sealed class DocumentationComment
             i++;
 
         return (i >= line.Length) ? string.Empty : line.Substring(i);
-    }
-
-    private static string RemovePrefix(string text, string prefix)
-    {
-        if (text.StartsWith(prefix, StringComparison.Ordinal))
-            return text.Substring(prefix.Length);
-
-        if (text.StartsWith(prefix + " ", StringComparison.Ordinal))
-            return text.Substring((prefix + " ").Length);
-
-        return text;
     }
 
     private static void ParseMarkdownTags(
@@ -374,12 +387,14 @@ public sealed class DocumentationComment
         if (string.IsNullOrEmpty(text))
             return string.Empty;
 
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
-        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[0]))
-            lines.RemoveAt(0);
-        while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[^1]))
-            lines.RemoveAt(lines.Count - 1);
-        return string.Join("\n", lines);
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var start = 0;
+        var end = lines.Length;
+        while (start < end && string.IsNullOrWhiteSpace(lines[start]))
+            start++;
+        while (end > start && string.IsNullOrWhiteSpace(lines[end - 1]))
+            end--;
+        return string.Join("\n", lines, start, end - start);
     }
 
     private sealed class DocumentationTagBuilder

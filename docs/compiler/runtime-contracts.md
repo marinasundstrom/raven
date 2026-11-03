@@ -4931,3 +4931,9 @@ remain the responsibility of each constructor driver.
 
 [Symbol display configuration](symbol-display.md) documents the value contract
 shared by the C# and Raven implementations.
+
+
+[Documentation comment values](documentation-comments.md) now use explicit
+structural equality for their ordered tags in both compiler implementations.
+This is a compiler API contract; it does not change target metadata or the
+language's documentation-trivia grammar.

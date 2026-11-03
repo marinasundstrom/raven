@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port documentation comments and tags to Raven. Both compiler implementations
+  now compare immutable comment contents and ordered tags by value; blank-line
+  trimming avoids repeated list shifts without changing normalization results.
+
 - Port symbol display configuration to Raven and give both implementations value
   equality across all display options while preserving clone-based customization.
 - Lower field and storage-property initializers before CLI emission, preserving

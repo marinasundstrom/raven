@@ -4428,3 +4428,43 @@ constructor initialization. The full Raven build reports compiler warnings, incl
 assertions in the translation; this is not a warning-free qualification. No RavenDoc or website
 generation was run for this slice. Native neoCLR execution was not tested.
 The slice is ready for its own commit; the broader compiler port remains active.
+
+
+### Documentation value dependencies (2026-11-03)
+
+The next semantic-contract prerequisite is DocumentationComment, DocumentationTag
+and DocumentationTagKind. All three now have direct Raven translations. Tags
+remain record classes. Comments retain their private construction boundary and
+explicit structural value equality, including tag elements; the internal mutable
+builder retains identity. Both codebases use range-based blank-line trimming
+instead of repeatedly shifting a list. The unused prefix helper and unused tab
+local were removed from C# rather than copied into Raven.
+
+The first translation used sealed record, which denotes a closed abstract hierarchy
+in Raven. Corrected it to an ordinary record declaration, preserving C# sealed
+record metadata; this was a translation correction, not a compiler bug. The
+component test asserts both comment and tag classes are sealed and checks record
+copy, equality and deconstruction behavior.
+
+The baseline passed 20 existing documentation tests. After the changes, 45 focused
+C# tests pass, including adjacent semantic attachment/display cases. All 25 new
+shared value/parsing cases pass against the isolated Raven component. That component
+uses bootstrap-owned SyntaxTrivia/DocumentationFormat dependencies (explicit Port
+alias in the temporary harness), so it is not evidence of full Raven ownership.
+The permanent C# parity project passes 926 tests; full Raven project parity and
+ownership checks are running before commit. No RavenDoc/site generation was run.
+Logs: /tmp/documentation-port-baseline.log, /tmp/documentation-csharp-after.log,
+/tmp/documentation-component-parity.log, /tmp/documentation-full-csharp-parity.log,
+and /tmp/documentation-full-raven-parity.log. The frozen integration compiler is
+/tmp/documentation-port-seed, with DLL hashes recorded in seed-hashes.json.
+
+
+Documentation slice acceptance: the permanent Raven compiler project built and
+passed all 933 parity tests, with zero failures or skips, including ownership
+checks for all three documentation types. The permanent C# project passed926
+tests; focused C# documentation and adjacent semantic/display coverage passed45,
+and isolated Raven component coverage passed25. The build completed successfully
+with compiler warnings; this is not a warning-free qualification. Validation
+targeted modern .NET; native neoCLR execution was not tested. No RavenDoc or
+website generation was run. This slice is committed independently before the
+coordinated symbol-contract migration; the broader compiler port remains active.
