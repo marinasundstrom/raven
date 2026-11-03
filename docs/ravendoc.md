@@ -1112,3 +1112,12 @@ or no owner prefix for global members (`M:Score(System.Int32)` and `F:Scale`).
 Generic function arity and parameter encoding remain unchanged. Native imported
 symbols use these same IDs to find XML comments; source XML and Markdown sidecars
 must agree. Target-specific representation does not change ordinary .NET IDs.
+
+### Imported union constructor links
+
+Constructor xrefs identify an overload group. When an imported union has a
+visible ordinary constructor (including a struct's default constructor), its
+constructor xref resolves to the constructor group page. When all constructors
+are projected union-case artifacts, it resolves to the union page instead.
+This choice is independent of constructor enumeration order. Constructors on
+nested case types keep their own constructor pages.

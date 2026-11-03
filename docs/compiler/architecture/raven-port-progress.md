@@ -4776,3 +4776,27 @@ Logs: /tmp/typed-constant-baseline.log, /tmp/typed-constant-after2.log,
 /tmp/raven-symbol-contract-port/dependencies; integrate them with the symbol
 contract dependency closure, then link the permanent tests into the ordinary
 Raven parity project. Temporary isolated validation is not that integration.
+
+### Visitor preflight and documentation regression (2026-11-03)
+
+The isolated symbol visitor prototype now owns both visitor types and all 29
+visit methods per type. Eleven C# tests pass against the isolated Raven assembly:
+the eight constant tests plus forwarding, overrides and entry-point dispatch
+through the local symbol contract. Generator integration is still pending.
+
+The full pre-generator baseline stopped in its fifth batch: 339 tests passed in
+four batches, then 116 passed and one imported-union documentation assertion
+failed. That metadata test unexpectedly included RavenDoc site generation;
+this was an end-to-end documentation test inside the ordinary baseline.
+The investigation intentionally used that specific end-to-end scenario. Imported
+union constructor xrefs share an overload-group key; projected case constructors
+and ordinary default constructors previously chose different destinations for
+that key. Links now consistently use the visible ordinary constructor group,
+or the union page when there is no such group. Five focused union documentation
+cases pass, followed by a three-case rerun with the ordinary constructor declared
+before projected constructors. No compiler language or runtime policy changed.
+
+Logs: /tmp/symbol-visitors-baseline.log, /tmp/symbol-visitors-draft-tests2.log,
+/tmp/union-xref-after2.log, /tmp/union-xref-final.log. The baseline needs resuming;
+RavenDoc end-to-end cases should be explicitly classified and excluded from
+routine porting validation. The independent enum build remains running.

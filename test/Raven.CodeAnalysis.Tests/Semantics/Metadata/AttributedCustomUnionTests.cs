@@ -6,9 +6,10 @@ namespace Raven.CodeAnalysis.Semantics.Tests.Metadata;
 public sealed class AttributedCustomUnionTests : CompilationTestBase
 {
     [Theory]
-    [InlineData("struct")]
-    [InlineData("class")]
-    public void TypedCaseCarrierLoadsAsUnionWithoutBoxedValue(string kind)
+    [InlineData("struct", false)]
+    [InlineData("class", false)]
+    [InlineData("class", true)]
+    public void TypedCaseCarrierLoadsAsUnionWithoutBoxedValue(string kind, bool includeOrdinaryConstructor)
     {
         var directory = Path.Combine(Path.GetTempPath(), "custom-union", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -21,6 +22,7 @@ public sealed class AttributedCustomUnionTests : CompilationTestBase
                     public {{kind}} Choice {
                         public struct First { public First() { } }
                         public struct Second { }
+                        {{(includeOrdinaryConstructor ? "public Choice() { }" : "")}}
                         public Choice(First value) { }
                         public Choice(Second value) { }
                         public bool IsFirst => false;
@@ -79,7 +81,13 @@ public sealed class AttributedCustomUnionTests : CompilationTestBase
             Assert.DoesNotContain("symbol-icon--type", ordinaryPage);
             var xrefs = DocumentationGenerator.ExportXrefs(site);
             Assert.Equal("Independent/Choice/First/method__ctor.html", xrefs["M:Independent.Choice+First..ctor"]);
-            Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice..ctor"]);
+            // Overload xrefs share one destination. A visible ordinary constructor
+            // (including the struct default constructor) owns a member-group page.
+            var constructorTarget = kind == "struct" || includeOrdinaryConstructor
+                ? "Independent/Choice/method__ctor.html"
+                : "Independent/Choice/index.html";
+            Assert.Equal(constructorTarget, xrefs["M:Independent.Choice..ctor"]);
+            Assert.True(File.Exists(Path.Combine(site, constructorTarget)));
         }
         finally { Directory.Delete(directory, true); }
     }

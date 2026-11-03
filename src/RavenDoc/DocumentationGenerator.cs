@@ -1098,7 +1098,12 @@ public static partial class DocumentationGenerator
             NamespaceSymbol ns => GetNamespaceIndexPath(ns),
             TypeSymbol ts => GetTypeIndexPath(ts),
             MethodSymbol { ContainingType: UnionSymbol { IsUnion: true } union } method
-                when IsUnionCaseProjectionArtifact(union, method) => GetTypeIndexPath(union),
+                when IsUnionCaseProjectionArtifact(union, method)
+                => GetLogicalMembers(union).OfType<MethodSymbol>().Any(candidate =>
+                    candidate.Name == method.Name &&
+                    GetMembersFilterPredicate(candidate) && CanRenderSymbol(candidate) &&
+                    !IsUnionCaseProjectionArtifact(union, candidate))
+                    ? GetMemberGroupPath(method) : GetTypeIndexPath(union),
             MethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: UnionCaseTypeSymbol { IsUnionCase: true } @case }
                 => GetMemberGroupPath(symbol),
             _ => GetMemberGroupPath(symbol),
