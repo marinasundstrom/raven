@@ -45,6 +45,11 @@ internal static class PEReflectionTypeIdentity
         if (left.IsGenericType || right.IsGenericType)
             return AreEquivalentGenericType(left, right);
 
+        return AreEquivalentNominalType(left, right);
+    }
+
+    private static bool AreEquivalentNominalType(Type left, Type right)
+    {
         var leftMetadataName = GetMetadataName(left);
         var rightMetadataName = GetMetadataName(right);
 
@@ -88,8 +93,13 @@ internal static class PEReflectionTypeIdentity
         var leftDefinition = left.IsGenericTypeDefinition ? left : left.GetGenericTypeDefinition();
         var rightDefinition = right.IsGenericTypeDefinition ? right : right.GetGenericTypeDefinition();
 
-        if (!AreEquivalent(leftDefinition, rightDefinition))
+        // Definitions are nominal identities. Recursing through their type
+        // parameters revisits the same declaring definition across load contexts.
+        if (!AreEquivalentNominalType(leftDefinition, rightDefinition))
             return false;
+
+        if (left.IsGenericTypeDefinition || right.IsGenericTypeDefinition)
+            return left.IsGenericTypeDefinition && right.IsGenericTypeDefinition;
 
         var leftArguments = left.GetGenericArguments();
         var rightArguments = right.GetGenericArguments();

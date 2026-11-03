@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Terminate reflection identity comparisons of generic definitions across load
+  contexts, while preserving definition and constructed-argument distinctions.
+
 - Keep indexed type lookup from recursively binding unrelated member signatures,
   fixing partial generic overrides that depended on file or semantic-query order.
   Qualified expression lookup still completes source members for constructor selection.

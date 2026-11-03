@@ -1320,3 +1320,17 @@ Stable constructed-type member lookups share projections keyed by the original
 member's reference identity. Named and all-member enumeration therefore agree,
 and stable all-member requests reuse their cached array. Mutable source declaration
 states keep the existing uncached substitution path, including source unions.
+
+## Reflection type identity across load contexts
+
+CLI member matching compares generic definitions by nominal metadata name and
+assembly simple name before comparing constructed arguments. Definitions from
+separate reflection contexts must not recursively compare their own declaring
+type parameters. A definition remains distinct from a constructed type, and
+different constructed arguments remain distinct. Existing assembly-name matching
+is unchanged. This helper is shared by CLI method, property and event import,
+including neoCLR host-reference import; native metadata does not use reflection.
+
+The isolated direct Raven translation carries the same rule. Shared C# tests exercise
+separate assembly load contexts against both helper implementations on .NET.
+This is not evidence of native neoCLR execution.
