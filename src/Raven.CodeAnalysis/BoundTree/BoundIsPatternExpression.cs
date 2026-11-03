@@ -2849,12 +2849,12 @@ internal partial class BlockBinder
                 }
             }
 
-            var designator3 = BindWholePatternDesignation(syntax.Designation, narrowedType ?? inputType);
+            var designator3 = BindWholePatternDesignation(syntax.Designation, (narrowedType ?? inputType).GetNonNullableType());
 
-            // ReceiverType is irrelevant for empty patterns; keep it as inputType to avoid ErrorType.
+            // A whole-value capture still needs the successful non-null receiver.
             return new BoundPropertyPattern(
                 inputType: inputType,
-                receiverType: inputType,
+                receiverType: (narrowedType ?? inputType).GetNonNullableType(),
                 narrowedType: narrowedType,
                 designator3,
                 properties: ImmutableArray<BoundPropertySubpattern>.Empty);
@@ -2927,7 +2927,7 @@ internal partial class BlockBinder
             boundProps.Add(BindPropertySubpatternPath(receiverType, sub, path, 0));
         }
 
-        var designator = BindWholePatternDesignation(syntax.Designation, narrowedType ?? inputType);
+        var designator = BindWholePatternDesignation(syntax.Designation, (narrowedType ?? inputType).GetNonNullableType());
 
         return new BoundPropertyPattern(
             inputType: inputType,
@@ -3053,8 +3053,8 @@ internal partial class BlockBinder
 
     private TypeSymbol InferPropertyPatternReceiverType(TypeSymbol inputType, PropertyPatternSyntax syntax)
     {
-        // Strip nullable reference wrapper (object? -> object)
-        inputType = StripNullableReference(inputType);
+        // Property matching excludes null for reference and value inputs alike.
+        inputType = inputType.GetNonNullableType();
 
         // If the input is a concrete named type (and not object), use it directly
         if (inputType is NamedTypeSymbol named &&

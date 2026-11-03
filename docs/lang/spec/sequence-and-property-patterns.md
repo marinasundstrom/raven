@@ -69,6 +69,9 @@ entire matched value in binding-enabled pattern contexts:
 * property patterns: `Type { ... } designation`
 
 The trailing designation is introduced only if the full pattern succeeds.
+For a property pattern, its inferred type is non-nullable because a successful
+match excludes null. This also applies to the empty `{ }` pattern and unwraps
+nullable value types for the captured local; the original input keeps its type.
 It is not valid in an `expr is pattern` expression. Use a dedicated pattern
 statement when the whole matched value must be named.
 

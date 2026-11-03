@@ -1692,7 +1692,7 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
-        if (propertyPattern.Properties.Length == 0)
+        if (propertyPattern.Properties.Length == 0 && propertyPattern.Designator is null)
         {
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
             ILGenerator.Emit(OpCodes.Br, labelDone);
@@ -1729,7 +1729,7 @@ internal partial class ExpressionGenerator
                 // A reference scrutinee needs no separate object view unless narrowed.
                 // Constructed source types can also reach this cast path.
                 ILGenerator.Emit(OpCodes.Ldloc, objLocal ?? inputLocal);
-                ILGenerator.Emit(OpCodes.Castclass, lookupClrType);
+                ILGenerator.Emit(lookupType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, lookupClrType);
                 ILGenerator.Emit(OpCodes.Stloc, typedLocal);
             }
         }
@@ -1741,7 +1741,7 @@ internal partial class ExpressionGenerator
 
         foreach (var sub in propertyPattern.Properties)
         {
-            ILGenerator.Emit(OpCodes.Ldloc, typedLocal);
+            ILGenerator.Emit(lookupType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, typedLocal);
 
             switch (sub.Member)
             {
@@ -1754,7 +1754,7 @@ internal partial class ExpressionGenerator
                         }
 
                         var getter = GetMethodInfo(prop.GetMethod);
-                        ILGenerator.Emit(OpCodes.Callvirt, getter);
+                        ILGenerator.Emit(lookupType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
                         break;
                     }
 

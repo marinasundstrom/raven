@@ -4589,3 +4589,38 @@ Logs: /tmp/interface-lookup-baseline.log, /tmp/interface-lookup-before.log,
 /tmp/interface-lookup-after.log, /tmp/interface-body-after.log. The temporary
 translation is /tmp/raven-symbol-contract-port/Symbol.rvn, with its latest
 compiler diagnostics in /tmp/symbol-contract-port-second.log.
+
+### Nullable whole-property captures during symbol translation (2026-11-03)
+
+The valid Raven translation of the canonical-name getter uses `if let { ... }
+containingNamespace = ContainingNamespace`. Its successful whole-value capture
+incorrectly retained the nullable input type. Property captures now infer the
+non-nullable matched type. The same regression tests exposed two adjacent CLI
+failures: empty property patterns skipped capture assignment, and nullable value
+inputs could not infer their property receiver. Empty captures now receive the
+matched value, nullable structs use their underlying receiver type, and CLI
+member extraction unboxes and addresses value receivers correctly.
+
+The shared binder correction applies to both targets. Portable property-pattern
+lowering already assigns whole captures and uses value receiver addresses in its
+supported cases; its existing capability restrictions are unchanged. Native
+nullable-value execution is not claimed. These binder/emitter sources have not
+yet been ported, so the fixes remain in the C# bootstrap pending direct translation.
+
+Validation: 26 focused tests passed before editing; all six new regression cases
+failed before the fix. Final focused/adjacent coverage passes 125 tests, including
+CLI runtime behavior for reference and value captures, null rejection, semantic
+capture types, and existing portable/shared pattern tests. NeoCLR regressions
+exercise semantic binding with host references. Core and driver net11.0 builds
+pass. No RavenDoc generation was run.
+
+The draft contracts now pass semantic analysis far enough to reach emission.
+The next reproduced failure is collection-spread emission in `GetTypeMembers`
+(`Unexpected method kind` resolving a substituted constructor). Two false-positive
+unused-result analyzer warnings on nested conditional expressions also remain;
+a reduced executable returns the expected lengths 1, 3, and 0. Neither issue is
+worked around in the direct translation.
+
+Logs: /tmp/property-capture-baseline.log, /tmp/property-capture-before.log,
+/tmp/property-capture-after2.log, /tmp/symbol-contract-port-fourth.log and
+/tmp/contract-conditional.log. Draft: /tmp/raven-symbol-contract-port/Symbol.rvn.
