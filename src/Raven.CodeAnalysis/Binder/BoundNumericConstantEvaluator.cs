@@ -38,7 +38,7 @@ internal static class BoundNumericConstantEvaluator
                 if (unaryStatus != Status.Constant) return unaryStatus;
                 if (unary.Operator.OperatorKind == BoundUnaryOperatorKind.UnaryPlus) { value = unaryValue; return Status.Constant; }
                 if (unary.Operator.OperatorKind == BoundUnaryOperatorKind.BitwiseNot && TryInteger(unaryValue, out var complemented))
-                    return IntegerResult(~complemented, unary.Type.SpecialType, false, out value);
+                    return IntegerResult(~complemented, NumericStorageType(unary.Type), false, out value);
                 if (unary.Operator.OperatorKind is not (BoundUnaryOperatorKind.UnaryMinus or BoundUnaryOperatorKind.CheckedUnaryMinus))
                     return Status.NotConstant;
                 if (TryInteger(unaryValue, out var integer))
@@ -57,11 +57,12 @@ internal static class BoundNumericConstantEvaluator
                 if (leftStatus != Status.Constant) return leftStatus;
                 var rightStatus = Evaluate(binary.Right, isChecked, out var right);
                 if (rightStatus != Status.Constant) return rightStatus;
-                if (TryInteger(left, out var a) && TryInteger(right, out var b) && IsIntegral(binary.Type.SpecialType))
+                var storageType = NumericStorageType(binary.Type);
+                if (TryInteger(left, out var a) && TryInteger(right, out var b) && IsIntegral(storageType))
                 {
                     if (kind is BinaryOperatorKind.Division or BinaryOperatorKind.Modulo && b.IsZero)
                         return Status.DivisionByZero;
-                    var bits = binary.Type.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64 ? 64 : 32;
+                    var bits = storageType is SpecialType.System_Int64 or SpecialType.System_UInt64 ? 64 : 32;
                     var shift = (int)(b & (bits - 1));
                     var result = kind switch
                     {
@@ -80,7 +81,7 @@ internal static class BoundNumericConstantEvaluator
                     // Shifts discard bits even in checked contexts.
                     var check = kind is BinaryOperatorKind.ShiftLeft or BinaryOperatorKind.ShiftRight or BinaryOperatorKind.UnsignedShiftRight
                         ? false : isChecked(binary);
-                    return IntegerResult(result, binary.Type.SpecialType, check, out value);
+                    return IntegerResult(result, storageType, check, out value);
                 }
                 if (left is null || right is null) return Status.NotConstant;
                 try
@@ -122,6 +123,11 @@ internal static class BoundNumericConstantEvaluator
                 return Status.NotConstant;
         }
     }
+
+    private static SpecialType NumericStorageType(TypeSymbol type)
+        => type is NamedTypeSymbol { EnumUnderlyingType: { } underlying }
+            ? underlying.SpecialType
+            : type.SpecialType;
 
     private static Status ConvertNumber(object? operand, SpecialType target, bool isChecked, out object? value)
     {

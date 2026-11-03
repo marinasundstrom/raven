@@ -4710,3 +4710,40 @@ assembly identity or the full dependency boundary is correct.
 
 Logs: /tmp/contract-analyzer-baseline.log, /tmp/contract-analyzer-before.log,
 /tmp/contract-analyzer-after2.log and /tmp/symbol-contract-port-eighth.log.
+
+### Symbol enum dependencies and constant initializer stabilization (2026-11-03)
+
+A runtime load/public-signature audit of the isolated symbol-contract assembly
+succeeded but found 15 bootstrap type dependencies. Integrating the interfaces
+still requires visitors, attribute data, comparer and display dependencies;
+compilation alone is not accepted as proof of a complete port.
+
+The independent symbol/macro classification layer is being integrated first:
+10 enums from Symbol.cs, SpecialType, and five macro classification enums. All
+16 compile in isolation and match the C# names, numeric values, underlying types,
+and Flags attributes. A permanent C# metadata parity test checks ownership by
+the Raven assembly. Full component build and integrated parity are still pending;
+these translations are not yet committed as a validated slice.
+
+MacroInvocationTargets.AllSingleNode exposed an existing enum-initializer gap.
+Initializers lacked the ordinary type-member lookup scope for prior constants,
+and numeric constant evaluation did not use enum integral storage. Both paths
+are corrected. Adjacent regression coverage also found missing complement
+operator binding; `~EnumValue` now preserves its enum type, and constant folding
+uses the underlying width/signedness. The binder/evaluator remain unported C#
+bootstrap components and must retain these fixes when translated.
+
+Validation: the original enum baseline passed 31 tests; five new cases failed
+before the fix. Focused enum, overflow, checked-expression and constant narrowing
+coverage passes 136 tests, including emitted constants and runtime complements
+for byte, int, long and ulong enums. NeoCLR coverage is semantic with host
+references only; native execution is not claimed. Touched files were whitespace
+formatted. No RavenDoc generation was run.
+
+The initial full Raven build was deliberately terminated after the isolated
+compile proved its MacroInvocationTargets input invalid. The replacement build
+uses frozen compiler /tmp/symbol-enum-port-seed-v2 and log
+/tmp/symbol-enum-port-build2.log; do not restart it merely because it is slow.
+Logs: /tmp/enum-flags-baseline.log, /tmp/enum-flags-before.log,
+/tmp/enum-flags-after4.log, /tmp/enum-flags-final.log,
+/tmp/symbol-enum-component-build2.log and /tmp/symbol-enum-component-parity.log.

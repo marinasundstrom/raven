@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Evaluate enum bitwise constant initializers using their underlying integral
+  type, including combined flags and width-correct complements.
+
 - Avoid unused-expression and immutable-collection result warnings when nested
   conditional results feed expression-bodied members or enclosing returned values.
 

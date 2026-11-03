@@ -37,6 +37,12 @@ internal partial class BoundUnaryOperator
             return false;
         }
 
+        if (kind == SyntaxKind.TildeToken && operandType is NamedTypeSymbol { EnumUnderlyingType: not null })
+        {
+            op = new BoundUnaryOperator(BoundUnaryOperatorKind.BitwiseNot, operandType, operandType);
+            return true;
+        }
+
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);

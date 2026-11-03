@@ -6002,6 +6002,8 @@ public partial class SemanticModel
         var underlyingType = enumSymbol.EnumUnderlyingType
             ?? Compilation.GetSpecialType(SpecialType.System_Int32);
         object? nextValue = GetDefaultEnumMemberValue(underlyingType);
+        // Initializers need the ordinary member lookup scope for earlier constants.
+        var initializerScope = new TypeMemberBinder(enumBinder, enumSymbol);
 
         foreach (var enumMember in enumDecl.Members)
         {
@@ -6009,7 +6011,7 @@ public partial class SemanticModel
             var equalsValue = enumMember.EqualsValue;
             if (equalsValue is not null)
             {
-                var exprBinder = new BlockBinder(enumSymbol, enumBinder);
+                var exprBinder = new BlockBinder(enumSymbol, initializerScope);
                 var bound = exprBinder.BindExpression(equalsValue.Value);
                 foreach (var diagnostic in exprBinder.Diagnostics.AsEnumerable())
                     enumBinder.Diagnostics.Report(diagnostic);

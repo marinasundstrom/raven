@@ -45,6 +45,21 @@ metadata is matched against its declared members under the same rule. A future
 .NET closed-enum metadata contract may let Raven distinguish closed and open
 foreign enums without changing Raven-authored syntax.
 
+### Constant initializers
+
+An initializer may combine previously declared enum members with `|`, `&`, or
+`^`, or complement a member with `~`. Evaluation uses the enum's underlying
+integral width and signedness, as on .NET:
+
+```raven
+enum Access : byte {
+    Read = 1,
+    Write = 2,
+    ReadWrite = Read | Write,
+    WithoutRead = ~Read, // 254
+}
+```
+
 ### Enum names shared with values
 
 A simple name can denote both an enum type and a value of that same type. In
