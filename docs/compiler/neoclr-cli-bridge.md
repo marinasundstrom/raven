@@ -1,5 +1,22 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Generic interface implementation parameter identity (2026-11-03)
+
+Shared intent follows .NET: interface and implementation method type parameters
+correspond by ordinal, with matching generic arity and static/instance shape;
+their source names and owner symbols may differ. CLI emission now substitutes
+the interface method parameters with the implementation parameters before
+matching signatures. This repairs missing virtual implementation/override maps
+without weakening shared symbol equality.
+
+The owning layer is `CodeGen.TypeGenerator`, used by the CLI emission path.
+Native `Int32Emitter` authors interface method signatures through its native
+metadata builder and does not use this CLR signature-matching helper. Its
+supported generic method admission and native metadata mapping remain separate;
+this fix introduces no native restrictions or new CLI encoding. Validation covers
+.NET loading, dispatch and interface maps, including inherited and renamed
+generic methods. Native neoCLR execution was not performed for this slice.
+
 ## Same-type constructor delegation (2026-11-01)
 
 `: self(...)` selects another constructor on the existing receiver. Shared

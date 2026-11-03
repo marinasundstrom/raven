@@ -54,3 +54,13 @@ payload rather than allocating a new box for an array constant.
 These compiler API semantics are shared across target policies. Validation of
 the C# implementation and the isolated Raven translation runs on .NET; it does
 not establish native neoCLR execution or a completed symbol implementation port.
+
+
+## Generic interface implementation signatures
+
+Method type parameters have distinct symbol identities in an interface and its
+implementation. CLI interface mapping substitutes the contract's parameters by
+ordinal before comparing return and parameter types, including constructed types
+such as `Box<T>`. Parameter names need not match. Generic arity and static versus
+instance shape must match; overloads with different arity are distinct. This
+mapping does not change symbol identity or make unrelated type parameters equal.

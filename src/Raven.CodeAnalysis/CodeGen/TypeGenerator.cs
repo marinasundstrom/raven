@@ -2935,6 +2935,14 @@ internal class TypeGenerator
 
     private static bool SignatureTypesMatch(MethodSymbol candidate, MethodSymbol interfaceMethod)
     {
+        if (candidate.Arity != interfaceMethod.Arity || candidate.IsStatic != interfaceMethod.IsStatic)
+            return false;
+
+        // Method type parameters belong to different owners. Compare the contract
+        // after substituting its parameters by ordinal with the implementation's.
+        if (interfaceMethod.Arity > 0)
+            interfaceMethod = interfaceMethod.Construct(candidate.TypeParameters.Cast<TypeSymbol>().ToArray());
+
         if (!ReturnTypesMatch(candidate.ReturnType, interfaceMethod.ReturnType))
             return false;
 

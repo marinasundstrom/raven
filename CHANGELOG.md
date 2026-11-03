@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Match generic interface implementations by method parameter position and arity
+  during CLI emission, including inherited contracts and renamed type parameters.
+
 - Keep imported union constructor xrefs on a visible constructor overload page
   when one exists, avoiding order-dependent links between that page and the union.
 

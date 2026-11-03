@@ -4800,3 +4800,27 @@ Logs: /tmp/symbol-visitors-baseline.log, /tmp/symbol-visitors-draft-tests2.log,
 /tmp/union-xref-after2.log, /tmp/union-xref-final.log. The baseline needs resuming;
 RavenDoc end-to-end cases should be explicitly classified and excluded from
 routine porting validation. The independent enum build remains running.
+
+### Generic interface method dispatch stabilization (2026-11-03)
+
+Compiling a concrete implementation alongside the generated Raven symbol visitors
+exposed a CLI implementation-matching defect: emission succeeded, but loading the
+class failed because its generic Accept method was not mapped to the interface.
+The contract and implementation type parameters have different owner identities.
+TypeGenerator now checks method arity and static/instance shape, then substitutes
+the contract method parameters by ordinal before comparing its signature. Shared
+symbol equality remains unchanged. This also handles renamed method parameters,
+constructed parameter types and generic/non-generic overloads.
+
+The existing focused interface baseline passed 10 tests; four new direct/inherited
+runtime cases failed before the fix. The final five new cases and adjacent
+interface tests pass: 18 interface tests, plus a 22-test follow-up containing the
+five cases, seven static-interface tests and ten collection-comprehension tests.
+The visitor generator's three parser/runtime tests now pass as well. The required
+codex-build.sh completed successfully. Validation is .NET runtime/metadata;
+native neoCLR mapping ownership was reviewed, but native execution is not claimed.
+The fix belongs to the unported CLI emitter and must be retained when translated.
+
+Logs: /tmp/generic-visitor-interface-baseline.log,
+/tmp/generic-visitor-interface-before.log, /tmp/generic-visitor-interface-after.log,
+/tmp/generic-visitor-interface-final.log, /tmp/symbol-visitors-output-tests3.log.
