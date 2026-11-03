@@ -4937,3 +4937,26 @@ shared by the C# and Raven implementations.
 structural equality for their ordered tags in both compiler implementations.
 This is a compiler API contract; it does not change target metadata or the
 language's documentation-trivia grammar.
+
+
+## Annotated generic value conversions (2026-11-03)
+
+Conversion classification now respects AnnotatedUnderlyingType after generic
+substitution. When unconstrained T? is instantiated with a value type, its
+annotation does not introduce nullable value storage or a lifted conversion.
+Both directions classify as implicit identity conversions. NullableValueType
+substitutions retain nullable wrapping/unwrapping behavior.
+
+The correction belongs to shared Compilation conversion classification, so it
+also benefits union payloads, record equality comparers and other generic value
+arguments. The CLI emitter no longer receives a spurious lifted conversion for
+EqualityComparer<Optional<Profile>>. The portable signature contract already
+erases these annotated wrappers; native execution of this new regression remains
+unvalidated. No external runtime or target-owned encoding was changed.
+
+The conversion cache includes the nullable ABI projection of each endpoint in
+its key. Semantic nullable-symbol equality alone cannot distinguish annotation-only
+from Nullable<T> storage after substitution. The regression queries both shapes
+in one compilation, proving that an earlier identity result does not contaminate
+a later nullable wrapping/unwrapping query. Fourteen focused semantic and runtime
+tests pass on modern .NET.

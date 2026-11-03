@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Treat unconstrained generic nullable annotations substituted with value types as
+  identity conversions, preserving actual nullable-value wrapping. This fixes
+  emitted equality for records containing generic union values.
+
 - Allow record body storage and additional constructors. Generated equality,
   hashing and copies include private instance fields and property backing fields.
 - **Breaking:** align generated record display with C# (`Name { Value = text }`):

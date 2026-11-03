@@ -101,6 +101,16 @@ public partial class Compilation
         source = NormalizeExplicitNullableGeneric(source);
         destination = NormalizeExplicitNullableGeneric(destination);
 
+        // Unconstrained T? retains its annotation after substitution, but T = a
+        // value type does not introduce Nullable<T>. Classify that representation
+        // as the underlying value in both directions.
+        if (source is NullableTypeSymbol { UnderlyingType.IsValueType: true } annotatedSource &&
+            annotatedSource.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+            source = annotatedSource.UnderlyingType;
+        if (destination is NullableTypeSymbol { UnderlyingType.IsValueType: true } annotatedDestination &&
+            annotatedDestination.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+            destination = annotatedDestination.UnderlyingType;
+
         if (destination is null)
             return Conversion.None;
 
@@ -1113,6 +1123,8 @@ public partial class Compilation
         public bool Equals(ConversionCacheKey x, ConversionCacheKey y)
         {
             return x.IncludeUserDefined == y.IncludeUserDefined &&
+                x.Source.GetNullableAbiProjection() == y.Source.GetNullableAbiProjection() &&
+                x.Destination.GetNullableAbiProjection() == y.Destination.GetNullableAbiProjection() &&
                 SymbolEqualityComparer.Default.Equals(x.Source, y.Source) &&
                 SymbolEqualityComparer.Default.Equals(x.Destination, y.Destination);
         }
@@ -1122,7 +1134,9 @@ public partial class Compilation
             return HashCode.Combine(
                 SymbolEqualityComparer.Default.GetHashCode(obj.Source),
                 SymbolEqualityComparer.Default.GetHashCode(obj.Destination),
-                obj.IncludeUserDefined);
+                obj.IncludeUserDefined,
+                obj.Source.GetNullableAbiProjection(),
+                obj.Destination.GetNullableAbiProjection());
         }
     }
 

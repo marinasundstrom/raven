@@ -253,6 +253,12 @@ records the annotation. This ABI difference does not change Raven's
 source-level rules. The expression's static type remains `T?`; Raven does not
 silently replace it with a separate flow-sensitive type after a null check.
 
+For an unconstrained generic parameter, `T?` is an annotation on `T`. Substituting
+a value type preserves that value type's representation; it does not introduce
+`System.Nullable<T>`. Conversions between that annotated substitution and the
+underlying value type are identity conversions in both directions. A
+struct-constrained `T?` retains nullable value storage and its lifted conversions.
+
 Targets may disable nullable value declarations with
 `<RavenAllowNullableValueTypes>false</RavenAllowNullableValueTypes>`,
 `--no-nullable-value-types`, or

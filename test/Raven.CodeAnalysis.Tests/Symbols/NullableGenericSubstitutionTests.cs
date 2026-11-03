@@ -7,6 +7,8 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class NullableGenericSubstitutionTests
 {
     private const string Source = """
+union ValueChoice { case Item(value: int) }
+
 class NullableGenericClass<T> {
     func Echo(value: T?) -> T? => value
 }
@@ -27,6 +29,25 @@ class NullableGenericMethods {
     static func EchoValue<T>(value: T?) -> T? where T: struct => value
 }
 """;
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("System.Int32")]
+    [InlineData("ValueChoice")]
+    public void AnnotatedValueSubstitutionUsesIdentityConversions(string typeName)
+    {
+        var compilation = CreateCompilation();
+        var valueType = compilation.GetTypeByMetadataName(typeName)!;
+        var annotated = GetConstructedTypeMethod(compilation, "NullableGenericClass`1", valueType).Parameters[0].Type;
+        Assert.True(compilation.ClassifyConversion(valueType, annotated).IsIdentity);
+        var reverse = compilation.ClassifyConversion(annotated, valueType);
+        Assert.True(reverse.IsIdentity);
+        Assert.True(reverse.IsImplicit);
+
+        var nullableValue = GetConstructedTypeMethod(compilation, "NullableValueGenericClass`1", valueType).Parameters[0].Type;
+        Assert.False(compilation.ClassifyConversion(valueType, nullableValue).IsIdentity);
+        Assert.False(compilation.ClassifyConversion(nullableValue, valueType).IsImplicit);
+    }
 
     [Fact]
     public void ConstructedGenericTypes_PreserveSubstitutionAwareNullability()

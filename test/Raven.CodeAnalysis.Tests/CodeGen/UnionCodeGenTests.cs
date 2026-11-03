@@ -2643,7 +2643,7 @@ class Container {
 
     static func describe(user: Optional<User>) -> string {
         return match user {
-            Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(let color)))))))) => "Primary color: $color"
+            Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(let color))))))))) => "Primary color: $color"
             _ => "Could not access primary color"
         }
     }
