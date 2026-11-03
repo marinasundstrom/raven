@@ -7438,7 +7438,8 @@ public partial class SemanticModel
                 continue;
 
             var declaringModel = GetDeclaringSemanticModel(sourceType, declaration.SyntaxTree);
-            declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
+            if (!Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+                declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
             declaringModel.EnsureDeclarations();
 
             if (!declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out _) &&
@@ -7517,7 +7518,8 @@ public partial class SemanticModel
                 continue;
 
             var declaringModel = GetDeclaringSemanticModel(sourceType, declaration.SyntaxTree);
-            declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
+            if (!Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+                declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
             declaringModel.EnsureDeclarations();
 
             if (!declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out _) &&

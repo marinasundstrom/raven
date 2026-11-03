@@ -44,14 +44,16 @@ partial class BlockBinder
 
     private TypeSymbol EnsureSourceMemberSignatureDeclaredForExactLookup(TypeSymbol receiverType, string memberName)
     {
+        // Suppressing broad namespace completion must not suppress the exact
+        // signature needed by a member expression during a document-only query.
         if (string.IsNullOrEmpty(memberName) ||
-            Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ||
             receiverType is not NamedTypeSymbol namedReceiverType)
         {
             return receiverType;
         }
 
-        Compilation.EnsureSourceTypeDeclarationsDeclared();
+        if (!Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+            Compilation.EnsureSourceTypeDeclarationsDeclared();
         if (Compilation.GetSourceMemberLookupType(namedReceiverType) is not { } selectedReceiverType)
             return Compilation.ErrorTypeSymbol;
         receiverType = namedReceiverType = selectedReceiverType;

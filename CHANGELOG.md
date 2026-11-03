@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep exact source member lookup available after incremental edits without
+  forcing compilation-wide declaration completion.
+
 - Preserve the distinction between CLR vectors and rank-one multidimensional
   arrays when matching imported method, property and event signatures.
 

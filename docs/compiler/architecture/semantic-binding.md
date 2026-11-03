@@ -45,6 +45,10 @@ source ownership when a bootstrap reference contains the same metadata name. Thi
 across syntax-tree orders and whether diagnostics or declared-symbol queries
 run first. The rule belongs to shared binding, before target-specific emission.
 
+Document-only semantic queries still declare the exact requested source member
+while broad namespace completion is suppressed. They complete only the owning
+document declarations, rather than forcing compilation-wide declaration passes.
+
 ### Typical order
 From the outermost scope inward, binders typically appear in the following order:
 
