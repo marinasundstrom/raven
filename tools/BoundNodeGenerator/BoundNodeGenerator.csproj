@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Raven.GeneratorParity.CSharp.Tests" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

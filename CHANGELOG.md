@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add opt-in Raven symbol visitor output to BoundNodeGenerator while preserving
+  its default C# generation mode.
+
 - Match generic interface implementations by method parameter position and arity
   during CLI emission, including inherited contracts and renamed type parameters.
 

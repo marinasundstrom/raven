@@ -55,3 +55,20 @@ Complete source-set tests check every generated path, parse the repository outpu
 compare exact contents across implementations, and execute token factories/facts
 with literal dollar signs and control characters. The C# driver now provides an
 explicit Raven source-tree mode; production runtime translation remains later work.
+
+## Symbol visitor output
+
+The C# project also tests `BoundNodeGenerator`'s Raven symbol visitor output.
+This generator has not itself been ported to Raven. Its opt-in mode reads the
+same symbol contracts as the existing C# mode:
+
+```sh
+dotnet run --project tools/BoundNodeGenerator -- --raven-symbol-visitors <output-directory>
+```
+
+It writes `SymbolVisitor.g.rvn` and `SymbolVisitor.Generic.g.rvn`, preserving C#
+outputs and their incremental stamp. Authored Raven visitor base methods and the
+symbol interfaces belong to the consuming component. Tests parse deterministic
+output, compile it with a small symbol fixture, and execute default forwarding,
+overrides, inherited generic dispatch and null entry-point behavior. Integration
+with the full Raven compiler symbol dependency set is a separate porting step.

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../SharedTests.props" />
   <ItemGroup>
+    <ProjectReference Include="../../../tools/BoundNodeGenerator/BoundNodeGenerator.csproj" />
+    <Compile Include="../SymbolVisitorOutputTests.cs" Link="SymbolVisitorOutputTests.cs" />
     <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared" />
     <ProjectReference Include="../../../tools/NodesShared/NodesShared.csproj" />
     <ProjectReference Include="../../../tools/NodeGenerator/NodeGenerator.csproj" />

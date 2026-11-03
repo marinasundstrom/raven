@@ -18,6 +18,24 @@ var symbolOutputDir = Path.Combine(symbolsDir, "generated");
 var stampPath = Path.Combine(boundOutputDir, ".stamp");
 var lockPath = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "obj", "BoundNodeGenerator.lock");
 
+var ravenVisitorsOption = Array.IndexOf(args, "--raven-symbol-visitors");
+if (ravenVisitorsOption >= 0)
+{
+    if (ravenVisitorsOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-symbol-visitors requires an output directory.");
+
+    var outputDirectory = Path.GetFullPath(args[ravenVisitorsOption + 1]);
+    var interfaces = SpecificationLoader.LoadSymbolInterfaces(symbolsDir);
+    Directory.CreateDirectory(outputDirectory);
+    // This mode owns only these Raven outputs; C# outputs and their stamp stay intact.
+    File.WriteAllText(Path.Combine(outputDirectory, "SymbolVisitor.g.rvn"),
+        SymbolVisitorGenerator.GenerateRavenVisitor(interfaces));
+    File.WriteAllText(Path.Combine(outputDirectory, "SymbolVisitor.Generic.g.rvn"),
+        SymbolVisitorGenerator.GenerateRavenVisitor(interfaces, generic: true));
+    Console.WriteLine($"Generated Raven symbol visitors in {outputDirectory}.");
+    return;
+}
+
 using var generationLock = AcquireGenerationLock(lockPath);
 var inputs = EnumerateInputs(repoRoot, boundTreeDir, symbolsDir).ToList();
 var hash = ComputeHash(inputs);

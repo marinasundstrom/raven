@@ -4824,3 +4824,24 @@ The fix belongs to the unported CLI emitter and must be retained when translated
 Logs: /tmp/generic-visitor-interface-baseline.log,
 /tmp/generic-visitor-interface-before.log, /tmp/generic-visitor-interface-after.log,
 /tmp/generic-visitor-interface-final.log, /tmp/symbol-visitors-output-tests3.log.
+
+### Raven symbol visitor generator output (2026-11-03)
+
+BoundNodeGenerator now has an explicit --raven-symbol-visitors output-directory
+mode. It uses the same symbol-interface discovery and visit-name mapping as C#,
+while leaving the default C# output mode intact. The mode writes only its two
+Raven visitor files and does not alter the C# files or incremental stamp. It does
+not yet generate concrete Raven symbol partials or translate the generator itself.
+
+The generator baseline passed 69 tests; all 72 tests pass after adding deterministic
+Raven output/parser tests and a compiled runtime fixture. The CLI produced all 29
+methods per visitor from the real repository contracts. A hash comparison verified
+that the existing C# outputs and stamps were unchanged by the Raven mode. The
+required codex-build.sh passed. The generated files also compile with the isolated
+symbol dependency draft; production symbol integration remains unfinished.
+
+Logs: /tmp/symbol-visitor-generator-baseline.log,
+/tmp/symbol-visitor-generator-after.log, /tmp/symbol-visitors-cli.log,
+/tmp/symbol-visitors-generated-draft.log, /tmp/symbol-visitors-codex-build.log.
+The broad compiler baseline is continuing from batch 9 after replacing the stale
+collection-builder bound-node assertion with public semantic API coverage.
