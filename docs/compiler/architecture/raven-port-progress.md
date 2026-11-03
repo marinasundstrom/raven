@@ -4845,3 +4845,33 @@ Logs: /tmp/symbol-visitor-generator-baseline.log,
 /tmp/symbol-visitors-generated-draft.log, /tmp/symbol-visitors-codex-build.log.
 The broad compiler baseline is continuing from batch 9 after replacing the stale
 collection-builder bound-node assertion with public semantic API coverage.
+
+### Integrated symbol classification enums (2026-11-03)
+
+Sixteen enums are now owned by Raven.CodeAnalysis.Raven: SymbolKind,
+Accessibility, MethodKind, IteratorMethodKind, RefKind, ScopedKind, TypeKind,
+TypeParameterConstraintKind, VarianceKind, TypeParameterOwnerKind, SpecialType,
+MacroKind, MacroApplicationKind, MacroInvocationTargets, MacroTarget and
+MacroParameterRole. The C# bootstrap definitions remain alongside them unchanged.
+The translation preserves public visibility, underlying types, member names,
+numeric values and Flags attributes. Uncommented adjacent enum members use the
+compact Raven formatting convention.
+
+The full Raven component build completed successfully in 37m23s with 2,027
+warnings and no errors. Sixteen permanent C# metadata tests verify the translated
+types belong to the Raven assembly and match the bootstrap metadata. Complete
+parity validation passed 926 C# tests and 949 Raven tests, using the resulting
+component without rebuilding dependencies. This validates the integrated enum
+slice, not a completed symbol implementation or native neoCLR execution.
+
+Logs: /tmp/symbol-enum-port-build2.log, /tmp/symbol-enum-integrated-tests.log,
+/tmp/symbol-enum-full-parity-CSharp.log, /tmp/symbol-enum-full-parity-Raven.log.
+
+The next dependency draft now includes ImportedAssemblySymbol,
+ResolvedAssemblyArtifact and twelve metadata-provider capability interfaces.
+They compile with the local symbol interfaces, visitors and attribute/macro data.
+Twelve isolated C# tests pass, including contract signature parity, out-parameter
+and NotNullWhen metadata, and ownership checks ensuring provider signatures use
+local symbol types. These files remain a draft outside the production component;
+comparer/display dependencies and concrete symbol implementations still need
+porting before integrating the complete symbol contract set.

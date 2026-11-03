@@ -1,0 +1,23 @@
+namespace Raven.CodeAnalysis
+
+public enum TypeKind {
+    Unknown,
+    Array,
+    Class,
+    Delegate,
+    Enum,
+    Error,
+    Interface,
+    Pointer,
+    Address,
+    Struct,
+    TypeParameter,
+    FunctionPointer,
+    Tuple,
+    Nullable,
+    Null,
+    Unit,
+    Intersection,
+    StructuralUnion,
+    FunctionReturn,
+}

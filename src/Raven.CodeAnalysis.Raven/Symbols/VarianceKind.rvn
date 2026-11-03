@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+public enum VarianceKind {
+    None,
+    Out,
+    In,
+}

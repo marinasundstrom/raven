@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+public enum RefKind {
+    None,
+    Ref,
+    Out,
+    In,
+    RefReadOnly,
+    RefReadOnlyParameter,
+}

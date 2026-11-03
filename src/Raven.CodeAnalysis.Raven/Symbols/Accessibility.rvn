@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis
+
+public enum Accessibility {
+    NotApplicable = 0,
+    Private = 1,
+    ProtectedAndInternal = 2,
+    ProtectedAndProtected = 3,
+    Internal = 4,
+    ProtectedOrInternal = 5,
+    Public = 6,
+}

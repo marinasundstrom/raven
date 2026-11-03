@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis
+
+public enum SymbolKind {
+    Assembly,
+    Module,
+    Namespace,
+    Type,
+    Method,
+    Parameter,
+    Local,
+    Label,
+    Event,
+    Property,
+    Field,
+    Error,
+    ErrorType,
+    TypeParameter,
+    Macro,
+}

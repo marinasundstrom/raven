@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+public enum ScopedKind {
+    None,
+    ScopedRef,
+    ScopedValue,
+}

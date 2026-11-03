@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port sixteen symbol, special-type and macro classification enums to the Raven
+  compiler implementation, with C# metadata and implementation-ownership parity tests.
+
 - Add opt-in Raven symbol visitor output to BoundNodeGenerator while preserving
   its default C# generation mode.
 

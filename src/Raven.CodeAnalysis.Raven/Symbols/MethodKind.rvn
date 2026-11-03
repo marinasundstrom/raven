@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+public enum MethodKind {
+    LambdaMethod,
+    Constructor,
+    Conversion,
+    Destructor,
+    EventAdd,
+    EventRaise,
+    EventRemove,
+    ExplicitInterfaceImplementation,
+    UserDefinedOperator,
+    Ordinary,
+    PropertyGet,
+    PropertySet,
+    InitOnly,
+    ReducedExtension,
+    StaticConstructor,
+    BuiltinOperator,
+    Function,
+    FunctionPointerSignature,
+}
