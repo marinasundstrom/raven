@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve every namespace/module segment in `MacroSymbol.CanonicalName` for
+  source macro declarations. Nested macros now report `Outer.Inner.Identity`
+  instead of `Inner.Identity` on both .NET and neoCLR semantic paths.
+
 - **Breaking change:** Rename Raven symbol interfaces without the `I` prefix (`Symbol`, `TypeSymbol`,
   `MethodSymbol`, and related contracts) across both targets and compiler clients.
   Concrete implementation names now disambiguate their roles. This is a source

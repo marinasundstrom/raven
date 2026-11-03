@@ -4527,3 +4527,28 @@ Final logs: /tmp/symbol-name-raven-parity.log, /tmp/symbol-name-baseline-after.l
 The independent naming pass is accepted for its own commit. Actual symbol
 implementation porting and the shared macro canonical-name correction remain
 separate follow-ups. The broader compiler-port objective remains active.
+
+
+### Macro canonical names during symbol review (2026-11-03)
+
+A reduced semantic API probe found that a source macro `Identity` inside
+`Outer.Inner` reported `Inner.Identity`: the default `MacroSymbol.CanonicalName`
+used short display formatting. The shared contract now uses the namespace's
+complete metadata name, preserving every segment independently of display
+options. The same defect and correction apply to .NET namespaces and neoCLR
+logical modules. The synthesized provider symbol already receives its complete
+canonical name explicitly; no duplicate target implementation needs changing.
+
+The focused baseline passed 36 existing macro naming/symbol tests. Eight new
+C# regressions cover global, single-segment and nested scopes on both target
+semantic paths; four nested cases failed before the fix. Afterward, all 138
+regression and adjacent naming, symbol, expansion and completion tests passed.
+The compiler and driver built for net11.0. NeoCLR coverage uses host metadata
+references and semantic queries, not native runtime execution. No RavenDoc or
+website generation was run; no syntax or grammar rules changed.
+
+The Raven symbol contracts have not yet been translated: the current Raven port
+uses the bootstrap contract, and its later direct translation must retain this
+correction. This is a separate stabilization commit after the naming-only pass.
+Logs: /tmp/macro-canonical-baseline.log, /tmp/macro-canonical-before.log,
+/tmp/macro-canonical-build.log and /tmp/macro-canonical-after.log.

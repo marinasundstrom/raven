@@ -349,7 +349,7 @@ public interface MacroSymbol : Symbol
     /// Gets the namespace-qualified language-facing macro name.
     /// </summary>
     string CanonicalName => ContainingNamespace is { IsGlobalNamespace: false } containingNamespace
-        ? $"{containingNamespace.ToDisplayString()}.{Name}"
+        ? $"{containingNamespace.ToMetadataName()}.{Name}"
         : Name;
 
     /// <summary>

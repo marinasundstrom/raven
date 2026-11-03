@@ -152,6 +152,11 @@ let answer = Double!(21)
 `ExpressionSyntax` that replaces the invocation and returns from that macro
 execution path. Normal Raven control flow can choose an expansion.
 
+A macro's canonical identity includes its complete containing namespace path.
+For example, `Identity` declared in `namespace Outer.Inner` has the canonical
+name `Outer.Inner.Identity`; a global declaration has the name `Identity`.
+On neoCLR, the same rule uses the containing `module` path.
+
 The omitted return annotation is the compact expression-macro default. Write
 `-> ExpressionSyntax` when the category should be explicit. Other syntax return
 types select other grammar positions: `StatementSyntax` selects statement

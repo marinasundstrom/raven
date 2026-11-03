@@ -112,6 +112,15 @@ These APIs cooperate with the binder hierarchy described in the semantic binding
 architecture notes. Binders chain by scope so lookups naturally fall back to
 parent contexts while preserving local information.【F:docs/compiler/architecture/semantic-binding.md†L1-L64】
 
+### Macro identities
+
+`MacroSymbol.Name` is the declared short name. `MacroSymbol.CanonicalName` includes
+the complete containing namespace or logical module path: a macro `Identity` in
+`Outer.Inner` reports `Outer.Inner.Identity`. A global macro reports `Identity`.
+This shared semantic identity is independent of symbol display-format settings;
+it uses the namespace's complete name rather than its short display text.
+The same rule applies to .NET namespace declarations and neoCLR module declarations.
+
 ### Symbol facts helpers
 
 The compiler exposes relationship helpers in `SemanticFacts` for advanced
