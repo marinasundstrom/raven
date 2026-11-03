@@ -4659,3 +4659,27 @@ The translation is still a draft, not yet an integrated replacement assembly.
 
 Logs: /tmp/contract-spread-baseline.log, /tmp/contract-spread-before.log,
 /tmp/contract-spread-after2.log, /tmp/symbol-contract-port-sixth.log.
+
+### Lambdas in default interface implementations (2026-11-03)
+
+CLI method generation used the enclosing source interface to classify lambda
+methods, although their emitted owner is a generated closure class. Those methods
+incorrectly received abstract flags, making emission fail. Method definition and
+body eligibility now consult the emitted owner. The correction applies to the
+shared CLI emitter; it does not establish native closure support. The emitter has
+not yet been ported to Raven and remains part of the C# bootstrap.
+
+Validation: 49 interface tests passed before editing; three new runtime cases
+failed before the fix. All 64 focused interface/closure tests now pass, covering
+non-capturing lambdas, captured parameters, and captured interface receivers in
+default getters/methods. Core and driver net11.0 builds and whitespace formatting
+pass. No RavenDoc generation was run.
+
+The isolated draft of all 30 symbol interfaces and 10 related enums now compiles
+as a .NET assembly. This is not yet a completed integrated port: dependencies,
+assembly identity, and shared C# implementation tests remain to be validated.
+Two false-positive unused-result warnings in the property-parameter default
+implementation are the next stabilization work.
+
+Logs: /tmp/interface-lambda-baseline.log, /tmp/interface-lambda-before.log,
+/tmp/interface-lambda-after.log and /tmp/symbol-contract-port-seventh.log.

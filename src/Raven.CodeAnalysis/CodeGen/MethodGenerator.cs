@@ -74,7 +74,8 @@ internal class MethodGenerator
             if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.Conversion or MethodKind.UserDefinedOperator)
                 attributes |= MethodAttributes.SpecialName;
 
-            var isInterfaceMethod = TypeGenerator.TypeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+            // Closure methods belong to their emitted carrier, even inside an interface.
+            var isInterfaceMethod = targetTypeBuilder.IsInterface;
             var hasInterfaceBody = isInterfaceMethod && HasInterfaceMethodBody(MethodSymbol);
 
             if (isExplicitInterfaceImplementation)
@@ -783,7 +784,7 @@ internal class MethodGenerator
         if (_bodyEmitted)
             return;
 
-        var isInterfaceMethod = TypeGenerator.TypeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+        var isInterfaceMethod = MethodBase.DeclaringType?.IsInterface == true;
 
         if (isInterfaceMethod && !HasInterfaceMethodBody(MethodSymbol))
         {

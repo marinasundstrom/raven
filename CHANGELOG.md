@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit lambdas in default interface bodies as methods of their closure classes,
+  without incorrectly assigning abstract interface method flags.
+
 - Bind collection-builder spreads through their span factory before emission,
   supporting source-defined element types. Preserve explicitly supplied span
   arguments to `params` factories instead of emitting a default value.
