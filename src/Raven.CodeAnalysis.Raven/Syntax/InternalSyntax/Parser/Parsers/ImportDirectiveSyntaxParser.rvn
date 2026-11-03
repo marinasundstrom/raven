@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class ImportDirectiveSyntaxParser : SyntaxParser {
+    init(parent: ParseContext) : base(parent) {
+    }
+
+    func ParseImportDirective() -> ImportDirectiveSyntax {
+        let importKeyword = ReadToken()
+
+        let nameSyntax: NameSyntax = if PeekToken().Kind == SyntaxKind.SemicolonToken {
+            let missing = MissingToken(SyntaxKind.IdentifierToken)
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetEndOfLastToken()))
+            IdentifierName(missing)
+        } else {
+            NameSyntaxParser(self, allowOmittedTypeArguments: true).ParseName()
+        }
+
+        SetTreatNewlinesAsTokens(true)
+        TryConsumeTerminator(out let terminatorToken)
+        SetTreatNewlinesAsTokens(false)
+
+        return ImportDirective(importKeyword, nameSyntax, terminatorToken)
+    }
+}

@@ -1,0 +1,343 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Text.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class UnionDeclarationParser : SyntaxParser {
+    init(context: ParseContext) : base(context) {
+    }
+
+    internal func Parse() -> UnionDeclarationSyntax {
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        let modifiers = ParseModifiers()
+
+        let unionKeyword = ExpectToken(SyntaxKind.UnionKeyword)
+        let classOrStructKeyword = ConsumeClassOrStructKeyword()
+
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            ExpectToken(SyntaxKind.IdentifierToken)
+        }
+
+        var typeParameterList: TypeParameterListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken)) {
+            typeParameterList = TypeDeclarationParser(self).ParseTypeParameterList()
+        }
+
+        var memberTypes: UnionMemberTypeListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            memberTypes = ParseUnionMemberTypeList()
+        }
+
+        let baseList = ParseBaseList()
+        let constraintClauses = ConstrainClauseListParser(self).ParseConstraintClauseList()
+
+        let members = System.Collections.Generic.List<GreenNode>()
+
+        let braces = if (PeekToken().IsKind(SyntaxKind.OpenBraceToken)) {
+            let openBraceToken = ReadToken()
+            let memberParser = TypeDeclarationParser(self)
+            var separatorStyle = ListSeparatorStyle.None
+            var reportedInconsistentSeparator = false
+
+            while (true) {
+                let next = PeekToken()
+
+                if (next.IsKind(SyntaxKind.CloseBraceToken) || next.IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+
+                // A bare block is not a valid union member. Treat only its opening
+                // brace as skipped input so subsequent cases remain independently
+                // parseable while the developer is repairing the declaration.
+                if (next.IsKind(SyntaxKind.OpenBraceToken)) {
+                    let skippedSpan = GetSpanOfPeekedToken()
+                    let skippedToken = CreateSkippedToken([ReadToken()], skippedSpan)
+                    members.Add(IncompleteMemberDeclaration(
+                        SyntaxList.Empty,
+                        SyntaxList.Empty,
+                        skippedToken,
+                        Token(SyntaxKind.None)))
+                    continue
+                }
+
+                let memberStart = memberParser.Position
+                let member = memberParser.ParseMember()
+
+                if (memberParser.Position == memberStart) {
+                    let skippedToken = ParseIncompleteTypeMemberTokens()
+                    TryConsumeTerminator(out let memberTerminatorToken)
+                    members.Add(IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, memberTerminatorToken))
+                } else {
+                    members.Add(member)
+                }
+
+                SetTreatNewlinesAsTokens(false)
+                if (member is CaseDeclarationSyntax { TerminatorToken.Kind: SyntaxKind.CommaToken }) {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken())
+                } else if (PeekToken().IsKind(SyntaxKind.CommaToken)) {
+                    let commaToken = ReadToken()
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken())
+                    let skippedToken = CreateSkippedToken([commaToken], GetSpanOfLastToken())
+                    members.Add(IncompleteMemberDeclaration(
+                        SyntaxList.Empty,
+                        SyntaxList.Empty,
+                        skippedToken,
+                        Token(SyntaxKind.None)))
+                } else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
+                         !PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.NewLine,
+                        ref reportedInconsistentSeparator,
+                        GetInsertionSpanBeforePeekedToken())
+                }
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken)
+            (openBraceToken, closeBraceToken)
+        } else {
+            (Token(SyntaxKind.None), Token(SyntaxKind.None))
+        }
+
+        let terminatorToken = ConsumeOptionalTypeTerminator()
+
+        return UnionDeclaration(
+            attributeLists,
+            modifiers,
+            unionKeyword,
+            classOrStructKeyword,
+            identifier,
+            typeParameterList,
+            memberTypes,
+            baseList,
+            constraintClauses,
+            braces.Item1,
+            List(members),
+            braces.Item2,
+            terminatorToken)
+    }
+
+    private func ParseBaseList() -> BaseListSyntax? {
+        if (!ConsumeToken(SyntaxKind.ColonToken, out let colonToken)) {
+            return null
+        }
+
+        let types = System.Collections.Generic.List<GreenNode>()
+        while (true) {
+            let type = NameSyntaxParser(self).ParseTypeName()
+            types.Add(SimpleBaseType(type))
+
+            let commaToken = PeekToken()
+            if (!commaToken.IsKind(SyntaxKind.CommaToken)) {
+                break
+            }
+
+            ReadToken()
+            types.Add(commaToken)
+        }
+
+        return BaseList(colonToken, List(types))
+    }
+
+    private func ReportInconsistentSeparatorIfNeeded(
+        ref separatorStyle: ListSeparatorStyle,
+        currentStyle: ListSeparatorStyle,
+        ref reported: bool,
+        span: TextSpan) -> unit {
+        if (separatorStyle == ListSeparatorStyle.None) {
+            separatorStyle = currentStyle
+            return
+        }
+
+        if (separatorStyle != currentStyle && !reported) {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InconsistentListSeparator, span))
+            reported = true
+        }
+    }
+
+    private enum ListSeparatorStyle {
+        None
+        NewLine
+        Comma
+    }
+
+    private func ConsumeClassOrStructKeyword() -> SyntaxToken {
+        if (PeekToken().Kind is SyntaxKind.ClassKeyword or SyntaxKind.StructKeyword) {
+            return ReadToken()
+        }
+
+        return Token(SyntaxKind.None)
+    }
+
+    private func ParseUnionMemberTypeList() -> UnionMemberTypeListSyntax {
+        let openParenToken = ExpectToken(SyntaxKind.OpenParenToken)
+        let types = System.Collections.Generic.List<GreenNode>()
+        let restoreNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(false)
+
+        var closeParenToken: SyntaxToken? = null
+
+        try {
+            var parsedTypes = 0
+            while (true) {
+                var current = PeekToken()
+
+                if (parsedTypes > 0) {
+                    if (current.IsKind(SyntaxKind.BarToken)) {
+                        types.Add(ReadToken())
+                        current = PeekToken()
+                    } else if (current.IsKind(SyntaxKind.CommaToken)) {
+                        // Parenthesized union member lists use `|`, not `,`.
+                        // Recover with the source token as the separator so we do not
+                        // synthesize a bar token that the user did not write.
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                                GetSpanOfPeekedToken(),
+                                current.Text))
+                        types.Add(ReadToken())
+                        current = PeekToken()
+                    } else if (!current.IsKind(SyntaxKind.CloseParenToken) &&
+                             !current.IsKind(SyntaxKind.EndOfFileToken)) {
+                        types.Add(MissingToken(SyntaxKind.BarToken))
+                    }
+                }
+
+                while (current.Kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken) {
+                    ReadToken()
+                    current = PeekToken()
+                }
+
+                if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+
+                var typeName = NameSyntaxParser(self).ParseTypeNameWithoutFunctionRecovery()
+                if (typeName is null or { IsMissing: true }) {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetSpanOfPeekedToken()))
+                    typeName = IdentifierName(MissingToken(SyntaxKind.IdentifierToken))
+                }
+
+                types.Add(typeName)
+                parsedTypes++
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken)
+        }
+        finally {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens)
+        }
+
+        return UnionMemberTypeList(openParenToken, List(types), closeParenToken!)
+    }
+
+    private func ParseModifiers() -> SyntaxList {
+        var modifiers: SyntaxList = SyntaxList.Empty
+
+        while (true) {
+            let kind = PeekToken().Kind
+
+            if (kind is SyntaxKind.PublicKeyword or
+                    SyntaxKind.PrivateKeyword or
+                    SyntaxKind.InternalKeyword or
+                    SyntaxKind.ProtectedKeyword or
+                    SyntaxKind.FileprivateKeyword or
+                    SyntaxKind.StaticKeyword or
+                    SyntaxKind.AbstractKeyword or
+                    SyntaxKind.FinalKeyword or
+                    SyntaxKind.SealedKeyword or
+                    SyntaxKind.PartialKeyword or
+                    SyntaxKind.VirtualKeyword or
+                    SyntaxKind.AsyncKeyword or
+                    SyntaxKind.OpenKeyword or
+                    SyntaxKind.RecordKeyword or
+                    SyntaxKind.OverrideKeyword) {
+                modifiers = modifiers.Add(ReadToken())
+            } else {
+                break
+            }
+        }
+
+        return modifiers
+    }
+
+    private func ConsumeOptionalTypeTerminator() -> SyntaxToken {
+        let current = PeekToken()
+
+        if (current.Kind == SyntaxKind.SemicolonToken) {
+            return ReadToken()
+        }
+
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken) {
+            return Token(SyntaxKind.None)
+        }
+
+        return Token(SyntaxKind.None)
+    }
+
+    private func ParseIncompleteTypeMemberTokens() -> SyntaxToken {
+        let span = GetSpanOfPeekedToken()
+
+        let skippedTokens = ConsumeSkippedTokensUntil(
+            token => token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken or SyntaxKind.CommaToken ||
+                     IsPossibleTypeMemberStart(token),
+            stopAtImplicitLineBreak: true)
+
+        return CreateSkippedToken(skippedTokens, span)
+    }
+
+    private static func IsPossibleTypeMemberStart(token: SyntaxToken) -> bool {
+        return token.Kind is
+            SyntaxKind.OpenBracketToken or
+            SyntaxKind.HashToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.PublicKeyword or
+            SyntaxKind.PrivateKeyword or
+            SyntaxKind.InternalKeyword or
+            SyntaxKind.ProtectedKeyword or
+            SyntaxKind.FileprivateKeyword or
+            SyntaxKind.StaticKeyword or
+            SyntaxKind.ReadonlyKeyword or
+            SyntaxKind.AbstractKeyword or
+            SyntaxKind.FinalKeyword or
+            SyntaxKind.FinallyKeyword or
+            SyntaxKind.SealedKeyword or
+            SyntaxKind.PartialKeyword or
+            SyntaxKind.VirtualKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.ExternKeyword or
+            SyntaxKind.OpenKeyword or
+            SyntaxKind.RecordKeyword or
+            SyntaxKind.OverrideKeyword or
+            SyntaxKind.ClassKeyword or
+            SyntaxKind.StructKeyword or
+            SyntaxKind.InterfaceKeyword or
+            SyntaxKind.ExtensionKeyword or
+            SyntaxKind.EnumKeyword or
+            SyntaxKind.UnionKeyword or
+            SyntaxKind.DelegateKeyword or
+            SyntaxKind.EventKeyword or
+            SyntaxKind.FieldKeyword or
+            SyntaxKind.ValKeyword or
+            SyntaxKind.VarKeyword or
+            SyntaxKind.ConstKeyword or
+            SyntaxKind.FuncKeyword or
+            SyntaxKind.InitKeyword or
+            SyntaxKind.SelfKeyword or
+            SyntaxKind.CaseKeyword or
+            SyntaxKind.IdentifierToken
+    }
+}

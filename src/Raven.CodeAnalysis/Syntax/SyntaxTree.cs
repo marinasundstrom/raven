@@ -47,7 +47,7 @@ public partial class SyntaxTree
             ? syntaxNodeOrToken.AsNode()!.FullSpan
             : syntaxNodeOrToken.AsToken().FullSpan;
 
-        return _diagnostics.Where(d => d.Location.SourceSpan.IntersectsWith(span));
+        return _diagnostics.Where(d => DiagnosticIntersectsSpan(d.Location.SourceSpan, span));
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(TextSpan span)
@@ -57,8 +57,13 @@ public partial class SyntaxTree
             return Enumerable.Empty<Diagnostic>();
         }
 
-        return _diagnostics.Where(d => d.Location.SourceSpan.IntersectsWith(span));
+        return _diagnostics.Where(d => DiagnosticIntersectsSpan(d.Location.SourceSpan, span));
     }
+
+    private static bool DiagnosticIntersectsSpan(TextSpan diagnosticSpan, TextSpan span)
+        => diagnosticSpan.Length == 0
+            ? diagnosticSpan.Start >= span.Start && diagnosticSpan.Start <= span.End
+            : diagnosticSpan.IntersectsWith(span);
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
     {

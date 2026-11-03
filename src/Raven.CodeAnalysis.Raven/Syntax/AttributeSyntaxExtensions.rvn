@@ -1,0 +1,89 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Runtime.CompilerServices.*
+
+public static class AttributeSyntaxExtensions {
+    [Extension]
+    static func IsMacroAttribute(attribute: AttributeSyntax) -> bool {
+        if attribute is null {
+            throw ArgumentNullException(nameof(attribute))
+        }
+        return attribute.Parent is AttributeListSyntax list &&
+            list.HashToken.Kind == SyntaxKind.HashToken &&
+            list.Attributes.Count > 0 &&
+            list.Attributes[0] == attribute
+    }
+
+    [Extension]
+    static func TryGetMacroName(attribute: AttributeSyntax, out macroName: string) -> bool {
+        if attribute is null {
+            throw ArgumentNullException(nameof(attribute))
+        }
+        if !IsMacroAttribute(attribute) {
+            macroName = string.Empty
+            return false
+        }
+        macroName = GetNormalizedName(attribute.Name)
+        return true
+    }
+
+    private static func GetNormalizedName(name: TypeSyntax) -> string => name match {
+        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+        GenericNameSyntax generic => generic.Identifier.ValueText,
+        QualifiedNameSyntax qualified => "${GetNormalizedName(qualified.Left)}.${GetNormalizedName(qualified.Right)}",
+        AliasQualifiedNameSyntax aliasQualified => "${aliasQualified.Alias.Identifier.ValueText}::${GetNormalizedName(aliasQualified.Name)}",
+        _ => name.ToString(),
+    }
+
+    [Extension]
+    internal static func GetMacroArity(name: TypeSyntax) -> int {
+        if TryGetMacroTypeArgumentList(name, out var typeArgumentList) {
+            return typeArgumentList.Arguments.Count
+        }
+        return 0
+    }
+
+    [Extension]
+    internal static func TryGetMacroTypeArgumentList(name: TypeSyntax, out typeArgumentList: TypeArgumentListSyntax) -> bool {
+        if name is GenericNameSyntax generic {
+            typeArgumentList = generic.TypeArgumentList
+            return true
+        }
+        if name is QualifiedNameSyntax qualified {
+            return TryGetMacroTypeArgumentList(qualified.Right, out typeArgumentList)
+        }
+        if name is AliasQualifiedNameSyntax aliasQualified {
+            return TryGetMacroTypeArgumentList(aliasQualified.Name, out typeArgumentList)
+        }
+        typeArgumentList = null!
+        return false
+    }
+
+    [Extension]
+    static func TryGetMacroName(macroExpression: FreestandingMacroExpressionSyntax, out macroName: string) -> bool {
+        if macroExpression is null {
+            throw ArgumentNullException(nameof(macroExpression))
+        }
+        macroName = GetNormalizedName(macroExpression.Name)
+        return !string.IsNullOrWhiteSpace(macroName)
+    }
+
+    [Extension]
+    static func TryGetMacroName(macroInvocation: FreestandingMacroMemberDeclarationSyntax, out macroName: string) -> bool {
+        if macroInvocation is null {
+            throw ArgumentNullException(nameof(macroInvocation))
+        }
+        macroName = GetNormalizedName(macroInvocation.Name)
+        return !string.IsNullOrWhiteSpace(macroName)
+    }
+
+    [Extension]
+    static func TryGetMacroName(macroDeclaration: FreestandingMacroDeclarationSyntax, out macroName: string) -> bool {
+        if macroDeclaration is null {
+            throw ArgumentNullException(nameof(macroDeclaration))
+        }
+        macroName = GetNormalizedName(macroDeclaration.Name)
+        return !string.IsNullOrWhiteSpace(macroName)
+    }
+}

@@ -62,44 +62,8 @@ internal partial class BoundBinaryOperator
         if (TryCreatePointerArithmetic(kind, left, right, nintType, out op))
             return true;
 
-        var leftEnumLike = left is INamedTypeSymbol leftNamed && (leftNamed.TypeKind == TypeKind.Enum || leftNamed.EnumUnderlyingType is not null);
-        var rightEnumLike = right is INamedTypeSymbol rightNamed && (rightNamed.TypeKind == TypeKind.Enum || rightNamed.EnumUnderlyingType is not null);
-
-        if (leftEnumLike && rightEnumLike)
-        {
-            if (AreEquivalentEnumTypes(left, right))
-            {
-                if (kind == SyntaxKind.EqualsEqualsToken)
-                {
-                    op = new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
-                    return true;
-                }
-
-                if (kind == SyntaxKind.NotEqualsToken)
-                {
-                    op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
-                    return true;
-                }
-
-                if (kind == SyntaxKind.AmpersandToken)
-                {
-                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, left, right, left);
-                    return true;
-                }
-
-                if (kind == SyntaxKind.BarToken)
-                {
-                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, left, right, left);
-                    return true;
-                }
-
-                if (kind == SyntaxKind.CaretToken)
-                {
-                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, left, right, left);
-                    return true;
-                }
-            }
-        }
+        if (TryCreateEnumLikeOperator(compilation, kind, left, right, out op))
+            return true;
 
         if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
@@ -1249,18 +1213,15 @@ internal partial class BoundBinaryOperator
 
     private static bool AreEquivalentEnumTypes(ITypeSymbol left, ITypeSymbol right)
     {
+        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed ||
+            !(leftNamed.TypeKind == TypeKind.Enum || leftNamed.EnumUnderlyingType is not null) ||
+            !(rightNamed.TypeKind == TypeKind.Enum || rightNamed.EnumUnderlyingType is not null))
+            return false;
+
         if (SymbolEqualityComparer.Default.Equals(left, right) || left.MetadataIdentityEquals(right))
             return true;
 
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
-            return false;
-
-        var leftEnumLike = leftNamed.TypeKind == TypeKind.Enum || leftNamed.EnumUnderlyingType is not null;
-        var rightEnumLike = rightNamed.TypeKind == TypeKind.Enum || rightNamed.EnumUnderlyingType is not null;
-
-        return leftEnumLike &&
-            rightEnumLike &&
-            string.Equals(leftNamed.MetadataName, rightNamed.MetadataName, StringComparison.Ordinal) &&
+        return string.Equals(leftNamed.MetadataName, rightNamed.MetadataName, StringComparison.Ordinal) &&
             string.Equals(leftNamed.ContainingNamespace?.ToDisplayString(), rightNamed.ContainingNamespace?.ToDisplayString(), StringComparison.Ordinal) &&
             leftNamed.EnumUnderlyingType?.SpecialType == rightNamed.EnumUnderlyingType?.SpecialType;
     }
@@ -1285,6 +1246,18 @@ internal partial class BoundBinaryOperator
                 return true;
             case SyntaxKind.NotEqualsToken:
                 op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
+                return true;
+            case SyntaxKind.LessThanToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.LessThan, left, right, boolType);
+                return true;
+            case SyntaxKind.LessThanOrEqualsToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, left, right, boolType);
+                return true;
+            case SyntaxKind.GreaterThanToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.GreaterThan, left, right, boolType);
+                return true;
+            case SyntaxKind.GreaterThanOrEqualsToken:
+                op = new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, left, right, boolType);
                 return true;
             case SyntaxKind.AmpersandToken:
                 op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, left, right, left);

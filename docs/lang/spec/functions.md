@@ -313,6 +313,11 @@ func calculate(value: int) -> int {
 }
 ```
 
+A local function declaration does not execute as a statement in its enclosing
+body. It may appear after a `return` or a non-completing loop without being
+unreachable code. Its body is analyzed independently, including ordinary
+unreachable-code diagnostics within that body.
+
 A local function is visible within its containing body and can capture values
 from the enclosing scope:
 
@@ -704,3 +709,8 @@ method parameter carrying the same requirement; arbitrary class-parameter forwar
 into a constrained generic method is not yet qualified. This is a native target
 feature of the shared compiler; it is not part of the .NET language profile.
 Existing .NET function mappings are unchanged.
+
+Static local functions can call other explicitly static local functions in the
+enclosing lexical scope, including siblings declared later in the same block.
+This does not permit capturing enclosing locals/parameters or calling nonstatic
+local functions across that static boundary.

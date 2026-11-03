@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Text.*
+
+internal static class GreenSpanHelper {
+    [ExtensionAttribute]
+    static func ComputeSpanAndFullSpan(greenList: InternalSyntax.SyntaxList, position: int, out span: TextSpan, out fullSpan: TextSpan) {
+        var firstIndex = 0
+        while firstIndex < greenList.SlotCount && greenList[firstIndex] is null { firstIndex++ }
+        if firstIndex == greenList.SlotCount {
+            span = TextSpan(position, 0)
+            fullSpan = span
+            return
+        }
+        var lastIndex = greenList.SlotCount - 1
+        while greenList[lastIndex] is null { lastIndex-- }
+        let first = greenList[firstIndex]!
+        let last = greenList[lastIndex]!
+        let width = greenList.FullWidth
+        let start = position + first.GetLeadingTriviaWidth()
+        let end = position + width - last.GetTrailingTriviaWidth()
+        span = TextSpan(start, end - start)
+        fullSpan = TextSpan(position, width)
+    }
+}

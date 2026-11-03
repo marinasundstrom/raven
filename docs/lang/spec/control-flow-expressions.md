@@ -12,6 +12,21 @@ let next = {
 ```
 
 When a block is used as a statement body, any final value is discarded.
+A final conditional with an `else` also supplies a block expression's value:
+
+```raven
+let value = if outer {
+    if inner { 1 } else { 2 }
+} else { 3 }
+```
+
+This applies to `if let` as well. A conditional followed by a semicolon or another
+statement retains statement behavior.
+
+A parenthesized condition followed by a newline ends the header before a
+non-block statement body. For example, `if (ready)` followed on the next line
+by `value = 1` does not interpret `(ready) value` as a cast. Actual casts
+within a header, such as `if (bool)ready { ... }`, remain valid.
 
 ## Conditional expressions
 

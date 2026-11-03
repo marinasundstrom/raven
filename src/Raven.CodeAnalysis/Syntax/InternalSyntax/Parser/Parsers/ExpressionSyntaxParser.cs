@@ -8,6 +8,7 @@ using System.Text;
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
+using static Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.StringInterpolationParser;
 
 using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 
@@ -18,6 +19,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _allowLambdaExpressions;
     private readonly bool _stopOnLeadingNewlineBinaryOperator;
     private readonly bool _stopAtDotDotToken;
+    private readonly bool _stopAtPatternCombinators;
     private readonly bool _stopAtLeadingMatchArmOperator;
     private readonly bool _parseAbruptTransfersInBlocksAsExpressions;
     private bool _stopBeforePropagation;
@@ -33,10 +35,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         bool stopAtDotDotToken = false,
         bool stopAtLeadingMatchArmOperator = false,
         bool? parseAbruptTransfersInBlocksAsExpressions = null,
-        bool stopBeforePropagation = false)
+        bool stopBeforePropagation = false,
+        bool stopAtPatternCombinators = false)
         : base(parent)
     {
         _stopBeforePropagation = stopBeforePropagation;
+        _stopAtPatternCombinators = stopAtPatternCombinators;
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
         _stopOnOpenBrace = stopOnOpenBrace;
         _allowLambdaExpressions = allowLambdaExpressions;
@@ -73,9 +77,26 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                !IsNextToken(SyntaxKind.EndOfFileToken, out _))
         {
             var statementStart = Position;
+            var conditionalCheckpoint = PeekToken().Kind == SyntaxKind.IfKeyword
+                ? CreateCheckpoint("block-tail-conditional")
+                : (ParserCheckpoint?)null;
             var stmt = new StatementSyntaxParser(
                 this,
                 parseAbruptTransfersAsExpressions: _parseAbruptTransfersInBlocksAsExpressions).ParseStatement();
+            if (conditionalCheckpoint is { } checkpoint &&
+                PeekToken().Kind == SyntaxKind.CloseBraceToken &&
+                (stmt is IfStatementSyntax { ElseClause: not null, TerminatorToken.Kind: SyntaxKind.None } ||
+                 stmt is IfPatternStatementSyntax { ElseClause: not null, TerminatorToken.Kind: SyntaxKind.None }))
+            {
+                // The final conditional belongs to this block's value context.
+                // Reparse its branches as expressions, restoring speculative diagnostics.
+                // Abrupt transfers must become expressions too, even when the
+                // enclosing block originated in a statement-form match arm.
+                checkpoint.Rewind();
+                var value = new ExpressionSyntaxParser(this,
+                    parseAbruptTransfersInBlocksAsExpressions: true).ParseExpression();
+                stmt = ExpressionStatement(value, Token(SyntaxKind.None));
+            }
             if (stmt is not null)
                 statements.Add(stmt);
 
@@ -397,6 +418,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
                 return expr ?? new ExpressionSyntax.Missing();
+
+            if (_stopAtPatternCombinators &&
+                operatorCandidate.Kind is SyntaxKind.AndToken or SyntaxKind.OrToken or SyntaxKind.BarToken)
+            {
+                return expr ?? new ExpressionSyntax.Missing();
+            }
 
             if (HasLeadingBlankLine(operatorCandidate))
                 return expr ?? new ExpressionSyntax.Missing();
@@ -1187,7 +1214,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             var next = PeekToken();
 
-            return !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next);
+            return !(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
+                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next);
         }
         finally
         {
@@ -1352,7 +1380,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (returnType is not null && returnAttributeLists.SlotCount > 0)
         {
             var mergedReturnAttributes = ConcatSyntaxLists(returnAttributeLists, returnType.AttributeLists);
-            returnType = returnType.Update(mergedReturnAttributes, returnType.ArrowToken, returnType.Type);
+            returnType = returnType.Update(returnType.ArrowToken, mergedReturnAttributes, returnType.Type);
         }
 
         if ((returnType is null && !IsNextToken(SyntaxKind.FatArrowToken)) ||
@@ -2350,7 +2378,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     /// <returns>An expression.</returns>
     private ExpressionSyntax ParsePrimaryExpression()
     {
-        ExpressionSyntax expr = null;
+        ExpressionSyntax? expr = null;
 
         SyntaxToken token;
 
@@ -2571,7 +2599,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var closeParen = ReadToken();
             var next = PeekToken();
-            if (CanFollowIntersectionCast(typeName, next) &&
+            if (!(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
+                CanFollowIntersectionCast(typeName, next) &&
                 !next.IsKind(SyntaxKind.DotToken) &&
                 !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&
@@ -2600,7 +2629,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressions.Add(argument);
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseParenToken);
 
         if (sawComma)
         {
@@ -2619,7 +2648,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrNone(SyntaxKind.ExclamationToken, out var exclamationToken);
         var openBracketToken = ReadToken();
         var elementList = ParseCollectionElements(SyntaxKind.CloseBracketToken);
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseBracketToken);
 
         return CollectionExpression(exclamationToken, openBracketToken, List(elementList), closeBracketToken);
     }
@@ -2628,7 +2657,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         var openArrayToken = ReadToken();
         var elementList = ParseCollectionElements(SyntaxKind.CloseArrayToken);
-        ConsumeTokenOrMissing(SyntaxKind.CloseArrayToken, out var closeArrayToken);
+        var closeArrayToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseArrayToken);
 
         return ArrayExpression(openArrayToken, List(elementList), closeArrayToken);
     }
@@ -3386,11 +3415,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     }
 
 
-    private static ExpressionSyntax ParseExpressionFromText(string text)
-    {
-        var parser = new LanguageParser(null, new Raven.CodeAnalysis.ParseOptions());
-        return (ExpressionSyntax)parser.ParseSyntax(typeof(Raven.CodeAnalysis.Syntax.ExpressionSyntax), SourceText.From(text), 0)!;
-    }
 
     private ArgumentListSyntax CreateMissingArgumentList()
     {
@@ -3736,4 +3760,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         return false;
     }
+    private SyntaxToken ConsumeRequiredExpressionToken(SyntaxKind kind)
+    {
+        if (!ConsumeTokenOrMissing(kind, out var token))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetSpanOfPeekedToken(),
+                Token(kind).Text));
+        }
+
+        return token;
+    }
+
 }

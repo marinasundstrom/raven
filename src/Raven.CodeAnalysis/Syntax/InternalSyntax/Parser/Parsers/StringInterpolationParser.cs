@@ -2,8 +2,6 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Text;
 
 using Raven.CodeAnalysis.Text;
 
@@ -11,9 +9,9 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 
-internal partial class ExpressionSyntaxParser : SyntaxParser
+internal static class StringInterpolationParser
 {
-    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(SyntaxToken token)
+    internal static InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(SyntaxToken token)
     {
         var contents = new List<InterpolatedStringContentSyntax>();
         var raw = token.Text;
@@ -116,7 +114,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
     }
 
-    private static bool ContainsInterpolation(string text)
+    internal static bool ContainsInterpolation(string text)
     {
         for (int i = 0; i < text.Length - 1; i++)
         {
@@ -193,13 +191,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return (backslashCount & 1) == 1;
     }
 
-    private static bool IsUnterminatedSingleLineStringToken(SyntaxToken token)
+    internal static bool IsUnterminatedSingleLineStringToken(SyntaxToken token)
     {
         return token.Kind == SyntaxKind.StringLiteralToken &&
                (token.Text.Length < 2 || token.Text[^1] != '"');
     }
 
-    private static bool IsUnterminatedSingleLineStringExpression(ExpressionSyntax expression)
+    internal static bool IsUnterminatedSingleLineStringExpression(ExpressionSyntax expression)
     {
         return expression switch
         {
@@ -211,7 +209,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         };
     }
 
-    private static string GetSingleLineStringInnerText(string raw, bool isUnterminated)
+    internal static string GetSingleLineStringInnerText(string raw, bool isUnterminated)
     {
         if (raw.Length <= 1)
             return string.Empty;
@@ -414,7 +412,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
     }
 
-    private InterpolatedStringExpressionSyntax ParseInterpolatedMultiLineStringExpression(SyntaxToken token, string inner)
+    internal static InterpolatedStringExpressionSyntax ParseInterpolatedMultiLineStringExpression(SyntaxToken token, string inner)
     {
         var contents = new List<InterpolatedStringContentSyntax>();
 
@@ -510,5 +508,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 interned,
                 segmentRaw.Length)));
         }
+    }
+
+    private static ExpressionSyntax ParseExpressionFromText(string text)
+    {
+        var parser = new LanguageParser(null, new Raven.CodeAnalysis.ParseOptions());
+        return (ExpressionSyntax)parser.ParseSyntax(typeof(Raven.CodeAnalysis.Syntax.ExpressionSyntax), SourceText.From(text), 0)!;
     }
 }

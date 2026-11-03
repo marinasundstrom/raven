@@ -1,0 +1,29 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+
+// Token primitives from SyntaxFactory.cs. Parsing entry points are in SyntaxFactory.Parsing.rvn.
+public static partial class SyntaxFactory {
+    static func MissingToken(kind: SyntaxKind) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.MissingToken(kind)
+
+    static func Token(kind: SyntaxKind) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.Token(kind)
+
+    static func Token(rawKind: int, text: string, position: int = 0, value: object? = null) -> SyntaxToken {
+        ArgumentNullException.ThrowIfNull(text)
+        ArgumentOutOfRangeException.ThrowIfNegative(position)
+        let green = InternalSyntax.SyntaxToken(rawKind, SyntaxKind.None, text, value, text.Length)
+        return SyntaxToken(green, parent: null, position)
+    }
+
+    static func Identifier(text: string) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.IdentifierToken(text)
+
+    static func Literal(value: int) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(value)
+
+    static func Literal(text: string) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(text)
+
+    static func Literal(text: string, value: int) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(text, value)
+
+    static func Literal(text: string, value: string) -> SyntaxToken => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(text, value)
+
+    static val EndOfFileToken: SyntaxToken => Token(SyntaxKind.EndOfFileToken)
+}

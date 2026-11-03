@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax {
+    public class Missing : ExpressionSyntax {
+        internal init(kind: SyntaxKind = SyntaxKind.None)
+            : base(InternalSyntax.ExpressionSyntax.Missing(kind), null, 0) { }
+
+        internal init(greenNode: InternalSyntax.ExpressionSyntax.Missing, parent: SyntaxNode? = null, position: int = 0)
+            : base(greenNode, parent, position) { }
+
+        override func Accept(visitor: SyntaxVisitor) => visitor.DefaultVisit(self)
+
+        override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+    }
+}

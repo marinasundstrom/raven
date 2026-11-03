@@ -14,6 +14,8 @@ const registry = new Registry({
 });
 const grammar = await registry.loadGrammar('source.raven');
 for (const [source, name, scope] of [
+  ['value is not (1 or 2)', 'not', 'keyword.control.pattern.raven'],
+  ['value is not (1 or 2)', 'or', 'keyword.operator.word.raven'],
   ['#[`if ] else`]', '`if ] else`', 'variable.other.identifier.raven'],
   ['[Test(`if ] else`)]', '`if ] else`', 'variable.other.identifier.raven'],
   ['let @if = 1', '@if', 'variable.other.identifier.raven'],

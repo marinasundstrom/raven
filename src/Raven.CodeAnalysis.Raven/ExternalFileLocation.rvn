@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Text.*
+
+internal open class ExternalFileLocation : Location {
+    private readonly field _filePath: string
+
+    private readonly field _lineSpan: LinePositionSpan
+
+    internal init(filePath: string, textSpan: TextSpan, lineSpan: LinePositionSpan) {
+        Kind = LocationKind.ExternalFile
+        _filePath = filePath
+        SourceSpan = textSpan
+        _lineSpan = lineSpan
+    }
+
+    override func GetLineSpan() -> FileLinePositionSpan
+        => FileLinePositionSpan(_filePath, _lineSpan.Start, _lineSpan.End)
+}

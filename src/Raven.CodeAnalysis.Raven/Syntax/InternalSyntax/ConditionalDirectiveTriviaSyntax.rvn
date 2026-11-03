@@ -1,0 +1,47 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.Collections.Generic.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+alias ConditionalDirectiveKind = Raven.CodeAnalysis.Syntax.ConditionalDirectiveKind
+alias RedNode = Raven.CodeAnalysis.Syntax.SyntaxNode
+alias RedDirective = Raven.CodeAnalysis.Syntax.ConditionalDirectiveTriviaSyntax
+
+internal class ConditionalDirectiveTriviaSyntax : SyntaxNode {
+    init(kind: SyntaxKind, directiveToken: SyntaxToken, directiveKind: ConditionalDirectiveKind, conditionText: string, isBranchActive: bool, branchTaken: bool, keywordOffset: int, keywordLength: int, conditionOffset: int, conditionLength: int, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(kind, [directiveToken], diagnostics, annotations) {
+        DirectiveKind = directiveKind
+        ConditionText = conditionText
+        IsBranchActive = isBranchActive
+        BranchTaken = branchTaken
+        KeywordOffset = keywordOffset
+        KeywordLength = keywordLength
+        ConditionOffset = conditionOffset
+        ConditionLength = conditionLength
+    }
+
+    val DirectiveKind: ConditionalDirectiveKind { get; }
+
+    val ConditionText: string { get; }
+
+    val IsBranchActive: bool { get; }
+
+    val BranchTaken: bool { get; }
+
+    val KeywordOffset: int { get; }
+
+    val KeywordLength: int { get; }
+
+    val ConditionOffset: int { get; }
+
+    val ConditionLength: int { get; }
+
+    override func CreateRed(parent: RedNode?, position: int) -> RedNode => RedDirective(self, parent, position)
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.DefaultVisit(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode => ConditionalDirectiveTriviaSyntax(Kind, (SyntaxToken)children[0]!, DirectiveKind, ConditionText, IsBranchActive, BranchTaken, KeywordOffset, KeywordLength, ConditionOffset, ConditionLength, diagnostics ?? _diagnostics, annotations ?? _annotations)
+}

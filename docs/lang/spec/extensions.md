@@ -284,3 +284,6 @@ attribute required by C# consumers, including when the method is in another
 partial declaration. An explicitly supplied container attribute is preserved
 without adding a duplicate. Ordinary methods in the same container remain
 ordinary static methods.
+These explicitly attributed methods retain ordinary lexical access to their
+containing static class, including its private helpers. The attribute does not
+grant access to private members of the receiver type.

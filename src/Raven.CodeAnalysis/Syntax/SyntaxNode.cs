@@ -268,12 +268,12 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     public IEnumerable<Diagnostic> GetDiagnostics(bool traverse = true)
     {
-        if (!traverse)
-        {
-            return Enumerable.Empty<Diagnostic>();
-        }
+        var tree = SyntaxTree;
+        if (traverse && tree is not null)
+            return tree.GetDiagnostics(FullSpan);
 
-        return SyntaxTree?.GetDiagnostics(FullSpan) ?? Enumerable.Empty<Diagnostic>();
+        var diagnostics = traverse ? Green.GetDiagnosticsRecursive() : Green.GetDiagnostics();
+        return diagnostics.Select(d => d.ToDiagnostic(tree));
     }
 
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)

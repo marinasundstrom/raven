@@ -18592,3 +18592,211 @@ accidental storage rather than introducing a bridge encoding or a target-specifi
 restriction. A neoCLR host-reference symbol test verifies the contract; modern
 .NET metadata tests verify field absence and abstract accessors. Native metadata
 and guest execution are not qualified by those checks.
+
+## Nullable source-struct coalescing in CLI emission — 2026-11-02
+
+The CLI emitter maps Nullable<T> accessors from their generic definition when T
+contains a source type builder. This repairs a Reflection.Emit lookup failure;
+the representation and shared coalescing semantics are unchanged. Execution
+coverage is modern .NET only. The native format-5 emitter's documented primitive
+subset does not provide a corresponding nullable source-struct implementation to
+patch or qualify. Native value/optional metadata and codegen remain a later
+capability, not a different rule for evaluation or fallback selection.
+
+### Imported nullable operator parameters
+
+The shared CLI emitter normalizes imported `System.Nullable<T>` parameters using
+conversion classification's nullable shape, then applies the target's nullable ABI
+projection. Closed metadata nullable construction keeps definition and argument
+in the target metadata context. This fixes .NET operator invocation discovered
+while porting syntax reflection helpers. The same shared emitter is used by the
+neoCLR CLI bridge; this is not evidence of native neoCLR nullable execution.
+Native nullable metadata and codegen remain the replacement for this CLI encoding.
+
+The shared CLI emitter also preserves annotated-underlying generic parameter
+slots during argument handling and maps nullable constructors when conditional
+access lifts source enums. Both follow the target's nullable projection contract;
+these corrections were validated on modern .NET (113 focused/adjacent tests),
+not a native neoCLR guest. Native generic/nullable representation remains owned
+by the native backend rather than these temporary CLI member mappings.
+
+Writable `ref` arguments can satisfy read-only `in` parameters in the shared
+overload resolver, preserving storage identity and the callee's read-only
+contract. This also repairs imported numeric Volatile.Read selection in the CLI
+host. The 54-test by-reference validation ran on .NET; native neoCLR execution of
+these APIs is not established by this correction.
+
+### Collection-parameter CLI metadata during compiler porting
+
+Non-array collectors use ParamCollectionAttribute in the shared CLI emitter when
+the selected references supply it. The attribute records expanded-call intent;
+the physical parameter remains the declared collection. This does not add native
+neoCLR collection support or change its vector-only parameter-array capability.
+Native expansion/import still needs target-owned collection capability and
+metadata support. C# consumer compile/runtime tests exercise methods, constructors
+and delegates on .NET 11; no native neoCLR execution is claimed.
+
+The PE importer recognizes ParamCollectionAttribute alongside ParamArrayAttribute
+in both lightweight method facts and materialized parameters. This applies to
+CLI reference import; it does not change native neoCLR metadata import or admit
+new native collector shapes. Import execution coverage uses C#-produced
+IEnumerable<int>/IList<int> methods and constructors on .NET 11.
+
+### Generic closure field references during compiler porting
+
+Shared captured-variable semantics require the outer method and callback to
+access the same storage. The CLI backend now maps outer-method field references
+to the constructed closure type, retaining the enclosing method's generic
+arguments. This corrects CLI metadata encoding, not source capture semantics.
+Native neoCLR emission must retain the corresponding instantiated owner in its
+own field references; this Reflection.Emit correction does not validate or
+change native code generation. Validation executes generic capture regressions
+and the Raven-ported SyntaxNormalizer on modern .NET.
+
+### Property-pattern receiver storage during compiler porting
+
+The CLI emitter now loads its existing reference input local when a property
+pattern needs a receiver cast without boxing or narrowing. An optional object
+local must not be assumed to exist. This preserves shared null-test and member
+matching semantics; it changes neither native pattern rules nor native metadata.
+Validation executes nullable List<SourceType> Count patterns on .NET 11. The
+native emitter remains responsible for its own receiver storage and was not
+executed in this validation.
+
+
+### Iterator receiver preservation during compiler porting
+
+Instance iteration keeps the original object's identity and fields across
+suspension. Shared `IteratorLowerer` routes original instance access through the
+CLI state machine's captured receiver; state-machine storage keeps its own
+receiver. This corrects accidental reads/writes against the CLI enumerator
+object. No native semantic restriction is introduced. A native iterator backend
+must preserve the original receiver in its own suspension representation.
+Validation: 33 .NET iterator/adjacent tests and 11 Raven component parity checks;
+no native neoCLR execution was performed for this correction.
+
+
+### Enum relational comparisons discovered during compiler porting
+
+Native semantic intent is the shared same-enum comparison contract: `<`, `<=`,
+`>` and `>=` compare underlying numeric values. Shared binding now admits these
+operators. Portable `LinearMethodBody` lowering uses the existing enum-to-Int32
+conversion and comparison operations, including inversion for inclusive forms.
+The CLI emitter selects signedness from the enum underlying type rather than the
+enum symbol's own special-type classification.
+
+The portable enum capability still admits only Int32-backed enums; this change
+must not make that experimental restriction a permanent neoCLR language rule.
+Native enum metadata and code generation for the remaining underlying widths
+must replace that restriction before portable support can be widened. The change
+requires no new bridge instruction. Validation records below distinguish portable
+contract admission from native runtime execution.
+
+
+Validation for the enum comparison change: four .NET runtime cases cover Int32,
+UInt32, Int64 and UInt64 signedness, including unsigned values above the signed
+range; four portable contract cases admit `<`, `>`, `<=` and `>=` for Int32-backed
+enums. These are contract/lowering checks, not execution on a native neoCLR VM.
+The self-only sibling local-function fix is owned by CLI closure-frame emission;
+no new native metadata encoding is introduced by that correction.
+
+
+### Generic selector closure ownership and enum constants during porting
+
+The CLI lambda emitter now retains enclosing generic-method context even when a
+lambda captures no value. Its generated frame owns the necessary type slots;
+method aliases follow any enclosing-type slots. This repairs invalid CLI lambda
+signatures without introducing a new native closure encoding. Native generic
+function/capture support remains capability-gated; .NET closure tests do not
+establish native execution parity.
+
+Enum initializer constant evaluation and implicit-increment overflow diagnostics
+are shared semantic behavior before target selection. Accessible metadata constants
+are evaluated through the existing binder constant evaluator. Native enum width
+restrictions remain temporary backend capabilities, not shared semantic rules.
+
+
+### Pattern operand boundaries and conditional out assignments
+
+Pattern-combinator boundaries and assignments made by `out` calls in `if`
+conditions are shared parser/binder contracts. The Raven parser port exposed
+both defects; corrections apply before target-specific lowering. No new CLI
+bridge encoding or native capability is introduced. Modern .NET tests verify
+these compiler contracts; they do not establish native neoCLR execution.
+
+
+Local function declarations are also excluded from enclosing control-flow
+reachability results and unreachable-code diagnostics. Their bodies retain
+independent analysis. This shared semantic-model correction introduces no CLI
+bridge encoding and applies before either target's lowering. Validation uses
+modern .NET compiler/API tests and the Raven parser component, not native neoCLR
+execution.
+
+
+### Explicit indexer implementation links
+
+Explicit `Interface.self[...]` parsing and property/accessor implementation links
+belong to the shared parser and binder. CLI emission consumes those links through
+its existing interface method mappings, including expression-bodied getters;
+this correction introduces no new bridge representation. A native backend must
+preserve equivalent interface-slot dispatch when it admits indexers. Modern .NET
+symbol and runtime tests cover the correction; no native VM execution is claimed.
+
+### Interpolation port stabilization
+
+Parenthesized statement-header boundaries and declaration-scoped local-function
+identity are shared parser/symbol contracts, before target-specific lowering.
+The interpolation port exposed both defects. Neither fix introduces a CLI
+bridge representation. In particular, native implementations must preserve
+distinct local-function bodies even when signatures match. Validation here
+uses modern .NET compiler tests and Raven components; it does not claim native
+neoCLR execution.
+
+Missing expression-delimiter diagnostics and definite assignment from `while`
+conditions are also shared parser/binder behavior. They introduce no target
+encoding changes. The Raven expression-parser port consumes the corrected
+bootstrap binder until binding is ported; native execution is not claimed by
+the modern .NET regression checks.
+
+Readonly output initialization and inferred output-declaration types are shared
+binder/overload contracts. They preserve the existing address/storage encoding;
+the binding-only unknown-type marker is resolved before either target's lowering.
+Runtime regressions execute source and framework calls on modern .NET. These
+checks do not establish native neoCLR execution.
+
+Static-local sibling lookup is shared binder behavior: explicitly static local
+functions remain visible across a static function's enclosing-scope boundary;
+captured locals and nonstatic local functions remain excluded. This uses the
+existing static-call encoding and introduces no new CLI bridge representation.
+The bootstrap port exposed the defect; validation executes on modern .NET,
+not the native neoCLR runtime.
+
+### Syntax quoter stabilization
+
+Nested-type static lookup, local-function parameter scope, inference through
+constructed lambda return types, and tuple capture traversal are shared compiler
+contracts. Both targets use the corrected binder and capture walker. Neither
+requires a target-specific language rule or new bridge encoding.
+
+The CLI emitter now uses protected-region exits for loop control leaving a try
+or catch, so finally blocks execute. Generic delegates with array arguments
+containing source type parameters retain their constructed signatures through a
+reflection projection adapter. This compensates for the preview persisted
+Reflection.Emit member-definition lookup, not a Raven or native neoCLR restriction.
+The adapter belongs to CLI code generation; a native backend uses native member
+references and its own exception-region control flow instead. Validation executes
+modern .NET only; native neoCLR, .NET Framework and NanoFramework were not run.
+
+
+Recursive generic argument inference is also shared overload-resolution behavior.
+Ordinary argument types may supply the enclosing type parameter itself; contextual
+callback placeholders cannot. This does not change either target's generic
+encoding. Focused diagnostics and runtime checks run on modern .NET only.
+
+
+Iterator pattern bindings also retain their values across suspension. This shared
+semantic requirement is implemented in the CLI emitter by resolving iterator-owned
+hoisted fields when storing pattern designators, alongside its existing async-field
+handling. The temporary CLI state-machine encoding adds no native language rule;
+native code generation must provide the equivalent suspended-local storage.
+Validation here executes modern .NET, not native neoCLR.

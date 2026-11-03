@@ -1,0 +1,109 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+import System.Text.*
+import Raven.CodeAnalysis.Text.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>, IReadOnlyList<TNode> where TNode: SyntaxNode {
+    static readonly field Empty: SyntaxList<TNode> = SyntaxList<TNode>(InternalSyntax.SyntaxList([]), null, 0)
+
+    internal readonly field Green: InternalSyntax.SyntaxList?
+
+    private readonly field _parent: SyntaxNode?
+
+    private readonly field _position: int
+
+    private readonly field _span: TextSpan
+
+    private readonly field _fullSpan: TextSpan
+
+    init() {
+        Green = InternalSyntax.SyntaxList([], null)
+        _parent = null
+        _position = 0
+    }
+
+    internal init(greenList: InternalSyntax.SyntaxList, parent: SyntaxNode?, position: int = 0) {
+        Green = greenList ?? throw ArgumentNullException(nameof(greenList))
+        _parent = parent
+        _position = position
+        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan)
+    }
+
+    private val GreenList: InternalSyntax.SyntaxList => Green ?? InternalSyntax.SyntaxList.Empty
+
+    func Add(node: TNode) -> SyntaxList<TNode> => SyntaxList<TNode>(GreenList.Add(node.Green), null)
+
+    func Insert(index: int, node: TNode) -> SyntaxList<TNode> => SyntaxList<TNode>(GreenList.Insert(index, node.Green), null)
+
+    func Remove(node: TNode) -> SyntaxList<TNode> => SyntaxList<TNode>(GreenList.Remove(node.Green), null)
+
+    func RemoveAt(index: int) -> SyntaxList<TNode> => SyntaxList<TNode>(GreenList.RemoveAt(index), null)
+
+    func IndexOf(predicate: Func<TNode, bool>) -> int {
+        var i = 0
+        while i < Count { if predicate(self[i]) { return i }; i++ }
+        return -1
+    }
+
+    func IndexOf(node: TNode) -> int {
+        var i = 0
+        while i < Count { if self[i].Equals(node) { return i }; i++ }
+        return -1
+    }
+
+    val Count: int => GreenList.SlotCount
+
+    val Span: TextSpan => _span
+
+    val FullSpan: TextSpan => _fullSpan
+
+    val self[index: int]: TNode {
+        get {
+            let list = GreenList
+            return (TNode)((InternalSyntax.SyntaxNode)list[index]!).CreateRed(_parent, _position + list.GetChildStartPosition(index))
+        }
+    }
+
+    func GetEnumerator() -> IEnumerator<TNode> {
+        var i = 0
+        while i < Count { yield self[i]; i++ }
+    }
+
+    func IEnumerable.GetEnumerator() -> IEnumerator => GetEnumerator()
+
+    static func ==(left: SyntaxList<TNode>, right: SyntaxList<TNode>?) -> bool => Equals(left, right)
+
+    static func !=(left: SyntaxList<TNode>, right: SyntaxList<TNode>?) -> bool => !Equals(left, right)
+
+    static func ==(left: SyntaxList<TNode>?, right: SyntaxList<TNode>?) -> bool => Equals(left, right)
+
+    static func !=(left: SyntaxList<TNode>?, right: SyntaxList<TNode>?) -> bool => !Equals(left, right)
+
+    func Equals(other: SyntaxList<TNode>) -> bool => Green == other.Green && _parent == other._parent
+
+    override func Equals(obj: object?) -> bool => obj is SyntaxList<TNode> other && Equals(other)
+
+    override func GetHashCode() -> int => HashCode.Combine(Green, _parent)
+
+    func GetDebuggerDisplay() -> string => ToFullString()
+
+    func ToFullString() -> string {
+        let builder = StringBuilder()
+        for node in self { builder.Append(node.ToFullString()) }
+        return builder.ToString()
+    }
+}
+
+public static partial class SyntaxFactory {
+    static func List<TNode>() -> SyntaxList<TNode> where TNode: SyntaxNode => SyntaxList<TNode>(InternalSyntax.SyntaxList([]), null, 0)
+
+    static func SingletonList<TNode>(node: TNode) -> SyntaxList<TNode> where TNode: SyntaxNode => SyntaxList<TNode>(InternalSyntax.SyntaxList([node.Green]), null, 0)
+
+    static func List<TNode>(params nodes: IEnumerable<TNode>) -> SyntaxList<TNode> where TNode: SyntaxNode => SyntaxList<TNode>(InternalSyntax.SyntaxList(nodes.Select(x => x.Green).ToArray()), null)
+}

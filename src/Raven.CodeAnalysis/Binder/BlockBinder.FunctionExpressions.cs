@@ -394,9 +394,20 @@ partial class BlockBinder
         // An unfixed method result parameter supplies no return-type context yet.
         // Keep lexical type parameters authoritative (for example a callback returning
         // the enclosing method's T), while letting inference learn TResult from the body.
+        bool ContainsUnfixedReturnParameter(ITypeSymbol type) => type switch
+        {
+            ITypeParameterSymbol parameter =>
+                !SymbolEqualityComparer.Default.Equals(lambdaBinder.LookupType(parameter.Name), parameter),
+            INamedTypeSymbol named => named.TypeArguments.Any(ContainsUnfixedReturnParameter),
+            IArrayTypeSymbol array => ContainsUnfixedReturnParameter(array.ElementType),
+            RefTypeSymbol byRef => ContainsUnfixedReturnParameter(byRef.ElementType),
+            NullableTypeSymbol nullable => ContainsUnfixedReturnParameter(nullable.UnderlyingType),
+            _ => false
+        };
+
         var inferUnfixedReturn = !isAsyncLambda && returnTypeSyntax is null &&
-            targetSignature?.ReturnType is ITypeParameterSymbol resultParameter &&
-            !SymbolEqualityComparer.Default.Equals(lambdaBinder.LookupType(resultParameter.Name), resultParameter);
+            targetSignature?.ReturnType is { } candidateReturnType &&
+            ContainsUnfixedReturnParameter(candidateReturnType);
         var inferBodyReturn = inferOverloadedValueReturn || inferUnfixedReturn;
 
         initialReturnType = inferBodyReturn

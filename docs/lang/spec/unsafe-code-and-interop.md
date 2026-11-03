@@ -221,6 +221,12 @@ parameter that must be assigned by the callee before returning, place
 aliases; `in` parameters are read-only. At call sites, pass the argument with
 the address operator `&`. The argument must refer to assignable storage.
 
+A `ref` argument may also be passed to a read-only `in` parameter: writable
+storage can be borrowed without granting the callee mutation rights. This applies
+to imported .NET methods as well, including numeric `Volatile.Read` overloads.
+The converse does not make read-only storage writable; `ref` and `out` parameters
+still require the matching writable argument contract.
+
 By-reference locals and fields never use the `out` modifier—`out` is
 only meaningful at the call boundary to signal definite assignment
 responsibilities between caller and callee. Declaring a local with

@@ -39,7 +39,7 @@ public class PrinterOptions
     public bool Colorize { get; set; } = true;
 
     /// <summary>
-    /// Maximum recursion depth to print. Nodes deeper than this are not printed.
+    /// Maximum recursion depth to print, counting the root as depth zero. Nodes deeper than this are not printed.
     /// </summary>
     public int MaxDepth { get; set; } = int.MaxValue;
 
@@ -78,13 +78,13 @@ public static class PrettySyntaxTreePrinter
 
     public static void PrintSyntaxTree(this SyntaxNode node, PrinterOptions printerOptions, TextWriter writer)
     {
-        PrintSyntaxTreeCore(node, writer, string.Empty, true, true, printerOptions, printerOptions.MaxDepth);
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, true, printerOptions, 0);
     }
 
     public static string GetSyntaxTreeRepresentation(this SyntaxNode node, PrinterOptions printerOptions)
     {
         using var writer = new StringWriter();
-        PrintSyntaxTreeCore(node, writer, string.Empty, true, false, printerOptions, printerOptions.MaxDepth);
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, false, printerOptions, 0);
         return writer.ToString();
     }
 
@@ -135,6 +135,9 @@ public static class PrettySyntaxTreePrinter
         var annotationsStr = (printerOptions.IncludeAnnotations && !printerOptions.AnnotationsAsChildren) ? AnnotationsToString(node) : string.Empty;
 
         writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
+
+        if (currentDepth >= printerOptions.MaxDepth)
+            return;
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -345,7 +348,7 @@ public static class PrettySyntaxTreePrinter
         var diagnosticsStr = (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) ? DiagnosticsToString(token.GetDiagnostics(), printerOptions.Colorize) : string.Empty;
         var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(token) : string.Empty;
 
-        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
         if (printerOptions.IncludeTrivia)
         {
@@ -380,7 +383,7 @@ public static class PrettySyntaxTreePrinter
         public static PrintableChild ForList(string propertyName, IReadOnlyList<ChildSyntaxListItem> items) => new(propertyName, items);
     }
 
-    private static string GetTokenText(ref SyntaxToken token)
+    private static string GetTokenText(SyntaxToken token)
     {
         return token.Text
             .Replace("\r", "\\r")
@@ -412,6 +415,9 @@ public static class PrettySyntaxTreePrinter
 
     private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, TextWriter writer, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
     {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
+
         var newIndent = isFirst ? string.Empty : indent + (isLast ? (isLeading ? MarkerStraight : IndentationStr) : MarkerStraight);
 
         var listCount = triviaList.Count;
@@ -447,13 +453,16 @@ public static class PrettySyntaxTreePrinter
             {
                 var newIndent2 = newIndent + MarkerStraight;
 
-                PrintStructuredTrivia(writer, printerOptions, trivia, isFirstChild, isChildLast, newIndent2);
+                PrintStructuredTrivia(writer, printerOptions, trivia, isFirstChild, isChildLast, newIndent2, currentDepth + 1);
             }
         }
     }
 
-    private static void PrintStructuredTrivia(TextWriter writer, PrinterOptions printerOptions, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2)
+    private static void PrintStructuredTrivia(TextWriter writer, PrinterOptions printerOptions, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2, int currentDepth)
     {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
+
         string name = string.Empty;
         if (printerOptions.IncludeNames)
         {
@@ -464,6 +473,9 @@ public static class PrettySyntaxTreePrinter
         var diagnosticsStr = printerOptions.IncludeDiagnostics ? DiagnosticsToString(structure.GetDiagnostics(), printerOptions.Colorize) : string.Empty;
         var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(structure) : string.Empty;
         writer.WriteLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
+
+        if (currentDepth >= printerOptions.MaxDepth)
+            return;
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -544,7 +556,7 @@ public static class PrettySyntaxTreePrinter
         return Array.Empty<Diagnostic>();
     }
 
-    private static string DiagnosticsToString(IEnumerable<Diagnostic> diagnostics, bool colorize)
+    private static string DiagnosticsToString(IEnumerable<Diagnostic>? diagnostics, bool colorize)
     {
         var list = diagnostics?.ToList();
         if (list is null || list.Count == 0)
@@ -598,7 +610,7 @@ public static class PrettySyntaxTreePrinter
                 if (result is System.Collections.IEnumerable enumerable)
                 {
                     var kinds = enumerable
-                        .Cast<object>()
+                        .Cast<object?>()
                         .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
                         .Where(k => !string.IsNullOrWhiteSpace(k))
                         .Distinct()
@@ -615,7 +627,7 @@ public static class PrettySyntaxTreePrinter
             if (f?.GetValue(syntax) is Array arr && arr.Length > 0)
             {
                 var kinds = arr
-                    .Cast<object>()
+                    .Cast<object?>()
                     .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
                     .Where(k => !string.IsNullOrWhiteSpace(k))
                     .Distinct()
@@ -633,7 +645,7 @@ public static class PrettySyntaxTreePrinter
         return string.Empty;
     }
 
-    private static string[] DiagnosticsAsChildLines(IEnumerable<Diagnostic> diagnostics)
+    private static string[] DiagnosticsAsChildLines(IEnumerable<Diagnostic>? diagnostics)
     {
         var list = diagnostics?.ToList();
         if (list is null || list.Count == 0)

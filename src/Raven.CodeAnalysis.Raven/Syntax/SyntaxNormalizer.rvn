@@ -1,0 +1,722 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+
+public partial class SyntaxNormalizer : SyntaxRewriter {
+    private readonly field _indent: string
+
+    private field _indentLevel: int
+
+    private field _pendingLineBreaks: int
+
+    private field _isFirstToken: bool = true
+
+    private field _previousToken: SyntaxToken
+
+    private field _rewriteElasticLine: bool
+
+    private field _useFormatterAnnotation: bool
+
+    private field _hasFormatterAnnotation: bool
+
+    init(indentSize: int = 4) {
+        _indent = string(' ', indentSize)
+    }
+
+    func Visit<TSyntax>(syntax: TSyntax) -> TSyntax where TSyntax: SyntaxNode {
+        return Format(syntax, useFormatterAnnotation: false)
+    }
+
+    func Format<TSyntax>(syntax: TSyntax, useFormatterAnnotation: bool) -> TSyntax where TSyntax: SyntaxNode {
+        ResetState()
+        _useFormatterAnnotation = useFormatterAnnotation
+        _hasFormatterAnnotation = useFormatterAnnotation && HasFormatterAnnotation(syntax)
+
+        var tokens = syntax.DescendantTokens().ToArray()
+        if (tokens.Length == 0) {
+            return syntax
+        }
+
+        var replacements = Dictionary<SyntaxToken, SyntaxToken>(tokens.Length)
+        for token in tokens {
+            replacements[token] = NormalizeToken(token)
+        }
+
+        return (TSyntax)syntax.ReplaceTokens(tokens, (original, _) =>
+            if replacements.TryGetValue(original, out var replacement) { replacement } else { original })
+    }
+
+    override func VisitToken(token: SyntaxToken) -> SyntaxToken {
+        return NormalizeToken(token)
+    }
+
+    private func ResetState() -> unit {
+        _indentLevel = 0
+        _pendingLineBreaks = 0
+        _isFirstToken = true
+        _previousToken = default
+        _rewriteElasticLine = false
+    }
+
+    private func NormalizeToken(inputToken: SyntaxToken) -> SyntaxToken {
+        var token = inputToken
+        if (token.Kind == SyntaxKind.None || (token.IsMissing && token.FullWidth == 0)) {
+            return token
+        }
+
+        if (!ShouldRewriteToken(token)) {
+            TrackTokenFlow(token, token)
+            return token
+        }
+
+        if (HasMeaningfulTrivia(token.LeadingTrivia) || HasMeaningfulTrivia(token.TrailingTrivia)) {
+            TrackTokenFlow(token, token)
+            return token
+        }
+
+        var originalToken = token
+        var effectiveIndent = _indentLevel
+        if (token.Kind == SyntaxKind.CloseBraceToken && effectiveIndent > 0) {
+            effectiveIndent--
+        }
+
+        var leading = CreateLeadingTrivia(token, effectiveIndent)
+        var trailing = SyntaxFactory.TriviaList()
+
+        token = token.WithLeadingTrivia(leading).WithTrailingTrivia(trailing)
+
+        TrackTokenFlow(originalToken, token)
+
+        return token
+    }
+
+    private func TrackTokenFlow(originalToken: SyntaxToken, rewrittenToken: SyntaxToken) -> unit {
+        if (rewrittenToken.Kind == SyntaxKind.CloseBraceToken && _indentLevel > 0) {
+            _indentLevel--
+        }
+
+        if (rewrittenToken.Kind == SyntaxKind.OpenBraceToken) {
+            _indentLevel++
+        }
+
+        _pendingLineBreaks = if CountLineBreakTrivia(rewrittenToken.TrailingTrivia) > 0 { 0 } else { GetPendingLineBreaksAfter(originalToken) }
+        _previousToken = rewrittenToken
+        _rewriteElasticLine =
+            !ContainsLineBreakTrivia(originalToken.TrailingTrivia) &&
+            (_rewriteElasticLine ||
+             ContainsElasticTrivia(originalToken.LeadingTrivia) ||
+             ContainsElasticTrivia(originalToken.TrailingTrivia))
+        _isFirstToken = false
+    }
+
+    private func CreateLeadingTrivia(token: SyntaxToken, effectiveIndent: int) -> SyntaxTriviaList {
+        if (_isFirstToken) {
+            return SyntaxFactory.TriviaList()
+        }
+
+        if (token.Kind == SyntaxKind.EndOfFileToken) {
+            return SyntaxFactory.TriviaList()
+        }
+
+        var previousHasTrailingLineBreak = CountLineBreakTrivia(_previousToken.TrailingTrivia) > 0
+        var lineBreaks = _pendingLineBreaks
+        if (!previousHasTrailingLineBreak && HasStructuralLeadingLineBreak(token)) {
+            lineBreaks = Math.Max(lineBreaks, 1)
+        }
+
+        if (ShouldAttachToPreviousToken(token)) {
+            lineBreaks = 0
+        }
+        else if (!previousHasTrailingLineBreak && ShouldStartNewLineBefore(token)) {
+            lineBreaks = Math.Max(lineBreaks, 1)
+        }
+        else if (token.Kind == SyntaxKind.CloseBraceToken
+            && _previousToken.Kind != SyntaxKind.OpenBraceToken
+            && !previousHasTrailingLineBreak) {
+            lineBreaks = Math.Max(lineBreaks, 1)
+        }
+
+        if (lineBreaks > 0) {
+            var trivias = List<SyntaxTrivia>(lineBreaks + 1)
+            var i = 0
+            while i < lineBreaks {
+                trivias.Add(SyntaxFactory.LineFeed)
+                i++
+            }
+
+            if (token.Kind != SyntaxKind.EndOfFileToken) {
+                var indentText = string.Concat(Enumerable.Repeat(_indent, effectiveIndent))
+                if (indentText.Length > 0) {
+                    trivias.Add(SyntaxFactory.Whitespace(indentText))
+                }
+            }
+
+            return SyntaxFactory.TriviaList(trivias)
+        }
+
+        if (previousHasTrailingLineBreak && token.Kind != SyntaxKind.EndOfFileToken) {
+            var indentText = string.Concat(Enumerable.Repeat(_indent, effectiveIndent))
+            return if indentText.Length > 0 { SyntaxFactory.TriviaList(SyntaxFactory.Whitespace(indentText)) } else { SyntaxFactory.TriviaList() }
+        }
+
+        return if NeedsSpace(_previousToken, token) { SyntaxFactory.TriviaList(SyntaxFactory.Space) } else { SyntaxFactory.TriviaList() }
+    }
+
+    private static func HasFormatterAnnotation(syntax: SyntaxNode) -> bool {
+        if (syntax.GetAnnotation(Formatter.Annotation.Kind) is not null) {
+            return true
+        }
+
+        return syntax.DescendantNodes().Any(node => node.GetAnnotation(Formatter.Annotation.Kind) is not null)
+    }
+
+    private func ShouldRewriteToken(token: SyntaxToken) -> bool {
+        if (!_useFormatterAnnotation || !_hasFormatterAnnotation) {
+            return true
+        }
+
+        if (TokenOrAncestorsHaveFormatterAnnotation(token)) {
+            return true
+        }
+
+        return _rewriteElasticLine ||
+               ContainsElasticTrivia(token.LeadingTrivia) ||
+               ContainsElasticTrivia(token.TrailingTrivia)
+    }
+
+    private static func TokenOrAncestorsHaveFormatterAnnotation(token: SyntaxToken) -> bool {
+        if (token.GetAnnotation(Formatter.Annotation.Kind) is not null) {
+            return true
+        }
+
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            if (current.GetAnnotation(Formatter.Annotation.Kind) is not null) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func ContainsElasticTrivia(triviaList: SyntaxTriviaList) -> bool {
+        for trivia in triviaList {
+            if (trivia.IsElastic) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func ContainsLineBreakTrivia(triviaList: SyntaxTriviaList) -> bool {
+        for trivia in triviaList {
+            if (IsLineBreakTrivia(trivia.Kind)) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func HasMeaningfulTrivia(triviaList: SyntaxTriviaList) -> bool {
+        for trivia in triviaList {
+            if (trivia.IsElastic) {
+                continue
+            }
+
+            if (!IsWhitespaceTrivia(trivia.Kind)) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func IsWhitespaceTrivia(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.WhitespaceTrivia
+            or SyntaxKind.TabTrivia
+            or SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia
+            or SyntaxKind.EndOfLineTrivia
+    }
+
+    private static func IsLineBreakTrivia(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia
+            or SyntaxKind.EndOfLineTrivia
+    }
+
+    private func ShouldAttachToPreviousToken(token: SyntaxToken) -> bool {
+        if (token.Kind == SyntaxKind.CloseParenToken && ShouldKeepCloseParenWithBlockBodiedLambda(token)) {
+            return true
+        }
+
+        if (_previousToken.Kind == SyntaxKind.CloseBraceToken) {
+            if (token.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func ShouldStartNewLineBefore(token: SyntaxToken) -> bool {
+        if (TryGetEnclosingLeadingAttributeList(_previousToken, out var previousAttributeList, out var previousAttributeOwner) &&
+            TryGetEnclosingLeadingAttributeList(token, out var currentAttributeList, out var currentAttributeOwner) &&
+            !ReferenceEquals(previousAttributeList, currentAttributeList) &&
+            ReferenceEquals(previousAttributeOwner, currentAttributeOwner)) {
+            return true
+        }
+
+        if (TryGetEnclosingLeadingAttributeList(_previousToken, out _, out var attributeOwnerBefore) &&
+            IsFirstTokenAfterLeadingAttributeLists(token, attributeOwnerBefore!)) {
+            return true
+        }
+
+        if (TryGetEnclosingAccessor(_previousToken, out var previousAccessor) &&
+            TryGetEnclosingAccessor(token, out var currentAccessor) &&
+            !ReferenceEquals(previousAccessor, currentAccessor) &&
+            ReferenceEquals(previousAccessor.Parent, currentAccessor.Parent)) {
+            return true
+        }
+
+        if (TryGetEnclosingBlockStatement(_previousToken, out var previousStatement, out var previousBlock) &&
+            TryGetEnclosingBlockStatement(token, out var currentStatement, out var currentBlock) &&
+            !ReferenceEquals(previousStatement, currentStatement) &&
+            ReferenceEquals(previousBlock, currentBlock)) {
+            return true
+        }
+
+        if (TryGetEnclosingMemberDeclaration(_previousToken, out var previousMember) &&
+            TryGetEnclosingMemberDeclaration(token, out var currentMember) &&
+            !ReferenceEquals(previousMember, currentMember) &&
+            ReferenceEquals(previousMember.Parent, currentMember.Parent)) {
+            return true
+        }
+
+        return false
+    }
+
+    private func GetPendingLineBreaksAfter(token: SyntaxToken) -> int {
+        if (token.Kind == SyntaxKind.EndOfFileToken) {
+            return 0
+        }
+
+        if (token.Kind == SyntaxKind.SemicolonToken) {
+            return 1
+        }
+
+        if (token.Kind == SyntaxKind.OpenBraceToken) {
+            return 1
+        }
+
+        if (token.Kind == SyntaxKind.CloseBraceToken) {
+            return 1
+        }
+
+        if (CountLineBreakTrivia(token.TrailingTrivia) > 0) {
+            return 1
+        }
+
+        if (IsImplicitLineBreakToken(token)) {
+            return 1
+        }
+
+        return 0
+    }
+
+    private func IsImplicitLineBreakToken(token: SyntaxToken) -> bool {
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            var lastToken = current.GetLastToken(includeZeroWidth: false)
+            if (!AreSameToken(lastToken, token)) {
+                continue
+            }
+
+            if (current is AccessorDeclarationSyntax) {
+                return true
+            }
+
+            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax) {
+                return true
+            }
+
+            if (current is MemberDeclarationSyntax member &&
+                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax) {
+                return true
+            }
+
+            if (current.Kind is SyntaxKind.ImportDirective
+                or SyntaxKind.AliasDirective
+                or SyntaxKind.GlobalStatement
+                or SyntaxKind.MatchArm
+                or SyntaxKind.EnumMemberDeclaration
+                or SyntaxKind.CaseDeclaration) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func AreSameToken(left: SyntaxToken, right: SyntaxToken) -> bool {
+        if (left.Kind != right.Kind || left.IsMissing != right.IsMissing) {
+            return false
+        }
+
+        return left.Span.Equals(right.Span)
+    }
+
+    private static func CountLineBreakTrivia(triviaList: SyntaxTriviaList) -> int {
+        var count = 0
+
+        for trivia in triviaList {
+            if (IsLineBreakTrivia(trivia.Kind)) {
+                count++
+            }
+        }
+
+        return count
+    }
+
+    private static func HasStructuralLeadingLineBreak(token: SyntaxToken) -> bool {
+        if (CountLineBreakTrivia(token.LeadingTrivia) == 0) {
+            return false
+        }
+
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            var firstToken = current.GetFirstToken(includeZeroWidth: false)
+            if (!AreSameToken(firstToken, token)) {
+                continue
+            }
+
+            if (current is AccessorDeclarationSyntax) {
+                return true
+            }
+
+            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax) {
+                return true
+            }
+
+            if (current is MemberDeclarationSyntax member &&
+                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax) {
+                return true
+            }
+
+            if (current.Kind is SyntaxKind.ImportDirective
+                or SyntaxKind.AliasDirective
+                or SyntaxKind.GlobalStatement
+                or SyntaxKind.MatchArm
+                or SyntaxKind.EnumMemberDeclaration
+                or SyntaxKind.CaseDeclaration) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func NeedsSpace(previous: SyntaxToken, current: SyntaxToken) -> bool {
+        if (previous.Kind == SyntaxKind.None || current.Kind == SyntaxKind.None) {
+            return false
+        }
+
+        if (current.Kind == SyntaxKind.EndOfFileToken) {
+            return false
+        }
+
+        if (IsNoSpaceBefore(current.Kind) || IsNoSpaceAfter(previous.Kind)) {
+            return false
+        }
+
+        if (IsDotPair(previous.Kind, current.Kind)) {
+            return false
+        }
+
+        if (previous.Kind == SyntaxKind.CloseBraceToken
+            && current.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword) {
+            return true
+        }
+
+        if (IsOperator(previous) || IsOperator(current)) {
+            if (IsUnaryOperatorToken(previous) || IsUnaryOperatorToken(current)) {
+                return false
+            }
+
+            return true
+        }
+
+        if (previous.Kind == SyntaxKind.CommaToken) {
+            return true
+        }
+
+        if (previous.Kind == SyntaxKind.SemicolonToken) {
+            return true
+        }
+
+        if (previous.Kind == SyntaxKind.ColonToken) {
+            return true
+        }
+
+        if (current.Kind == SyntaxKind.OpenParenToken) {
+            return previous.Kind is SyntaxKind.IfKeyword
+                or SyntaxKind.ForKeyword
+                or SyntaxKind.WhileKeyword
+                or SyntaxKind.CatchKeyword
+                or SyntaxKind.MatchKeyword
+                or SyntaxKind.ValKeyword
+                or SyntaxKind.LetKeyword
+                or SyntaxKind.VarKeyword
+        }
+
+        if (current.Kind == SyntaxKind.OpenBracketToken) {
+            return previous.Kind is SyntaxKind.ValKeyword
+                or SyntaxKind.LetKeyword
+                or SyntaxKind.VarKeyword
+        }
+
+        if (current.Kind == SyntaxKind.InKeyword) {
+            return true
+        }
+
+        if (current.Kind == SyntaxKind.OpenBraceToken) {
+            return previous.Kind != SyntaxKind.DollarToken
+        }
+
+        if (IsWord(previous.Kind) && IsWord(current.Kind)) {
+            return true
+        }
+
+        return false
+    }
+
+    private static func IsNoSpaceBefore(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.CommaToken
+            or SyntaxKind.SemicolonToken
+            or SyntaxKind.CloseParenToken
+            or SyntaxKind.CloseBracketToken
+            or SyntaxKind.CloseBraceToken
+            or SyntaxKind.DotToken
+            or SyntaxKind.ColonToken
+            or SyntaxKind.QuestionToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken
+    }
+
+    private static func IsNoSpaceAfter(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.OpenParenToken
+            or SyntaxKind.OpenBracketToken
+            or SyntaxKind.OpenBraceToken
+            or SyntaxKind.DotToken
+    }
+
+    private static func IsDotPair(previous: SyntaxKind, current: SyntaxKind) -> bool {
+        return (previous == SyntaxKind.QuestionToken && current == SyntaxKind.DotToken)
+            || (previous == SyntaxKind.DotToken && current == SyntaxKind.DotToken)
+    }
+
+    private static func TryGetEnclosingAccessor(token: SyntaxToken, out accessor: AccessorDeclarationSyntax) -> bool {
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            if (current is AccessorDeclarationSyntax found) {
+                accessor = found
+                return true
+            }
+        }
+
+        accessor = null!
+        return false
+    }
+
+    private static func TryGetEnclosingBlockStatement(token: SyntaxToken, out statement: StatementSyntax, out block: BlockStatementSyntax) -> bool {
+        var foundStatement: StatementSyntax? = null
+
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            if (current is StatementSyntax currentStatement) {
+                foundStatement ??= currentStatement
+            }
+
+            if (current is BlockStatementSyntax currentBlock && foundStatement is not null) {
+                statement = foundStatement!
+                block = currentBlock
+                return true
+            }
+        }
+
+        statement = null!
+        block = null!
+        return false
+    }
+
+    private static func TryGetEnclosingMemberDeclaration(token: SyntaxToken, out member: MemberDeclarationSyntax) -> bool {
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            if (current is MemberDeclarationSyntax found) {
+                member = found
+                return true
+            }
+        }
+
+        member = null!
+        return false
+    }
+
+    private static func TryGetEnclosingLeadingAttributeList(token: SyntaxToken, [NotNullWhen(true)] out attributeList: AttributeListSyntax?, [NotNullWhen(true)] out owner: SyntaxNode?) -> bool {
+        attributeList = null
+        owner = null
+
+        var ancestor = token.Parent
+        while ancestor is SyntaxNode current {
+            ancestor = current.Parent
+            if (attributeList is null && current is AttributeListSyntax foundAttributeList) {
+                attributeList = foundAttributeList
+                continue
+            }
+
+            if (attributeList is null) {
+                continue
+            }
+
+            if (OwnsLeadingAttributeList(current, attributeList!)) {
+                owner = current
+                return true
+            }
+        }
+
+        attributeList = null
+        owner = null
+        return false
+    }
+
+    private static func OwnsLeadingAttributeList(node: SyntaxNode, attributeList: AttributeListSyntax) -> bool {
+        return match node {
+            CompilationUnitSyntax compilationUnit => compilationUnit.AttributeLists.Contains(attributeList),
+            MemberDeclarationSyntax member => member.AttributeLists.Contains(attributeList),
+            AccessorDeclarationSyntax accessor => accessor.AttributeLists.Contains(attributeList),
+            _ => false
+        }
+    }
+
+    private static func IsFirstTokenAfterLeadingAttributeLists(token: SyntaxToken, owner: SyntaxNode) -> bool {
+        for child in owner.ChildNodesAndTokens() {
+            if (child.TryGetNode(out var node)) {
+                if (node is AttributeListSyntax) {
+                    continue
+                }
+
+                return node!.GetFirstToken(includeZeroWidth: false) == token
+            }
+
+            if (child.TryGetToken(out var childToken)) {
+                if (childToken.FullWidth == 0) {
+                    continue
+                }
+
+                return childToken == token
+            }
+        }
+
+        return false
+    }
+
+    private static func ShouldKeepCloseParenWithBlockBodiedLambda(token: SyntaxToken) -> bool {
+        return token.Parent is ArgumentListSyntax argumentList
+            && argumentList.Arguments.Count > 0
+            && argumentList.Arguments.Last().Expression is FunctionExpressionSyntax functionExpression
+            && (functionExpression.Body is not null
+                || functionExpression.ExpressionBody?.Expression is BlockSyntax)
+    }
+
+    private func IsOperator(token: SyntaxToken) -> bool {
+        if (token.Kind == SyntaxKind.EqualsToken && token.Parent is RangeExpressionSyntax or RangePatternSyntax) {
+            return false
+        }
+
+        if (token.Kind is SyntaxKind.LessThanToken or SyntaxKind.GreaterThanToken) {
+            return !IsTypeArgumentDelimiter(token)
+        }
+
+        return token.Kind is SyntaxKind.EqualsToken
+            or SyntaxKind.EqualsEqualsToken
+            or SyntaxKind.NotEqualsToken
+            or SyntaxKind.LessThanOrEqualsToken
+            or SyntaxKind.GreaterThanOrEqualsToken
+            or SyntaxKind.PlusToken
+            or SyntaxKind.MinusToken
+            or SyntaxKind.StarToken
+            or SyntaxKind.SlashToken
+            or SyntaxKind.PercentToken
+            or SyntaxKind.CaretToken
+            or SyntaxKind.AmpersandToken
+            or SyntaxKind.AmpersandAmpersandToken
+            or SyntaxKind.BarToken
+            or SyntaxKind.BarBarToken
+            or SyntaxKind.LessThanLessThanToken
+            or SyntaxKind.GreaterThanGreaterThanToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanToken
+            or SyntaxKind.AndToken
+            or SyntaxKind.OrToken
+            or SyntaxKind.PipeToken
+            or SyntaxKind.TildeToken
+            or SyntaxKind.QuestionQuestionToken
+            or SyntaxKind.QuestionQuestionEqualsToken
+            or SyntaxKind.PlusEqualsToken
+            or SyntaxKind.MinusEqualsToken
+            or SyntaxKind.StarEqualsToken
+            or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.PercentEqualsToken
+            or SyntaxKind.LessThanLessThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+            or SyntaxKind.AmpersandEqualsToken
+            or SyntaxKind.BarEqualsToken
+            or SyntaxKind.CaretEqualsToken
+            or SyntaxKind.ArrowToken
+            or SyntaxKind.FatArrowToken
+    }
+
+    private static func IsWord(kind: SyntaxKind) -> bool {
+        return kind == SyntaxKind.IdentifierToken
+            || kind == SyntaxKind.NumericLiteralToken
+            || kind == SyntaxKind.StringLiteralToken
+            || kind == SyntaxKind.MultiLineStringLiteralToken
+            || kind == SyntaxKind.CharacterLiteralToken
+            || SyntaxFacts.IsKeywordKind(kind)
+    }
+
+    private func IsUnaryOperatorToken(token: SyntaxToken) -> bool {
+        if (!SyntaxFacts.IsUnaryOperatorToken(token.Kind) && token.Kind != SyntaxKind.NotKeyword) {
+            return false
+        }
+
+        return token.Parent?.Kind is SyntaxKind.PrefixOperatorExpression
+            or SyntaxKind.PostfixOperatorExpression
+            or SyntaxKind.PreIncrementExpression
+            or SyntaxKind.PreDecrementExpression
+            or SyntaxKind.PostIncrementExpression
+            or SyntaxKind.PostDecrementExpression
+            or SyntaxKind.SuppressNullableWarningExpression
+            or SyntaxKind.UnaryPattern
+    }
+
+    private static func IsTypeArgumentDelimiter(token: SyntaxToken) -> bool {
+        return token.Parent?.Kind is SyntaxKind.TypeArgumentList
+            or SyntaxKind.TypeParameterList
+            or SyntaxKind.FunctionTypeParameterList
+    }
+}

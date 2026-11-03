@@ -1,0 +1,108 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+public open class Diagnostic : IEquatable<Diagnostic> {
+    private readonly field _messageArgs: object?[]?
+
+    private static readonly field EmptyProperties: ImmutableDictionary<string, string?> = ImmutableDictionary<string, string?>.Empty
+
+    val Descriptor: DiagnosticDescriptor { get; }
+
+    val Location: Location { get; }
+
+    val Severity: DiagnosticSeverity { get; }
+
+    val IsSuppressed: bool { get; }
+
+    val Properties: ImmutableDictionary<string, string?> { get; }
+
+    val Id: string => Descriptor.Id
+
+    func GetMessageArgs() -> object?[] => _messageArgs ?? []
+
+    init(descriptor: DiagnosticDescriptor, location: Location, messageArgs: object?[]?, severity: DiagnosticSeverity? = null,
+        isSuppressed: bool = false, properties: ImmutableDictionary<string, string?>? = null) {
+        Descriptor = descriptor
+        Location = location ?? throw ArgumentNullException(nameof(location))
+        _messageArgs = messageArgs
+        Severity = severity ?? descriptor.DefaultSeverity
+        IsSuppressed = isSuppressed
+        Properties = properties ?? EmptyProperties
+    }
+
+    override func ToString() -> string => GetDescription()
+
+    static func Create(descriptor: DiagnosticDescriptor, location: Location, params messageArgs: object?[]?) -> Diagnostic
+        => Diagnostic(descriptor, location, messageArgs)
+
+    static func Create(descriptor: DiagnosticDescriptor, location: Location, severity: DiagnosticSeverity, params messageArgs: object?[]?) -> Diagnostic
+        => Diagnostic(descriptor, location, messageArgs, severity)
+
+    static func Create(descriptor: DiagnosticDescriptor, location: Location, properties: ImmutableDictionary<string, string?>) -> Diagnostic
+        => Diagnostic(descriptor, location, messageArgs: null, properties: properties)
+
+    static func Create(descriptor: DiagnosticDescriptor, location: Location, severity: DiagnosticSeverity, properties: ImmutableDictionary<string, string?>) -> Diagnostic
+        => Diagnostic(descriptor, location, messageArgs: null, severity: severity, properties: properties)
+
+    func GetDescription() -> string => "${Severity.ToString().ToLower()} ${Descriptor.Id}: ${GetMessage()}"
+
+    func GetMessage() -> string
+        => string.Format(Descriptor.MessageFormat, if _messageArgs is not null { ProcessArgs(_messageArgs).ToArray() } else { [] })
+
+    private func ProcessArgs(messageArgs: object?[]?) -> IEnumerable<object?> {
+        return messageArgs?.Select(arg => {
+            if arg is ISymbol symbol { return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) }
+            return arg
+        }) ?? []
+    }
+
+    func Equals(other: Diagnostic?) -> bool {
+        if ReferenceEquals(self, other) { return true }
+        if other is null { return false }
+        if !Equals(Descriptor, other!.Descriptor) { return false }
+        if !Equals(Location, other!.Location) { return false }
+        if Severity != other!.Severity { return false }
+        if IsSuppressed != other!.IsSuppressed { return false }
+        if !PropertiesEqual(Properties, other!.Properties) { return false }
+        return string.Equals(GetMessage(), other!.GetMessage(), StringComparison.Ordinal)
+    }
+
+    override func Equals(obj: object?) -> bool => Equals(obj as Diagnostic)
+
+    override func GetHashCode() -> int {
+        var hash = HashCode()
+        hash.Add(Descriptor)
+        hash.Add(Location)
+        hash.Add(Severity)
+        hash.Add(IsSuppressed)
+        for property in Properties.OrderBy(x => x.Key, StringComparer.Ordinal) {
+            hash.Add(property.Key, StringComparer.Ordinal)
+            hash.Add(property.Value, StringComparer.Ordinal)
+        }
+        hash.Add(GetMessage(), StringComparer.Ordinal)
+        return hash.ToHashCode()
+    }
+
+    static func ==(left: Diagnostic?, right: Diagnostic?) -> bool => Equals(left, right)
+
+    static func !=(left: Diagnostic?, right: Diagnostic?) -> bool => !Equals(left, right)
+
+    internal func WithSeverity(severity: DiagnosticSeverity) -> Diagnostic
+        => Diagnostic(Descriptor, Location, GetMessageArgs(), severity, IsSuppressed, Properties)
+
+    internal func WithSuppression(isSuppressed: bool) -> Diagnostic
+        => Diagnostic(Descriptor, Location, GetMessageArgs(), Severity, isSuppressed, Properties)
+
+    private static func PropertiesEqual(left: ImmutableDictionary<string, string?>, right: ImmutableDictionary<string, string?>) -> bool {
+        if left.Count != right.Count { return false }
+        for property in left {
+            if !right.TryGetValue(property.Key, out var value) { return false }
+            if !string.Equals(property.Value, value, StringComparison.Ordinal) { return false }
+        }
+        return true
+    }
+}

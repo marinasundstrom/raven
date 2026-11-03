@@ -2305,11 +2305,15 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_isReadOnlyCtor, Array.Empty<object>());
     }
 
-    internal void ApplyParamArrayAttribute(IParameterSymbol parameter, Action<CustomAttributeBuilder> apply)
+    internal void ApplyParamsAttribute(IParameterSymbol parameter, Action<CustomAttributeBuilder> apply)
     {
-        const string attributeName = "System.ParamArrayAttribute";
-        if (!parameter.IsVarParams || parameter.Type.GetNonNullableType() is not IArrayTypeSymbol ||
-            parameter.GetAttributes().Any(attribute =>
+        if (!parameter.IsVarParams)
+            return;
+
+        var attributeName = parameter.Type.GetNonNullableType() is IArrayTypeSymbol
+            ? "System.ParamArrayAttribute"
+            : "System.Runtime.CompilerServices.ParamCollectionAttribute";
+        if (parameter.GetAttributes().Any(attribute =>
                 attribute.AttributeClass?.ToFullyQualifiedMetadataName() == attributeName))
             return;
 

@@ -166,8 +166,11 @@ func Main() {}
         lspDiagnostics.Where(static diagnostic => diagnostic.Code?.String == "RAVM022").ShouldBeEmpty();
     }
 
-    [Fact]
-    public void MacroExpansionDisplayService_BuildsPreviewAtAttributePosition()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void MacroExpansionDisplayService_BuildsPreviewAtAttributePosition(int offsetInPrefix)
     {
         const string code = """
 import Raven.LanguageServer.Tests.*
@@ -192,7 +195,7 @@ class MyViewModel {
             sourceText,
             semanticModel,
             root,
-            attribute.Span.Start + 2,
+            code.IndexOf("#[", StringComparison.Ordinal) + offsetInPrefix,
             out var display);
 
         success.ShouldBeTrue();

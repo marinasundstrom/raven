@@ -1,0 +1,536 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal class ExtensionDeclarationParser : SyntaxParser {
+    init(context: ParseContext) : base(context) {
+    }
+
+    internal func Parse(attributeLists: SyntaxList, modifiers: SyntaxList) -> ExtensionDeclarationSyntax {
+        let extensionKeyword = ReadToken()
+
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            let missing = ExpectToken(SyntaxKind.IdentifierToken)
+            if missing.IsMissing { Token(SyntaxKind.None) } else { missing }
+        }
+
+        var typeParameterList: TypeParameterListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken)) {
+            typeParameterList = ParseTypeParameterList()
+        }
+
+        let forKeyword = ExpectToken(SyntaxKind.ForKeyword)
+        let receiverType = NameSyntaxParser(self).ParseTypeName()
+
+        let constraintClauses = ConstrainClauseListParser(self).ParseConstraintClauseList()
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out let openBraceToken)
+
+        let members = System.Collections.Generic.List<GreenNode>()
+        while (true) {
+            let current = PeekToken()
+            if (current.IsKind(SyntaxKind.CloseBraceToken)) {
+                break
+            }
+
+            if (current.IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+
+            let memberStart = Position
+            let member = ParseMember()
+            members.Add(member)
+
+            SetTreatNewlinesAsTokens(false)
+
+            var separator = PeekToken()
+            if (separator.IsKind(SyntaxKind.CommaToken)) {
+                separator = ReadToken()
+                let skippedToken = CreateSkippedToken([separator], GetSpanOfLastToken())
+                members.Add(IncompleteMemberDeclaration(
+                    SyntaxList.Empty,
+                    SyntaxList.Empty,
+                    skippedToken,
+                    Token(SyntaxKind.None)))
+            }
+
+            if (Position == memberStart) {
+                let skipped = ParseUnexpectedToken()
+                members[members.Count - 1] = IncompleteMemberDeclaration(
+                    SyntaxList.Empty, SyntaxList.Empty, skipped, Token(SyntaxKind.None))
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+
+        let terminatorToken = ConsumeOptionalTypeTerminator()
+
+        return ExtensionDeclaration(
+            attributeLists,
+            modifiers,
+            extensionKeyword,
+            identifier,
+            typeParameterList,
+            forKeyword,
+            receiverType,
+            constraintClauses,
+            openBraceToken,
+            List(members),
+            closeBraceToken,
+            terminatorToken)
+    }
+
+    private func ParseMember() -> MemberDeclarationSyntax {
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        let modifiers = ParseMemberModifiers()
+        var bindingKeyword = Token(SyntaxKind.None)
+        if (PeekToken().Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword) {
+            bindingKeyword = ReadToken()
+        }
+
+        var funcKeyword = MissingToken(SyntaxKind.FuncKeyword)
+
+        if (PeekToken().IsKind(SyntaxKind.FuncKeyword)) {
+            funcKeyword = ReadToken()
+        }
+
+        if (!funcKeyword.IsMissing && PeekToken().IsKind(SyntaxKind.CheckedKeyword) &&
+            (SyntaxFacts.IsOverloadableOperatorToken(PeekToken(1).Kind) ||
+             PeekToken(1).Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword)) {
+            let checkedKeyword = ReadToken()
+            return if PeekToken().Kind is SyntaxKind.ExplicitKeyword or SyntaxKind.ImplicitKeyword {
+                ParseConversionOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword)
+            } else {
+                ParseOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword, checkedKeyword)
+            }
+        }
+
+        if (!funcKeyword.IsMissing &&
+            (PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword)) &&
+            PeekToken(1).IsKind(SyntaxKind.OpenParenToken)) {
+            return ParseConversionOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword)
+        }
+
+        if (!funcKeyword.IsMissing && SyntaxFacts.IsOverloadableOperatorToken(PeekToken().Kind)) {
+            return ParseOperatorMemberFromFunc(attributeLists, modifiers, funcKeyword)
+        }
+
+        if (PeekToken().IsKind(SyntaxKind.EventKeyword)) {
+            return ParseEventMember(attributeLists, modifiers)
+        }
+
+        let identifier = if PeekToken().IsKind(SyntaxKind.SelfKeyword) {
+            ReadToken()
+        } else if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            ExpectToken(SyntaxKind.IdentifierToken)
+        }
+
+        var typeParameterList: TypeParameterListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken)) {
+            typeParameterList = ParseTypeParameterList()
+        }
+
+        if (!funcKeyword.IsMissing || PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            return ParseMethodMember(attributeLists, modifiers, funcKeyword, identifier, typeParameterList)
+        }
+
+        if (identifier.IsKind(SyntaxKind.SelfKeyword) && PeekToken().IsKind(SyntaxKind.OpenBracketToken)) {
+            let parameters = TypeDeclarationParser(self).ParseBracketedParameterList()
+            let type = TypeAnnotationClauseSyntaxParser(self).ParseTypeAnnotation() ?? CreateMissingTypeAnnotationClause()
+            let accessors = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) { ParseAccessorList() } else { null }
+            let body = if PeekToken().IsKind(SyntaxKind.FatArrowToken) { ExpressionSyntaxParser(self).ParseArrowExpressionClause() } else { null }
+            TryConsumeTerminator(out let terminator)
+            return IndexerDeclaration(attributeLists, modifiers, bindingKeyword, null, identifier, parameters, type, accessors, body, null, terminator)
+        }
+        return ParsePropertyMember(attributeLists, modifiers, bindingKeyword, identifier)
+    }
+
+    private func ParseMethodMember(
+        attributeLists: SyntaxList,
+        modifiers: SyntaxList,
+        funcKeyword: SyntaxToken,
+        identifier: SyntaxToken,
+        typeParameterList: TypeParameterListSyntax?) -> MemberDeclarationSyntax {
+        let parameterList = StatementSyntaxParser(self).ParseParameterList(allowDestructuringPatterns: true, allowDiscardParameters: true)
+        let returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+
+        let constraintClauses = ConstrainClauseListParser(self).ParseConstraintClauseList()
+
+        var body: BlockStatementSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        let next = PeekToken()
+        if (next.IsKind(SyntaxKind.OpenBraceToken)) {
+            body = StatementSyntaxParser(self).ParseBlockStatementSyntax()
+        } else if (next.IsKind(SyntaxKind.FatArrowToken)) {
+            expressionBody = ExpressionSyntaxParser(self).ParseArrowExpressionClause()
+        }
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return MethodDeclaration(
+            attributeLists,
+            modifiers,
+            funcKeyword,
+            explicitInterfaceSpecifier: null,
+            identifier,
+            typeParameterList,
+            functionType: null,
+            parameterList,
+            returnType,
+            argumentsBinding: null,
+            constraintClauses,
+            body,
+            expressionBody,
+            terminatorToken)
+    }
+
+    private func ParseOperatorMemberFromFunc(
+        attributeLists: SyntaxList,
+        modifiers: SyntaxList,
+        declarationKeyword: SyntaxToken,
+        checkedKeyword: SyntaxToken? = null) -> MemberDeclarationSyntax {
+        let operatorToken = ParseOverloadableOperatorToken()
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParenToken)
+        let parameterList = StatementSyntaxParser(self).ParseParameterList(openParenToken)
+        let returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+
+        var body: BlockStatementSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        let next = PeekToken()
+        if (next.IsKind(SyntaxKind.OpenBraceToken)) {
+            body = StatementSyntaxParser(self).ParseBlockStatementSyntax()
+        } else if (next.IsKind(SyntaxKind.FatArrowToken)) {
+            expressionBody = ExpressionSyntaxParser(self).ParseArrowExpressionClause()
+        }
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return OperatorDeclaration(
+            attributeLists,
+            modifiers,
+            declarationKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
+            operatorToken,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken)
+    }
+
+    private func ParseConversionOperatorMemberFromFunc(
+        attributeLists: SyntaxList,
+        modifiers: SyntaxList,
+        funcKeyword: SyntaxToken,
+        checkedKeyword: SyntaxToken? = null) -> MemberDeclarationSyntax {
+        let conversionKindKeyword = if ConsumeToken(SyntaxKind.ImplicitKeyword, out let implicitKeyword) {
+            implicitKeyword
+        } else if ConsumeToken(SyntaxKind.ExplicitKeyword, out let explicitKeyword) {
+            explicitKeyword
+        } else {
+            MissingToken(SyntaxKind.ImplicitKeyword)
+        }
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParenToken)
+        let parameterList = StatementSyntaxParser(self).ParseParameterList(openParenToken)
+        let returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+
+        var body: BlockStatementSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        let next = PeekToken()
+        if (next.IsKind(SyntaxKind.OpenBraceToken)) {
+            body = StatementSyntaxParser(self).ParseBlockStatementSyntax()
+        } else if (next.IsKind(SyntaxKind.FatArrowToken)) {
+            expressionBody = ExpressionSyntaxParser(self).ParseArrowExpressionClause()
+        }
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return ConversionOperatorDeclaration(
+            attributeLists,
+            modifiers,
+            funcKeyword,
+            checkedKeyword ?? Token(SyntaxKind.None),
+            conversionKindKeyword,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken)
+    }
+
+    private func ParsePropertyMember(
+        attributeLists: SyntaxList,
+        modifiers: SyntaxList,
+        bindingKeyword: SyntaxToken,
+        identifier: SyntaxToken) -> MemberDeclarationSyntax {
+        let typeAnnotation = TypeAnnotationClauseSyntaxParser(self).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause()
+
+        var accessorList: AccessorListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken)) {
+            accessorList = ParseAccessorList()
+        }
+
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.FatArrowToken)) {
+            expressionBody = ExpressionSyntaxParser(self).ParseArrowExpressionClause()
+        }
+
+        var initializer: EqualsValueClauseSyntax? = null
+        if (IsNextToken(SyntaxKind.EqualsToken, out _)) {
+            initializer = EqualsValueClauseSyntaxParser(self).Parse()
+        }
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return PropertyDeclaration(
+            attributeLists,
+            modifiers,
+            bindingKeyword,
+            explicitInterfaceSpecifier: null,
+            identifier,
+            typeAnnotation,
+            accessorList,
+            expressionBody,
+            initializer,
+            terminatorToken)
+    }
+
+    private func ParseEventMember(attributeLists: SyntaxList, modifiers: SyntaxList) -> MemberDeclarationSyntax {
+        let eventKeyword = ReadToken()
+
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            ExpectToken(SyntaxKind.IdentifierToken)
+        }
+
+        let typeAnnotation = TypeAnnotationClauseSyntaxParser(self).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause()
+
+        var accessorList: AccessorListSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken)) {
+            accessorList = ParseAccessorList()
+        }
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return EventDeclaration(
+            attributeLists,
+            modifiers,
+            eventKeyword,
+            explicitInterfaceSpecifier: null,
+            identifier,
+            typeAnnotation,
+            accessorList,
+            terminatorToken)
+    }
+
+    private func CreateMissingTypeAnnotationClause() -> TypeAnnotationClauseSyntax {
+        let colonToken = MissingToken(SyntaxKind.ColonToken)
+        let missingType = IdentifierName(MissingToken(SyntaxKind.IdentifierToken))
+        return TypeAnnotationClause(colonToken, missingType)
+    }
+
+    private func ParseAccessorList() -> AccessorListSyntax {
+        let openBraceToken = ReadToken()
+        let accessors = System.Collections.Generic.List<GreenNode>()
+
+        SetTreatNewlinesAsTokens(false)
+
+        while (true) {
+            let token = PeekToken()
+            if (token.IsKind(SyntaxKind.CloseBraceToken)) {
+                break
+            }
+
+            if (token.IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+
+            let accessorStart = Position
+            let accessor = ParseAccessorDeclaration()
+            accessors.Add(accessor)
+
+            if (Position == accessorStart) {
+                let skipped = ParseUnexpectedToken()
+                let keyword = accessor.Keyword.WithLeadingTrivia(skipped.LeadingTrivia.AddRange(accessor.Keyword.LeadingTrivia))
+                accessors[accessors.Count - 1] = accessor.Update(accessor.Kind, accessor.AttributeLists,
+                    accessor.Modifiers, keyword, accessor.Body, accessor.ExpressionBody, accessor.TerminatorToken)
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+        SetTreatNewlinesAsTokens(false)
+
+        return AccessorList(openBraceToken, List(accessors), closeBraceToken)
+    }
+
+    private func ParseAccessorDeclaration() -> AccessorDeclarationSyntax {
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        let modifiers = ParseAccessorModifiers()
+
+        if (!ConsumeToken(SyntaxKind.GetKeyword, out var keyword) &&
+            !ConsumeToken(SyntaxKind.SetKeyword, out keyword) &&
+            !ConsumeToken(SyntaxKind.AddKeyword, out keyword) &&
+            !ConsumeToken(SyntaxKind.RemoveKeyword, out keyword)) {
+            keyword = MissingToken(SyntaxKind.GetKeyword)
+        }
+
+        var body: BlockStatementSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        let token = PeekToken()
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken)) {
+            body = StatementSyntaxParser(self).ParseBlockStatementSyntax()
+        } else if (token.IsKind(SyntaxKind.FatArrowToken)) {
+            expressionBody = ExpressionSyntaxParser(self).ParseArrowExpressionClause()
+        }
+
+        SetTreatNewlinesAsTokens(true)
+
+        let terminatorToken = if RequiresSameLineAccessorSeparator() {
+            ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out let separatorToken)
+            separatorToken
+        } else {
+            TryConsumeTerminator(out let separatorToken)
+            separatorToken
+        }
+
+        SetTreatNewlinesAsTokens(false)
+
+        let accessorKind = match keyword.Kind {
+            SyntaxKind.GetKeyword => SyntaxKind.GetAccessorDeclaration
+            SyntaxKind.SetKeyword => SyntaxKind.SetAccessorDeclaration
+            SyntaxKind.AddKeyword => SyntaxKind.AddAccessorDeclaration
+            SyntaxKind.RemoveKeyword => SyntaxKind.RemoveAccessorDeclaration
+            _ => SyntaxKind.GetAccessorDeclaration
+        }
+
+        return AccessorDeclaration(accessorKind, attributeLists, modifiers, keyword, body, expressionBody, terminatorToken)
+    }
+
+    private func RequiresSameLineAccessorSeparator() -> bool {
+        let next = PeekToken()
+        return IsAccessorKeyword(next) && !HasLeadingEndOfLineTrivia(next)
+    }
+
+    private static func IsAccessorKeyword(token: SyntaxToken) -> bool {
+        return token.Kind is SyntaxKind.GetKeyword
+            or SyntaxKind.SetKeyword
+            or SyntaxKind.AddKeyword
+            or SyntaxKind.RemoveKeyword
+    }
+
+    private func ParseAccessorModifiers() -> SyntaxList {
+        var modifiers: SyntaxList = SyntaxList.Empty
+
+        while (true) {
+            if (ConsumeToken(SyntaxKind.AsyncKeyword, out var modifier) ||
+                ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.InKeyword, out modifier)) {
+                modifiers = modifiers.Add(modifier)
+                continue
+            }
+
+            break
+        }
+
+        return modifiers
+    }
+
+    private func ParseTypeParameterList() -> TypeParameterListSyntax {
+        let lessThanToken = ReadToken()
+        let parameters = System.Collections.Generic.List<GreenNode>()
+
+        while (true) {
+            var token = PeekToken()
+            if (token.IsKind(SyntaxKind.GreaterThanToken)) {
+                break
+            }
+
+            let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+            token = PeekToken()
+
+            var varianceKeyword = Token(SyntaxKind.None)
+            if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword)) {
+                varianceKeyword = ReadToken()
+                token = PeekToken()
+            }
+
+            let identifier = if CanTokenBeIdentifier(token) {
+                ReadIdentifierToken()
+            } else {
+                ExpectToken(SyntaxKind.IdentifierToken)
+            }
+
+            var colonToken = Token(SyntaxKind.None)
+            var constraints: SyntaxList = SyntaxList.Empty
+
+            if (PeekToken().IsKind(SyntaxKind.ColonToken)) {
+                colonToken = ReadToken()
+                let constraintNodes = System.Collections.Generic.List<GreenNode>()
+                while (true) {
+                    let constraint = ConstrainClauseListParser(self).ParseTypeParameterConstraint()
+                    constraintNodes.Add(constraint)
+
+                    let separator = PeekToken()
+                    if (!separator.IsKind(SyntaxKind.CommaToken)) {
+                        break
+                    }
+
+                    ReadToken()
+                    constraintNodes.Add(separator)
+                }
+
+                ConstrainClauseListParser(self).ValidateTypeParameterConstraints(constraintNodes)
+                constraints = List(constraintNodes)
+            }
+
+            parameters.Add(TypeParameter(attributeLists, varianceKeyword, identifier, colonToken, constraints))
+
+            let commaToken = PeekToken()
+            if (commaToken.IsKind(SyntaxKind.CommaToken)) {
+                ReadToken()
+                parameters.Add(commaToken)
+            } else {
+                if (!commaToken.IsKind(SyntaxKind.GreaterThanToken)) {
+                    break
+                }
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out let greaterThanToken)
+        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken)
+    }
+
+    private func ParseMemberModifiers() -> SyntaxList {
+        return ParseTypeMemberModifiers()
+    }
+
+    private func ConsumeOptionalTypeTerminator() -> SyntaxToken {
+        let current = PeekToken()
+        if (current.Kind == SyntaxKind.SemicolonToken) {
+            return ReadToken()
+        }
+
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken) {
+            return Token(SyntaxKind.None)
+        }
+
+        return Token(SyntaxKind.None)
+    }
+
+    private func ParseUnexpectedToken() -> SyntaxToken {
+        let span = GetSpanOfPeekedToken()
+        return CreateSkippedToken([ReadToken()], span)
+    }
+}

@@ -170,6 +170,13 @@ internal class EnumDeclarationParser : SyntaxParser
         else
         {
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            var unexpected = PeekToken();
+            if (unexpected.Kind is not (SyntaxKind.EqualsToken or SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken))
+            {
+                var span = GetSpanOfPeekedToken();
+                var skipped = CreateSkippedToken(new List<SyntaxToken> { ReadToken() }, span);
+                identifier = identifier.WithLeadingTrivia(skipped.LeadingTrivia);
+            }
         }
 
         EqualsValueClauseSyntax? initializer = null;

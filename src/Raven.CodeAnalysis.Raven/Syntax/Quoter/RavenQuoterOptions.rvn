@@ -1,0 +1,106 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+
+public enum RavenQuoterOutputLanguage {
+    Raven,
+    CSharp
+}
+
+public class RavenQuoterOptions {
+    /// <summary>
+    /// Optionally supplies source text to emit in place of an individual syntax
+    /// node's factory construction.
+    /// </summary>
+    /// <remarks>
+    /// This is intended for macro holes and similar syntax substitutions. The
+    /// returned text is emitted verbatim and must be valid in
+    /// <see cref="OutputLanguage"/>.
+    /// </remarks>
+    val NodeSourceOverride: Func<SyntaxNode, string?>? { get; init; } = null
+
+    /// <summary>
+    /// The source language used for imports, declarations, and collections.
+    /// </summary>
+    val OutputLanguage: RavenQuoterOutputLanguage { get; init; } = RavenQuoterOutputLanguage.Raven
+
+    /// <summary>
+    /// Include leading/trailing trivia in the quoted code.
+    /// If false, trivia is ignored.
+    /// </summary>
+    val IncludeTrivia: bool { get; init; } = true
+
+    /// <summary>
+    /// If true, wraps the expression in a class with a Create() method.
+    /// If false, only the factory expression followed by .NormalizeWhitespace() is emitted.
+    /// </summary>
+    val WrapInClass: bool { get; init; } = false
+
+    /// <summary>
+    /// Append a call to <c>NormalizeWhitespace()</c> to the generated root.
+    /// Disable this when the generated factory expression must preserve the
+    /// quoted node's exact static result type.
+    /// </summary>
+    val NormalizeWhitespace: bool { get; init; } = true
+
+    /// <summary>
+    /// If true, imports <c>SyntaxFactory</c> members and emits
+    /// <c>CompilationUnit()</c>. If false, emits
+    /// <c>SyntaxFactory.CompilationUnit()</c>.
+    /// </summary>
+    val UseStaticSyntaxFactoryImport: bool { get; init; } = true
+
+    /// <summary>
+    /// Fully qualify syntax factory, syntax kind, and syntax node type names.
+    /// This allows the generated expression to bind without syntax namespace
+    /// imports in the consuming source file.
+    /// </summary>
+    val FullyQualifyNames: bool { get; init; } = false
+
+    /// <summary>
+    /// If true, imports appropriate for <see cref="OutputLanguage"/> are generated.
+    /// If false, no imports are generated.
+    /// </summary>
+    /// <remarks>This also affects the UseStaticSyntaxFactoryImport option</remarks>
+    val GenerateUsingDirectives: bool { get; init; } = true
+
+    /// <summary>
+    /// If true, named arguments are generated.
+    /// </summary>
+    val UseNamedArguments: bool { get; init; } = false
+
+    /// <summary>
+    /// If true, named arguments that are null are not printed.
+    /// If false, named arguments that are null are printed:
+    ///     expression: null
+    /// </summary>
+    /// <remarks>When UseNamedArguments is enabled</remarks>
+    val IgnoreNullValue: bool { get; init; } = true
+
+    /// <summary>
+    /// If true, single args will be inlined:
+    ///      IdentifierName(Identifier("Foo"))
+    /// If false, the default behavior:
+    ///     IdentifierName(
+    ///         Identifier("Foo")
+    ///     )
+    /// </summary>
+    /// <remarks>This is automatically disabled for named arguments</remarks>
+    val InlineSingleArg: bool { get; init; } = false
+
+    /// <summary>
+    /// If true, simple tokens are instantiated via their factory properties.
+    /// If false, simple tokens are instantiated via <c>Token(SyntaxKind.Kind)</c>.
+    /// </summary>
+    val UseFactoryPropsForSimpleTokens: bool { get; init; } = true
+
+    /// <summary>
+    /// Name of the generated class when WrapInClass is true.
+    /// </summary>
+    val GeneratedClassName: string { get; init; } = "QuotedSyntax"
+
+    /// <summary>
+    /// Name of the generated factory method when WrapInClass is true.
+    /// </summary>
+    val GeneratedMethodName: string { get; init; } = "Create"
+}

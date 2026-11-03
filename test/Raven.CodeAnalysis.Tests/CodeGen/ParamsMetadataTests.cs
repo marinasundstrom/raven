@@ -8,6 +8,96 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class ParamsMetadataTests
 {
     [Theory]
+    [InlineData("System.Collections.Generic.IEnumerable<int>", false)]
+    [InlineData("System.Collections.Generic.IEnumerable<int>", true)]
+    [InlineData("System.Collections.Generic.IList<int>", false)]
+    [InlineData("System.Collections.Generic.IList<int>", true)]
+    public void ImportedCollectionCollectorsSupportEmptyAndExpandedCalls(string collectionType, bool inspectSymbolsFirst)
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0")).ToArray();
+        var library = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("ImportedCollectors" + Guid.NewGuid().ToString("N"),
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText($$"""
+                public class Imported {
+                    public int Count { get; }
+                    public Imported(params {{collectionType}} values) { Count = System.Linq.Enumerable.Count(values); }
+                    public static int Read(params {{collectionType}} values) => System.Linq.Enumerable.Count(values);
+                    public static int Ordinary({{collectionType}} values) => System.Linq.Enumerable.Count(values);
+                }
+                """)],
+            paths.Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        using var libraryImage = new MemoryStream();
+        var libraryResult = library.Emit(libraryImage);
+        Assert.True(libraryResult.Success, string.Join(Environment.NewLine, libraryResult.Diagnostics));
+        var tree = SyntaxTree.ParseText("""
+            public class Consumer {
+                static func Run() -> int => Imported.Read() + Imported.Read(1, 2) + Imported().Count + Imported(3, 4, 5).Count
+            }
+            """);
+        var compilation = Compilation.Create("ImportedCollectionConsumer", [tree],
+            paths.Select(path => MetadataReference.CreateFromFile(path))
+                .Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (inspectSymbolsFirst)
+        {
+            var imported = compilation.GetTypeByMetadataName("Imported")!;
+            Assert.True(Assert.Single(imported.GetMembers("Read").OfType<IMethodSymbol>()).Parameters[0].IsVarParams);
+            Assert.False(Assert.Single(imported.GetMembers("Ordinary").OfType<IMethodSymbol>()).Parameters[0].IsVarParams);
+            Assert.True(Assert.Single(imported.Constructors).Parameters[0].IsVarParams);
+        }
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(5, loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData("System.Collections.Generic.IEnumerable<int>")]
+    [InlineData("System.Collections.Generic.IList<int>")]
+    public void CollectionCollectorsAreConsumableFromCSharp(string collectionType)
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0")).ToArray();
+        var tree = SyntaxTree.ParseText($$"""
+            public delegate Collect(params values: {{collectionType}}) -> int
+            public class Collector {
+                init(params values: {{collectionType}}) {}
+                static func Count(params values: {{collectionType}}) -> int => 42
+            }
+            """);
+        var compilation = Compilation.Create("CollectionParams", [tree],
+            paths.Select(path => MetadataReference.CreateFromFile(path)).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        var consumer = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("CollectionParamsConsumer",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                public static class Consumer {
+                    public static int Run() {
+                        _ = new Collector();
+                        _ = new Collector(1, 2);
+                        Collect collect = Collector.Count;
+                        return Collector.Count() + Collector.Count(1, 2) + collect(3, 4);
+                    }
+                }
+                """)],
+            paths.Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path))
+                .Append(Microsoft.CodeAnalysis.MetadataReference.CreateFromImage(image.ToArray())),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        using var consumerImage = new MemoryStream();
+        var consumed = consumer.Emit(consumerImage);
+        Assert.True(consumed.Success, string.Join(Environment.NewLine, consumed.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var emitted = loaded.Assembly.GetType("Collector")!;
+        Assert.Contains(emitted.GetMethod("Count")!.GetParameters()[0].GetCustomAttributesData(),
+            attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.ParamCollectionAttribute");
+        consumerImage.Position = 0;
+        var consumerAssembly = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(loaded.Assembly)!.LoadFromStream(consumerImage);
+        Assert.Equal(126, consumerAssembly.GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData("int[]?", true)]
     [InlineData("System.Collections.Generic.IEnumerable<int>?", false)]
     [InlineData("System.Collections.Generic.IList<int>?", false)]

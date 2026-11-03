@@ -71,7 +71,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
             if (Position == memberStart)
             {
-                ReportUnexpectedTokenAndAdvance();
+                var skipped = ParseUnexpectedToken();
+                members[members.Count - 1] = IncompleteMemberDeclaration(
+                    SyntaxList.Empty, SyntaxList.Empty, skipped, Token(SyntaxKind.None));
             }
         }
 
@@ -388,7 +390,10 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
             if (Position == accessorStart)
             {
-                ReportUnexpectedTokenAndAdvance();
+                var skipped = ParseUnexpectedToken();
+                var keyword = accessor.Keyword.WithLeadingTrivia(skipped.LeadingTrivia.AddRange(accessor.Keyword.LeadingTrivia));
+                accessors[accessors.Count - 1] = accessor.Update(accessor.Kind, accessor.AttributeLists,
+                    accessor.Modifiers, keyword, accessor.Body, accessor.ExpressionBody, accessor.TerminatorToken);
             }
         }
 
@@ -577,20 +582,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         return Token(SyntaxKind.None);
     }
 
-    private void ReportUnexpectedTokenAndAdvance()
+    private SyntaxToken ParseUnexpectedToken()
     {
-        var token = PeekToken();
-        var tokenText = string.IsNullOrEmpty(token.Text)
-            ? token.Kind.ToString()
-            : token.Text;
-
-        AddDiagnostic(
-            DiagnosticInfo.Create(
-                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
-                GetSpanOfPeekedToken(),
-                tokenText));
-
-        if (!token.IsKind(SyntaxKind.EndOfFileToken))
-            ReadToken();
+        var span = GetSpanOfPeekedToken();
+        return CreateSkippedToken([ReadToken()], span);
     }
 }

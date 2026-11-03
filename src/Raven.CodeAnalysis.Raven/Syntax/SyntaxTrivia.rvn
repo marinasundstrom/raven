@@ -1,0 +1,119 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Text.*
+
+public struct SyntaxTrivia {
+    internal readonly field Green: InternalSyntax.SyntaxTrivia
+
+    private readonly field _token: SyntaxToken?
+
+    private readonly field _position: int
+
+    private field _structure: SyntaxNode?
+
+    val Kind: SyntaxKind => Green.Kind
+
+    val Text: string => Green.Text
+
+    val Token: SyntaxToken? => _token
+
+    val Span: TextSpan => TextSpan(_position, Green.Width)
+
+    val FullSpan: TextSpan => TextSpan(_position, Green.Width)
+
+    val SpanStart: int => _position
+
+    func GetLocation() -> Location {
+        let tree = Token?.SyntaxTree
+        if tree is null { return Location.None }
+        return tree!.GetLocation(Span)
+    }
+
+    internal init(trivia: InternalSyntax.SyntaxTrivia, parent: SyntaxToken, position: int = 0) {
+        Green = trivia ?? throw ArgumentNullException(nameof(trivia))
+        _token = parent
+        _position = position
+    }
+
+    init(kind: SyntaxKind) {
+        Green = InternalSyntax.SyntaxTrivia(kind, SyntaxFacts.GetSyntaxTokenText(kind)!)
+        _token = null
+    }
+
+    func GetStructure() -> SyntaxNode? {
+        let parent = _token?.Parent
+        _structure ??= Green.GetStructuredTrivia()?.CreateRed(parent, _position)
+        return _structure
+    }
+
+    val HasStructure: bool => Green.HasStructuredTrivia
+
+    func GetAnnotations(annotationKinds: IEnumerable<string>) -> IEnumerable<SyntaxAnnotation> => Green.GetAnnotations(annotationKinds)
+
+    func GetAnnotation(kind: string) -> SyntaxAnnotation? => Green.GetAnnotation(kind)
+
+    func HasAnnotation(annotation: SyntaxAnnotation) -> bool => Green.HasAnnotation(annotation)
+
+    val IsElastic: bool => HasAnnotation(SyntaxAnnotation.ElasticAnnotation)
+
+    func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> SyntaxTrivia => SyntaxTrivia((InternalSyntax.SyntaxTrivia)Green.WithAdditionalAnnotations(annotations), _token ?? default, _position)
+
+    override func ToString() -> string {
+        if HasStructure { return GetStructure()!.ToFullString() }
+        return Text
+    }
+
+    val ContainsDiagnostics: bool => GetDiagnostics().Any()
+
+    func GetDiagnostics() -> IEnumerable<Diagnostic> {
+        let tree = Token?.SyntaxTree
+        if tree is null { return Enumerable.Empty<Diagnostic>() }
+        return tree!.GetDiagnostics(FullSpan)
+    }
+
+    func Accept(visitor: SyntaxVisitor) => visitor.VisitTrivia(self)
+
+    func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> SyntaxTrivia => visitor.VisitTrivia(self)
+}
+
+public abstract partial class StructuredTriviaSyntax : SyntaxNode {
+    protected init(greenNode: GreenNode, parent: SyntaxNode?, position: int = 0) : base(greenNode, parent, position) { }
+}
+
+public static partial class SyntaxFactory {
+    static func Whitespace(text: string) -> SyntaxTrivia => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Whitespace(text)
+
+    static func ElasticWhitespace(text: string) -> SyntaxTrivia => Whitespace(text).WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static readonly field LineFeed: SyntaxTrivia = (SyntaxTrivia)InternalSyntax.SyntaxFactory.LineFeed
+
+    static readonly field ElasticLineFeed: SyntaxTrivia = LineFeed.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static readonly field CarriageReturn: SyntaxTrivia = (SyntaxTrivia)InternalSyntax.SyntaxFactory.CarriageReturn
+
+    static readonly field ElasticCarriageReturn: SyntaxTrivia = CarriageReturn.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static readonly field CarriageReturnLineFeed: SyntaxTrivia = (SyntaxTrivia)InternalSyntax.SyntaxFactory.CarriageReturnLineFeed
+
+    static readonly field ElasticCarriageReturnLineFeed: SyntaxTrivia = CarriageReturnLineFeed.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static readonly field Space: SyntaxTrivia = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Space
+
+    static readonly field ElasticSpace: SyntaxTrivia = Space.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static readonly field Tab: SyntaxTrivia = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Tab
+
+    static readonly field ElasticTab: SyntaxTrivia = Tab.WithAdditionalAnnotations(SyntaxAnnotation.ElasticAnnotation)
+
+    static func Comment(text: string) -> SyntaxTrivia => (SyntaxTrivia)InternalSyntax.SyntaxFactory.SingleLineComment(text)
+
+    static func Trivia(kind: SyntaxKind, text: string) -> SyntaxTrivia => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Trivia(kind, text)
+
+    static func Trivia(structuredTrivia: StructuredTriviaSyntax) -> SyntaxTrivia => (SyntaxTrivia)InternalSyntax.SyntaxFactory.StructuredTrivia((InternalSyntax.SyntaxNode)structuredTrivia.Green)
+
+    static func SkippedTokensTrivia(tokens: SyntaxTokenList) -> SkippedTokensTrivia => Raven.CodeAnalysis.Syntax.SkippedTokensTrivia(tokens)
+}

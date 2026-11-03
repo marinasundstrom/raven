@@ -1,0 +1,186 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal class MacroInvocationSyntaxParser : SyntaxParser {
+    init(parent: ParseContext) : base(parent) {
+    }
+
+    func IsBangInvocationStart(allowExpressionHeader: bool = false) -> bool {
+        if !CanStartMacroName() { return false }
+
+        let checkpoint = CreateCheckpoint("freestanding-macro-lookahead")
+        let name = ParseMacroName()
+        var isStart = !name.IsMissing && HasAttachedBang(name) && ConsumeToken(SyntaxKind.ExclamationToken, out _)
+        if !isStart {
+            checkpoint.Rewind()
+            return false
+        }
+
+        if PeekToken().IsKind(SyntaxKind.OpenParenToken) {
+            _ = ExpressionSyntaxParser(self).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false)
+            checkpoint.Rewind()
+            return true
+        }
+
+        if HasLineBreakBeforePeekToken() {
+            checkpoint.Rewind()
+            return false
+        }
+
+        if PeekToken().IsKind(SyntaxKind.OpenBraceToken) {
+            checkpoint.Rewind()
+            return true
+        }
+
+        if !allowExpressionHeader || IsOperatorLeadingHeader(PeekToken()) {
+            checkpoint.Rewind()
+            return false
+        }
+
+        let expressionStart = Position
+        _ = ExpressionSyntaxParser(self, stopOnOpenBrace: true).ParseExpression()
+        isStart = Position > expressionStart
+        checkpoint.Rewind()
+        return isStart
+    }
+
+    func IsDeclarationInvocationStart() -> bool {
+        if !CanStartMacroName() { return false }
+
+        let checkpoint = CreateCheckpoint("declaration-macro-lookahead")
+        let name = ParseMacroName()
+        var isStart = !name.IsMissing && HasAttachedBang(name) &&
+            ConsumeToken(SyntaxKind.ExclamationToken, out _) &&
+            !HasLineBreakBeforePeekToken() && CanTokenBeIdentifier(PeekToken())
+        if isStart {
+            let header = ParseDeclarationHeader()
+            let hasDeclarationHeaderShape = header.TypeParameterList is not null ||
+                header.ParameterList is not null || header.Suffix is not null ||
+                header.ConstraintClauses.SlotCount > 0 || header.PermitsClause is not null
+            isStart = hasDeclarationHeaderShape || PeekToken().IsKind(SyntaxKind.OpenBraceToken) ||
+                PeekToken().IsKind(SyntaxKind.EndOfFileToken) || PeekToken().IsKind(SyntaxKind.CloseBraceToken) ||
+                PeekToken().IsKind(SyntaxKind.SemicolonToken) || HasLineBreakBeforePeekToken()
+        }
+
+        checkpoint.Rewind()
+        return isStart
+    }
+
+    func ParseExpression() -> FreestandingMacroExpressionSyntax {
+        let invocation = ParseInvocation(allowExpressionHeader: true)
+        return FreestandingMacroExpression(invocation.Name, invocation.ExclamationToken, invocation.Carrier)
+    }
+
+    func ParseMember(attributeLists: SyntaxList, modifiers: SyntaxList) -> FreestandingMacroMemberDeclarationSyntax {
+        let invocation = ParseInvocation(allowExpressionHeader: false)
+        TryConsumeTerminator(out let terminatorToken)
+        return FreestandingMacroMemberDeclaration(attributeLists, modifiers, invocation.Name,
+            invocation.ExclamationToken, invocation.Carrier, terminatorToken)
+    }
+
+    func ParseDeclaration(attributeLists: SyntaxList, modifiers: SyntaxList) -> FreestandingMacroDeclarationSyntax {
+        let name = ParseMacroName()
+        ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out let exclamationToken)
+        let header = ParseDeclarationHeader()
+        let tokenTree = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) { ParseTokenTree() } else { null }
+        TryConsumeTerminator(out let terminatorToken)
+        let carrier = DeclarationMacroCarrier(header, tokenTree)
+        return FreestandingMacroDeclaration(attributeLists, modifiers, name, exclamationToken, carrier, terminatorToken)
+    }
+
+    private func ParseDeclarationHeader() -> MacroDeclarationHeaderSyntax {
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            let missing = MissingToken(SyntaxKind.IdentifierToken)
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetEndOfLastToken()))
+            missing
+        }
+
+        let typeParser = TypeDeclarationParser(self)
+        let typeParameterList = if PeekToken().IsKind(SyntaxKind.LessThanToken) { typeParser.ParseTypeParameterList() } else { null }
+        let parameterList = if PeekToken().IsKind(SyntaxKind.OpenParenToken) { StatementSyntaxParser(self).ParseParameterList() } else { null }
+
+        var suffix: MacroDeclarationSuffixSyntax? = null
+        if PeekToken().IsKind(SyntaxKind.ColonToken) {
+            suffix = MacroBaseListSuffix(typeParser.ParseBaseList()!)
+        } else if PeekToken().IsKind(SyntaxKind.ArrowToken) {
+            suffix = MacroReturnTypeSuffix(TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()!)
+        }
+
+        let constraintClauses = ConstrainClauseListParser(self).ParseConstraintClauseList()
+        let permitsClause = if suffix is MacroReturnTypeSuffixSyntax { null } else { typeParser.ParsePermitsClause() }
+        return MacroDeclarationHeader(identifier, typeParameterList, parameterList, suffix, constraintClauses, permitsClause)
+    }
+
+    private func ParseInvocation(allowExpressionHeader: bool) -> InvocationParts {
+        let name = ParseMacroName()
+        ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out let exclamationToken)
+        var argumentList: ArgumentListSyntax? = null
+        if PeekToken().IsKind(SyntaxKind.OpenParenToken) {
+            argumentList = ExpressionSyntaxParser(self).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false)
+        }
+
+        var expression: ExpressionSyntax? = null
+        if argumentList is null && allowExpressionHeader && !HasLineBreakBeforePeekToken() &&
+            !PeekToken().IsKind(SyntaxKind.OpenBraceToken) && !IsOperatorLeadingHeader(PeekToken()) {
+            expression = ExpressionSyntaxParser(self, stopOnOpenBrace: true).ParseExpression()
+        }
+
+        let tokenTree = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) && !HasLineBreakBeforePeekToken() {
+            ParseTokenTree()
+        } else { null }
+
+        if argumentList is null && expression is null && tokenTree is null {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected, GetSpanOfLastToken(), "( or {"))
+        }
+
+        let carrier: MacroCarrierSyntax = if argumentList is not null {
+            ParenthesizedMacroCarrier(argumentList!, tokenTree)
+        } else if expression is not null {
+            ExpressionHeaderMacroCarrier(expression!, tokenTree)
+        } else {
+            TokenTreeMacroCarrier(tokenTree!)
+        }
+        return InvocationParts(name, exclamationToken, carrier)
+    }
+
+    private func HasAttachedBang(name: NameSyntax) -> bool
+        => name.GetLastToken() is SyntaxToken lastToken && lastToken.TrailingTrivia.Width == 0 &&
+            PeekToken().LeadingTrivia.Width == 0 && PeekToken().IsKind(SyntaxKind.ExclamationToken)
+
+    private func CanStartMacroName() -> bool {
+        let token = PeekToken()
+        if SyntaxFacts.IsKeywordKind(token.Kind) && PeekToken(1).IsKind(SyntaxKind.ExclamationToken) {
+            // Keyword aliases must be adjacent to the bang, preserving `if !condition`.
+            return token.TrailingTrivia.Width == 0 && PeekToken(1).LeadingTrivia.Width == 0
+        }
+        return CanTokenBeIdentifier(token)
+    }
+
+    private func ParseMacroName() -> NameSyntax {
+        if SyntaxFacts.IsKeywordKind(PeekToken().Kind) && PeekToken(1).IsKind(SyntaxKind.ExclamationToken) {
+            let keyword = ToIdentifierToken(ReadToken())
+            UpdateLastToken(keyword)
+            return IdentifierName(keyword)
+        }
+        return NameSyntaxParser(self).ParseName()
+    }
+
+    private static func IsOperatorLeadingHeader(token: SyntaxToken) -> bool
+        => SyntaxFacts.IsUnaryOperatorToken(token.Kind) || token.IsKind(SyntaxKind.DotToken)
+
+    private func ParseTokenTree() -> MacroTokenTreeSyntax {
+        let openBraceToken = ReadToken()
+        let bodyToken = ReadMacroBodyToken(out let isTerminated)
+        let closeBraceToken = if isTerminated { ReadToken() } else { MissingToken(SyntaxKind.CloseBraceToken) }
+        if !isTerminated {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected,
+                GetSpanOfLastToken(), SyntaxFacts.GetSyntaxTokenText(SyntaxKind.CloseBraceToken) ?? "}"))
+        }
+        return MacroTokenTree(openBraceToken, bodyToken, closeBraceToken)
+    }
+
+    private record struct InvocationParts(Name: NameSyntax, ExclamationToken: SyntaxToken, Carrier: MacroCarrierSyntax) {}
+}

@@ -182,6 +182,16 @@ public static class TypeSymbolExtensionsForCodeGen
                 if (nullableType.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
                     return underlying;
 
+                // Keep closed metadata nullable types in the target context. Mixing
+                // a host Nullable<> definition with a metadata argument creates a
+                // TypeBuilderInstantiation whose member tokens belong to the host.
+                if (codeGen.UsesTargetMetadata &&
+                    TryGetTargetMetadataType(nullableType.UnderlyingType) is { } metadataUnderlying &&
+                    TryGetTargetMetadataType(compilation.GetSpecialType(SpecialType.System_Nullable_T)) is { } metadataNullable)
+                {
+                    return metadataNullable.MakeGenericType(metadataUnderlying);
+                }
+
                 var nullableDefinition = GetNullableRuntimeType(codeGen.Compilation);
                 return nullableDefinition.MakeGenericType(underlying);
             }

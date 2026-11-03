@@ -1,0 +1,225 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import Raven.CodeAnalysis.Text.*
+
+internal enum IncrementalParseFallbackReason {
+    None,
+    ConditionalDirectives,
+    PreviousFallback,
+    ExistingRecoverySyntax,
+    ChangePolicy,
+    NodeParseFailure,
+    NewRecoverySyntax,
+    ReconstructedTextMismatch
+}
+
+internal class IncrementalParseFallbackException : InvalidOperationException {
+    internal init(reason: IncrementalParseFallbackReason, filePath: string) :
+        base("Incremental parsing required a full-document fallback for '${filePath}': ${reason}.") {
+        Reason = reason
+    }
+
+    internal val Reason: IncrementalParseFallbackReason { get; }
+}
+
+public open partial class SyntaxTree {
+    internal const IncrementalParseMaxChangeLength: int = 4096
+
+    internal var IncrementalParseFallbackReason: IncrementalParseFallbackReason { get; private set; }
+
+    static func ParseText(text: string, options: ParseOptions? = null, encoding: Encoding? = null, path: string? = null) -> SyntaxTree {
+        let sourceText = SourceText.From(text, encoding)
+        return ParseText(sourceText, options, path)
+    }
+
+    static func ParseText(sourceText: SourceText, options: ParseOptions? = null, path: string? = null) -> SyntaxTree =>
+        ParseTextCore(sourceText, options, path, isGenerated: false)
+
+    internal static func ParseGeneratedText(sourceText: SourceText, path: string) -> SyntaxTree =>
+        ParseTextCore(sourceText, options: null, path, isGenerated: true)
+
+    private static func ParseTextCore(sourceText: SourceText, options: ParseOptions?, path: string?, isGenerated: bool) -> SyntaxTree {
+        let parser = InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? ParseOptions())
+        let parseResult = parser.Parse(sourceText)
+        let compilationUnit = (CompilationUnitSyntax)parseResult.Root.CreateRed()
+        let sourceTree = SyntaxTree(sourceText, path ?? "file", options, isGenerated)
+        sourceTree.AttachSyntaxRoot(compilationUnit.WithSyntaxTree(sourceTree))
+        sourceTree.AttachDiagnostics(parseResult.Diagnostics)
+        return sourceTree
+    }
+
+    func WithChangedText(newText: SourceText) -> SyntaxTree {
+        let oldText = GetText()
+        let changeRanges = newText.GetChangeRanges(oldText)
+        if changeRanges.Count == 0 { return self }
+        let root = GetRoot()
+
+        // Give a fallback tree one clean full parse before resuming incremental
+        // replacement. PreviousFallback is deliberately not sticky.
+        if (IncrementalParseFallbackReason is not IncrementalParseFallbackReason.None and
+            not IncrementalParseFallbackReason.PreviousFallback) {
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.PreviousFallback)
+        }
+        if ContainsConditionalDirectives(oldText) || ContainsConditionalDirectives(newText) {
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ConditionalDirectives)
+        }
+        if ShouldFullyReparseChangedText(oldText, newText, changeRanges) {
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ChangePolicy)
+        }
+
+        let changes = newText.GetTextChanges(oldText)
+        var newCompilationUnit = root
+        var updatedDiagnostics = GetDiagnostics().Select(diagnostic => InternalSyntax.DiagnosticInfo.Create(
+            diagnostic.Descriptor, diagnostic.Location.SourceSpan, diagnostic.GetMessageArgs())).ToList()
+        var fallbackReason = IncrementalParseFallbackReason.None
+
+        for change in changes {
+            let changedNode = GetNodeToReplace(change.Span)
+            if changedNode is null { continue }
+
+            // Only recovery in the replacement region defeats identity reuse;
+            // unrelated malformed siblings must not force a full parse.
+            if ContainsRecoverySyntax(changedNode!) {
+                fallbackReason = IncrementalParseFallbackReason.ExistingRecoverySyntax
+                break
+            }
+            let parseResult = ParseNodeFromText(change.Span, newText, changedNode!)
+            if parseResult is null {
+                fallbackReason = IncrementalParseFallbackReason.NodeParseFailure
+                break
+            }
+            let parsed = parseResult!
+            if ContainsRecoverySyntax(parsed.Node) {
+                fallbackReason = IncrementalParseFallbackReason.NewRecoverySyntax
+                break
+            }
+            newCompilationUnit = newCompilationUnit.ReplaceNode(parsed.ReplacedNode, parsed.Node)
+            updatedDiagnostics = UpdateDiagnostics(updatedDiagnostics, parsed.ReplacedNode.FullSpan,
+                change, parsed.Diagnostics)
+        }
+
+        if fallbackReason != IncrementalParseFallbackReason.None {
+            return ParseTextWithFallback(newText, fallbackReason)
+        }
+        let updatedTree = Create(newText, newCompilationUnit, _options, FilePath,
+            updatedDiagnostics.OrderBy(diagnostic => diagnostic.Span.Start), isGenerated: IsGenerated)
+        if !string.Equals(updatedTree.GetRoot().ToFullString(), newText.ToString(), StringComparison.Ordinal) {
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ReconstructedTextMismatch)
+        }
+        return updatedTree
+    }
+
+    private static func ContainsRecoverySyntax(node: SyntaxNode) -> bool =>
+        node.DescendantNodesAndSelf().Any(descendant => descendant.IsMissing) ||
+        node.DescendantTokens().Any(token => token.IsMissing) ||
+        node.DescendantTrivia().Any(trivia => trivia.Kind == SyntaxKind.SkippedTokensTrivia)
+
+    private func ParseTextWithFallback(newText: SourceText, reason: IncrementalParseFallbackReason) -> SyntaxTree {
+        if _options.ThrowOnIncrementalParseFallback {
+            throw IncrementalParseFallbackException(reason, FilePath)
+        }
+        let tree = ParseTextCore(newText, _options, FilePath, IsGenerated)
+        tree.IncrementalParseFallbackReason = reason
+        return tree
+    }
+
+    private static func UpdateDiagnostics(existingDiagnostics: IEnumerable<InternalSyntax.DiagnosticInfo>,
+        replacedSpan: TextSpan, change: TextChange,
+        replacementDiagnostics: IEnumerable<InternalSyntax.DiagnosticInfo>) -> List<InternalSyntax.DiagnosticInfo> {
+        let delta = change.NewText.Length - change.Span.Length
+        let diagnostics = List<InternalSyntax.DiagnosticInfo>()
+        for diagnostic in existingDiagnostics {
+            if IsOwnedByReplacedSpan(diagnostic.Span, replacedSpan) { continue }
+            var span = diagnostic.Span
+            if span.Start >= change.Span.End {
+                span = TextSpan(span.Start + delta, span.Length)
+            }
+            diagnostics.Add(InternalSyntax.DiagnosticInfo.Create(diagnostic.Descriptor, span, diagnostic.Args))
+        }
+        diagnostics.AddRange(replacementDiagnostics)
+        return diagnostics
+    }
+
+    private static func IsOwnedByReplacedSpan(diagnosticSpan: TextSpan, replacedSpan: TextSpan) -> bool {
+        if diagnosticSpan.Length != 0 { return diagnosticSpan.IntersectsWith(replacedSpan) }
+        return diagnosticSpan.Start >= replacedSpan.Start && diagnosticSpan.Start < replacedSpan.End
+    }
+
+    private static func ContainsConditionalDirectives(text: SourceText) -> bool {
+        use reader = text.GetTextReader()
+        loop {
+            let line = reader.ReadLine()
+            if line is null { break }
+            let trimmed = line!.AsSpan().TrimStart()
+            if (trimmed.StartsWith("#if", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#elif", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#else", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#endif", StringComparison.Ordinal)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    internal static func ShouldFullyReparseChangedText(oldText: SourceText, newText: SourceText,
+        changeRanges: IReadOnlyList<TextChangeRange>) -> bool {
+        if changeRanges.Count != 1 { return true }
+        let change = changeRanges[0]
+        if (change.Span.Start == 0 && change.Span.Length == oldText.Length &&
+            change.NewLength == newText.Length) {
+            return true
+        }
+        return change.Span.Length > IncrementalParseMaxChangeLength || change.NewLength > IncrementalParseMaxChangeLength
+    }
+
+    private func ParseNodeFromText(changeSpan: TextSpan, newText: SourceText, nodeToReplace: SyntaxNode) -> IncrementalParseResult? {
+        var candidate = nodeToReplace
+        while candidate.Parent is not null {
+            let parent = candidate.Parent!
+            // Keep the concrete member category inside a type: compilation-unit
+            // member parsing can classify a method as a global statement.
+            let requestedSyntaxType = if changeSpan.Length == 0 && ReferenceEquals(candidate, nodeToReplace) {
+                candidate.GetType()
+            } else if parent is TypeDeclarationSyntax && candidate is MemberDeclarationSyntax {
+                candidate.GetType()
+            } else if parent is BlockStatementSyntax {
+                typeof(StatementSyntax)
+            } else {
+                parent.GetPropertyTypeForChild(candidate)
+            }
+            if requestedSyntaxType is null {
+                candidate = parent
+                continue
+            }
+            let parser = InternalSyntax.Parser.LanguageParser(string.Empty, _options)
+            let parseResult = parser.ParseSyntaxWithDiagnostics(requestedSyntaxType!, newText, candidate.FullSpan.Start)
+            if parseResult is null {
+                candidate = parent
+                continue
+            }
+            let parsed = parseResult!
+            let newNode = parsed.Root.CreateRed()
+            if !requestedSyntaxType!.IsInstanceOfType(newNode) || newNode.IsMissing {
+                candidate = parent
+                continue
+            }
+            return IncrementalParseResult(candidate, newNode, parsed.Diagnostics)
+        }
+        return null
+    }
+
+    private record struct IncrementalParseResult(ReplacedNode: SyntaxNode, Node: SyntaxNode,
+        Diagnostics: IReadOnlyList<InternalSyntax.DiagnosticInfo>)
+}
+
+public static partial class SyntaxFactory {
+    static func ParseSyntaxTree(sourceText: SourceText, options: ParseOptions? = null, filePath: string? = null) -> SyntaxTree =>
+        SyntaxTree.ParseText(sourceText, options, filePath)
+
+    static func ParseSyntaxTree(text: string, options: ParseOptions? = null, encoding: Encoding? = null, filePath: string? = null) -> SyntaxTree =>
+        SyntaxTree.ParseText(text, options, encoding, filePath)
+}

@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public abstract class SyntaxWalker : SyntaxVisitor {
+    private field _recursionDepth: int
+
+    override func Visit(node: SyntaxNode?) {
+        if node is null { return }
+        _recursionDepth++
+        node!.Accept(self)
+        _recursionDepth--
+    }
+}

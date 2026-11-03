@@ -1,0 +1,129 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+
+public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>, IEquatable<SyntaxTriviaList> {
+    static field Empty: SyntaxTriviaList = SyntaxTriviaList([])
+
+    private readonly field _position: int
+
+    internal readonly field Green: InternalSyntax.SyntaxTriviaList
+
+    private readonly field _parent: SyntaxToken
+
+    private readonly field _span: TextSpan
+
+    private readonly field _fullSpan: TextSpan
+
+    init() {
+        Green = InternalSyntax.SyntaxTriviaList([], null)
+        _parent = default
+        _position = 0
+        let greenList = Green
+        let position = _position
+        if greenList.SlotCount == 0 {
+            _span = TextSpan(position, 0)
+            _fullSpan = _span
+        }
+        else {
+            let first = greenList[0]
+            let last = greenList[greenList.SlotCount - 1]
+            let start = position + first.GetLeadingTriviaWidth()
+            let width = greenList.FullWidth
+            let end = position + width - last.GetTrailingTriviaWidth()
+            _span = TextSpan(start, end - start)
+            _fullSpan = TextSpan(position, width)
+        }
+    }
+
+    internal init(params trivias: IEnumerable<SyntaxTrivia>) {
+        Green = InternalSyntax.SyntaxTriviaList(trivias.Select(x => x.Green).ToArray())
+        _parent = default
+        let greenList = Green
+        let position = _position
+        if greenList.SlotCount == 0 {
+            _span = TextSpan(position, 0)
+            _fullSpan = _span
+        }
+        else {
+            let first = greenList[0]
+            let last = greenList[greenList.SlotCount - 1]
+            let start = position + first.GetLeadingTriviaWidth()
+            let width = greenList.FullWidth
+            let end = position + width - last.GetTrailingTriviaWidth()
+            _span = TextSpan(start, end - start)
+            _fullSpan = TextSpan(position, width)
+        }
+    }
+
+    internal init(parent: SyntaxToken, greenList: InternalSyntax.SyntaxTriviaList, position: int = 0) {
+        Green = greenList ?? throw ArgumentNullException(nameof(greenList))
+        _parent = parent
+        _position = position
+        if greenList.SlotCount == 0 {
+            _span = TextSpan(position, 0)
+            _fullSpan = _span
+        }
+        else {
+            let first = greenList[0]
+            let last = greenList[greenList.SlotCount - 1]
+            let start = position + first.GetLeadingTriviaWidth()
+            let width = greenList.FullWidth
+            let end = position + width - last.GetTrailingTriviaWidth()
+            _span = TextSpan(start, end - start)
+            _fullSpan = TextSpan(position, width)
+        }
+    }
+
+    val Width: int => Green.Width
+
+    val Count: int => Green.SlotCount
+
+    val self[index: int]: SyntaxTrivia {
+        get {
+            let trivia = Green.GetSlot(index) as InternalSyntax.SyntaxTrivia
+            return SyntaxTrivia(trivia!, _parent, _position + Green.GetChildStartPosition(index))
+        }
+    }
+
+    func GetEnumerator() -> IEnumerator<SyntaxTrivia> {
+        var i = 0
+        while i < Count { yield self[i]; i++ }
+    }
+
+    func IEnumerable.GetEnumerator() -> IEnumerator => GetEnumerator()
+
+    func Add(trivia: SyntaxTrivia) -> SyntaxTriviaList => SyntaxTriviaList(_parent, Green.Add(trivia.Green))
+
+    func Remove(kind: SyntaxKind) -> SyntaxTriviaList {
+        let nodes = Green.Select((node, index) => (node, index)).Where(pair => !Equals(pair.node.Kind, kind)).Select(pair => pair.node).ToArray()
+        return SyntaxTriviaList(_parent, InternalSyntax.SyntaxTriviaList.Create(nodes))
+    }
+
+    func Remove(trivia: SyntaxTrivia) -> SyntaxTriviaList {
+        let nodes = Green.Select((node, index) => (node, index)).Where(pair => !Equals(pair.node, trivia.Green)).Select(pair => pair.node).ToArray()
+        return SyntaxTriviaList(_parent, InternalSyntax.SyntaxTriviaList.Create(nodes))
+    }
+
+    override func ToString() -> string => string.Concat(self.ToArray())
+
+    override func Equals(obj: object?) -> bool => obj is SyntaxTriviaList other && Equals(other)
+
+    func Equals(other: SyntaxTriviaList) -> bool => Green == other.Green && _parent.Equals(other._parent) && _position == other._position
+
+    override func GetHashCode() -> int => HashCode.Combine(Green, _parent, _position)
+
+    static func ==(left: SyntaxTriviaList, right: SyntaxTriviaList) -> bool => left.Equals(right)
+
+    static func !=(left: SyntaxTriviaList, right: SyntaxTriviaList) -> bool => !left.Equals(right)
+}
+
+public static partial class SyntaxFactory {
+    static func TriviaList() -> SyntaxTriviaList => SyntaxTriviaList.Empty
+
+    static func TriviaList(params trivias: IEnumerable<SyntaxTrivia>) -> SyntaxTriviaList => SyntaxTriviaList(trivias)
+}

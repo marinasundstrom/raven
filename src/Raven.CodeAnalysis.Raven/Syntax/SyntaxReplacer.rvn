@@ -1,0 +1,56 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Collections.Generic.*
+import System.Linq.*
+
+internal class SyntaxReplacer : SyntaxRewriter {
+    private readonly field _nodeMap: IReadOnlyDictionary<SyntaxNode, SyntaxNode?>?
+
+    private readonly field _tokenMap: IReadOnlyDictionary<SyntaxToken, SyntaxToken?>?
+
+    private readonly field _tokenMapByGreen: IReadOnlyDictionary<(Green: InternalSyntax.SyntaxToken?, Position: int), SyntaxToken?>?
+
+    private readonly field _triviaMap: IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>?
+
+    init(nodeMap: IReadOnlyDictionary<SyntaxNode, SyntaxNode?>?, tokenMap: IReadOnlyDictionary<SyntaxToken, SyntaxToken?>?, triviaMap: IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>?) {
+        _nodeMap = nodeMap
+        _tokenMap = tokenMap
+        _tokenMapByGreen = tokenMap?.ToDictionary(pair => (pair.Key.Green, pair.Key.Position), pair => pair.Value)
+        _triviaMap = triviaMap
+    }
+
+    override func Visit(node: SyntaxNode?) -> SyntaxNode? {
+        if node is null { return null }
+        if _nodeMap is not null && _nodeMap!.TryGetValue(node!, out var replacement) {
+            return replacement ?? node
+        }
+        return base.Visit(node)
+    }
+
+    override func VisitToken(token: SyntaxToken) -> SyntaxToken {
+        if (_tokenMap is not null && _tokenMap!.TryGetValue(token, out var replacement)) ||
+           (_tokenMapByGreen is not null && _tokenMapByGreen!.TryGetValue((token.Green, token.Position), out replacement)) {
+            return replacement ?? token
+        }
+        let leading = VisitList(token.LeadingTrivia)
+        let trailing = VisitList(token.TrailingTrivia)
+        var updated = token
+        if leading != token.LeadingTrivia || trailing != token.TrailingTrivia {
+            updated = token.WithLeadingTrivia(leading).WithTrailingTrivia(trailing)
+        }
+        return updated
+    }
+
+    override func VisitTrivia(trivia: SyntaxTrivia) -> SyntaxTrivia {
+        if _triviaMap is not null && _triviaMap!.TryGetValue(trivia, out var replacement) {
+            return replacement ?? trivia
+        }
+        if trivia.GetStructure() is StructuredTriviaSyntax structure {
+            let newStructure = Visit(structure)
+            if structure != newStructure && newStructure is StructuredTriviaSyntax structuredTrivia {
+                return SyntaxFactory.Trivia(structuredTrivia)
+            }
+        }
+        return trivia
+    }
+}

@@ -70,10 +70,12 @@ collector parameters too.
 
 **.NET metadata:** explicit array collectors such as `params items: int[]` export
 parameter-array metadata, so C# callers can omit the array or supply individual
-arguments. Non-array collectors, including the `IList<T>` convenience form, do
-not yet export collection-parameter metadata; foreign callers must pass the
-collection explicitly. This is an interop implementation gap, not a restriction
-on Raven calls.
+arguments. Non-array collectors, including the `IList<T>` convenience form, export
+`System.Runtime.CompilerServices.ParamCollectionAttribute` when supplied by the
+selected framework references. C# versions supporting collection parameters can
+then use expanded arguments. On older frameworks without that attribute,
+foreign callers must pass the collection explicitly. Raven calls still support
+expanded arguments independently of this metadata.
 
 A nullable collection annotation does not disable collection of arguments. For
 example, `params items: int[]?` and `params items: IEnumerable<int>?` accept

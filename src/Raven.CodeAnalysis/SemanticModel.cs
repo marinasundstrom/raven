@@ -12516,6 +12516,9 @@ public partial class SemanticModel
 
     private ITypeSymbol? TryInferPatternDesignationType(PatternSyntax pattern, string name, ITypeSymbol expectedType)
     {
+        while (pattern is ParenthesizedPatternSyntax parenthesized)
+            pattern = parenthesized.Pattern;
+
         if (pattern is VariablePatternSyntax { Designation: SingleVariableDesignationSyntax designation } &&
             designation.Identifier.ValueText == name)
         {

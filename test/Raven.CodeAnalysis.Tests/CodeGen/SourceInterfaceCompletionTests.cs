@@ -7,6 +7,48 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class SourceInterfaceCompletionTests
 {
     [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExplicitInterfaceIndexerDispatchesThroughInterface(bool expressionBody)
+    {
+        var contract = expressionBody
+            ? "val self[index: int]: int { get; }"
+            : "var self[index: int]: int { get; set; }";
+        var implementation = expressionBody
+            ? "val Indexed.self[index: int]: int => index + 40"
+            : "var Indexed.self[index: int]: int { get => stored + index; set { stored = value - index } }";
+        var assignment = expressionBody ? "" : "buffer[2] = 42";
+        var source = $$"""
+interface Indexed { {{contract}} }
+class Buffer : Indexed {
+    private field stored: int = 0
+
+    {{implementation}}
+}
+func Main() -> int {
+    let buffer: Indexed = Buffer()
+    {{assignment}}
+    return buffer[2]
+}
+""";
+        var compilation = Compilation.Create("ExplicitIndexerDispatch" + expressionBody, [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var buffer = compilation.GetTypeByMetadataName("Buffer")!;
+        var indexer = Assert.Single(buffer.GetMembers().OfType<IPropertySymbol>());
+        Assert.True(indexer.IsIndexer);
+        Assert.Single(indexer.ExplicitInterfaceImplementations);
+        Assert.Single(indexer.GetMethod!.ExplicitInterfaceImplementations);
+        if (!expressionBody)
+            Assert.Single(indexer.SetMethod!.ExplicitInterfaceImplementations);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void CrossFileInterfaceClosureAndIndexerRemainAvailable(bool reverse)

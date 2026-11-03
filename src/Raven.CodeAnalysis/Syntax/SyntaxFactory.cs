@@ -82,12 +82,7 @@ public static partial class SyntaxFactory
         => ParseCompilationUnit(SourceText.From(text), options);
 
     public static CompilationUnitSyntax ParseCompilationUnit(SourceText sourceText, ParseOptions? options = null)
-    {
-        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
-        var result = parser.Parse(sourceText);
-
-        return (CompilationUnitSyntax)result.Root.CreateRed();
-    }
+        => SyntaxTree.ParseText(sourceText, options).GetRoot();
 
     public static MemberDeclarationSyntax? ParseMemberDeclaration(string text, ParseOptions? options = null)
         => ParseMemberDeclaration(SourceText.From(text), options);

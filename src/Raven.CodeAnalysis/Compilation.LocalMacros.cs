@@ -134,7 +134,7 @@ public partial class Compilation
             var root = tree.GetRoot();
             if (root.DescendantNodes().Any(static node =>
                     node is FreestandingMacroExpressionSyntax or FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax ||
-                    node is AttributeSyntax { HashToken.Kind: not SyntaxKind.None }))
+                    node is AttributeListSyntax { HashToken.Kind: not SyntaxKind.None }))
             {
                 return true;
             }

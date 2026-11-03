@@ -1,0 +1,214 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import Raven.CodeAnalysis.Text.*
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class EnumDeclarationParser : SyntaxParser {
+    init(context: ParseContext) : base(context) {
+    }
+
+    internal func Parse() -> EnumDeclarationSyntax {
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        let modifiers = ParseModifiers()
+
+        let enumKeyword = ReadToken()
+
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            ExpectToken(SyntaxKind.IdentifierToken)
+        }
+
+        let baseList: BaseListSyntax? = ParseBaseList()
+
+        let parameterList = System.Collections.Generic.List<GreenNode>()
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out let openBraceToken)
+        var explicitSeparatorKind = SyntaxKind.None
+        var commaSeparatorStyle = ListSeparatorStyle.None
+        var reportedInconsistentSeparator = false
+
+        while (true) {
+            let t = PeekToken()
+
+            if (t.IsKind(SyntaxKind.CloseBraceToken) || t.IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+
+            let member = ParseMember()
+
+            parameterList.Add(member)
+
+            if (TryConsumeMemberSeparator(out let separatorToken, out let explicitSeparatorKindForToken)) {
+                if (explicitSeparatorKindForToken != SyntaxKind.None) {
+                    if (explicitSeparatorKind == SyntaxKind.None) {
+                        explicitSeparatorKind = explicitSeparatorKindForToken
+                    } else if (explicitSeparatorKind != explicitSeparatorKindForToken) {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                SyntaxFacts.GetSyntaxTokenText(explicitSeparatorKind) ?? explicitSeparatorKind.ToString()))
+                    }
+                }
+
+                if (explicitSeparatorKindForToken == SyntaxKind.CommaToken) {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref commaSeparatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken())
+                } else if (explicitSeparatorKindForToken == SyntaxKind.None) {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref commaSeparatorStyle,
+                        ListSeparatorStyle.NewLine,
+                        ref reportedInconsistentSeparator,
+                        GetInsertionSpanBeforePeekedToken())
+                }
+
+                parameterList.Add(separatorToken)
+            } else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
+                     !PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                parameterList.Add(MissingToken(SyntaxKind.CommaToken))
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        GetSpanOfPeekedToken(),
+                        ","))
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+
+        TryConsumeTerminator(out let terminatorToken)
+
+        return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, baseList, openBraceToken, List(parameterList), closeBraceToken, terminatorToken)
+    }
+
+    private func ReportInconsistentSeparatorIfNeeded(
+        ref separatorStyle: ListSeparatorStyle,
+        currentStyle: ListSeparatorStyle,
+        ref reported: bool,
+        span: TextSpan) -> unit {
+        if (separatorStyle == ListSeparatorStyle.None) {
+            separatorStyle = currentStyle
+            return
+        }
+
+        if (separatorStyle != currentStyle && !reported) {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InconsistentListSeparator, span))
+            reported = true
+        }
+    }
+
+    private enum ListSeparatorStyle {
+        None
+        NewLine
+        Comma
+    }
+
+    private func ParseBaseList() -> BaseListSyntax? {
+        if (ConsumeToken(SyntaxKind.ColonToken, out let colonToken)) {
+            let types = System.Collections.Generic.List<GreenNode>()
+            while (true) {
+                let type = NameSyntaxParser(self).ParseTypeName()
+                types.Add(SimpleBaseType(type))
+
+                let commaToken = PeekToken()
+                if (commaToken.IsKind(SyntaxKind.CommaToken)) {
+                    ReadToken()
+                    types.Add(commaToken)
+                } else {
+                    break
+                }
+            }
+
+            return BaseList(colonToken, List(types))
+        }
+
+        return null
+    }
+
+    private func ParseMember() -> GreenNode {
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            var missing = ExpectToken(SyntaxKind.IdentifierToken)
+            let unexpected = PeekToken()
+            if unexpected.Kind is not (SyntaxKind.EqualsToken or SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken) {
+                let span = GetSpanOfPeekedToken()
+                let tokens = System.Collections.Generic.List<SyntaxToken>()
+                tokens.Add(ReadToken())
+                let skipped = CreateSkippedToken(tokens, span)
+                missing = missing.WithLeadingTrivia(skipped.LeadingTrivia)
+            }
+            missing
+        }
+
+        var initializer: EqualsValueClauseSyntax? = null
+        if (IsNextToken(SyntaxKind.EqualsToken, out _)) {
+            initializer = EqualsValueClauseSyntaxParser(self).Parse()
+        }
+
+        return EnumMemberDeclaration(attributeLists, SyntaxList.Empty, identifier, initializer)
+    }
+
+    private func TryConsumeMemberSeparator(out separatorToken: SyntaxToken, out explicitSeparatorKind: SyntaxKind) -> bool {
+        let current = PeekToken()
+
+        if (current.IsKind(SyntaxKind.CommaToken) || current.IsKind(SyntaxKind.SemicolonToken)) {
+            separatorToken = ReadToken()
+            explicitSeparatorKind = separatorToken.Kind
+            return true
+        }
+
+        if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken)) {
+            separatorToken = Token(SyntaxKind.None)
+            explicitSeparatorKind = SyntaxKind.None
+            return false
+        }
+
+        if (HasLineBreakBeforePeekToken()) {
+            separatorToken = Token(SyntaxKind.None)
+            explicitSeparatorKind = SyntaxKind.None
+            return true
+        }
+
+        separatorToken = Token(SyntaxKind.None)
+        explicitSeparatorKind = SyntaxKind.None
+        return false
+    }
+
+    private func ParseModifiers() -> SyntaxList {
+        var modifiers: SyntaxList = SyntaxList.Empty
+
+        while (true) {
+            let kind = PeekToken().Kind
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.FileprivateKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.FinalKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.PartialKeyword or
+                     SyntaxKind.VirtualKeyword or
+                     SyntaxKind.RecordKeyword or
+                     SyntaxKind.OpenKeyword or
+                     SyntaxKind.OverrideKeyword) {
+                modifiers = modifiers.Add(ReadToken())
+            } else {
+                break
+            }
+        }
+
+        return modifiers
+    }
+}

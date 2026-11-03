@@ -9,7 +9,10 @@ public static class AttributeSyntaxExtensions
         if (attribute is null)
             throw new ArgumentNullException(nameof(attribute));
 
-        return attribute.HashToken.Kind == SyntaxKind.HashToken;
+        return attribute.Parent is AttributeListSyntax list &&
+            list.HashToken.Kind == SyntaxKind.HashToken &&
+            list.Attributes.Count > 0 &&
+            list.Attributes[0] == attribute;
     }
 
     public static bool TryGetMacroName(this AttributeSyntax attribute, out string macroName)

@@ -1,0 +1,234 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class ConstrainClauseListParser : SyntaxParser {
+    init(context: ParseContext) : base(context) {
+    }
+
+    func ParseConstraintClauseList() -> SyntaxList {
+        // Allow constraints after type parameter list / parameter list, typically before body/brace/=>/terminator.
+        // We’ll accept multiple clauses:
+        //   where T : class, IDisposable
+        //   where U : struct
+        //
+        // Return an empty list when none are present.
+
+        if (!PeekToken().IsKind(SyntaxKind.WhereKeyword)) {
+            return SyntaxFactory.List([])
+        }
+
+        let restoreNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(false) // 'where' often starts on a new line; keep it easy.
+
+        try {
+            let clauses = System.Collections.Generic.List<GreenNode>()
+
+            while (PeekToken().IsKind(SyntaxKind.WhereKeyword)) {
+                let clause = ParseConstraintClause()
+                clauses.Add(clause)
+
+                // Optional: allow a newline/terminator between consecutive where-clauses,
+                // but do not *require* it.
+                //
+                // If you want to be strict later, add a diagnostic here when the next token is not newline-like.
+            }
+
+            return SyntaxFactory.List(clauses)
+        }
+        finally {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens)
+        }
+    }
+
+    private func ParseConstraintClause() -> TypeParameterConstraintClauseSyntax {
+        // where <TypeParameter> : <constraints>
+
+        let whereKeyword = ReadToken() // WhereKeyword
+
+        // Parse type parameter name
+        let identifier = if CanTokenBeIdentifier(PeekToken()) {
+            ReadIdentifierToken()
+        } else {
+            ExpectToken(SyntaxKind.IdentifierToken)
+        }
+
+        // If you modeled TypeParameter as IdentifierName:
+        let typeParameter = IdentifierName(identifier)
+
+        ConsumeTokenOrMissing(SyntaxKind.ColonToken, out let colonToken)
+
+        // Parse constraints list: constraint (',' constraint)*
+        let constraintNodes = System.Collections.Generic.List<GreenNode>()
+
+        // Small robustness: if ':' missing, still try to recover by parsing at least one constraint
+        // when the next token looks constraint-ish.
+        if (colonToken.IsMissing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ":"))
+        }
+
+        // Reuse the same constraint parser you already use in inline constraints.
+        // We’ll stop on tokens that clearly end a clause/declaration.
+        while (true) {
+            // Skip newlines between constraints (handy in "where T :\n class, ...")
+            var t = PeekToken()
+            while (IsNewLineLike(t)) {
+                ReadToken()
+                t = PeekToken()
+            }
+
+            if (IsEndOfConstraintClause(t)) {
+                break
+            }
+
+            let constraint = ParseTypeParameterConstraint()
+            constraintNodes.Add(constraint)
+
+            t = PeekToken()
+
+            if (!t.IsKind(SyntaxKind.CommaToken)) {
+                break
+            }
+
+            // consume comma
+            let comma = ReadToken()
+            constraintNodes.Add(comma)
+        }
+
+        let constraints = SyntaxFactory.List(constraintNodes)
+        if (constraintNodes.Count == 0) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.TypeParameterConstraintExpected,
+                GetSpanOfLastToken()))
+        }
+
+        ValidateTypeParameterConstraints(constraintNodes)
+
+        return TypeParameterConstraintClause(whereKeyword, typeParameter, colonToken, constraints)
+    }
+
+    func ValidateTypeParameterConstraints(nodes: IReadOnlyList<GreenNode>) -> unit {
+        var constraintCount = 0
+        var allowsCount = 0
+        var functionCount = 0
+        var allowsOrdinal = -1
+        var hasClassConstraint = false
+
+        for node in nodes {
+            if (node is not TypeParameterConstraintSyntax constraint) {
+                continue
+            }
+
+            if constraint is FunctionConstraintSyntax { functionCount++ }
+
+            if (constraint is AllowsRefStructConstraintSyntax) {
+                allowsCount++
+                allowsOrdinal = constraintCount
+            }
+            else if (constraint is ClassConstraintSyntax) {
+                hasClassConstraint = true
+            }
+
+            constraintCount++
+        }
+
+        if (functionCount > 0 && constraintCount != 1) {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidFunctionConstraint, GetSpanOfLastToken()))
+        }
+
+        if (allowsCount == 0) {
+            return
+        }
+
+        let span = GetSpanOfLastToken()
+        if (allowsOrdinal != constraintCount - 1) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.AllowsRefStructConstraintMustBeLast,
+                span))
+        }
+
+        if (allowsCount > 1) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.DuplicateAllowsRefStructConstraint,
+                span))
+        }
+
+        if (hasClassConstraint) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.AllowsRefStructConstraintConflictsWithClass,
+                span))
+        }
+    }
+
+    func ParseTypeParameterConstraint() -> TypeParameterConstraintSyntax {
+        let token = PeekToken()
+
+        if (token.IsKind(SyntaxKind.FuncKeyword)) {
+            return FunctionConstraint(ReadToken())
+        }
+
+        if (token.IsKind(SyntaxKind.ClassKeyword)) {
+            let classKeyword = ReadToken()
+            return ClassConstraint(classKeyword)
+        }
+
+        if (token.IsKind(SyntaxKind.StructKeyword)) {
+            let structKeyword = ReadToken()
+            return StructConstraint(structKeyword)
+        }
+
+        if (token.IsKind(SyntaxKind.AllowsKeyword) &&
+            PeekToken(1).IsKind(SyntaxKind.RefKeyword) &&
+            PeekToken(2).IsKind(SyntaxKind.StructKeyword)) {
+            let allowsKeyword = ReadToken()
+            let refKeyword = ReadToken()
+            let structKeyword = ReadToken()
+            return AllowsRefStructConstraint(allowsKeyword, refKeyword, structKeyword)
+        }
+
+        if (token.IsKind(SyntaxKind.NewKeyword)) {
+            let newKeyword = ReadToken()
+            if (!ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParen)) {
+                AddDiagnostic(
+                          DiagnosticInfo.Create(
+                              CompilerDiagnostics.CharacterExpected,
+                              GetSpanOfLastToken(),
+                              '('))
+            }
+            if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParen)) {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        GetSpanOfLastToken(),
+                        ')'))
+            }
+            return ConstructorConstraint(newKeyword, openParen, closeParen)
+        }
+
+        let type = NameSyntaxParser(self).ParseTypeName()
+        return TypeConstraint(type)
+    }
+
+    private static func IsEndOfConstraintClause(t: SyntaxToken) -> bool {
+        // Tokens that end the constraint clause or the containing declaration.
+        // Tune as needed (this is conservative and works well for recovery).
+        return t.Kind is
+            SyntaxKind.EndOfFileToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.SemicolonToken or
+            SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken or
+            SyntaxKind.FatArrowToken
+    }
+
+    private static func IsNewLineLike(token: SyntaxToken) -> bool {
+        return token.Kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken
+    }
+}

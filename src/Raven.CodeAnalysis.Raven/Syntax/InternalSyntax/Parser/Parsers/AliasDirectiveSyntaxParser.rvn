@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class AliasDirectiveSyntaxParser : SyntaxParser {
+    init(parent: ParseContext) : base(parent) {
+    }
+
+    func ParseAliasDirective() -> AliasDirectiveSyntax {
+        let aliasKeyword = ReadToken()
+        let identifier = ReadToken()
+        let equalsToken = ReadToken()
+
+        let target: TypeSyntax = if PeekToken().Kind == SyntaxKind.SemicolonToken {
+            let missing = MissingToken(SyntaxKind.IdentifierToken)
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetEndOfLastToken()))
+            IdentifierName(missing)
+        } else {
+            NameSyntaxParser(self).ParseTypeName()
+        }
+
+        SetTreatNewlinesAsTokens(true)
+        TryConsumeTerminator(out let terminatorToken)
+        SetTreatNewlinesAsTokens(false)
+
+        return AliasDirective(aliasKeyword, identifier, equalsToken, target, terminatorToken)
+    }
+}

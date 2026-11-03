@@ -46,3 +46,16 @@ to dictate the whole domain model.
 
 Continue with [asynchronous code](async.md) or the
 [project-system guide](../../compiler/project-system.md).
+
+## Declare output locals at the call site
+
+Use `out let` when a .NET call initializes a local that you will not reassign:
+
+```raven
+let quotient = System.Math.DivRem(85, 43, out let remainder)
+// quotient is 1; remainder is 42
+```
+
+The selected overload supplies the output local's type. Use `out var` if later
+code needs to assign the local again. See
+[Parameters, overloading, and operators](../spec/parameters-overloading-and-operators.md).

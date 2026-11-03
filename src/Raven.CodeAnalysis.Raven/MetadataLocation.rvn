@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+internal open class MetadataLocation : Location {
+    internal init(moduleSymbol: IModuleSymbol) {
+        Kind = LocationKind.MetadataFile
+        MetadataModule = moduleSymbol
+    }
+
+    override val MetadataModule: IModuleSymbol { get; }
+}

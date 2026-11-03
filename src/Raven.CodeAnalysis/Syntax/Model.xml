@@ -178,8 +178,8 @@
     <Slot Name="OperatorToken" Type="Token" />
   </Node>
   <Node Name="ArrowTypeClause" Inherits="Node">
-    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Type" Type="Type" />
   </Node>
   <Node Name="SelfExpression" Inherits="Expression">
@@ -1003,6 +1003,11 @@
   <Node Name="ConstantPattern" Inherits="Pattern">
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="ParenthesizedPattern" Inherits="Pattern">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Pattern" Type="Pattern" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
   <Node Name="UnaryPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" />
@@ -1179,13 +1184,13 @@
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="AttributeList" Inherits="Node">
+    <Slot Name="HashToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
     <Slot Name="Target" Type="AttributeTargetSpecifier" IsNullable="true" />
     <Slot Name="Attributes" Type="SeparatedList" ElementType="Attribute" />
     <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
   </Node>
   <Node Name="Attribute" Inherits="Node">
-    <Slot Name="HashToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Name" Type="Name" />
     <Slot Name="ArgumentList" Type="ArgumentList" IsNullable="true" />
   </Node>

@@ -2243,14 +2243,22 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumBits.Type));
                     return true;
                 case BoundBinaryExpression enumComparison when enumComparison.Operator.MethodSymbol is null &&
-                    capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
+                    capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumComparison.Operator.OperatorKind is
+                        OperatorKind.Equality or OperatorKind.Inequality or OperatorKind.LessThan or OperatorKind.GreaterThan or
+                        OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual &&
                     enumComparison.Left.Type.TypeKind == TypeKind.Enum && SymbolEqualityComparer.Default.Equals(enumComparison.Left.Type, enumComparison.Right.Type):
                     if (!LowerValue(enumComparison.Left)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumComparison.Left.Type));
                     if (!LowerValue(enumComparison.Right)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumComparison.Right.Type));
-                    Add(LinearInstructionKind.Equal, Syntax(expression));
-                    if (enumComparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
+                    Add(enumComparison.Operator.OperatorKind switch
+                    {
+                        OperatorKind.Equality or OperatorKind.Inequality => LinearInstructionKind.Equal,
+                        OperatorKind.LessThan or OperatorKind.GreaterThanOrEqual => LinearInstructionKind.Less,
+                        _ => LinearInstructionKind.Greater
+                    }, Syntax(expression));
+                    if (enumComparison.Operator.OperatorKind is OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual)
+                        Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression shift when shift.Operator.MethodSymbol is null &&
                     shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_UInt32 or SpecialType.System_UInt64 &&

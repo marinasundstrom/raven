@@ -45,6 +45,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.Expression);
     }
 
+    public override void VisitTupleExpression(BoundTupleExpression node)
+    {
+        foreach (var element in node.Elements)
+            VisitExpression(element);
+    }
+
     public override void VisitThrowStatement(BoundThrowStatement node)
     {
         VisitExpression(node.Expression);

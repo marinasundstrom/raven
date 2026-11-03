@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public abstract partial class SyntaxVisitor {
+    virtual func Visit(node: SyntaxNode) { if node is not null { node.Accept(self) } }
+
+    virtual func DefaultVisit(node: SyntaxNode) { }
+
+    virtual func VisitTrivia(syntaxTrivia: SyntaxTrivia) { }
+
+    virtual func VisitSkippedTokensTrivia(skippedTokens: SkippedTokensTrivia) => DefaultVisit(skippedTokens)
+}

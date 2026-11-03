@@ -384,10 +384,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
             hasExplicitDefaultValue = parameterInfo.IsOptional || parameterInfo.HasDefaultValue;
             isParams = parameterInfo
                 .GetCustomAttributesData()
-                .Any(static attribute => string.Equals(
-                    attribute.AttributeType.FullName,
-                    typeof(ParamArrayAttribute).FullName,
-                    StringComparison.Ordinal));
+                .Any(static attribute => PEParameterSymbol.IsParamsAttribute(attribute.AttributeType.FullName));
             return true;
         }
         catch

@@ -18,7 +18,7 @@ internal class ConstrainClauseListParser : SyntaxParser
         //   where T : class, IDisposable
         //   where U : struct
         //
-        // Return null when none are present.
+        // Return an empty list when none are present.
 
         if (!PeekToken().IsKind(SyntaxKind.WhereKeyword))
             return List([]);
@@ -225,7 +225,7 @@ internal class ConstrainClauseListParser : SyntaxParser
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.CharacterExpected,
                         GetSpanOfLastToken(),
-                        "operator"));
+                        ')'));
             }
             return ConstructorConstraint(newKeyword, openParen, closeParen);
         }

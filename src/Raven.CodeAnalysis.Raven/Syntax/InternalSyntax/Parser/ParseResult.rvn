@@ -1,0 +1,8 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.Collections.Generic.*
+
+internal record struct ParseResult(
+    Root: SyntaxNode,
+    Diagnostics: IReadOnlyList<DiagnosticInfo>,
+    ConsumedPosition: int)

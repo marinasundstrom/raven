@@ -6001,7 +6001,7 @@ public partial class SemanticModel
         // - Previous enum members must be in scope while binding later initializers.
         var underlyingType = enumSymbol.EnumUnderlyingType
             ?? Compilation.GetSpecialType(SpecialType.System_Int32);
-        var nextValue = (object?)null;
+        object? nextValue = GetDefaultEnumMemberValue(underlyingType);
 
         foreach (var enumMember in enumDecl.Members)
         {
@@ -6016,22 +6016,11 @@ public partial class SemanticModel
 
                 CacheBoundNode(equalsValue.Value, bound, exprBinder);
 
-                if (TryGetEnumMemberConstantValue(bound, out var constant) &&
-                    TryConvertEnumMemberValue(underlyingType, constant, out memberValue))
-                {
-                    if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
-                    {
-                        enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
-                            enumMember.Identifier.ValueText,
-                            underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            equalsValue.Value.GetLocation());
-                        nextValue = null;
-                    }
-                }
-                else
+                var isConstant = exprBinder.TryEvaluateConstant(bound, equalsValue.Value, out var constant);
+                if (!isConstant || !TryConvertEnumMemberValue(underlyingType, constant, out memberValue))
                 {
                     var typeDisplay = underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    if (!TryGetEnumMemberConstantValue(bound, out _))
+                    if (!isConstant)
                     {
                         enumBinder.Diagnostics.ReportEnumMemberValueMustBeConstant(
                             enumMember.Identifier.ValueText,
@@ -6046,21 +6035,19 @@ public partial class SemanticModel
                     }
 
                     memberValue = nextValue ?? GetDefaultEnumMemberValue(underlyingType);
-                    if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
-                        nextValue = null;
                 }
             }
-            else
+            else if (nextValue is null)
             {
-                if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
-                {
-                    enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
-                        enumMember.Identifier.ValueText,
-                        underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        enumMember.Identifier.GetLocation());
-                    nextValue = null;
-                }
+                enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
+                    enumMember.Identifier.ValueText,
+                    underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    enumMember.Identifier.GetLocation());
             }
+
+            // An enum may end at the underlying maximum or explicitly reset after it.
+            // Overflow is an error only when a later member needs the implicit value.
+            TryIncrementEnumValue(memberValue, underlyingType, out nextValue);
 
             var fieldSymbol = new SourceFieldSymbol(
                 enumMember.Identifier.ValueText,
@@ -6160,30 +6147,6 @@ public partial class SemanticModel
             SpecialType.System_Char => '\0',
             _ => 0
         };
-    }
-
-    private static bool TryGetEnumMemberConstantValue(BoundExpression expression, out object? value)
-    {
-        switch (expression)
-        {
-            case BoundLiteralExpression literal when literal.Value is not null:
-                value = literal.Value;
-                return true;
-            case BoundFieldAccess fieldAccess:
-                {
-                    var field = fieldAccess.Field;
-                    if (field is not null && field.IsConst)
-                    {
-                        value = field.GetConstantValue();
-                        return value is not null;
-                    }
-
-                    break;
-                }
-        }
-
-        value = null;
-        return false;
     }
 
     private bool TryConvertEnumMemberValue(ITypeSymbol underlyingType, object? value, out object? converted)

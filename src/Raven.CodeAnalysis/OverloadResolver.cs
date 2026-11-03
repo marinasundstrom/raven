@@ -665,7 +665,7 @@ internal sealed class OverloadResolver
             if (receiver?.Type is null)
                 return null;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method))
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method, allowIdentityInference: true))
                 return null;
 
             parameterIndex++;
@@ -691,7 +691,7 @@ internal sealed class OverloadResolver
                 continue;
 
             var expression = mapped.Value.Expression;
-            if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+            if (expression is BoundAddressOfExpression { IsTypeInferredOutArgument: true })
                 continue;
 
             if (expression is BoundFunctionExpression lambda)
@@ -726,7 +726,7 @@ internal sealed class OverloadResolver
                 argumentType = GetByRefInferenceElementType(argumentType);
             }
 
-            if (!TryInferFromTypes(compilation, parameterType, argumentType, substitutions, method))
+            if (!TryInferFromTypes(compilation, parameterType, argumentType, substitutions, method, allowIdentityInference: true))
                 return null;
         }
 
@@ -778,7 +778,7 @@ internal sealed class OverloadResolver
             if (receiver?.Type is null)
                 return null;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method))
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method, allowIdentityInference: true))
                 return null;
 
             parameterIndex++;
@@ -804,7 +804,7 @@ internal sealed class OverloadResolver
                 continue;
 
             var expression = mapped.Value.Expression;
-            if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+            if (expression is BoundAddressOfExpression { IsTypeInferredOutArgument: true })
                 continue;
 
             if (expression is BoundFunctionExpression lambda)
@@ -834,7 +834,7 @@ internal sealed class OverloadResolver
             if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
                 continue;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method))
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method, allowIdentityInference: true))
                 return null;
         }
 
@@ -877,13 +877,13 @@ internal sealed class OverloadResolver
             if (TryGetVarParamsElementType(paramsParameter.Type, out var paramsElementType) &&
                 TryGetVarParamsElementType(singleParamsType, out var singleParamsElementType))
             {
-                if (!TryInferFromTypes(compilation, paramsElementType, singleParamsElementType, substitutions, inferenceMethod))
+                if (!TryInferFromTypes(compilation, paramsElementType, singleParamsElementType, substitutions, inferenceMethod, allowIdentityInference: true))
                     return false;
 
                 return true;
             }
 
-            if (TryInferFromTypes(compilation, paramsParameter.Type, singleParamsType, substitutions, inferenceMethod))
+            if (TryInferFromTypes(compilation, paramsParameter.Type, singleParamsType, substitutions, inferenceMethod, allowIdentityInference: true))
                 return true;
         }
 
@@ -901,13 +901,13 @@ internal sealed class OverloadResolver
                 if (!TryGetVarParamsElementType(argumentType, out var spreadElementType))
                     continue;
 
-                if (!TryInferFromTypes(compilation, elementType, spreadElementType, substitutions, inferenceMethod))
+                if (!TryInferFromTypes(compilation, elementType, spreadElementType, substitutions, inferenceMethod, allowIdentityInference: true))
                     return false;
 
                 continue;
             }
 
-            if (!TryInferFromTypes(compilation, elementType, argumentType, substitutions, inferenceMethod))
+            if (!TryInferFromTypes(compilation, elementType, argumentType, substitutions, inferenceMethod, allowIdentityInference: true))
                 return false;
         }
 
@@ -1264,7 +1264,8 @@ internal sealed class OverloadResolver
         ITypeSymbol argumentType,
         TypeInferenceBounds substitutions,
         IMethodSymbol? inferenceMethod,
-        TypeInferenceBounds.BoundKind boundKind = TypeInferenceBounds.BoundKind.Lower)
+        TypeInferenceBounds.BoundKind boundKind = TypeInferenceBounds.BoundKind.Lower,
+        bool allowIdentityInference = false)
     {
         parameterType = NormalizeType(parameterType);
         argumentType = NormalizeType(argumentType);
@@ -1283,7 +1284,7 @@ internal sealed class OverloadResolver
                 nullableParameterType,
                 nullableArgumentType,
                 substitutions,
-                inferenceMethod, boundKind);
+                inferenceMethod, boundKind, allowIdentityInference);
         }
 
         if (TryGetTupleInferenceElementTypes(parameterType, out var parameterTupleElements) &&
@@ -1299,7 +1300,7 @@ internal sealed class OverloadResolver
                         parameterTupleElements[i],
                         argumentTupleElements[i],
                         substitutions,
-                        inferenceMethod, boundKind))
+                        inferenceMethod, boundKind, allowIdentityInference))
                 {
                     return false;
                 }
@@ -1315,7 +1316,8 @@ internal sealed class OverloadResolver
 
             // Contextual callback hints can still contain this method's own
             // parameter. Such a placeholder supplies no new inference evidence.
-            if (argumentType is ITypeParameterSymbol argumentParameter &&
+            // Ordinary arguments do: a recursive call may infer the enclosing T.
+            if (!allowIdentityInference && argumentType is ITypeParameterSymbol argumentParameter &&
                 AreEquivalentTypeParameters(typeParameter, argumentParameter))
             {
                 return true;
@@ -1334,8 +1336,8 @@ internal sealed class OverloadResolver
         {
             if (!parameterFunction.ParameterRefKinds.SequenceEqual(argumentFunction.ParameterRefKinds)) return false;
             for (var i = 0; i < parameterFunction.ParameterTypes.Length; i++)
-                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod, TypeInferenceBounds.Reverse(boundKind))) return false;
-            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod, boundKind);
+                if (!TryInferFromTypes(compilation, parameterFunction.ParameterTypes[i], argumentFunction.ParameterTypes[i], substitutions, inferenceMethod, TypeInferenceBounds.Reverse(boundKind), allowIdentityInference)) return false;
+            return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod, boundKind, allowIdentityInference);
         }
 
         if (parameterType is INamedTypeSymbol paramNamed)
@@ -1348,7 +1350,7 @@ internal sealed class OverloadResolver
                     parameterElementType,
                     argumentElementType,
                     substitutions,
-                    inferenceMethod, boundKind);
+                    inferenceMethod, boundKind, allowIdentityInference);
             }
 
             if (argumentType is INamedTypeSymbol argNamed)
@@ -1378,7 +1380,7 @@ internal sealed class OverloadResolver
                     IsGenericCollectionInterface(paramNamed, "IReadOnlyList"))
                 {
                     return !parameterArguments.IsDefaultOrEmpty &&
-                        TryInferFromTypes(compilation, parameterArguments[0], arrayArgument.ElementType, substitutions, inferenceMethod, boundKind);
+                        TryInferFromTypes(compilation, parameterArguments[0], arrayArgument.ElementType, substitutions, inferenceMethod, boundKind, allowIdentityInference);
                 }
 
                 foreach (var iface in arrayArgument.AllInterfaces)
@@ -1390,7 +1392,7 @@ internal sealed class OverloadResolver
         }
 
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
-            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod, boundKind);
+            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod, boundKind, allowIdentityInference);
 
         return true;
 
@@ -1452,7 +1454,7 @@ internal sealed class OverloadResolver
                         VarianceKind.In => TypeInferenceBounds.Reverse(boundKind),
                         _ => TypeInferenceBounds.BoundKind.Exact
                     };
-                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions, inferenceMethod, argumentBound))
+                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions, inferenceMethod, argumentBound, allowIdentityInference))
                     return false;
             }
 
@@ -2030,7 +2032,7 @@ internal sealed class OverloadResolver
             if (candidateParameterIndex < 0 || currentParameterIndex < 0)
                 continue;
 
-            if (arguments[i].Expression is BoundAddressOfExpression { IsOutDiscard: true })
+            if (arguments[i].Expression is BoundAddressOfExpression { IsTypeInferredOutArgument: true })
                 continue;
 
             var argType = arguments[i].Expression.Type;
@@ -2814,15 +2816,18 @@ internal sealed class OverloadResolver
 
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
-            if (argumentRefKind != parameter.RefKind)
+            // Writable storage can be borrowed by a read-only parameter. The
+            // reverse direction remains invalid because it would allow mutation.
+            if (argumentRefKind != parameter.RefKind &&
+                !(parameter.RefKind == RefKind.In && argumentRefKind == RefKind.Ref))
             {
                 LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.RefKindMismatch, "argument ref kind does not match parameter ref kind");
                 return false;
             }
 
-            if (parameter.RefKind == RefKind.Out && argument is BoundAddressOfExpression { IsOutDiscard: true })
+            if (parameter.RefKind == RefKind.Out && argument is BoundAddressOfExpression { IsTypeInferredOutArgument: true })
             {
-                LogComparison(comparisonLog, parameter, parameter.GetByRefElementType(), OverloadArgumentComparisonResult.Success, "discard accepts the out parameter type");
+                LogComparison(comparisonLog, parameter, parameter.GetByRefElementType(), OverloadArgumentComparisonResult.Success, "untyped output accepts the out parameter type");
                 return true;
             }
 

@@ -33,6 +33,18 @@ types stay plain: use `ref value: int`, not `ref value: &int`. Explicit
 `&Type` parameters remain available when the by-reference type itself is the
 intended type annotation.
 
+An output argument can declare its local at the call site:
+
+```raven
+TryParse("42", out let value)
+```
+
+The declaring call initializes `value`. A `let` or `val` binding cannot be
+reassigned or passed as a writable `ref`/`out` argument afterward; use
+`out var value` when subsequent writes are needed. The selected overload
+supplies the local's type. An undeclared output has no input type for generic
+inference and does not resolve overloads that differ only in their output types.
+
 Use `out _` to ignore an output without introducing a local name:
 
 ```raven

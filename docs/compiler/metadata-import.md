@@ -1285,8 +1285,15 @@ from the selected compilation references. This applies to methods, constructors,
 delegate `Invoke` parameters and extension metadata, allowing C# consumers and
 subsequent metadata imports to recognize expanded argument calls. An explicitly
 supplied attribute is not duplicated. Ordinary arrays and non-array collectors
-are not marked as parameter arrays. Non-array collector export remains a separate
-compatibility gap; this does not introduce `ParamCollectionAttribute` support.
+are not marked as parameter arrays. Non-array collectors instead export
+`System.Runtime.CompilerServices.ParamCollectionAttribute` from the selected
+references when available, including methods, constructors and delegate Invoke
+parameters. No marker is synthesized into older framework contracts. The PE
+importer recognizes both parameter-array and collection-parameter markers in
+parameter symbols and lightweight method signature facts, so expanded calls work
+before and after querying symbols. Unmarked collection parameters remain ordinary
+parameters. C#-produced IEnumerable<int> and IList<int> method/constructor imports
+are covered by compile-and-execute tests.
 
 Validation: `ParamsMetadataTests` checks binding and emitted method, constructor
 and delegate metadata; the diagnostic port's shared C# tests exercise empty and

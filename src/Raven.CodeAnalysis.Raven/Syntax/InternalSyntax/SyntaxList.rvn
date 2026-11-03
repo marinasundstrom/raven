@@ -1,0 +1,70 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal open class SyntaxList : GreenNode {
+    static readonly field Empty: SyntaxList = SyntaxList([])
+
+    private readonly field _items: GreenNode?[]
+
+    init(items: GreenNode?[], diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(SyntaxKind.List, if items is null { 0 } else { items.Length }, diagnostics, annotations) {
+        _items = items ?? throw ArgumentNullException(nameof(items))
+        CalculateWidths()
+    }
+
+    override func GetSlot(index: int) -> GreenNode? => _items[index]
+
+    val self[index: int]: GreenNode? => _items[index]
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode => SyntaxList(children, diagnostics ?? _diagnostics, annotations ?? _annotations)
+
+    internal override func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode => SyntaxList(_items, diagnostics, _annotations)
+
+    func Add(green: GreenNode) -> SyntaxList {
+        let list = _items.ToList()
+        list.Add(green)
+        return SyntaxList(list.ToArray(), _diagnostics, _annotations)
+    }
+
+    func Insert(index: int, green: GreenNode) -> SyntaxList {
+        let list = _items.ToList()
+        list.Insert(index, green)
+        return SyntaxList(list.ToArray(), _diagnostics, _annotations)
+    }
+
+    func Remove(green: GreenNode) -> SyntaxList {
+        let list = _items.ToList()
+        list.Remove(green)
+        return SyntaxList(list.ToArray(), _diagnostics, _annotations)
+    }
+
+    func RemoveAt(index: int) -> SyntaxList {
+        let list = _items.ToList()
+        list.RemoveAt(index)
+        return SyntaxList(list.ToArray(), _diagnostics, _annotations)
+    }
+
+    internal override func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo> {
+        for child in GetChildren() {
+            for diagnostic in child.GetDiagnosticsRecursive() { yield diagnostic }
+        }
+    }
+
+    private func GetDebuggerDisplay() -> string => "${GetType().Name} ${GetValueText()}"
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.VisitSyntaxList(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitSyntaxList(self)
+}
+
+internal static partial class SyntaxFactory {
+    static func List(items: IEnumerable<GreenNode>, diagnostics: IEnumerable<DiagnosticInfo>? = null) -> SyntaxList => SyntaxList(items.ToArray(), diagnostics)
+}

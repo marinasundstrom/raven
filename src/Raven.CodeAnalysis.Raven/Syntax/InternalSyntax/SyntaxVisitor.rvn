@@ -1,0 +1,35 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+internal abstract partial class SyntaxVisitor {
+    virtual func Visit(node: SyntaxNode?) {
+        if node is not null { node!.Accept(self) }
+
+    }
+
+    virtual func DefaultVisit(node: SyntaxNode) {  }
+
+    virtual func VisitToken(syntaxToken: SyntaxToken) {
+        VisitTriviaList(syntaxToken.LeadingTrivia)
+        VisitTriviaList(syntaxToken.TrailingTrivia)
+
+    }
+
+    virtual func VisitSyntaxList(syntaxList: SyntaxList) {
+        for trivia in syntaxList.GetChildren() { trivia.Accept(self) }
+
+    }
+
+    virtual func VisitTriviaList(triviaList: SyntaxTriviaList) {
+        for trivia in triviaList.GetChildren() { trivia.Accept(self) }
+
+    }
+
+    virtual func VisitTrivia(trivia: SyntaxTrivia) {
+        if trivia.HasStructuredTrivia { VisitStructuredTrivia(trivia.GetStructuredTrivia()!) }
+
+    }
+
+    private func VisitStructuredTrivia(structure: SyntaxNode) => structure.Accept(self)
+
+    virtual func VisitSkippedTokensTrivia(skippedTokens: SkippedTokensTrivia) => DefaultVisit(skippedTokens)
+}

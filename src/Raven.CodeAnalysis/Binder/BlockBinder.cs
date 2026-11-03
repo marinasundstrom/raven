@@ -3952,7 +3952,20 @@ partial class BlockBinder : Binder
                 reference.Span == identifier.Span);
 
             if (isSameDeclaration)
-                return BindByRefInvocationArgument(new BoundLocalAccess(existing.Symbol), refKind, syntax.Expression);
+            {
+                var symbol = existing.Symbol;
+                if (symbol.Type.TypeKind == TypeKind.Error && localType.TypeKind != TypeKind.Error)
+                {
+                    var upgraded = CreateLocalSymbol(identifier, name, isMutable, localType, recordDeclaration: false);
+                    _declarationState.ReplaceDeclaredLocal(symbol, upgraded, identifier);
+                    symbol = upgraded;
+                }
+
+                var existingAccess = new BoundLocalAccess(symbol);
+                CacheBoundNode(identifier, existingAccess);
+                return new BoundAddressOfExpression(existingAccess,
+                    isUntypedOutDeclaration: symbol.Type.TypeKind == TypeKind.Error);
+            }
         }
 
         if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
@@ -3961,7 +3974,10 @@ partial class BlockBinder : Binder
         var local = CreateLocalSymbol(identifier, name, isMutable, localType);
         var access = new BoundLocalAccess(local);
         CacheBoundNode(identifier, access);
-        return BindByRefInvocationArgument(access, refKind, syntax.Expression);
+        // An out declaration initializes its new binding, including let/val.
+        // Subsequent ref/out uses still go through the ordinary mutability check.
+        return new BoundAddressOfExpression(access,
+            isUntypedOutDeclaration: localType.TypeKind == TypeKind.Error);
     }
 
     private BoundExpression BindDereferenceExpression(BoundExpression operand, PrefixOperatorExpressionSyntax syntax)
@@ -4797,6 +4813,7 @@ partial class BlockBinder : Binder
 
             if (expressionTargetType is not null &&
                 expressionTargetType.TypeKind != TypeKind.Error &&
+                !BoundNodeFacts.IsAbruptExpression(expression) &&
                 ShouldAttemptConversion(expression))
             {
                 expression = BindLambdaToDelegateIfNeeded(expression, expressionTargetType);
@@ -5370,6 +5387,9 @@ partial class BlockBinder : Binder
         PatternSyntax patternSyntax,
         BoundPattern pattern)
     {
+        while (patternSyntax is ParenthesizedPatternSyntax parenthesized)
+            patternSyntax = parenthesized.Pattern;
+
         switch (pattern)
         {
             case BoundDiscardPattern:
@@ -8807,6 +8827,12 @@ partial class BlockBinder : Binder
 
         for (SyntaxNode? current = usage; current is not null; current = current.Parent)
         {
+            if (current is FunctionStatementSyntax function && function.ParameterList.Parameters.Any(parameter =>
+                string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
             if (current is VariableDeclaratorSyntax currentDeclarator &&
                 currentDeclarator.Parent is VariableDeclarationSyntax variableDeclaration &&
                 TryFindLaterDeclarator(variableDeclaration.Declarators, currentDeclarator, name, out declaration))
@@ -12224,7 +12250,7 @@ partial class BlockBinder : Binder
 
     private static bool HasExpressionErrors(BoundExpression expression)
     {
-        if (expression is BoundAddressOfExpression { IsOutDiscard: true })
+        if (expression is BoundAddressOfExpression { IsTypeInferredOutArgument: true })
             return false;
 
         if (IsErrorExpression(expression))
@@ -12355,6 +12381,7 @@ partial class BlockBinder : Binder
 
         BoundPattern bound = patternSyntax switch
         {
+            ParenthesizedPatternSyntax parenthesized => BindPatternForAssignment(parenthesized.Pattern, valueType, node, declarationBindingKeywordKind),
             PatternSyntax structural when structural is NominalDeconstructionPatternSyntax or PropertyPatternSyntax &&
                 structural.Ancestors().OfType<ParameterSyntax>().Any()
                 => BindStructuralParameterPattern(structural, valueType, declarationBindingKeywordKind),
@@ -13857,6 +13884,14 @@ partial class BlockBinder : Binder
                 SyntaxNode node => node,
                 _ => null
             };
+
+            if (parameter.RefKind == RefKind.Out &&
+                expression is BoundAddressOfExpression { IsUntypedOutDeclaration: true } &&
+                boundArgument.Syntax is ArgumentSyntax declarationSyntax)
+            {
+                converted[i] = BindDeclaredOutArgument(declarationSyntax, parameter.GetByRefElementType(), RefKind.Out);
+                continue;
+            }
 
             if (parameter.RefKind == RefKind.Out && expression is BoundAddressOfExpression { IsOutDiscard: true })
             {
@@ -17298,17 +17333,22 @@ partial class BlockBinder : Binder
                     if (block._localTypes.TryGetValue(name, out var localType) && seen.Add(GetLookupKey(localType.Symbol)))
                         yield return localType.Symbol;
 
-                    if (block._functions.TryGetValue(name, out var functions))
-                    {
-                        foreach (var function in functions)
-                        {
-                            if (seen.Add(GetLookupKey(function)))
-                                yield return function;
-                        }
-                    }
-
                     if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(GetLookupKey(label)))
                         yield return label;
+                }
+
+                // Static local functions may call enclosing-scope static local
+                // functions without capturing their activation's locals or parameters.
+                if (block._functions.TryGetValue(name, out var functions))
+                {
+                    foreach (var function in functions)
+                    {
+                        var accessible = allowLocalsAndParams || function.DeclaringSyntaxReferences.Any(reference =>
+                            reference.GetSyntax() is FunctionStatementSyntax declaration &&
+                            declaration.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.StaticKeyword));
+                        if (accessible && seen.Add(GetLookupKey(function)))
+                            yield return function;
+                    }
                 }
             }
 
@@ -17364,9 +17404,29 @@ partial class BlockBinder : Binder
                 var containingType = typeMemberBinder.ContainingTypeSymbol;
                 if (!IsSuppressedNamespaceMembersContainer(containingType))
                 {
+                    var hasMembers = false;
                     foreach (var member in EnumerateTypeAndBaseMembers(containingType, name))
-                        if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
+                    {
+                        if (IsLexicallyScopedFunctionSymbol(member))
+                            continue;
+                        hasMembers = true;
+                        if (seen.Add(GetLookupKey(member)))
                             yield return member;
+                    }
+
+                    // Nested types retain lexical access to enclosing static members.
+                    // An inner declaration with this name hides the enclosing scope.
+                    for (var outer = containingType.ContainingType; !hasMembers && outer is not null; outer = outer.ContainingType)
+                    {
+                        foreach (var member in EnumerateTypeAndBaseMembers(outer, name))
+                        {
+                            if (!member.IsStatic || IsLexicallyScopedFunctionSymbol(member))
+                                continue;
+                            hasMembers = true;
+                            if (seen.Add(GetLookupKey(member)))
+                                yield return member;
+                        }
+                    }
                 }
             }
 

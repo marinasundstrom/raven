@@ -1,0 +1,528 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Text.*
+
+public static class PrettySyntaxTreePrinter {
+    [Extension]
+    static func PrintSyntaxTree(node: SyntaxNode, printerOptions: PrinterOptions) {
+        Console.WriteLine(node.GetSyntaxTreeRepresentation(printerOptions))
+    }
+
+    [Extension]
+    static func PrintSyntaxTree(node: SyntaxNode, printerOptions: PrinterOptions, writer: TextWriter) {
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, true, printerOptions, 0)
+    }
+
+    [Extension]
+    static func GetSyntaxTreeRepresentation(node: SyntaxNode, printerOptions: PrinterOptions) -> string {
+        use writer = StringWriter()
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, false, printerOptions, 0)
+        return writer.ToString()
+    }
+
+    private const IndentationStr: string = "    "
+
+    private const MarkerTop: string = "┌── "
+
+    private const MarkerStraight: string = "│   "
+
+    private const MarkerMiddle: string = "├── "
+
+    private const MarkerBottom: string = "└── "
+
+    private static func PrintSyntaxTreeCore(node: SyntaxNode, writer: TextWriter, indent: string, isFirst: bool, isLast: bool, printerOptions: PrinterOptions, currentDepth: int) {
+        if (currentDepth > printerOptions.MaxDepth) {
+            return
+        }
+        // Visual markers for tree structure
+        var marker: string? = null
+        if (isLast && !isFirst) {
+            marker = MarkerBottom
+        } else {
+            if (isFirst) {
+                marker = string.Empty
+            } else {
+                marker = MarkerMiddle
+            }
+        }
+        var propertyName: string? = string.Empty
+        if (printerOptions.IncludeNames) {
+            propertyName = node.Parent?.GetPropertyNameForChild(node)
+            if (propertyName is not null) {
+                propertyName = "${propertyName}: "
+            }
+        }
+        let value = if !printerOptions.IncludeTokens { MaybeColorize(Value(node), AnsiColor.Yellow, printerOptions.Colorize) } else { string.Empty }
+        let diagnosticsStr = if (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) { DiagnosticsToString(node.GetDiagnostics(false), printerOptions.Colorize) } else { string.Empty }
+        let annotationsStr = if (printerOptions.IncludeAnnotations && !printerOptions.AnnotationsAsChildren) { AnnotationsToString(node) } else { string.Empty }
+        writer.WriteLine("${indent}${marker}" + MaybeColorize("${propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize("${node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + "${(if node.IsMissing { " (Missing)" } else { string.Empty })}${(if printerOptions.IncludeSpans { " ${Span(node.Span)}" } else { string.Empty })}${(if printerOptions.IncludeLocations { " ${Location(node.GetLocation())}" } else { string.Empty })}${diagnosticsStr}${annotationsStr}")
+        if currentDepth >= printerOptions.MaxDepth { return }
+        let newIndent = if isFirst { string.Empty } else { indent + (if isLast { IndentationStr } else { MarkerStraight }) }
+        let children: ChildSyntaxListItem[] = node.ChildNodesAndTokens().ToArray()
+        let printableChildren = GetPrintableChildren(children, printerOptions)
+        // Optional: print diagnostics/annotations as their own arms under the node.
+        let diagChildren = if (printerOptions.IncludeDiagnostics && printerOptions.DiagnosticsAsChildren) { DiagnosticsAsChildLines(node.GetDiagnostics(false)) } else { Array.Empty<string>() }
+        let annChildren = if (printerOptions.IncludeAnnotations && printerOptions.AnnotationsAsChildren) { AnnotationsAsChildLines(node) } else { Array.Empty<string>() }
+        let extraChildren = diagChildren.Concat(annChildren).ToList()
+        if (extraChildren.Count > 0) {
+            let total = extraChildren.Count + printableChildren.Count
+            var i: int = 0
+            while (i < extraChildren.Count) {
+                var isExtraLast = (i == total - 1) && printableChildren.Count == 0
+                // If there are real children, extra items are never the last overall unless there are none.
+                if (printableChildren.Count > 0) {
+                    isExtraLast = false
+                }
+                let childMarker = if isExtraLast { MarkerBottom } else { MarkerMiddle }
+                writer.WriteLine("${newIndent}${childMarker}${extraChildren[i]}")
+                i++
+            }
+        }
+        let extraCount = (if printerOptions.IncludeDiagnostics && printerOptions.DiagnosticsAsChildren { diagChildren.Length } else { 0 })
+            + (if printerOptions.IncludeAnnotations && printerOptions.AnnotationsAsChildren { annChildren.Length } else { 0 })
+        var i: int = 0
+        while (i < printableChildren.Count) {
+            let printableChild = printableChildren[i]
+            let isChildLast = i == printableChildren.Count - 1
+            // Note: isChildLast is correct because extra children are printed before real children.
+            if (printableChild.IsList) {
+                PrintListProperty(printableChild, writer, newIndent, isChildLast, printerOptions, currentDepth + 1)
+            } else if (printableChild.Item is ChildSyntaxListItem child && child.TryGetNode(out let childNode)) {
+                PrintSyntaxTreeCore(childNode!, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1)
+            } else if (printerOptions.IncludeTokens && printableChild.Item is ChildSyntaxListItem tokenChild && tokenChild.TryGetToken(out let token)) {
+                PrintToken(token, writer, newIndent, isChildLast, printerOptions, currentDepth + 1)
+            }
+            i++
+        }
+    }
+
+    private static func GetPrintableChildren(children: ChildSyntaxListItem[], printerOptions: PrinterOptions) -> IReadOnlyList<PrintableChild> {
+        let result = System.Collections.Generic.List<PrintableChild>()
+        if (!printerOptions.ExpandListsAsProperties && printerOptions.IncludeNames) {
+            let listPropertyIndices = Dictionary<string, System.Collections.Generic.List<int>>()
+            var i: int = 0
+            while (i < children.Length) {
+                let child = children[i]
+                if (!printerOptions.IncludeTokens && child.IsToken) {
+                    i++
+                    continue
+                }
+                if (child.ParentListGreen is null) {
+                    i++
+                    continue
+                }
+                let propertyName = GetListPropertyName(child, printerOptions)
+                if (propertyName is null) {
+                    i++
+                    continue
+                }
+                if (!listPropertyIndices.TryGetValue(propertyName!, out var indices)) {
+                    indices = System.Collections.Generic.List<int>()
+                    listPropertyIndices[propertyName!] = indices
+                }
+                indices.Add(i)
+                i++
+            }
+            let handled = HashSet<int>()
+            var j: int = 0
+            while (j < children.Length) {
+                if (!printerOptions.IncludeTokens && children[j].IsToken) {
+                    j++
+                    continue
+                }
+                if (handled.Contains(j)) {
+                    j++
+                    continue
+                }
+                let child = children[j]
+                let propertyName = GetListPropertyName(child, printerOptions)
+                if (propertyName is not null && listPropertyIndices.TryGetValue(propertyName!, out let indices) && indices.Count > 0 && indices[0] == j) {
+                    let items = indices
+                        .Select(index => children[index])
+                        .Where(item => printerOptions.IncludeTokens || item.IsNode)
+                        .ToArray()
+                    for index in indices {
+                        handled.Add(index)
+                    }
+                    if (items.Length > 0) {
+                        result.Add(PrintableChild.ForList(propertyName!, items))
+                    }
+                    j++
+                    continue
+                }
+                handled.Add(j)
+                result.Add(PrintableChild.ForSingle(child))
+                j++
+            }
+            return result
+        }
+        for child in children {
+            if (!printerOptions.IncludeTokens && child.IsToken) {
+                continue
+            }
+            result.Add(PrintableChild.ForSingle(child))
+        }
+        return result
+    }
+
+    private static func GetListPropertyName(child: ChildSyntaxListItem, printerOptions: PrinterOptions) -> string? {
+        if (child.ParentListGreen is null) {
+            return null
+        }
+        if (child.TryGetNode(out let childNode)) {
+            return childNode!.Parent?.GetPropertyNameForListItem(childNode!)
+        }
+        if (printerOptions.IncludeTokens && child.TryGetToken(out let token)) {
+            return token.Parent?.GetPropertyNameForListItem(token)
+        }
+        return null
+    }
+
+    private static func PrintListProperty(printableChild: PrintableChild, writer: TextWriter, indent: string, isChildLast: bool, printerOptions: PrinterOptions, currentDepth: int) {
+        if (currentDepth > printerOptions.MaxDepth) {
+            return
+        }
+        let marker = if isChildLast { MarkerBottom } else { MarkerMiddle }
+        writer.WriteLine("${indent}${marker}" + MaybeColorize(printableChild.ListPropertyName!, AnsiColor.BrightBlue, printerOptions.Colorize))
+        let childIndent = indent + (if isChildLast { IndentationStr } else { MarkerStraight })
+        let items = printableChild.ListItems!
+        var i: int = 0
+        while (i < items.Count) {
+            let listChild = items[i]
+            let isListChildLast = i == items.Count - 1
+            if (listChild.TryGetNode(out let childNode)) {
+                PrintSyntaxTreeCore(childNode!, writer, childIndent, false, isListChildLast, printerOptions, currentDepth + 1)
+            } else if (printerOptions.IncludeTokens && listChild.TryGetToken(out let token)) {
+                PrintToken(token, writer, childIndent, isListChildLast, printerOptions, currentDepth + 1)
+            }
+            i++
+        }
+    }
+
+    private static func PrintToken(token: SyntaxToken, writer: TextWriter, indent: string, isChildLast: bool, printerOptions: PrinterOptions, currentDepth: int) {
+        if (currentDepth > printerOptions.MaxDepth) {
+            return
+        }
+        if (printerOptions.IncludeTrivia) {
+            let triviaList = token.LeadingTrivia
+            PrintTrivia(triviaList, true, writer, indent, false, isChildLast, printerOptions, currentDepth + 1)
+        }
+        var propertyName: string? = string.Empty
+        if (printerOptions.IncludeNames) {
+            propertyName = token.Parent?.GetPropertyNameForChild(token)
+            if (propertyName is not null) {
+                propertyName = "${propertyName}: "
+            }
+        }
+        let marker = if isChildLast { MarkerBottom } else { MarkerMiddle }
+        let diagnosticsStr = if (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) { DiagnosticsToString(token.GetDiagnostics(), printerOptions.Colorize) } else { string.Empty }
+        let annotationsStr = if printerOptions.IncludeAnnotations { AnnotationsToString(token) } else { string.Empty }
+        writer.WriteLine("${indent}${marker}" + MaybeColorize("${propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + "${GetTokenText(token)} " + MaybeColorize("${token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + "${(if token.IsMissing { " (Missing)" } else { string.Empty })}${(if printerOptions.IncludeSpans { " ${Span(token.Span)}" } else { string.Empty })}${(if printerOptions.IncludeLocations { " ${Location(token.GetLocation())}" } else { string.Empty })}${diagnosticsStr}${annotationsStr}")
+        if (printerOptions.IncludeTrivia) {
+            let triviaList = token.TrailingTrivia
+            PrintTrivia(triviaList, false, writer, indent, false, isChildLast, printerOptions, currentDepth + 1)
+        }
+    }
+
+
+    private class PrintableChild {
+        private init(item: ChildSyntaxListItem) {
+            Item = item ?? throw ArgumentNullException(nameof(item))
+        }
+
+        private init(propertyName: string, items: IReadOnlyList<ChildSyntaxListItem>) {
+            ListPropertyName = propertyName ?? throw ArgumentNullException(nameof(propertyName))
+            ListItems = items ?? throw ArgumentNullException(nameof(items))
+        }
+
+        val Item: ChildSyntaxListItem? { get; }
+
+        val ListItems: IReadOnlyList<ChildSyntaxListItem>? { get; }
+
+        val ListPropertyName: string? { get; }
+
+        val IsList: bool => ListItems is not null
+
+        static func ForSingle(item: ChildSyntaxListItem) -> PrintableChild => PrintableChild(item)
+
+        static func ForList(propertyName: string, items: IReadOnlyList<ChildSyntaxListItem>) -> PrintableChild => PrintableChild(propertyName, items)
+    }
+
+    private static func GetTokenText(token: SyntaxToken) -> string {
+        return token.Text
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+    }
+
+    private static func Value(node: SyntaxNode) -> string {
+        return match node {
+            PrefixOperatorExpressionSyntax ue => "${ue.OperatorToken.Text} "
+            InfixOperatorExpressionSyntax be => "${be.OperatorToken.Text} "
+            LiteralExpressionSyntax { Kind: SyntaxKind.NullLiteralExpression } le => "null "
+            LiteralExpressionSyntax { Kind: SyntaxKind.StringLiteralExpression } le => "${le.Token.Text} "
+            LiteralExpressionSyntax { Kind: SyntaxKind.TrueLiteralExpression } le => "${le.Token.Text} "
+            LiteralExpressionSyntax { Kind: SyntaxKind.FalseKeyword } le => "${le.Token.Text} "
+            LiteralExpressionSyntax le => "${le.Token.Value} "
+            IdentifierNameSyntax ine => "${ine.Identifier.Text} "
+            PredefinedTypeSyntax pt => "${pt.Keyword.Text} "
+            UnitTypeSyntax _ => "() "
+            FunctionTypeSyntax ft => "${ft} "
+            DefaultExpressionSyntax { Type: TypeSyntax type } => "default(${type}) "
+            DefaultExpressionSyntax => "default "
+            TypeOfExpressionSyntax typeOf => "typeof(${typeOf.Type}) "
+            SizeOfExpressionSyntax sizeOf => "sizeof(${sizeOf.Type}) "
+            _ => string.Empty
+        }
+    }
+
+    private static func PrintTrivia(triviaList: SyntaxTriviaList, isLeading: bool, writer: TextWriter, indent: string, isFirst: bool, isLast: bool, printerOptions: PrinterOptions, currentDepth: int) {
+        if currentDepth > printerOptions.MaxDepth { return }
+        let newIndent = if isFirst { string.Empty } else { indent + (if isLast { (if isLeading { MarkerStraight } else { IndentationStr }) } else { MarkerStraight }) }
+        let listCount = triviaList.Count
+        var i: int = 0
+        while (i < listCount) {
+            let trivia = triviaList[i]
+            let isFirstChild = i == 0
+            let isChildLast: bool = i == (listCount - 1)
+            var childMarker: string = string.Empty
+            if (listCount == 0) {
+                childMarker = if isLeading { MarkerTop } else { MarkerBottom }
+            } else {
+                if (isLeading) {
+                    childMarker = if isFirstChild { MarkerTop } else { MarkerMiddle }
+                } else {
+                    childMarker = if isChildLast { MarkerBottom } else { MarkerMiddle }
+                }
+            }
+            let diagnosticsStr = if printerOptions.IncludeDiagnostics { DiagnosticsToString(GetDiagnostics(trivia), printerOptions.Colorize) } else { string.Empty }
+            let annotationsStr = if printerOptions.IncludeAnnotations { AnnotationsToString(trivia) } else { string.Empty }
+            writer.WriteLine("${newIndent}${childMarker}" + "${TriviaToString(trivia)}" + MaybeColorize("${trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + "${(if printerOptions.IncludeSpans { " ${Span(trivia.Span)}" } else { string.Empty })}${(if printerOptions.IncludeLocations { " ${Location(trivia.GetLocation())}" } else { string.Empty })}${diagnosticsStr}${annotationsStr}")
+            if (trivia.HasStructure) {
+                let newIndent2 = newIndent + MarkerStraight
+                PrintStructuredTrivia(writer, printerOptions, trivia, isFirstChild, isChildLast, newIndent2, currentDepth + 1)
+            }
+            i++
+        }
+    }
+
+    private static func PrintStructuredTrivia(writer: TextWriter, printerOptions: PrinterOptions, trivia: SyntaxTrivia, isFirstChild: bool, isChildLast: bool, newIndent2: string, currentDepth: int) {
+        if currentDepth > printerOptions.MaxDepth { return }
+        var name: string = string.Empty
+        if (printerOptions.IncludeNames) {
+            name = "Structure: "
+        }
+        let structure = trivia.GetStructure()!
+        let diagnosticsStr = if printerOptions.IncludeDiagnostics { DiagnosticsToString(structure.GetDiagnostics(), printerOptions.Colorize) } else { string.Empty }
+        let annotationsStr = if printerOptions.IncludeAnnotations { AnnotationsToString(structure) } else { string.Empty }
+        writer.WriteLine("${newIndent2}${MarkerBottom}" + MaybeColorize("${name}${structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + "${(if printerOptions.IncludeSpans { " ${Span(structure.Span)}" } else { string.Empty })}${(if printerOptions.IncludeLocations { " ${Location(structure.GetLocation())}" } else { string.Empty })}${diagnosticsStr}${annotationsStr}")
+        if currentDepth >= printerOptions.MaxDepth { return }
+        var i2: int = 0
+        let structureChildren = structure.ChildNodesAndTokens()
+        let structureCount = structureChildren.Count()
+        for triviaChild in structureChildren {
+            let isChildLast2 = i2 == structureCount - 1
+            let newIndent4 = newIndent2 + IndentationStr
+            if (triviaChild.TryGetToken(out let token)) {
+                let diagnosticsStr2 = if printerOptions.IncludeDiagnostics { DiagnosticsToString(token.GetDiagnostics(), printerOptions.Colorize) } else { string.Empty }
+                let annotationsStr2 = if printerOptions.IncludeAnnotations { AnnotationsToString(token) } else { string.Empty }
+                writer.WriteLine("${newIndent4}${(if isChildLast2 { MarkerBottom } else { MarkerMiddle })}" + "${token.Text} " + MaybeColorize("${token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + "${(if printerOptions.IncludeSpans { " ${Span(token.Span)}" } else { string.Empty })}${(if printerOptions.IncludeLocations { " ${Location(token.GetLocation())}" } else { string.Empty })}${diagnosticsStr2}${annotationsStr2}")
+            }
+            i2++
+        }
+    }
+
+    private static func Location(location: Location) -> string {
+        let lineSpan = location.GetLineSpan()
+        let start = lineSpan.StartLinePosition
+        let end = lineSpan.EndLinePosition
+        return "(${start.Line + 1},${start.Character + 1}) - (${end.Line + 1},${end.Character + 1})"
+    }
+
+    private static func Span(span: TextSpan) -> string {
+        return span.ToString()
+    }
+
+    private static func TriviaToString(trivia: SyntaxTrivia) -> string {
+        if (trivia.HasStructure) {
+            return string.Empty
+        }
+        return trivia.ToString()
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+            .Replace("\t", "\\t")
+            .Replace(" ", "␣") + " "
+    }
+
+    private static func GetDiagnostics(syntax: object) -> IEnumerable<Diagnostic> {
+        // Be defensive: different syntax types may expose diagnostics APIs differently.
+        try {
+            let type = syntax.GetType()
+            // Common: GetDiagnostics() => IEnumerable<Diagnostic>
+            let m0 = type.GetMethod("GetDiagnostics", Type.EmptyTypes)
+            if (m0 != null) {
+                let result = m0!.Invoke(syntax, null)
+                if (result is IEnumerable<Diagnostic> diags) {
+                    return diags
+                }
+            }
+            // Alternative: GetDiagnostics(bool includeSuppressed)
+            let m1 = type.GetMethod("GetDiagnostics", [typeof(bool)])
+            if (m1 != null) {
+                let result = m1!.Invoke(syntax, [(object)false])
+                if (result is IEnumerable<Diagnostic> diags) {
+                    return diags
+                }
+            }
+        } catch {
+        }
+        return Array.Empty<Diagnostic>()
+    }
+
+    private static func DiagnosticsToString(diagnostics: IEnumerable<Diagnostic>?, colorize: bool) -> string {
+        let list = diagnostics?.ToList()
+        if (list is null || list!.Count == 0) {
+            return string.Empty
+        }
+        return " " + string.Join(", ", list!.Select(d => ColorizeDiagnosticId(d, colorize)))
+    }
+
+    private static func ColorizeDiagnosticId(diagnostic: Diagnostic, colorize: bool) -> string {
+        let text = "[${diagnostic.Id}]"
+        // Severity-based coloring:
+        // - Error   => Red
+        // - Warning => Yellow
+        // - Info    => Cyan
+        let color = match diagnostic.Severity {
+            DiagnosticSeverity.Error => AnsiColor.BrightRed
+            DiagnosticSeverity.Warning => AnsiColor.Yellow
+            DiagnosticSeverity.Info => AnsiColor.Cyan
+            _ => AnsiColor.BrightBlue
+        }
+        return if colorize { Colorize(text, color) } else { text }
+    }
+
+    private static func MaybeColorize(text: string, color: AnsiColor, colorize: bool) -> string {
+        return if colorize { Colorize(text, color) } else { text }
+    }
+
+    private static func Colorize(text: string, color: AnsiColor) -> string {
+        return "\u001b[${(int)color}m${text}\u001b[${(int)AnsiColor.Reset}m"
+    }
+
+    private static func AnnotationsToString(syntax: object) -> string {
+        // Be defensive: annotation APIs may differ between node/token/trivia in the red tree.
+        // We try common shapes via reflection and fall back to empty.
+        try {
+            let type = syntax.GetType()
+            // Common pattern: GetAnnotations() => IEnumerable<SyntaxAnnotation>
+            let m0 = type.GetMethod("GetAnnotations", Type.EmptyTypes)
+            if (m0 != null) {
+                let result = m0!.Invoke(syntax, null)
+                if (result is System.Collections.IEnumerable enumerable) {
+                    let kinds = enumerable
+                        .Cast<object?>()
+                        .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
+                        .Where(k => !string.IsNullOrWhiteSpace(k))
+                        .Distinct()
+                        .ToList()
+                    if (kinds.Count > 0) {
+                        return " " + string.Join(", ", kinds.Select(k => "#[${k}]"))
+                    }
+                }
+            }
+            // Alternative: HasAnnotations + GetAnnotations(string kind) isn't enumerable without knowing kinds.
+            // If the object exposes an internal field `_annotations`, use it.
+            let f = type.GetField("_annotations", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            if (f?.GetValue(syntax) is Array arr && arr.Length > 0) {
+                let kinds = arr
+                    .Cast<object?>()
+                    .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct()
+                    .ToList()
+                if (kinds.Count > 0) {
+                    return " " + string.Join(", ", kinds.Select(k => "#[${k}]"))
+                }
+            }
+        } catch {
+        }
+        return string.Empty
+    }
+
+    private static func DiagnosticsAsChildLines(diagnostics: IEnumerable<Diagnostic>?) -> string[] {
+        let list = diagnostics?.ToList()
+        if (list is null || list!.Count == 0) {
+            return Array.Empty<string>()
+        }
+        return list!
+            .Select(d => "[${d.Id}]: ${d.GetMessage()}")
+            .ToArray()
+    }
+
+    private static func AnnotationsAsChildLines(syntax: object) -> string[] {
+        let pairs = GetAnnotationPairs(syntax)
+        if (pairs.Count == 0) {
+            return Array.Empty<string>()
+        }
+        return pairs
+            .Select(p => if p.data is null { "#[${p.kind}]" } else { "#[${p.kind}] = ${p.data}" })
+            .ToArray()
+    }
+
+    private static func GetAnnotationPairs(syntax: object) -> System.Collections.Generic.List<(kind: string, data: string?)> {
+        let result = System.Collections.Generic.List<(kind: string, data: string?)>()
+        try {
+            let type = syntax.GetType()
+            // Prefer GetAnnotations() => IEnumerable<SyntaxAnnotation>
+            let m0 = type.GetMethod("GetAnnotations", Type.EmptyTypes)
+            if (m0 != null) {
+                let ann = m0!.Invoke(syntax, null)
+                if (ann is System.Collections.IEnumerable enumerable) {
+                    for a in enumerable {
+                        if (a is null) {
+                            continue
+                        }
+                        let at = a.GetType()
+                        let kind = at.GetProperty("Kind")?.GetValue(a) as string
+                        if (string.IsNullOrWhiteSpace(kind)) {
+                            continue
+                        }
+                        let data = at.GetProperty("Data")?.GetValue(a)?.ToString()
+                        result.Add((kind!, data))
+                    }
+                }
+                return result
+                    .Where(x => !string.IsNullOrWhiteSpace(x.kind))
+                    .Distinct()
+                    .ToList()
+            }
+            // Fallback: internal field `_annotations`
+            let f = type.GetField("_annotations", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            if (f?.GetValue(syntax) is Array arr && arr.Length > 0) {
+                for a in arr {
+                    if (a is null) {
+                        continue
+                    }
+                    let at = a.GetType()
+                    let kind = at.GetProperty("Kind")?.GetValue(a) as string
+                    if (string.IsNullOrWhiteSpace(kind)) {
+                        continue
+                    }
+                    let data = at.GetProperty("Data")?.GetValue(a)?.ToString()
+                    result.Add((kind!, data))
+                }
+            }
+        } catch {
+        }
+        return result
+            .Where(x => !string.IsNullOrWhiteSpace(x.kind))
+            .Distinct()
+            .ToList()
+    }
+
+}

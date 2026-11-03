@@ -7,6 +7,8 @@ internal static class OperationFactory
 {
     public static Operation? Create(SemanticModel semanticModel, SyntaxNode syntax, BoundNode bound)
     {
+        if (syntax is ParenthesizedPatternSyntax groupedPattern)
+            return Create(semanticModel, groupedPattern.Pattern, bound);
         if (bound is BoundRequiredResultExpression requiredResult)
             return Create(semanticModel, syntax, requiredResult.Operand);
         if (bound is BoundNullableValueExpression nullableValue)

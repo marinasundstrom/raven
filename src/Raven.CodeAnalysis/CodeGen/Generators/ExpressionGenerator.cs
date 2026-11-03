@@ -1391,7 +1391,9 @@ internal partial class ExpressionGenerator : Generator
 
     private static Type CloseOpenDelegateType(Type delegateType, MethodInfo lambdaMethod)
     {
-        if (!delegateType.ContainsGenericParameters)
+        // Constructed delegates may legitimately contain the enclosing method's
+        // type parameters. Preserve that identity and its metadata context.
+        if (!delegateType.IsGenericTypeDefinition)
             return delegateType;
 
         var parameterTypes = lambdaMethod.GetParameters().Select(p => p.ParameterType).ToArray();
@@ -1463,7 +1465,8 @@ internal partial class ExpressionGenerator : Generator
     {
         // Target metadata proxies already retain the closed constructor identity.
         // Rebinding them through reflection mixes the host and metadata contexts.
-        if (MethodGenerator.TypeGenerator.CodeGen.IsMetadataConstructorProxy(constructor))
+        if (constructor is ProjectedDelegateConstructorInfo ||
+            MethodGenerator.TypeGenerator.CodeGen.IsMetadataConstructorProxy(constructor))
             return constructor;
 
         if (constructor.DeclaringType == delegateClrType &&
@@ -1536,7 +1539,9 @@ internal partial class ExpressionGenerator : Generator
             {
                 try
                 {
-                    return TypeBuilder.GetConstructor(delegateClrType, definitionCtor);
+                    return delegateClrType.GetGenericArguments().Any(type => type.HasElementType)
+                        ? new ProjectedDelegateConstructorInfo(delegateClrType, definitionCtor)
+                        : TypeBuilder.GetConstructor(delegateClrType, definitionCtor);
                 }
                 catch (ArgumentException)
                 {
@@ -6555,7 +6560,8 @@ internal partial class ExpressionGenerator : Generator
 
         // Compare the converted operand category. Floating inclusive comparisons
         // invert an unordered comparison so NaN remains false, as required by CLI.
-        var unsignedOperand = op.LeftType.SpecialType is SpecialType.System_Byte
+        var operandSpecialType = (op.LeftType as INamedTypeSymbol)?.EnumUnderlyingType?.SpecialType ?? op.LeftType.SpecialType;
+        var unsignedOperand = operandSpecialType is SpecialType.System_Byte
             or SpecialType.System_UInt16 or SpecialType.System_Char
             or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
         var unorderedComparison = unsignedOperand || op.LeftType.SpecialType is
@@ -7191,8 +7197,7 @@ internal partial class ExpressionGenerator : Generator
                 var nullableClr = ResolveClrType(conditional.Type);                // Nullable<T>
                 var underlyingClr = ResolveClrType(nullableResult.UnderlyingType); // T
 
-                var ctor = nullableClr.GetConstructor(new[] { underlyingClr })
-                    ?? throw new InvalidOperationException($"Missing Nullable<{underlyingClr}>.ctor({underlyingClr}).");
+                var ctor = GetNullableConstructor(nullableClr, underlyingClr);
 
                 ILGenerator.Emit(OpCodes.Newobj, ctor); // stack: Nullable<T>
             }
@@ -9413,15 +9418,13 @@ internal partial class ExpressionGenerator : Generator
 
             // if (!left.HasValue) goto loadRight;
             ILGenerator.Emit(OpCodes.Ldloca, leftLocal);
-            var hasValueGetter = leftClrType.GetProperty(nameof(Nullable<int>.HasValue))?.GetMethod
-                ?? throw new InvalidOperationException("Missing Nullable<T>.HasValue getter.");
+            var hasValueGetter = GetNullableHasValueGetter(leftClrType);
             ILGenerator.Emit(OpCodes.Call, hasValueGetter);
             ILGenerator.Emit(OpCodes.Brfalse, loadRight);
 
             // left.Value
             ILGenerator.Emit(OpCodes.Ldloca, leftLocal);
-            var valueGetter = leftClrType.GetProperty(nameof(Nullable<int>.Value))?.GetMethod
-                ?? throw new InvalidOperationException("Missing Nullable<T>.Value getter.");
+            var valueGetter = GetNullableValueGetter(leftClrType);
             ILGenerator.Emit(OpCodes.Call, valueGetter);
 
             // If the selected value is a value type but the result is a reference type (e.g. object/union), box it.

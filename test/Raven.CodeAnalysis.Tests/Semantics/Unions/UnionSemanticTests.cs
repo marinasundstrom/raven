@@ -3662,6 +3662,9 @@ union Optional<T> {
     public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenUnionCasesAreWildcardImported()
     {
         const string source = """
+import A.Result.*
+import B.Optional.*
+
 namespace A {
     union Result<T, E> {
         case Ok(value: T)
@@ -3676,9 +3679,6 @@ namespace B {
     }
 }
 
-import A.Result.*
-import B.Optional.*
-
 class C {
     func create() {
         var value = Ok(42)
@@ -3687,6 +3687,7 @@ class C {
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(tree.GetDiagnostics());
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
@@ -3743,6 +3744,9 @@ union Optional<T> {
         // When two union carriers share the same short name but live in different namespaces,
         // the diagnostic message should include the namespace to disambiguate.
         const string source = """
+import A.Result.*
+import B.Result.*
+
 namespace A {
     union Result<T, E> {
         case Ok(value: T)
@@ -3756,9 +3760,6 @@ namespace B {
         case None
     }
 }
-
-import A.Result.*
-import B.Result.*
 
 class C {
     func create() {

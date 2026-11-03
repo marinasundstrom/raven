@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public static class SyntaxParserFlags {
+    static var PrintParseSequence: bool { get; set; } = false
+
+    static var PrintTimestamp: bool { get; set; } = true
+
+    private static field _parseSequenceThrottleMilliseconds: int
+
+    static var ParseSequenceThrottleMilliseconds: int {
+        get => _parseSequenceThrottleMilliseconds
+        set => _parseSequenceThrottleMilliseconds = Math.Max(0, value)
+    }
+}

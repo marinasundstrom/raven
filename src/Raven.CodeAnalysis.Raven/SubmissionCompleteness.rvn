@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis
+
+/// Describes whether a script or interactive submission is ready to compile.
+public enum SubmissionCompleteness {
+    /// The submission is syntactically valid and complete.
+    Complete = 0,
+    /// The submission ends while the parser is still expecting more input.
+    Incomplete = 1,
+    /// The submission is complete but contains syntax errors.
+    Invalid = 2
+}

@@ -97,17 +97,17 @@ internal class SyntaxToken : GreenNode
 
     public SyntaxToken WithLeadingTrivia(SyntaxTriviaList triviaList)
     {
-        return new SyntaxToken(_rawKind, Kind, _text, _value, Width, triviaList, TrailingTrivia, _diagnostics, _annotations);
+        return PreserveMissing(new SyntaxToken(_rawKind, Kind, _text, _value, Width, triviaList, TrailingTrivia, _diagnostics, _annotations));
     }
 
     public SyntaxToken WithTrailingTrivia(SyntaxTriviaList triviaList)
     {
-        return new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, triviaList, _diagnostics, _annotations);
+        return PreserveMissing(new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, triviaList, _diagnostics, _annotations));
     }
 
     public SyntaxToken WithRawKind(int rawKind)
     {
-        return new SyntaxToken(rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics, _annotations);
+        return PreserveMissing(new SyntaxToken(rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics, _annotations));
     }
 
     public override int GetLeadingTriviaWidth() => LeadingTrivia.Width;
@@ -131,7 +131,7 @@ internal class SyntaxToken : GreenNode
             return this;
         }
 
-        return new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations);
+        return PreserveMissing(new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations));
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
@@ -157,7 +157,13 @@ internal class SyntaxToken : GreenNode
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics, _annotations);
+        return PreserveMissing(new SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics, _annotations));
+    }
+
+    private SyntaxToken PreserveMissing(SyntaxToken token)
+    {
+        token._isMissing = _isMissing;
+        return token;
     }
 
     private string GetDebuggerDisplay()

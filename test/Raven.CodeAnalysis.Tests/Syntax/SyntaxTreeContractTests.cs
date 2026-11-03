@@ -7,6 +7,23 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public sealed class SyntaxTreeContractTests
 {
     [Fact]
+    public void ZeroWidthEndOfFileDiagnosticsRemainVisibleThroughSpanQueries()
+    {
+        var tree = SyntaxTree.ParseText("class C {");
+        var root = tree.GetRoot();
+        var atEnd = tree.GetDiagnostics().Where(d => d.Location.SourceSpan.Start == tree.Length &&
+            d.Location.SourceSpan.Length == 0).ToArray();
+        Assert.NotEmpty(atEnd);
+        Assert.All(atEnd, diagnostic =>
+        {
+            Assert.Contains(diagnostic, root.GetDiagnostics());
+            Assert.Contains(diagnostic, tree.GetDiagnostics(root.FullSpan));
+            Assert.Contains(diagnostic, tree.GetDiagnostics(root.EndOfFileToken));
+            Assert.DoesNotContain(diagnostic, tree.GetDiagnostics(new TextSpan(0, 1)));
+        });
+    }
+
+    [Fact]
     public void ParsedTree_AlwaysExposesItsSourceTextAndRoot()
     {
         var sourceText = SourceText.From("func Main() {}", Encoding.UTF8);

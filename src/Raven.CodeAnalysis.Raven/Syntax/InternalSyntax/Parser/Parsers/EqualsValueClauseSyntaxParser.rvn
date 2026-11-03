@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+internal open class EqualsValueClauseSyntaxParser : SyntaxParser {
+    init(context: ParseContext) : base(context) {
+    }
+
+    func Parse() -> EqualsValueClauseSyntax? {
+        let equalsToken = ReadToken()
+
+        // Newlines terminate the initializer before a following statement.
+        let previous = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(false)
+        let expr = ExpressionSyntaxParser(self, stopOnLeadingNewlineBinaryOperator: true).ParseExpression()
+        SetTreatNewlinesAsTokens(previous)
+
+        if expr.IsMissing {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.ExpressionExpected, GetEndOfLastToken()))
+        }
+
+        return SyntaxFactory.EqualsValueClause(equalsToken, expr)
+    }
+}

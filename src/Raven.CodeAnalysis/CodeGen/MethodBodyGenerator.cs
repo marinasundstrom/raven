@@ -80,34 +80,52 @@ internal partial class MethodBodyGenerator
     /// <summary>The IL local that holds the shared outer-method closure instance.</summary>
     internal IILocal? OuterMethodClosureLocal => _outerMethodClosureLocal;
 
-    internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
-        => TryGetCapturedField(symbol, out fieldBuilder, out _);
+    internal bool TryGetCapturedField(ISymbol symbol, out FieldInfo fieldInfo)
+        => TryGetCapturedField(symbol, out fieldInfo, out _);
 
-    internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder, out bool fromStateMachine)
+    internal bool TryGetCapturedField(ISymbol symbol, out FieldInfo fieldInfo, out bool fromStateMachine)
     {
         fromStateMachine = false;
 
         if (_lambdaClosure is null)
         {
             // Check the shared outer-method closure first (reference-based capture).
-            if (_outerMethodClosure is not null && _outerMethodClosure.TryGetField(symbol, out fieldBuilder))
+            if (_outerMethodClosure is not null && _outerMethodClosure.TryGetField(symbol, out var outerField))
+            {
+                var runtimeType = _outerMethodClosure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
+                fieldInfo = runtimeType == _outerMethodClosure.TypeBuilder
+                    ? outerField
+                    : TypeBuilder.GetField(runtimeType, outerField);
                 return true;
+            }
 
             if (symbol is ILocalSymbol localSymbol &&
                 MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
                 asyncStateMachine.TryGetHoistedLocalField(localSymbol, out var hoistedField) &&
                 MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(hoistedField) is FieldBuilder hoistedBuilder)
             {
-                fieldBuilder = hoistedBuilder;
+                fieldInfo = hoistedBuilder;
                 fromStateMachine = true;
                 return true;
             }
 
-            fieldBuilder = default!;
+            if (symbol is ILocalSymbol iteratorLocal &&
+                MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorStateMachine &&
+                iteratorStateMachine.TryGetHoistedLocalField(iteratorLocal, out var iteratorField) &&
+                MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(iteratorField) is FieldBuilder iteratorBuilder)
+            {
+                fieldInfo = iteratorBuilder;
+                fromStateMachine = true;
+                return true;
+            }
+
+            fieldInfo = default!;
             return false;
         }
 
-        return _lambdaClosure.TryGetField(symbol, out fieldBuilder);
+        var found = _lambdaClosure.TryGetField(symbol, out var lambdaField);
+        fieldInfo = lambdaField;
+        return found;
     }
 
     internal ILLabel GetOrCreateLabel(ILabelSymbol labelSymbol)

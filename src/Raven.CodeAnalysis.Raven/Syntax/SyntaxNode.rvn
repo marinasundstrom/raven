@@ -1,0 +1,157 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Text.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public abstract partial class SyntaxNode : IEquatable<SyntaxNode> {
+    internal readonly field Green: GreenNode
+
+    private readonly field _syntaxTree: SyntaxTree?
+
+    private readonly field _parent: SyntaxNode?
+
+    val Parent: SyntaxNode? => _parent
+
+    val IsMissing: bool => Green.IsMissing
+
+    val SyntaxTree: SyntaxTree? => _syntaxTree ?? _parent?.SyntaxTree
+
+    virtual val Kind: SyntaxKind => Green.Kind
+
+    internal val Position: int { get; }
+
+    internal val End: int => Position + FullWidth
+
+    internal val Width: int => Green.Width
+
+    internal val FullWidth: int => Green.FullWidth
+
+    val Span: TextSpan => TextSpan(Position + GetLeadingTrivia().Width, Width)
+
+    val FullSpan: TextSpan => TextSpan(Position, FullWidth)
+
+    func ChildNodes() -> IEnumerable<SyntaxNode> {
+        for item in ChildNodesAndTokens() {
+            if item.TryGetNode(out var node) { yield node! }
+        }
+    }
+
+    func ChildNodesAndTokens() -> ChildSyntaxList => ChildSyntaxList(self)
+
+    val HasLeadingTrivia: bool => Green.GetLeadingTrivia().Count > 0
+
+    val HasTrailingTrivia: bool => Green.GetTrailingTrivia().Count > 0
+
+    func GetLeadingTrivia() -> SyntaxTriviaList {
+        let token = GetFirstToken()
+        return if token == default(SyntaxToken) { SyntaxTriviaList.Empty } else { token.LeadingTrivia }
+    }
+
+    func GetTrailingTrivia() -> SyntaxTriviaList {
+        let token = GetLastToken()
+        return if token == default(SyntaxToken) { SyntaxTriviaList.Empty } else { token.TrailingTrivia }
+    }
+
+    init(greenNode: GreenNode, parent: SyntaxNode?, position: int = 0) {
+        Green = greenNode ?? throw ArgumentNullException(nameof(greenNode))
+        _parent = parent
+        Position = position
+    }
+
+    init(greenNode: GreenNode, syntaxTree: SyntaxTree) {
+        Green = greenNode ?? throw ArgumentNullException(nameof(greenNode))
+        _syntaxTree = syntaxTree
+    }
+
+    protected virtual func GetDebuggerDisplay() -> string => GetType().Name + " " + Kind.ToString() + " " + (if IsMissing { "<missing>" } else { ToString() })
+
+    internal virtual func GetNodeSlot(index: int) -> SyntaxNode? => null
+
+    virtual func GetRed<TNode>(ref node: TNode, index: int) -> TNode where TNode: SyntaxNode {
+        if node is not null { return node }
+        let slot = Green.GetSlot(index)
+        if slot is not null {
+            let position = Position + Green.GetChildStartPosition(index)
+            node = (TNode)SyntaxNodeCache.GetValue(slot!, s => s.CreateRed(self, position))
+            return node
+        }
+        return null!
+    }
+
+    override func ToString() -> string => SourceTextWriter.WriteNodeToText(self, false)
+
+    func ToFullString() -> string => SourceTextWriter.WriteNodeToText(self, true)
+
+    internal func ReplaceTokenCore(oldToken: SyntaxToken, newToken: SyntaxToken) -> SyntaxNode => Green.ReplaceNode((GreenNode)oldToken.Green, (GreenNode)newToken.Green).CreateRed(Parent, Position)
+
+    internal func ReplaceNodeCore(oldNode: SyntaxNode, newNode: SyntaxNode) -> SyntaxNode {
+        if oldNode is null { throw ArgumentNullException(nameof(oldNode)) }
+        if newNode is null { throw ArgumentNullException(nameof(newNode)) }
+        if newNode.Parent is not null { throw ArgumentException(nameof(newNode), "Syntax node is not part of the current syntax tree.") }
+        return Green.ReplaceNode(oldNode.Green, newNode.Green).CreateRed()
+    }
+
+    internal func ReplaceNodeWithNodesCore(oldNode: SyntaxNode, newNodes: IEnumerable<SyntaxNode>) -> SyntaxNode {
+        if oldNode is null { throw ArgumentNullException(nameof(oldNode)) }
+        if newNodes is null { throw ArgumentNullException(nameof(newNodes)) }
+        return Green.ReplaceNode(oldNode.Green, newNodes.Select(n => n.Green)).CreateRed()
+    }
+
+    abstract func Accept(visitor: SyntaxVisitor)
+
+    abstract func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult
+
+    internal func WithParent(parent: SyntaxNode?, position: int) -> SyntaxNode => Green.CreateRed(parent, position)
+
+    func GetLocation() -> Location {
+        if SyntaxTree is null { return Location.None }
+        return SyntaxTree!.GetLocation(Span)
+    }
+
+    static func ==(left: SyntaxNode?, right: SyntaxNode?) -> bool => Equals(left, right)
+
+    static func !=(left: SyntaxNode?, right: SyntaxNode?) -> bool => !Equals(left, right)
+
+    func Equals(other: SyntaxNode?) -> bool {
+        if other is null { return false }
+        if ReferenceEquals(self, other) { return true }
+        return Green.Equals(other!.Green) && Equals(_parent, other!._parent)
+    }
+
+    override func Equals(obj: object?) -> bool {
+        if obj is null { return false }
+        if ReferenceEquals(self, obj) { return true }
+        if obj!.GetType() != GetType() { return false }
+        return Equals((SyntaxNode)obj)
+    }
+
+    override func GetHashCode() -> int => HashCode.Combine(Green, _parent)
+
+    val ContainsDiagnostics: bool => GetDiagnostics().Any()
+
+    func GetDiagnostics(traverse: bool = true) -> IEnumerable<Diagnostic> {
+        let tree = SyntaxTree
+        if traverse && tree is SyntaxTree sourceTree { return sourceTree.GetDiagnostics(FullSpan) }
+        let diagnostics = if traverse { Green.GetDiagnosticsRecursive() } else { Green.GetDiagnostics() }
+        return diagnostics.Select(d => d.ToDiagnostic(tree))
+    }
+
+    func GetAnnotations(annotationKinds: IEnumerable<string>) -> IEnumerable<SyntaxAnnotation> => Green.GetAnnotations(annotationKinds)
+
+    func GetAnnotation(kind: string) -> SyntaxAnnotation? => Green.GetAnnotation(kind)
+
+    func HasAnnotation(annotation: SyntaxAnnotation) -> bool => Green.HasAnnotation(annotation)
+
+    func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> SyntaxNode => Green.WithAdditionalAnnotations(annotations).CreateRed()
+
+    func GetReference() -> SyntaxReference {
+        let tree = SyntaxTree
+        if tree is null { throw InvalidOperationException("A detached syntax node does not have a syntax reference.") }
+        return SyntaxReference(tree!, self)
+    }
+}

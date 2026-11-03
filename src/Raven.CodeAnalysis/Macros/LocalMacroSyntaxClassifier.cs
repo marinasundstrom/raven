@@ -230,7 +230,7 @@ internal static class LocalMacroSyntaxClassifier
         string markerName,
         string markerAttributeName)
     {
-        if (attribute.HashToken.Kind != SyntaxKind.None)
+        if (attribute.IsMacroAttribute())
             return false;
 
         var identifier = attribute.Name

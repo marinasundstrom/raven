@@ -1,0 +1,109 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+alias RedToken = Raven.CodeAnalysis.Syntax.SyntaxToken
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal open class SyntaxToken : GreenNode {
+    private readonly field _text: string
+
+    private readonly field _value: object?
+
+    private readonly field _rawKind: int
+
+    private field _isMissing: bool
+
+    val Text: string => _text
+
+    internal var LeadingTrivia: SyntaxTriviaList { get; set; } = SyntaxTriviaList.Empty
+
+    internal var TrailingTrivia: SyntaxTriviaList { get; set; } = SyntaxTriviaList.Empty
+
+    init(kind: SyntaxKind, text: string, leadingTrivia: SyntaxTriviaList? = null, trailingTrivia: SyntaxTriviaList? = null, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : self(kind, text, null, text.Length, leadingTrivia, trailingTrivia, diagnostics, annotations) { }
+
+    init(kind: SyntaxKind, text: string, value: object?, width: int, leadingTrivia: SyntaxTriviaList? = null, trailingTrivia: SyntaxTriviaList? = null, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : self((int)kind, kind, text, value, width, leadingTrivia, trailingTrivia, diagnostics, annotations) { }
+
+    init(rawKind: int, kind: SyntaxKind, text: string, value: object?, width: int, leadingTrivia: SyntaxTriviaList? = null, trailingTrivia: SyntaxTriviaList? = null, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(kind, 0, diagnostics, annotations) {
+        _rawKind = rawKind
+        _text = text
+        _value = value
+        LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty
+        TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty
+        Width = width
+        FullWidth = (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0)
+    }
+
+    override val IsMissing: bool => _isMissing
+
+    val RawKind: int => _rawKind
+
+    override func GetSlot(index: int) -> GreenNode? => throw InvalidOperationException("SyntaxToken has no children.")
+
+    override func GetValue() -> object? => _value
+
+    override func GetValueText() -> string? => _value?.ToString() ?? _text
+
+    func WithLeadingTrivia(params trivias: IEnumerable<SyntaxTrivia>?) -> SyntaxToken {
+        let items = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>()
+        return WithLeadingTrivia(SyntaxFactory.TriviaList(items))
+    }
+
+    func WithTrailingTrivia(params trivias: IEnumerable<SyntaxTrivia>?) -> SyntaxToken {
+        let items = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>()
+        return WithTrailingTrivia(SyntaxFactory.TriviaList(items))
+    }
+
+    func WithLeadingTrivia(triviaList: SyntaxTriviaList) -> SyntaxToken => PreserveMissing(SyntaxToken(_rawKind, Kind, _text, _value, Width, triviaList, TrailingTrivia, _diagnostics, _annotations))
+
+    func WithTrailingTrivia(triviaList: SyntaxTriviaList) -> SyntaxToken => PreserveMissing(SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, triviaList, _diagnostics, _annotations))
+
+    func WithRawKind(rawKind: int) -> SyntaxToken => PreserveMissing(SyntaxToken(rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics, _annotations))
+
+    override func GetLeadingTriviaWidth() -> int => LeadingTrivia.Width
+
+    override func GetTrailingTriviaWidth() -> int => TrailingTrivia.Width
+
+    internal static func Missing(kind: SyntaxKind) -> SyntaxToken {
+        let token = SyntaxToken(kind, string.Empty)
+        token._isMissing = true
+        return token
+    }
+
+    static func explicit(token: SyntaxToken) -> RedToken => RedToken(token, null!)
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode {
+        if diagnostics is null && annotations is null { return self }
+        return PreserveMissing(SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations))
+    }
+
+    internal override func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo> {
+        for diagnostic in LeadingTrivia.GetDiagnosticsRecursive() { yield diagnostic }
+        if _diagnostics is not null { for diagnostic in (_diagnostics!) { yield diagnostic } }
+        for diagnostic in TrailingTrivia.GetDiagnosticsRecursive() { yield diagnostic }
+    }
+
+    internal override func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode => PreserveMissing(SyntaxToken(_rawKind, Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics, _annotations))
+
+    private func PreserveMissing(token: SyntaxToken) -> SyntaxToken {
+        token._isMissing = _isMissing
+        return token
+    }
+
+    private func GetDebuggerDisplay() -> string {
+        let text = if string.IsNullOrEmpty(Text) { string.Empty } else { Text }
+        return GetType().Name + " " + Kind.ToString() + " " + (if IsMissing { "<missing>" } else { text })
+    }
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.VisitToken(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitToken(self)
+}

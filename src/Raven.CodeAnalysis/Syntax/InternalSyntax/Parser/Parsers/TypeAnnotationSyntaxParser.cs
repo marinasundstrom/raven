@@ -40,7 +40,7 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
                         GetSpanOfPeekedToken()));
             }
 
-            return SyntaxFactory.ArrowTypeClause(attributeLists, arrowToken, type);
+            return SyntaxFactory.ArrowTypeClause(arrowToken, attributeLists, type);
         }
 
         return null;

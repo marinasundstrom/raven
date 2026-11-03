@@ -1,0 +1,750 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Reflection.*
+import System.Text.*
+
+public static class RavenQuoter {
+    private static val SyntaxFactoryType: Type = typeof(SyntaxFactory)
+
+    private class FactoryInfo {
+        init(method: MethodInfo) {
+            Method = method
+            Parameters = method.GetParameters()
+        }
+
+        val Method: MethodInfo { get; }
+
+        val Parameters: IReadOnlyList<ParameterInfo> { get; }
+    }
+
+    private static val s_factoryCache: Dictionary<Type, IReadOnlyList<FactoryInfo>> = Dictionary<Type, IReadOnlyList<FactoryInfo>>()
+
+    static func QuoteText(ravenSource: string, options: RavenQuoterOptions? = null) -> string {
+        let resolvedOptions = options ?? RavenQuoterOptions()
+        let tree = SyntaxTree.ParseText(ravenSource)
+        return Quote(tree.GetRoot(), resolvedOptions)
+    }
+
+    static func Quote(root: SyntaxNode, options: RavenQuoterOptions? = null) -> string {
+        var currentRoot = root
+        let resolvedOptions = options ?? RavenQuoterOptions()
+        if (resolvedOptions.IncludeTrivia && resolvedOptions.NodeSourceOverride is not null) {
+            currentRoot = RedistributeSourceOverrideTrivia(currentRoot, resolvedOptions.NodeSourceOverride!)
+        }
+        let w = CodeWriter()
+        let writer = QuoterWriter(w, resolvedOptions)
+        if (resolvedOptions.GenerateUsingDirectives) {
+            if (resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven) {
+                w.WriteLine("import Raven.CodeAnalysis.Syntax.*")
+                if (resolvedOptions.UseStaticSyntaxFactoryImport) {
+                    w.WriteLine("import Raven.CodeAnalysis.Syntax.SyntaxFactory.*")
+                }
+            } else {
+                w.WriteLine("using Raven.CodeAnalysis.Syntax;")
+                if (resolvedOptions.UseStaticSyntaxFactoryImport) {
+                    w.WriteLine("using static Raven.CodeAnalysis.Syntax.SyntaxFactory;")
+                }
+            }
+            w.WriteLine()
+        }
+        if (resolvedOptions.WrapInClass) {
+            w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { "static class ${resolvedOptions.GeneratedClassName} {" } else { "public static class ${resolvedOptions.GeneratedClassName}" })
+            if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.CSharp { w.WriteLine("{") }
+            w.Indent()
+            w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { "static func ${resolvedOptions.GeneratedMethodName}() -> CompilationUnitSyntax {" } else { "public static CompilationUnitSyntax ${resolvedOptions.GeneratedMethodName}()" })
+            if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.CSharp { w.WriteLine("{") }
+            w.Indent()
+            w.Write("return ")
+            writer.WriteNode(currentRoot)
+            if (resolvedOptions.NormalizeWhitespace) {
+                w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { ".NormalizeWhitespace()" } else { ".NormalizeWhitespace();" })
+            } else {
+                w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { string.Empty } else { ";" })
+            }
+            w.Unindent()
+            w.WriteLine("}")
+            w.Unindent()
+            w.WriteLine("}")
+        } else {
+            writer.WriteNode(currentRoot)
+            if (resolvedOptions.NormalizeWhitespace) {
+                w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { ".NormalizeWhitespace()" } else { ".NormalizeWhitespace();" })
+            } else {
+                w.WriteLine(if resolvedOptions.OutputLanguage == RavenQuoterOutputLanguage.Raven { string.Empty } else { ";" })
+            }
+        }
+        return w.ToString()
+    }
+
+    private static func RedistributeSourceOverrideTrivia(root: SyntaxNode, sourceOverride: Func<SyntaxNode, string?>) -> SyntaxNode {
+        let boundaryTokens = root
+            .DescendantNodesAndSelf()
+            .Where(node => sourceOverride(node) is not null)
+            .SelectMany(node => [node.GetFirstToken(), node.GetLastToken()])
+            .ToHashSet()
+        if (boundaryTokens.Count == 0) {
+            return root
+        }
+        let tokens = root.DescendantTokens().ToArray()
+        let replacements = Dictionary<SyntaxToken, SyntaxToken>()
+        func GetReplacement(index: int) -> SyntaxToken => if replacements.TryGetValue(tokens[index], out let replacement) { replacement } else { tokens[index] }
+        var index = 0
+        while (index < tokens.Length) {
+            let token = tokens[index]
+            if (!boundaryTokens.Contains(token)) {
+                index++
+                continue
+            }
+            var replacement = GetReplacement(index)
+            if (replacement.HasLeadingTrivia && index > 0) {
+                let previous = GetReplacement(index - 1)
+                replacements[tokens[index - 1]] = previous.WithTrailingTrivia(
+                    previous.TrailingTrivia.Concat(replacement.LeadingTrivia))
+                replacement = replacement.WithLeadingTrivia(SyntaxTriviaList.Empty)
+            }
+            if (replacement.HasTrailingTrivia && index < tokens.Length - 1) {
+                let next = GetReplacement(index + 1)
+                replacements[tokens[index + 1]] = next.WithLeadingTrivia(
+                    replacement.TrailingTrivia.Concat(next.LeadingTrivia))
+                replacement = replacement.WithTrailingTrivia(SyntaxTriviaList.Empty)
+            }
+            replacements[token] = replacement
+            index++
+        }
+        return root.ReplaceTokens(
+            replacements.Keys,
+            (original, _) => replacements[original])
+    }
+
+    private static func GetFactoryInfos(nodeType: Type) -> IReadOnlyList<FactoryInfo> {
+        lock s_factoryCache {
+            if (s_factoryCache.TryGetValue(nodeType, out let cached)) {
+                return cached
+            }
+        }
+        let simpleName = if nodeType.Name.EndsWith("Syntax", StringComparison.Ordinal) { nodeType.Name[..^"Syntax".Length] } else { nodeType.Name }
+        let methods = SyntaxFactoryType
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == simpleName && nodeType.IsAssignableFrom(m.ReturnType))
+            .ToArray()
+        let infos = methods
+            .OrderBy(m => m.GetParameters().Length)
+            .ThenBy(m => m.ToString(), StringComparer.Ordinal)
+            .Select(m => FactoryInfo(m))
+            .ToArray()
+        lock s_factoryCache {
+            s_factoryCache[nodeType] = infos
+        }
+        return infos
+    }
+
+    private static func FindPropertyForParameter(nodeType: Type, parameter: ParameterInfo) -> PropertyInfo? {
+        let name = parameter.Name
+        if (string.IsNullOrEmpty(name)) {
+            return null
+        }
+        val flags: BindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase
+        var prop = nodeType.GetProperty(name!, flags)
+        if (prop is not null) {
+            return prop
+        }
+        let pascalName = char.ToUpperInvariant((name!)[0]) + (name!)[1..]
+        prop = nodeType.GetProperty(pascalName, flags)
+        return prop
+    }
+
+    // -------------------------------------------------------
+    // Writer + reflection-based node printer
+    // -------------------------------------------------------
+    private class QuoterWriter : SyntaxVisitor {
+        private val _w: CodeWriter
+
+        private val _options: RavenQuoterOptions
+
+         init(writer: CodeWriter, options: RavenQuoterOptions) {
+            _w = writer
+            _options = options
+        }
+
+        func WriteNode(node: SyntaxNode) {
+            WriteNodeInternal(node)
+        }
+
+        override func DefaultVisit(node: SyntaxNode) {
+            WriteNodeInternal(node)
+        }
+
+        private func WriteFactoryMethodName(methodName: string) {
+            if (_options.FullyQualifyNames) {
+                _w.Write("Raven.CodeAnalysis.Syntax.SyntaxFactory.")
+                _w.Write(methodName)
+            } else if (_options.UseStaticSyntaxFactoryImport) {
+                _w.Write(methodName)
+            } else {
+                _w.Write("SyntaxFactory.")
+                _w.Write(methodName)
+            }
+        }
+
+        private func WriteNodeInternal(node: SyntaxNode) {
+            let sourceOverride = _options.NodeSourceOverride?.Invoke(node)
+            if (sourceOverride is not null) {
+                WriteSourceOverride(node, sourceOverride!)
+                return
+            }
+            let type = node.GetType()
+            var typeName = type.Name
+            if (typeName.EndsWith("Syntax", StringComparison.Ordinal)) {
+                typeName = typeName.Substring(0, typeName.Length - "Syntax".Length)
+            }
+            var usedProperties = HashSet<PropertyInfo>()
+            let factories = GetFactoryInfos(type)
+            var factory: FactoryInfo? = null
+            var paramValues: List<(Parameter: ParameterInfo, Value: object?)>? = null
+            for candidate in factories {
+                let candidateValues = List<(Item1: ParameterInfo, Item2: object?)>()
+                let candidateProperties = HashSet<PropertyInfo>()
+                let args = object?[](candidate.Parameters.Count)
+                var ok = true
+                var i: int = 0
+                while (i < candidate.Parameters.Count) {
+                    let param = candidate.Parameters[i]
+                    let prop = FindPropertyForParameter(type, param)
+                    if (prop is null) {
+                        ok = false
+                        break
+                    }
+                    let value = prop!.GetValue(node)
+                    candidateValues.Add((param, value))
+                    candidateProperties.Add(prop!)
+                    args[i] = value
+                    i++
+                }
+                if (!ok) {
+                    continue
+                }
+                try {
+                    if (candidate.Method.Invoke(null, args) is not SyntaxNode recreatedNode) {
+                        continue
+                    }
+                    if (!NodesMatchForSelection(node, recreatedNode)) {
+                        continue
+                    }
+                } catch (ArgumentException error) {
+                    continue
+                } catch (TargetInvocationException error) {
+                    continue
+                }
+                factory = candidate
+                paramValues = candidateValues
+                usedProperties = candidateProperties
+                break
+            }
+            if (factory is not null && paramValues is not null && paramValues!.Count > 0) {
+                // Pretty-print:
+                //
+                // Foo(
+                //     arg1,
+                //     arg2,
+                //     ...)
+                WriteFactoryMethodName(factory!.Method.Name)
+                _w.Write("(")
+                let moreThanOneChild = paramValues!.Count > 1
+                var separateByNewline = moreThanOneChild
+                    || _options.UseNamedArguments
+                if (!moreThanOneChild && !_options.InlineSingleArg) {
+                    separateByNewline = true
+                }
+                if (separateByNewline) {
+                    _w.WriteLine()
+                    _w.Indent()
+                }
+                var i: int = 0
+                while (i < paramValues!.Count) {
+                    let (p, value) = (paramValues!)[i]
+                    // INFO: Doesn't work
+                    //if (value is null
+                    //    && _options.UseNamedArguments
+                    //    && _options.IgnoreNullValue)
+                    //    continue;
+                    if (_options.UseNamedArguments) {
+                        _w.Write("${p.Name}: ")
+                    }
+                    WriteValue(p.ParameterType, value)
+                    if (i < paramValues!.Count - 1) {
+                        _w.WriteLine(",")
+                    } else {
+                        if (separateByNewline) {
+                            _w.WriteLine()
+                        }
+                    }
+                    i++
+                }
+                if (separateByNewline) {
+                    _w.Unindent()
+                }
+                _w.Write(")")
+            } else {
+                // Fallback: Foo()
+                WriteFactoryMethodName(typeName)
+                _w.Write("()")
+            }
+            // Apply remaining properties via With<Property>()
+            let props = type
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => p.CanRead)
+                .Where(p => !usedProperties.Contains(p))
+                .Select(p => (Property: p, With: type.GetMethod("With" + p.Name, [p.PropertyType])))
+                .Where(x => x.With is not null)
+                .ToList()
+            if (props.Count == 0) {
+                return
+            }
+            for item in props {
+                let p = item.Property
+                let value = p.GetValue(node)
+                if (IsDefaultValue(p.PropertyType, value)) {
+                    continue
+                }
+                _w.WriteLine()
+                _w.Indent()
+                _w.Write(".With")
+                _w.Write(p.Name)
+                _w.Write("(")
+                WriteValue(p.PropertyType, value)
+                _w.Write(")")
+                _w.Unindent()
+            }
+        }
+
+        private func WriteSourceOverride(node: SyntaxNode, source: string) {
+            _w.Write("(")
+            _w.Write(source)
+            _w.Write(")")
+        }
+
+        private func NodesMatchForSelection(original: SyntaxNode, recreated: SyntaxNode) -> bool {
+            if (original.GetType() != recreated.GetType()) {
+                return false
+            }
+            let originalText = if _options.IncludeTrivia { original.ToFullString() } else { original.ToString() }
+            let recreatedText = if _options.IncludeTrivia { recreated.ToFullString() } else { recreated.ToString() }
+            return string.Equals(originalText, recreatedText, StringComparison.Ordinal)
+        }
+
+        private func WriteValue(type: Type, value: object?) {
+            if (value is null) {
+                _w.Write("null")
+                return
+            }
+            if (typeof(SyntaxNode).IsAssignableFrom(type)) {
+                WriteNodeInternal((SyntaxNode)value)
+                return
+            }
+            if (type == typeof(SyntaxToken)) {
+                WriteToken((SyntaxToken)value!)
+                return
+            }
+            if (type == typeof(SyntaxTokenList)) {
+                WriteTokenList((SyntaxTokenList)value!)
+                return
+            }
+            if (type.IsGenericType &&
+                type.GetGenericTypeDefinition() == typeof(SyntaxList<>)) {
+                let elemType = type.GetGenericArguments()[0]
+                WriteSyntaxList(elemType, (IEnumerable)value)
+                return
+            }
+            if (type.IsGenericType &&
+                type.Name.StartsWith("SeparatedSyntaxList", StringComparison.Ordinal)) {
+                let elemType = type.GetGenericArguments()[0]
+                WriteSeparatedSyntaxList(elemType, (IEnumerable)value)
+                return
+            }
+            if (type.IsEnum) {
+                WriteTypeName(type)
+                _w.Write(".")
+                _w.Write(Enum.GetName(type, value!) ?? value!.ToString() ?? string.Empty)
+                return
+            }
+            if (type == typeof(string)) {
+                _w.Write(Literal((string)value))
+                return
+            }
+            if (type.IsValueType) {
+                if (type == typeof(bool)) {
+                    _w.Write(if ((bool)value!) { "true" } else { "false" })
+                } else {
+                    _w.Write(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                }
+                return
+            }
+            _w.Write(value!.ToString() ?? "null")
+        }
+
+        private func WriteToken(token: SyntaxToken) {
+            if (!_options.IncludeTrivia || (!token.HasLeadingTrivia && !token.HasTrailingTrivia)) {
+                if (token.Kind == SyntaxKind.IdentifierToken) {
+                    WriteFactoryMethodName("Identifier")
+                    _w.Write("(")
+                    _w.Write(Literal(token.Text))
+                    _w.Write(")")
+                } else if (token.Kind == SyntaxKind.NumericLiteralToken
+                || token.Kind == SyntaxKind.StringLiteralToken) {
+                    WriteFactoryMethodName("Literal")
+                    _w.Write("(")
+                    _w.Write(Literal(token.Text))
+                    _w.Write(", ")
+                    _w.Write(Literal(token.Value!))
+                    _w.Write(")")
+                } else {
+                    if (_options.UseFactoryPropsForSimpleTokens
+                        && token.Kind != SyntaxKind.None
+                        && !token.IsMissing) {
+                        WriteFactoryMethodName("${token.Kind.ToString()}")
+                    } else {
+                        if (token.IsMissing) {
+                            WriteFactoryMethodName("MissingToken")
+                            _w.Write("(")
+                            WriteTypeName(typeof(SyntaxKind))
+                            _w.Write(".")
+                            _w.Write(token.Kind.ToString())
+                            _w.Write(")")
+                        } else {
+                            WriteFactoryMethodName("Token")
+                            _w.Write("(")
+                            WriteTypeName(typeof(SyntaxKind))
+                            _w.Write(".")
+                            _w.Write(token.Kind.ToString())
+                            _w.Write(")")
+                        }
+                    }
+                }
+                return
+            }
+            if (token.Kind == SyntaxKind.IdentifierToken) {
+                WriteFactoryMethodName("Identifier")
+                _w.Write("(")
+                _w.Write(Literal(token.Text))
+                _w.Write(")")
+            } else if (token.Kind == SyntaxKind.NumericLiteralToken
+            || token.Kind == SyntaxKind.StringLiteralToken) {
+                WriteFactoryMethodName("Literal")
+                _w.Write("(")
+                _w.Write(Literal(token.Text))
+                _w.Write(", ")
+                _w.Write(Literal(token.Value!))
+                _w.Write(")")
+            } else {
+                if (_options.UseFactoryPropsForSimpleTokens
+                                    && token.Kind != SyntaxKind.None
+                                    && !token.IsMissing) {
+                    WriteFactoryMethodName("${token.Kind.ToString()}")
+                } else {
+                    if (token.IsMissing) {
+                        WriteFactoryMethodName("MissingToken")
+                        _w.Write("(")
+                        WriteTypeName(typeof(SyntaxKind))
+                        _w.Write(".")
+                        _w.Write(token.Kind.ToString())
+                        _w.Write(")")
+                    } else {
+                        WriteFactoryMethodName("Token")
+                        _w.Write("(")
+                        WriteTypeName(typeof(SyntaxKind))
+                        _w.Write(".")
+                        _w.Write(token.Kind.ToString())
+                        _w.Write(")")
+                    }
+                }
+            }
+            if (token.HasLeadingTrivia || token.HasTrailingTrivia) {
+                _w.WriteLine()
+                _w.Indent()
+                if (token.HasLeadingTrivia) {
+                    _w.Write(".WithLeadingTrivia(")
+                    WriteTriviaList(token.LeadingTrivia)
+                    _w.Write(")")
+                }
+                if (token.HasTrailingTrivia) {
+                    if (token.HasLeadingTrivia) {
+                        _w.WriteLine()
+                    }
+                    _w.Write(".WithTrailingTrivia(")
+                    WriteTriviaList(token.TrailingTrivia)
+                    _w.Write(")")
+                }
+                _w.Unindent()
+            }
+        }
+
+        private func WriteTokenList(list: SyntaxTokenList) {
+            if (list.Count == 0) {
+                //_w.Write("SyntaxTokenList.Empty");
+                WriteFactoryMethodName("TokenList()")
+                return
+            }
+            WriteFactoryMethodName("TokenList")
+            _w.Write("(")
+            if (list.Count == 1) {
+                WriteToken(list[0])
+            } else {
+                _w.WriteLine()
+                _w.Indent()
+                _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "[" } else { "new[] {" })
+                _w.WriteLine()
+                _w.Indent()
+                var i: int = 0
+                while (i < list.Count) {
+                    WriteToken(list[i])
+                    if (i < list.Count - 1) {
+                        _w.WriteLine(",")
+                    } else {
+                        _w.WriteLine()
+                    }
+                    i++
+                }
+                _w.Unindent()
+                _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "]" } else { "}" })
+                _w.WriteLine()
+                _w.Unindent()
+            }
+            _w.Write(")")
+        }
+
+        private func WriteTriviaList(trivia: IEnumerable<SyntaxTrivia>) {
+            let list = trivia.ToList()
+            if (list.Count == 0) {
+                WriteFactoryMethodName("TriviaList")
+                _w.Write("()")
+                return
+            }
+            if (list.Count == 1) {
+                WriteFactoryMethodName("TriviaList")
+                _w.Write("([")
+                WriteSingleTrivia(list[0])
+                _w.Write("])")
+                return
+            }
+            WriteFactoryMethodName("TriviaList")
+            _w.Write("(")
+            _w.WriteLine()
+            _w.Indent()
+            _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "[" } else { "new[] {" })
+            _w.WriteLine()
+            _w.Indent()
+            var i: int = 0
+            while (i < list.Count) {
+                WriteSingleTrivia(list[i])
+                if (i < list.Count - 1) {
+                    _w.WriteLine(",")
+                } else {
+                    _w.WriteLine()
+                }
+                i++
+            }
+            _w.Unindent()
+            _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "]" } else { "}" })
+            _w.WriteLine()
+            _w.Unindent()
+            _w.Write(")")
+        }
+
+        private func WriteSingleTrivia(trivia: SyntaxTrivia) {
+            WriteFactoryMethodName("Trivia")
+            _w.Write("(")
+            WriteTypeName(typeof(SyntaxKind))
+            _w.Write(".")
+            _w.Write(trivia.Kind.ToString())
+            _w.Write(", ")
+            _w.Write(Literal(trivia.ToString()))
+            _w.Write(")")
+        }
+
+        private func WriteSyntaxList(elemType: Type, listEnumerable: IEnumerable) {
+            let items = listEnumerable.Cast<object?>().ToList()
+            if (items.Count == 0) {
+                WriteFactoryMethodName("List")
+                _w.Write("<")
+                WriteTypeName(elemType)
+                _w.Write(">()")
+                return
+            }
+            if (items.Count == 1) {
+                WriteFactoryMethodName("SingletonList")
+                _w.Write("<")
+                WriteTypeName(elemType)
+                _w.Write(">(")
+                let hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any()
+                if (hasMoreThanOneChild) {
+                    _w.WriteLine()
+                    _w.Indent()
+                }
+                WriteValue(elemType, items[0]!)
+                if (hasMoreThanOneChild) {
+                    _w.Unindent()
+                }
+                _w.Write(")")
+                return
+            }
+            WriteFactoryMethodName("List")
+            _w.Write("<")
+            WriteTypeName(elemType)
+            _w.Write(">(")
+            if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp) {
+                _w.Write("new ")
+                WriteTypeName(elemType)
+                _w.Write("[]")
+            }
+            _w.WriteLine()
+            _w.WriteLine(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "[" } else { "{" })
+            _w.Indent()
+            var i: int = 0
+            while (i < items.Count) {
+                WriteValue(elemType, items[i]!)
+                if (i < items.Count - 1) {
+                    _w.WriteLine(",")
+                } else {
+                    _w.WriteLine()
+                }
+                i++
+            }
+            _w.Unindent()
+            _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "])" } else { "})" })
+        }
+
+        private func WriteSeparatedSyntaxList(elemType: Type, listEnumerable: IEnumerable) {
+            let items = listEnumerable.Cast<object?>().ToList()
+            if (items.Count == 0) {
+                WriteFactoryMethodName("SeparatedList")
+                _w.Write("<")
+                WriteTypeName(elemType)
+                _w.Write(">()")
+                return
+            }
+            if (items.Count == 1) {
+                WriteFactoryMethodName("SingletonSeparatedList")
+                _w.Write("<")
+                WriteTypeName(elemType)
+                _w.Write(">(")
+                let hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Count() > 1
+                if (hasMoreThanOneChild) {
+                    _w.WriteLine()
+                    _w.Indent()
+                }
+                WriteValue(elemType, items[0]!)
+                if (hasMoreThanOneChild) {
+                    _w.Unindent()
+                }
+                _w.Write(")")
+                return
+            }
+            WriteFactoryMethodName("SeparatedList")
+            _w.Write("<")
+            WriteTypeName(elemType)
+            _w.Write(">(")
+            if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp) {
+                _w.Write("new ")
+                WriteTypeName(elemType)
+                _w.Write("[]")
+            }
+            _w.WriteLine()
+            _w.WriteLine(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "[" } else { "{" })
+            _w.Indent()
+            var i: int = 0
+            while (i < items.Count) {
+                WriteValue(elemType, items[i]!)
+                if (i < items.Count - 1) {
+                    _w.WriteLine(",")
+                } else {
+                    _w.WriteLine()
+                }
+                i++
+            }
+            _w.Unindent()
+            _w.Write(if _options.OutputLanguage == RavenQuoterOutputLanguage.Raven { "])" } else { "})" })
+        }
+
+        private func WriteTypeName(type: Type) {
+            _w.Write(if _options.FullyQualifyNames { type.FullName ?? type.Name } else { type.Name })
+        }
+
+        private static func IsDefaultValue(type: Type, value: object?) -> bool {
+            if (value is null) {
+                return true
+            }
+            if (!type.IsValueType) {
+                return false
+            }
+            let defaultVal = Activator.CreateInstance(type)
+            return Equals(defaultVal, value)
+        }
+
+        private static func Literal(value: object) -> string {
+            if (value is string text) {
+                let escaped: string = EscapeStr(text)
+                return "\"${escaped}\""
+            } else if (value is char ch) {
+                let escaped: string = EscapeStr(ch.ToString())
+                return "'${escaped}'"
+            } else {
+                return value!.ToString() ?? string.Empty
+            }
+        }
+
+        private static func EscapeStr(text: string) -> string {
+            // Escape backslashes, quotes, and control characters so the
+            // generated source is always valid.
+            return text
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r", "\\r")
+                .Replace("\n", "\\n")
+                .Replace("\t", "\\t")
+        }
+
+    }
+
+    // -------------------------------------------------------
+    // Simple indentation-aware writer
+    // -------------------------------------------------------
+    private class CodeWriter {
+        private val _sb: StringBuilder = StringBuilder()
+
+        private field _indent: int = default
+
+        private field _atStartOfLine: bool = true
+
+        func Indent() => _indent++
+
+        func Unindent() {
+            if (_indent > 0) {
+                _indent--
+            }
+        }
+
+        func Write(text: string) {
+            if (_atStartOfLine) {
+                _sb.Append(string(' ', _indent * 4))
+                _atStartOfLine = false
+            }
+            _sb.Append(text)
+        }
+
+        func WriteLine(text: string = "") {
+            if (_atStartOfLine && text.Length > 0) {
+                _sb.Append(string(' ', _indent * 4))
+            }
+            _sb.AppendLine(text)
+            _atStartOfLine = true
+        }
+
+        override func ToString() -> string => _sb.ToString()
+
+    }
+
+}

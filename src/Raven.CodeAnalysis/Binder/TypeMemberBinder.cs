@@ -3784,6 +3784,9 @@ internal partial class TypeMemberBinder : Binder
             metadataName: metadataName,
             declaredAccessibility: indexerAccessibility);
 
+        if (explicitInterfaceProperty is not null && propertySymbol is SourcePropertySymbol sourceIndexer)
+            sourceIndexer.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceProperty));
+
         var binders = new Dictionary<AccessorDeclarationSyntax, Binder>();
 
         var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
@@ -4200,6 +4203,16 @@ internal partial class TypeMemberBinder : Binder
             }
 
             methodSymbol.SetParameters(parameters);
+            if (explicitInterfaceType is not null)
+            {
+                if (explicitInterfaceProperty?.GetMethod is { } interfaceGetter)
+                    methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceGetter));
+                else
+                    _diagnostics.ReportExplicitInterfaceMemberNotFound(
+                        explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        "Item", identifierToken.GetLocation());
+            }
+
             binder ??= new MethodBinder(methodSymbol, this);
             var bodyBinder = new MethodBodyBinder(methodSymbol, binder);
             _ = bodyBinder.GetOrBind(indexerDecl.ExpressionBody);

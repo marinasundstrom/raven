@@ -1,0 +1,55 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+
+internal abstract class SyntaxNode : GreenNode {
+    private readonly field _slots: GreenNode?[]
+
+    init(kind: SyntaxKind, slots: GreenNode?[]?, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(kind, slots?.Length ?? 0, diagnostics, annotations) {
+        _slots = slots ?? Array.Empty<GreenNode?>()
+        CalculateWidths()
+    }
+
+    override val IsMissing: bool => Width == 0
+
+    override func GetSlot(index: int) -> GreenNode? {
+        if index < 0 || index >= SlotCount { return null }
+        return _slots[index]
+    }
+
+    override func GetChildStartPosition(childIndex: int) -> int {
+        var offset = 0
+        var i = 0
+        while i < childIndex { offset += GetSlot(i)?.FullWidth ?? 0; i++ }
+        return offset
+    }
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode => throw NotImplementedException("Override method")
+
+    internal override func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode => With(_slots, diagnostics, _annotations)
+
+    internal override func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> GreenNode {
+        if annotations.Length == 0 { return self }
+
+        if _annotations is null || _annotations!.Length == 0 {
+            return With(_slots, _diagnostics, annotations)
+        }
+
+        let merged = SyntaxAnnotation[](_annotations!.Length + annotations.Length)
+        _annotations!.CopyTo(merged, 0)
+        annotations.CopyTo(merged, _annotations!.Length)
+        return With(_slots, _diagnostics, merged)
+    }
+
+    internal override func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo> {
+        if _diagnostics is not null { for diagnostic in (_diagnostics!) { yield diagnostic } }
+        for child in GetChildren() {
+            for diagnostic in child.GetDiagnosticsRecursive() { yield diagnostic }
+        }
+    }
+}

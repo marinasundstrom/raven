@@ -1,0 +1,53 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Runtime.CompilerServices.*
+
+internal struct ParserCheckpoint : IDisposable {
+    private readonly field _context: BaseParseContext
+
+    private readonly field _debugName: string
+
+    private readonly field _position: int
+
+    private readonly field _lastToken: SyntaxToken?
+
+    private readonly field _pendingTriviaSnapshot: List<SyntaxTrivia>
+
+    private readonly field _blockDepth: int
+
+    private readonly field _diagnosticCount: int
+
+    internal init(context: BaseParseContext, debugName: string = "") {
+        _context = context
+        _debugName = debugName
+        _position = context.Position
+        _lastToken = context._lastToken
+        _pendingTriviaSnapshot = List<SyntaxTrivia>(context._pendingTrivia)
+        _blockDepth = context._blockDepth
+        _diagnosticCount = context.GetDiagnosticCount()
+    }
+
+    val DebugName: string => _debugName
+
+    func Rewind([CallerMemberName] callerMemberName: string? = null,
+        [CallerFilePath] callerFilePath: string? = null,
+        [CallerLineNumber] callerLineNumber: int? = null) {
+        if SyntaxParserFlags.PrintParseSequence {
+            let relativeCallerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory)
+            Console.WriteLine("Rewind to checkpoint${(if string.IsNullOrEmpty(DebugName) { string.Empty } else { " \"${DebugName}\"" })} (position ${_position}), at ${callerMemberName}, in ${relativeCallerFilePath}, at line ${callerLineNumber} ")
+        }
+        _context.RewindToPosition(_position)
+        _context._lastToken = _lastToken
+        _context._blockDepth = _blockDepth
+        _context._pendingTrivia.Clear()
+        _context._pendingTrivia.AddRange(_pendingTriviaSnapshot)
+        _context.RestoreDiagnostics(_diagnosticCount)
+    }
+
+    func Dispose() {
+        // Intentionally does not rewind. Rewind is explicit at call sites.
+    }
+}

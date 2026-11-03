@@ -145,7 +145,7 @@ internal class PatternSyntaxParser : SyntaxParser
         // We only take this fast-path when we can see the `..` token immediately after the lower bound.
         if (CanStartRangeBoundExpression(PeekToken()) && PeekToken(1).IsKind(SyntaxKind.DotDotToken))
         {
-            var lowerBound = new ExpressionSyntaxParser(this, stopAtDotDotToken: true).ParseExpression();
+            var lowerBound = new ExpressionSyntaxParser(this, stopAtDotDotToken: true, stopAtPatternCombinators: true).ParseExpression();
             return ParseRangePattern(lowerBound);
         }
 
@@ -242,7 +242,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+        var closeBraceToken = ConsumeRequiredPatternToken(SyntaxKind.CloseBraceToken, '}');
 
         return PropertyPatternClause(
             openBraceToken,
@@ -338,7 +338,7 @@ internal class PatternSyntaxParser : SyntaxParser
             nameToken = ParsePropertySubpatternIdentifier();
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
+        var colonToken = ConsumeRequiredPatternToken(SyntaxKind.ColonToken, ':');
 
         var nameColon = NameColon(IdentifierName(nameToken), colonToken);
 
@@ -379,7 +379,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return VariablePattern(bindingKeyword, designation);
     }
 
-    private PositionalPatternSyntax ParsePositionalPattern()
+    private PatternSyntax ParsePositionalPattern()
     {
         var openParenToken = ReadToken();
 
@@ -392,12 +392,21 @@ internal class PatternSyntaxParser : SyntaxParser
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 elementList.Add(commaToken);
+                if (PeekToken().IsKind(SyntaxKind.CloseParenToken))
+                    break;
                 elementList.Add(ParsePositionalPatternElement());
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ConsumeRequiredPatternToken(SyntaxKind.CloseParenToken, ')');
         var designation = ParseOptionalTrailingDesignation();
+
+        if (!_allowImplicitDeconstructionElementBindings && designation is null &&
+            elementList.Count == 1 &&
+            elementList[0] is PositionalPatternElementSyntax { NameColon: null } element)
+        {
+            return ParenthesizedPattern(openParenToken, element.Pattern, closeParenToken);
+        }
 
         return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken, designation);
     }
@@ -495,7 +504,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ConsumeRequiredPatternToken(SyntaxKind.CloseBracketToken, ']');
         var designation = ParseOptionalTrailingDesignation();
 
         return DictionaryPattern(openBracketToken, List(elementList.ToArray()), closeBracketToken, designation);
@@ -504,7 +513,7 @@ internal class PatternSyntaxParser : SyntaxParser
     private DictionaryPatternEntrySyntax ParseDictionaryPatternEntry()
     {
         var key = new ExpressionSyntaxParser(this).ParseExpression();
-        ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
+        var colonToken = ConsumeRequiredPatternToken(SyntaxKind.ColonToken, ':');
         var pattern = ParseDeconstructionElementPattern();
         return DictionaryPatternEntry(key, colonToken, pattern);
     }
@@ -530,7 +539,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ConsumeRequiredPatternToken(SyntaxKind.CloseBracketToken, ']');
         var designation = ParseOptionalTrailingDesignation();
 
         return SequencePattern(openBracketToken, List(elementList.ToArray()), closeBracketToken, designation);
@@ -609,7 +618,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ConsumeRequiredPatternToken(SyntaxKind.CloseParenToken, ')');
 
         return MemberPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
@@ -631,7 +640,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ConsumeRequiredPatternToken(SyntaxKind.CloseParenToken, ')');
 
         return NominalDeconstructionPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
@@ -696,7 +705,7 @@ internal class PatternSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ConsumeRequiredPatternToken(SyntaxKind.CloseParenToken, ')');
 
         return ParenthesizedVariableDesignation(openParenToken, List(elements.ToArray()), closeParenToken);
     }
@@ -942,7 +951,7 @@ internal class PatternSyntaxParser : SyntaxParser
         var expression = new ExpressionSyntaxParser(
             this,
             stopOnOpenBrace: StopsOnOpenBrace,
-            allowLambdaExpressions: false).ParseExpression();
+            allowLambdaExpressions: false, stopAtPatternCombinators: true).ParseExpression();
 
         var kind = GetComparisonPatternKind(operatorToken.Kind);
         return ComparisonPattern(kind, operatorToken, expression);
@@ -1002,7 +1011,7 @@ internal class PatternSyntaxParser : SyntaxParser
             upperBound = new ExpressionSyntaxParser(
                 this,
                 stopOnOpenBrace: true,
-                allowLambdaExpressions: false).ParseExpression();
+                allowLambdaExpressions: false, stopAtPatternCombinators: true).ParseExpression();
         }
 
         if (equalsToken.Kind == SyntaxKind.EqualsToken && upperBound is null or ExpressionSyntax.Missing)
@@ -1073,7 +1082,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
         // NOTE: The expression parser will also consume `lo..hi` as a RangeExpression.
-        var expr = new ExpressionSyntaxParser(this, stopOnOpenBrace: StopsOnOpenBrace, allowLambdaExpressions: false).ParseExpression();
+        var expr = new ExpressionSyntaxParser(this, stopOnOpenBrace: StopsOnOpenBrace, allowLambdaExpressions: false, stopAtPatternCombinators: true).ParseExpression();
 
         // If the expression is a range expression, convert it to a RangePatternSyntax.
         if (expr is RangeExpressionSyntax rangeExpr)
@@ -1211,6 +1220,17 @@ internal class PatternSyntaxParser : SyntaxParser
         };
 
         return kind == SyntaxKind.None ? null : LiteralExpression(kind, token);
+    }
+
+    private SyntaxToken ConsumeRequiredPatternToken(SyntaxKind kind, char character)
+    {
+        if (!ConsumeTokenOrMissing(kind, out var token))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected, GetSpanOfPeekedToken(), character));
+        }
+
+        return token;
     }
 
     private bool IsPatternTerminator(SyntaxToken token)

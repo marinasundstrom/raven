@@ -181,6 +181,11 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
     private bool AnalyzeStatement(StatementSyntax statement, bool isReachable)
     {
+        // A local function declaration does not execute in the enclosing flow.
+        // Its body is analyzed independently, even when declared after a return.
+        if (statement is FunctionStatementSyntax)
+            return isReachable;
+
         if (!isReachable)
         {
             MarkUnreachable(statement);

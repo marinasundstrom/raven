@@ -1,0 +1,74 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+public open class ParseOptions {
+    init() {
+        DocumentationMode = true
+        DocumentationFormat = DocumentationFormat.Markdown
+        Errors = ImmutableArray<Diagnostic>.Empty
+        Features = ImmutableDictionary<string, string>.Empty
+        PreprocessorSymbolNames = Array.Empty<string>()
+    }
+
+    init(documentationMode: bool, errors: ImmutableArray<Diagnostic>, features: IReadOnlyDictionary<string, string>,
+        kind: SourceCodeKind, preprocessorSymbolNames: IEnumerable<string>, documentationFormat: DocumentationFormat = DocumentationFormat.Markdown) {
+        DocumentationMode = documentationMode
+        Errors = errors
+        Features = features
+        Kind = kind
+        PreprocessorSymbolNames = NormalizePreprocessorSymbolNames(preprocessorSymbolNames)
+        DocumentationFormat = documentationFormat
+    }
+
+    val EnableCharKeyword: bool { get; init; } = true
+
+    val DocumentationMode: bool { get; init; }
+
+    val DocumentationFormat: DocumentationFormat { get; init; }
+
+    val Errors: ImmutableArray<Diagnostic> { get; }
+
+    val Features: IReadOnlyDictionary<string, string> { get; init; }
+
+    val Kind: SourceCodeKind { get; init; }
+
+    val PreprocessorSymbolNames: IEnumerable<string> { get; init; }
+
+    internal val ThrowOnIncrementalParseFallback: bool { get; init; }
+
+    func WithPreprocessorSymbols(preprocessorSymbolNames: IEnumerable<string>) -> ParseOptions
+        => ParseOptions(DocumentationMode, Errors, Features, Kind, preprocessorSymbolNames, DocumentationFormat) {
+            EnableCharKeyword = EnableCharKeyword,
+            ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
+        }
+
+    internal func Snapshot() -> ParseOptions
+        => ParseOptions(DocumentationMode, Errors, Features.ToImmutableDictionary(StringComparer.Ordinal), Kind, PreprocessorSymbolNames, DocumentationFormat) {
+            EnableCharKeyword = EnableCharKeyword,
+            ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
+        }
+
+    internal func IsEquivalentTo(other: ParseOptions) -> bool
+        => EnableCharKeyword == other.EnableCharKeyword && DocumentationMode == other.DocumentationMode &&
+           DocumentationFormat == other.DocumentationFormat && Kind == other.Kind &&
+           ThrowOnIncrementalParseFallback == other.ThrowOnIncrementalParseFallback &&
+           Errors.SequenceEqual(other.Errors) && PreprocessorSymbolNames.SequenceEqual(other.PreprocessorSymbolNames, StringComparer.Ordinal) &&
+           Features.Count == other.Features.Count && Features.All(pair =>
+               other.Features.TryGetValue(pair.Key, out var value) && string.Equals(pair.Value, value, StringComparison.Ordinal))
+
+    private static func NormalizePreprocessorSymbolNames(names: IEnumerable<string>?) -> ImmutableArray<string> {
+        if names is null { return ImmutableArray<string>.Empty }
+        return names!.Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name.Trim())
+            .Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToImmutableArray()
+    }
+}
+
+public enum SourceCodeKind {
+    Regular = 0,
+    Script = 1,
+    Interactive = 2
+}

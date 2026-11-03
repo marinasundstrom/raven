@@ -1,0 +1,49 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts
+alias SyntaxTokenList = Raven.CodeAnalysis.Syntax.SyntaxTokenList
+
+internal static partial class SyntaxFactory {
+    static func MissingToken(kind: SyntaxKind) -> SyntaxToken => SyntaxToken.Missing(kind)
+
+    static func Token(kind: SyntaxKind) -> SyntaxToken => SyntaxToken(kind, SyntaxFacts.GetSyntaxTokenText(kind) ?? string.Empty)
+
+    static func IdentifierToken(text: string) -> SyntaxToken {
+        let valueText = if text.Length >= 2 && text[0] == '`' && text[^1] == '`' { text[1..^1] } else if text.StartsWith('@') { text[1..] } else { text }
+        return SyntaxToken(SyntaxKind.IdentifierToken, text, valueText, text.Length)
+    }
+
+    static func Literal(value: int) -> SyntaxToken => SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length)
+
+    static func Literal(value: string) -> SyntaxToken => SyntaxToken(SyntaxKind.StringLiteralToken, value, value, value.Length)
+
+    static func Literal(text: string, value: int) -> SyntaxToken => SyntaxToken(SyntaxKind.NumericLiteralToken, text, value, text.Length)
+
+    static func Literal(text: string, value: string) -> SyntaxToken => SyntaxToken(SyntaxKind.StringLiteralToken, text, value, text.Length)
+
+    static func Whitespace(text: string) -> SyntaxTrivia => SyntaxTrivia(SyntaxKind.WhitespaceTrivia, text)
+
+    static readonly field LineFeed: SyntaxTrivia = SyntaxTrivia(SyntaxKind.LineFeedTrivia, "\n")
+
+    static readonly field CarriageReturn: SyntaxTrivia = SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, "\r")
+
+    static readonly field CarriageReturnLineFeed: SyntaxTrivia = SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, "\r\n")
+
+    static readonly field Space: SyntaxTrivia = SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ")
+
+    static readonly field Tab: SyntaxTrivia = SyntaxTrivia(SyntaxKind.TabTrivia, "\t")
+
+    static readonly field EndOfFileToken: SyntaxToken = SyntaxToken(SyntaxKind.EndOfFileToken, "")
+
+    static func SingleLineComment(text: string) -> SyntaxTrivia => SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, text)
+
+    static func SkippedTokensTrivia(tokens: SyntaxTokenList) -> SkippedTokensTrivia => Raven.CodeAnalysis.Syntax.InternalSyntax.SkippedTokensTrivia(tokens.Green, [])
+
+    static func TokenList(params tokens: IEnumerable<SyntaxToken>) -> SyntaxList => SyntaxList(tokens.ToArray())
+
+    static func StructuredTrivia(node: SyntaxNode) -> SyntaxTrivia => SyntaxTrivia(node)
+}

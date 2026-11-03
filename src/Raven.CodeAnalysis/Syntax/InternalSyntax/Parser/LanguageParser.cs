@@ -33,7 +33,12 @@ internal class LanguageParser
     }
 
     public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
-        => ParseSyntaxWithDiagnostics(requestedSyntaxType, sourceText, position)?.Root;
+    {
+        var result = ParseSyntaxWithDiagnostics(requestedSyntaxType, sourceText, position);
+        return result is { } parsed
+            ? (SyntaxNode)parsed.Root.WithAdditionalDiagnostics(parsed.Diagnostics.Select(d => d.WithSourceText(sourceText, _filePath)).ToArray())
+            : null;
+    }
 
     public ParseResult? ParseSyntaxWithDiagnostics(
         Type requestedSyntaxType,
@@ -100,14 +105,6 @@ internal class LanguageParser
         {
             return new ExpressionSyntaxParser(context).ParseBlockSyntax();
         }
-        else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.ExpressionSyntax)))
-        {
-            return new ExpressionSyntaxParser(context).ParseExpression();
-        }
-        else if (requestedSyntaxType == typeof(Syntax.ReturnStatementSyntax))
-        {
-            return new StatementSyntaxParser(context).ParseStatement();
-        }
         else if (requestedSyntaxType == typeof(Syntax.NameSyntax))
         {
             return new NameSyntaxParser(context).ParseName();
@@ -116,17 +113,23 @@ internal class LanguageParser
         {
             return new NameSyntaxParser(context).ParseSimpleName();
         }
+        else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.ExpressionSyntax)))
+        {
+            return new ExpressionSyntaxParser(context).ParseExpression();
+        }
+        else if (requestedSyntaxType == typeof(Syntax.ReturnStatementSyntax))
+        {
+            return new StatementSyntaxParser(context).ParseStatement();
+        }
+
 
         return null;
     }
 
     public StatementSyntax ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
     {
-        using var textReader = sourceText.GetTextReader(offset);
-
-        var lexer = new Lexer(textReader, offset, Options);
-        var parseContext = new BaseParseContext(lexer, Options, offset);
-
-        return new StatementSyntaxParser(parseContext).ParseStatement();
+        var result = ParseSyntaxWithDiagnostics(typeof(Syntax.StatementSyntax), sourceText, offset,
+            consumeFullText: consumeFullText)!.Value;
+        return (StatementSyntax)result.Root.WithAdditionalDiagnostics(result.Diagnostics.Select(d => d.WithSourceText(sourceText, _filePath)).ToArray());
     }
 }

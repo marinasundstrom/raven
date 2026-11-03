@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public partial class CollectionExpressionSyntax {
+    val IsMutableByDefault: bool => ExclamationToken.Kind == SyntaxKind.ExclamationToken
+
+    val IsImmutableByDefault: bool => !IsMutableByDefault
+}

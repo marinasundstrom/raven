@@ -1,3 +1,13 @@
+#if RAVEN_QUOTER_PORT
+extern alias Port;
+using QuoterUnderTest = Port::Raven.CodeAnalysis.Syntax.RavenQuoter;
+using QuoterOptionsUnderTest = Port::Raven.CodeAnalysis.Syntax.RavenQuoterOptions;
+using QuoterLanguageUnderTest = Port::Raven.CodeAnalysis.Syntax.RavenQuoterOutputLanguage;
+#else
+using QuoterUnderTest = Raven.CodeAnalysis.Syntax.RavenQuoter;
+using QuoterOptionsUnderTest = Raven.CodeAnalysis.Syntax.RavenQuoterOptions;
+using QuoterLanguageUnderTest = Raven.CodeAnalysis.Syntax.RavenQuoterOutputLanguage;
+#endif
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -9,9 +19,18 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class RavenQuoterTests
 {
     [Fact]
+    public void Quote_PreservesNamedArgumentContract()
+    {
+        var root = ParseCompilationUnit("let answer = 42");
+        Assert.Equal(QuoterUnderTest.Quote(root), QuoterUnderTest.Quote(root: root, options: null));
+        Assert.Equal(QuoterUnderTest.QuoteText("let answer = 42"),
+            QuoterUnderTest.QuoteText(ravenSource: "let answer = 42", options: null));
+    }
+
+    [Fact]
     public void Quote_DefaultsToRavenOutput()
     {
-        var quoted = RavenQuoter.QuoteText("let answer = 42");
+        var quoted = QuoterUnderTest.QuoteText("let answer = 42");
 
         Assert.StartsWith("import Raven.CodeAnalysis.Syntax.*", quoted);
         Assert.Contains("import Raven.CodeAnalysis.Syntax.SyntaxFactory.*", quoted);
@@ -23,9 +42,9 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_CanGenerateCSharpOutput()
     {
-        var quoted = RavenQuoter.QuoteText("let answer = 42", new RavenQuoterOptions
+        var quoted = QuoterUnderTest.QuoteText("let answer = 42", new QuoterOptionsUnderTest
         {
-            OutputLanguage = RavenQuoterOutputLanguage.CSharp
+            OutputLanguage = QuoterLanguageUnderTest.CSharp
         });
 
         Assert.StartsWith("using Raven.CodeAnalysis.Syntax;", quoted);
@@ -36,7 +55,7 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_RavenOutputUsesCollectionExpressions()
     {
-        var quoted = RavenQuoter.QuoteText("""
+        var quoted = QuoterUnderTest.QuoteText("""
             import System.*
             import System.Console.*
             """);
@@ -49,13 +68,13 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_RavenWrappedOutputParses()
     {
-        var quoted = RavenQuoter.QuoteText("let answer = 42", new RavenQuoterOptions
+        var quoted = QuoterUnderTest.QuoteText("let answer = 42", new QuoterOptionsUnderTest
         {
             WrapInClass = true
         });
 
-        Assert.Contains("static class QuotedSyntax", quoted);
-        Assert.Contains("static func Create() -> CompilationUnitSyntax", quoted);
+        Assert.Contains("static class QuotedSyntax {", quoted);
+        Assert.Contains("static func Create() -> CompilationUnitSyntax {", quoted);
         Assert.Empty(SyntaxTree.ParseText(quoted).GetDiagnostics());
     }
 
@@ -64,7 +83,7 @@ public class RavenQuoterTests
     {
         var node = ParenthesizedExpression(IdentifierName("value"));
 
-        var quoted = RavenQuoter.Quote(node, new RavenQuoterOptions
+        var quoted = QuoterUnderTest.Quote(node, new QuoterOptionsUnderTest
         {
             GenerateUsingDirectives = false,
             UseNamedArguments = true
@@ -84,7 +103,7 @@ public class RavenQuoterTests
             IdentifierName("value"),
             CloseParenToken);
 
-        var quoted = RavenQuoter.Quote(node, new RavenQuoterOptions
+        var quoted = QuoterUnderTest.Quote(node, new QuoterOptionsUnderTest
         {
             GenerateUsingDirectives = false,
             IncludeTrivia = true,
@@ -103,7 +122,7 @@ public class RavenQuoterTests
             TokenList(),
             ArrowExpressionClause(IdentifierName("value")));
 
-        var quoted = RavenQuoter.Quote(node, new RavenQuoterOptions
+        var quoted = QuoterUnderTest.Quote(node, new QuoterOptionsUnderTest
         {
             GenerateUsingDirectives = false,
             UseNamedArguments = true
@@ -119,7 +138,7 @@ public class RavenQuoterTests
     {
         var node = ExpressionStatement(IdentifierName("value"));
 
-        var quoted = RavenQuoter.Quote(node, new RavenQuoterOptions
+        var quoted = QuoterUnderTest.Quote(node, new QuoterOptionsUnderTest
         {
             GenerateUsingDirectives = false,
             UseNamedArguments = true
@@ -133,9 +152,9 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_CanEmitFullyQualifiedExpressionWithoutNormalization()
     {
-        var quoted = RavenQuoter.Quote(
+        var quoted = QuoterUnderTest.Quote(
             SyntaxFactory.ParseExpression("left + right"),
-            new RavenQuoterOptions
+            new QuoterOptionsUnderTest
             {
                 GenerateUsingDirectives = false,
                 FullyQualifyNames = true,
@@ -155,9 +174,9 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_CanEmitSourceInPlaceOfSelectedNode()
     {
-        var quoted = RavenQuoter.Quote(
+        var quoted = QuoterUnderTest.Quote(
             SyntaxFactory.ParseExpression("left + placeholder"),
-            new RavenQuoterOptions
+            new QuoterOptionsUnderTest
             {
                 GenerateUsingDirectives = false,
                 NormalizeWhitespace = false,
@@ -175,9 +194,9 @@ public class RavenQuoterTests
     [Fact]
     public void Quote_SourceOverride_PreservesSurroundingTrivia()
     {
-        var quoted = RavenQuoter.Quote(
+        var quoted = QuoterUnderTest.Quote(
             SyntaxFactory.ParseExpression("left + placeholder + right"),
-            new RavenQuoterOptions
+            new QuoterOptionsUnderTest
             {
                 GenerateUsingDirectives = false,
                 NormalizeWhitespace = false,

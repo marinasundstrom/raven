@@ -1,0 +1,21 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+internal open class SourceLocation : Location {
+    internal init(sourceTree: SyntaxTree, sourceSpan: TextSpan) {
+        Kind = LocationKind.SourceFile
+        SourceTree = sourceTree
+        SourceSpan = sourceSpan
+    }
+
+    override val SourceTree: SyntaxTree { get; }
+
+    override func GetLineSpan() -> FileLinePositionSpan {
+        let text = SourceTree.GetText()
+        let (line, col) = text.GetLineAndColumn(SourceSpan)
+        let (line2, col2) = text.GetLineAndColumn(TextSpan(SourceSpan.End, 0))
+        return FileLinePositionSpan(SourceTree.FilePath, LinePosition(line - 1, col - 1), LinePosition(line2 - 1, col2 - 1))
+    }
+}

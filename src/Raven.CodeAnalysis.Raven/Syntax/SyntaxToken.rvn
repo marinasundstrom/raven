@@ -1,0 +1,131 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+import System.Runtime.InteropServices.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Text.*
+
+[StructLayout(LayoutKind.Auto)]
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public struct SyntaxToken : IEquatable<SyntaxToken> {
+    internal readonly field Green: InternalSyntax.SyntaxToken?
+
+    private readonly field _parent: SyntaxNode?
+
+    val Text: string => Green?.Text ?? string.Empty
+
+    val IsMissing: bool => Green?.IsMissing ?? true
+
+    val Width: int => Green?.Width ?? 0
+
+    val FullWidth: int => Green?.FullWidth ?? 0
+
+    val HasLeadingTrivia: bool => (Green?.LeadingTrivia.Count ?? 0) > 0
+
+    val HasTrailingTrivia: bool => (Green?.TrailingTrivia.Count ?? 0) > 0
+
+    val LeadingTrivia: SyntaxTriviaList => if Green is null { SyntaxTriviaList.Empty } else { SyntaxTriviaList(self, Green!.LeadingTrivia, Position) }
+
+    val TrailingTrivia: SyntaxTriviaList => if Green is null { SyntaxTriviaList.Empty } else { SyntaxTriviaList(self, Green!.TrailingTrivia, Position + Green!.LeadingTrivia.Width + Width) }
+
+    internal init(greenToken: InternalSyntax.SyntaxToken, parent: SyntaxNode?, position: int = 0) {
+        Green = greenToken
+        _parent = parent
+        Position = position
+    }
+
+    private func GetDebuggerDisplay() -> string {
+        if string.IsNullOrEmpty(Text) { return "${GetType().Name} ${Kind}" }
+        return "${GetType().Name} ${Kind} ${Text ?? Value?.ToString()}"
+    }
+
+    val Kind: SyntaxKind => Green?.Kind ?? SyntaxKind.None
+
+    val RawKind: int => Green?.RawKind ?? 0
+
+    val Value: object? => Green?.GetValue()
+
+    val ValueText: string => Green?.GetValueText() ?? Text
+
+    val Parent: SyntaxNode? => _parent
+
+    val SyntaxTree: SyntaxTree? => _parent?.SyntaxTree
+
+    internal val Position: int { get; }
+
+    internal val End: int => Position + FullWidth
+
+    val Span: TextSpan => TextSpan(SpanStart, Width)
+
+    val SpanStart: int => Position + LeadingTrivia.Width
+
+    val FullSpan: TextSpan => TextSpan(Position, FullWidth)
+
+    override func ToString() -> string => Text
+
+    func ToFullString() -> string => LeadingTrivia.ToString() + Text + TrailingTrivia.ToString()
+
+    func WithLeadingTrivia(params trivias: IEnumerable<SyntaxTrivia>) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken(Green!.WithLeadingTrivia(trivias.Select(x => x.Green)), Parent)
+    }
+
+    func WithTrailingTrivia(params trivias: IEnumerable<SyntaxTrivia>) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken(Green!.WithTrailingTrivia(trivias.Select(x => x.Green)), Parent)
+    }
+
+    func WithLeadingTrivia(trivialList: SyntaxTriviaList) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken(Green!.WithLeadingTrivia(trivialList.Green), Parent)
+    }
+
+    func WithTrailingTrivia(trivialList: SyntaxTriviaList) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken(Green!.WithTrailingTrivia(trivialList.Green), Parent)
+    }
+
+    func WithRawKind(rawKind: int) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken(Green!.WithRawKind(rawKind), Parent, Position)
+    }
+
+    func GetLocation() -> Location {
+        if SyntaxTree is null { return Location.None }
+        return SyntaxTree!.GetLocation(Span)
+    }
+
+    func GetAnnotations(annotationKinds: IEnumerable<string>) -> IEnumerable<SyntaxAnnotation> => Green?.GetAnnotations(annotationKinds) ?? []
+
+    func GetAnnotation(kind: string) -> SyntaxAnnotation? => Green?.GetAnnotation(kind)
+
+    func HasAnnotation(annotation: SyntaxAnnotation) -> bool => Green?.HasAnnotation(annotation) ?? false
+
+    func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> SyntaxToken {
+        if Green is null { return self }
+        return SyntaxToken((InternalSyntax.SyntaxToken)Green!.With(Array.Empty<GreenNode>(), null, annotations), Parent, Position)
+    }
+
+    static func ==(left: SyntaxToken, right: SyntaxToken?) -> bool => Equals(left, right)
+
+    static func !=(left: SyntaxToken, right: SyntaxToken?) -> bool => !Equals(left, right)
+
+    static func ==(left: SyntaxToken?, right: SyntaxToken?) -> bool => Equals(left, right)
+
+    static func !=(left: SyntaxToken?, right: SyntaxToken?) -> bool => !Equals(left, right)
+
+    func Equals(other: SyntaxToken) -> bool => Green == other.Green && _parent == other._parent
+
+    override func Equals(obj: object?) -> bool => obj is SyntaxToken other && Equals(other)
+
+    override func GetHashCode() -> int => HashCode.Combine(Green, _parent)
+
+    val ContainsDiagnostics: bool => GetDiagnostics().Any()
+
+    func GetDiagnostics() -> IEnumerable<Diagnostic> => SyntaxTree?.GetDiagnostics(FullSpan) ?? Enumerable.Empty<Diagnostic>()
+
+    internal func Accept(syntaxRewriter: SyntaxRewriter) -> SyntaxToken => syntaxRewriter.VisitToken(self)
+}

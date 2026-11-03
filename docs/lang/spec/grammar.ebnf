@@ -321,8 +321,9 @@ PropertyBody             ::= AccessorList
                            | '=>' Expression
                            | '=' Expression ;
 
-IndexerDeclaration       ::= MemberModifiers?
-                             ExplicitInterfaceSpecifier? Identifier BracketedParameterList ':' Type AccessorList ;
+IndexerDeclaration       ::= MemberModifiers? PropertyBindingKeyword
+                             ExplicitInterfaceSpecifier? 'self' BracketedParameterList ':' Type
+                             (AccessorList | '=>' Expression) ;
 
 EventDeclaration         ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? 'event' Identifier ':' Type ( EventAccessorList | ';' ) ;
@@ -496,10 +497,12 @@ Assignable               ::= Identifier
 
 (* ---------- Patterns ---------- *)
 
+(* Pattern operand expressions stop before outer-level 'and', 'or' and '|'.
+   Parenthesized operand expressions retain ordinary expression operators. *)
 Pattern                  ::= OrPattern [PatternGuardClause] ;
 PatternGuardClause       ::= 'when' (Pattern | Expression) ;
 
-OrPattern                ::= AndPattern {'or' AndPattern} ;
+OrPattern                ::= AndPattern {('or' | '|') AndPattern} ;
 AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;
 UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
 
@@ -543,7 +546,9 @@ VariablePattern          ::= BindingKeyword VariableDesignation ;
    the full function type, including its return type. *)
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
-PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' [PatternWholeDesignation] ;
+PositionalPattern        ::= '(' PatternElement ',' [PatternElement {',' PatternElement} [',']] ')' [PatternWholeDesignation]
+                           | '(' PatternElementName Pattern ')' [PatternWholeDesignation]
+                           | '(' PatternElement ')' PatternWholeDesignation ;
 PatternElement           ::= [PatternElementName] Pattern ;
 
 SequencePattern          ::= '[' SequencePatternElementList? ']' [PatternWholeDesignation] ;

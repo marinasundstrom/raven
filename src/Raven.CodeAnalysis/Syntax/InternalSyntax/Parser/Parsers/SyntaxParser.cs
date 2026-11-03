@@ -526,6 +526,25 @@ internal class SyntaxParser : ParseContext
             SyntaxTriviaList.Empty);
     }
 
+    protected static IncompleteMemberDeclarationSyntax PreserveMisplacedDirective(SyntaxNode directive)
+    {
+        var tokens = new List<SyntaxToken>();
+        void CollectTokens(GreenNode node)
+        {
+            if (node is SyntaxToken token)
+                tokens.Add(token);
+            else
+                foreach (var child in node.GetChildren())
+                    CollectTokens(child);
+        }
+
+        CollectTokens(directive);
+        var trivia = new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList(tokens.ToArray())));
+        var skipped = new SyntaxToken(SyntaxKind.None, string.Empty,
+            SyntaxTriviaList.Create([trivia]), SyntaxTriviaList.Empty);
+        return IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skipped, Token(SyntaxKind.None));
+    }
+
     protected BaseParseContext GetBaseContext()
     {
         ParseContext ctx = this;

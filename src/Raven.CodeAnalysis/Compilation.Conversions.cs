@@ -35,6 +35,25 @@ public partial class Compilation
     internal Conversion ClassifyCheckedConversion(ITypeSymbol source, ITypeSymbol destination)
         => ClassifyConversionCore(source, destination, isChecked: true);
 
+    private static bool IsSystemNullableDefinition(INamedTypeSymbol named)
+        => named.SpecialType == SpecialType.System_Nullable_T
+           || (named.Arity == 1
+               && named.Name == "Nullable"
+               && named.ContainingNamespace?.ToDisplayString() == "System");
+
+    internal static ITypeSymbol NormalizeExplicitNullableGeneric(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named &&
+            IsSystemNullableDefinition(named) &&
+            named.TypeArguments.Length == 1)
+        {
+            var underlying = named.TypeArguments[0];
+            return underlying.IsNullable ? underlying : underlying.GetNullableType();
+        }
+
+        return type;
+    }
+
     private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true, bool isChecked = false)
     {
         if (source is null || destination is null)
@@ -64,25 +83,6 @@ public partial class Compilation
 
         bool destinationUsedAlias = false;
         destination = Unalias(destination, ref destinationUsedAlias);
-
-        static bool IsSystemNullableDefinition(INamedTypeSymbol named)
-            => named.SpecialType == SpecialType.System_Nullable_T
-               || (named.Arity == 1
-                   && named.Name == "Nullable"
-                   && named.ContainingNamespace?.ToDisplayString() == "System");
-
-        static ITypeSymbol NormalizeExplicitNullableGeneric(ITypeSymbol type)
-        {
-            if (type is INamedTypeSymbol named &&
-                IsSystemNullableDefinition(named) &&
-                named.TypeArguments.Length == 1)
-            {
-                var underlying = named.TypeArguments[0];
-                return underlying.IsNullable ? underlying : underlying.GetNullableType();
-            }
-
-            return type;
-        }
 
         static bool IsNumericType(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte
             or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32

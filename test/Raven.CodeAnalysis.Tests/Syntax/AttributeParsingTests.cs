@@ -149,7 +149,7 @@ public class AttributeParsingTests : DiagnosticTestBase
 
         Assert.True(attribute.IsMacroAttribute());
         Assert.True(attribute.TryGetMacroName(out var macroName));
-        Assert.Equal(SyntaxKind.HashToken, attribute.HashToken.Kind);
+        Assert.Equal(SyntaxKind.HashToken, ((AttributeListSyntax)attribute.Parent!).HashToken.Kind);
         Assert.Equal("AddEquatable", name.Identifier.Text);
         Assert.Equal("AddEquatable", name.Identifier.ValueText);
         Assert.Equal("AddEquatable", macroName);
@@ -173,7 +173,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         var attribute = Assert.Single(Assert.Single(declaration.AttributeLists).Attributes);
         var argument = Assert.Single(attribute.ArgumentList!.Arguments);
 
-        Assert.Equal(SyntaxKind.HashToken, attribute.HashToken.Kind);
+        Assert.Equal(SyntaxKind.HashToken, ((AttributeListSyntax)attribute.Parent!).HashToken.Kind);
         Assert.Equal("Name", argument.NameColon!.Name.Identifier.ValueText);
         Assert.Empty(tree.GetDiagnostics());
     }

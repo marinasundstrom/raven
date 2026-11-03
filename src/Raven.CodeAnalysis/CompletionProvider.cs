@@ -3087,10 +3087,11 @@ public static class CompletionProvider
         context = default;
 
         var attribute = token.Parent?.AncestorsAndSelf()
-            .OfType<AttributeSyntax>()
+            .OfType<AttributeListSyntax>()
+            .SelectMany(static list => list.Attributes)
             .FirstOrDefault(static candidate => candidate.IsMacroAttribute());
         if (attribute is not null &&
-            position >= attribute.HashToken.Span.End &&
+            position >= ((AttributeListSyntax)attribute.Parent!).HashToken.Span.End &&
             (attribute.ArgumentList is null || position <= attribute.ArgumentList.Span.Start))
         {
             CreateMacroCompletionContext(attribute.Name, MacroKind.AttachedDeclaration, sourceText, position, out context);

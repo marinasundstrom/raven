@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public open class PrinterOptions {
+    /// Print token children.
+    var IncludeTokens: bool { get; set; } = true
+
+    /// Print leading and trailing token trivia.
+    var IncludeTrivia: bool { get; set; } = false
+
+    /// Append source spans.
+    var IncludeSpans: bool { get; set; } = false
+
+    /// Append line and column locations.
+    var IncludeLocations: bool { get; set; } = false
+
+    /// Print child property names when available.
+    var IncludeNames: bool { get; set; } = false
+
+    /// Use ANSI escape codes for colored output.
+    var Colorize: bool { get; set; } = true
+
+    /// Maximum depth to print; the root has depth zero.
+    var MaxDepth: int { get; set; } = int.MaxValue
+
+    /// Group list items under a single property node.
+    var ExpandListsAsProperties: bool { get; set; } = false
+
+    /// Print attached diagnostics.
+    var IncludeDiagnostics: bool { get; set; } = false
+
+    /// Print attached annotations.
+    var IncludeAnnotations: bool { get; set; } = false
+
+    /// Print diagnostics as child lines instead of inline.
+    var DiagnosticsAsChildren: bool { get; set; } = false
+
+    /// Print annotations as child lines instead of inline.
+    var AnnotationsAsChildren: bool { get; set; } = false
+}

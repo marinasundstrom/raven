@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+
+public static class SyntaxNodeCache {
+    private static readonly field cache: ConditionalWeakTable<GreenNode, SyntaxNode> = ConditionalWeakTable<GreenNode, SyntaxNode>()
+
+    static val Cache: IDictionary<GreenNode, SyntaxNode> => cache.ToDictionary(x => x.Key, x => x.Value)
+
+    static func GetValue(node: GreenNode, f: Func<GreenNode, SyntaxNode>) -> SyntaxNode => f(node)
+}

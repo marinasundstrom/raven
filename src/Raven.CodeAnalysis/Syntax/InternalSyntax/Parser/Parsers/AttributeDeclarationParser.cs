@@ -45,8 +45,7 @@ internal static class AttributeDeclarationParser
         var attributes = new List<GreenNode>();
         while (true)
         {
-            attributes.Add(ParseAttribute(parser, hashToken));
-            hashToken = null;
+            attributes.Add(ParseAttribute(parser));
 
             var separator = parser.PeekToken();
             if (!separator.IsKind(SyntaxKind.CommaToken))
@@ -56,12 +55,16 @@ internal static class AttributeDeclarationParser
             attributes.Add(separator);
         }
 
-        parser.ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracket);
+        if (!parser.ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracket))
+        {
+            parser.AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected, parser.GetSpanOfPeekedToken(), ']'));
+        }
 
-        return AttributeList(openBracket, target, List(attributes), closeBracket);
+        return AttributeList(hashToken ?? Token(SyntaxKind.None), openBracket, target, List(attributes), closeBracket);
     }
 
-    private static AttributeSyntax ParseAttribute(SyntaxParser parser, SyntaxToken? hashToken = null)
+    private static AttributeSyntax ParseAttribute(SyntaxParser parser)
     {
         var name = new NameSyntaxParser(parser).ParseName();
 
@@ -71,7 +74,7 @@ internal static class AttributeDeclarationParser
             argumentList = new ExpressionSyntaxParser(parser).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
         }
 
-        return Attribute(hashToken ?? Token(SyntaxKind.None), name, argumentList);
+        return Attribute(name, argumentList);
     }
 
     internal static bool IsAttributeListStart(SyntaxParser parser)

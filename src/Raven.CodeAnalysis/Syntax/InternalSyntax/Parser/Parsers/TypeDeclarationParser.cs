@@ -150,7 +150,11 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out closeBraceToken);
+            if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out closeBraceToken))
+            {
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfPeekedToken(), "}"));
+            }
         }
 
         var terminatorToken = ConsumeOptionalTypeTerminator();
@@ -1023,6 +1027,12 @@ internal class TypeDeclarationParser : SyntaxParser
                 _ => default
             };
 
+            if (identifierToken is { IsMissing: true } &&
+                ConsumeToken(SyntaxKind.SelfKeyword, out var qualifiedSelfToken))
+            {
+                identifierToken = qualifiedSelfToken;
+            }
+
             if (identifierToken != default)
             {
                 identifierToken = ToIdentifierToken(identifierToken);
@@ -1232,17 +1242,14 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken))
                     break;
 
-                var tokenText = string.IsNullOrEmpty(current.Text)
-                    ? current.Kind.ToString()
-                    : current.Text;
-
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
-                        GetSpanOfPeekedToken(),
-                        tokenText));
-
-                ReadToken();
+                var span = GetSpanOfPeekedToken();
+                var skipped = CreateSkippedToken([ReadToken()], span);
+                var accessor = (AccessorDeclarationSyntax)accessorList[accessorList.Count - 1];
+                var keyword = accessor.Keyword.WithLeadingTrivia(
+                    skipped.LeadingTrivia.AddRange(accessor.Keyword.LeadingTrivia));
+                accessorList[accessorList.Count - 1] = accessor.Update(accessor.Kind,
+                    accessor.AttributeLists, accessor.Modifiers, keyword, accessor.Body,
+                    accessor.ExpressionBody, accessor.TerminatorToken);
             }
         }
 

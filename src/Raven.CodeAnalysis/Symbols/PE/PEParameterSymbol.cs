@@ -36,8 +36,11 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
         _isOut = parameterInfo.IsOut;
         _isByRef = _parameterRuntimeType.IsByRef;
         _isParams = parameterInfo.GetCustomAttributesData()
-            .Any(attr => attr.AttributeType.FullName == "System.ParamArrayAttribute");
+            .Any(attr => IsParamsAttribute(attr.AttributeType.FullName));
     }
+
+    internal static bool IsParamsAttribute(string? metadataName) => metadataName is
+        "System.ParamArrayAttribute" or "System.Runtime.CompilerServices.ParamCollectionAttribute";
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _name;

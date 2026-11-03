@@ -1211,7 +1211,7 @@ internal class TypeGenerator
                     i + 1,
                     GetParameterAttributes(parameter),
                     parameter.Name);
-                CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
+                CodeGen.ApplyParamsAttribute(parameter, parameterBuilder.SetCustomAttribute);
                 var hasImplicitScopedDefault =
                     parameter.RefKind == RefKind.Out ||
                     parameter.RefKind == RefKind.Ref &&
@@ -1716,7 +1716,7 @@ internal class TypeGenerator
             {
                 var parameter = parameterSymbols[i];
                 var parameterBuilder = methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
-                CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
+                CodeGen.ApplyParamsAttribute(parameter, parameterBuilder.SetCustomAttribute);
             }
 
             methodBuilder.SetCustomAttribute(markerAttribute);
@@ -1810,7 +1810,7 @@ internal class TypeGenerator
         {
             var parameter = parameterSymbols[i];
             var parameterBuilder = accessorBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
-            CodeGen.ApplyParamArrayAttribute(parameter, parameterBuilder.SetCustomAttribute);
+            CodeGen.ApplyParamsAttribute(parameter, parameterBuilder.SetCustomAttribute);
         }
 
         accessorBuilder.SetCustomAttribute(markerAttribute);
@@ -1931,6 +1931,21 @@ internal class TypeGenerator
         // If the captured variables are declared in a method, all lambdas/local functions in that
         // method share one closure.
         var owner = GetCaptureOwnerSymbol(captures);
+        // A lambda can depend on method type parameters without capturing a value.
+        // Its signature must use a constructed closure's type slots, never the
+        // enclosing method's generic slots in an unrelated nongeneric method.
+        if (owner is not IMethodSymbol)
+        {
+            for (var scope = lambdaSymbol.ContainingSymbol; scope is not null; scope = scope.ContainingSymbol)
+            {
+                if (scope is SourceMethodSymbol genericOwner && !genericOwner.TypeParameters.IsDefaultOrEmpty)
+                {
+                    owner = genericOwner;
+                    break;
+                }
+            }
+        }
+
 
         if (owner is IMethodSymbol ownerMethod &&
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod)
@@ -1989,6 +2004,19 @@ internal class TypeGenerator
 
         var capturedVariables = capturedVariables2 ?? methodSymbol.CapturedVariables;
         var owner = GetCaptureOwnerSymbol(capturedVariables);
+        // A self-only local function still belongs to its lexical method's frame.
+        // Establish that identity before defining its hidden closure parameter,
+        // rather than remapping it after sibling closures have been discovered.
+        if (owner is not IMethodSymbol &&
+            methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax functionSyntax)
+        {
+            var semanticModel = Compilation.GetSemanticModel(functionSyntax.SyntaxTree);
+            owner = functionSyntax.Ancestors()
+                .Select(semanticModel.GetDeclaredSymbol)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault() ?? owner;
+        }
+
 
         if (owner is IMethodSymbol ownerMethod &&
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod &&

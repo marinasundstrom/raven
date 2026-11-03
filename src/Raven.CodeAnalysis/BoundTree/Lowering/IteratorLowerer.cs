@@ -955,6 +955,25 @@ internal static class IteratorLowerer
             return node;
         }
 
+        public override BoundNode? VisitAddressOfExpression(BoundAddressOfExpression node)
+        {
+            SourceFieldSymbol? field = null;
+            if (node.Symbol is ILocalSymbol local)
+                _hoistedLocals.TryGetValue(local, out field);
+            else if (node.Symbol is IParameterSymbol parameter &&
+                _stateMachine.ParameterFieldMap.TryGetValue(parameter, out var parameterField))
+                field = parameterField;
+
+            if (field is not null)
+            {
+                var receiver = new BoundSelfExpression(_stateMachine);
+                return new BoundAddressOfExpression(field, field.Type, receiver,
+                    new BoundMemberAccessExpression(receiver, field));
+            }
+
+            return base.VisitAddressOfExpression(node);
+        }
+
         public override BoundNode? VisitVariableExpression(BoundVariableExpression node)
         {
             if (node is null)
@@ -964,6 +983,49 @@ internal static class IteratorLowerer
                 return new BoundFieldAccess(field, node.Reason);
 
             return node;
+        }
+
+        public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(node.Type, _stateMachine) &&
+                _stateMachine.ThisField is { } thisField)
+                return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField);
+
+            return node;
+        }
+
+        public override BoundExpression? VisitBaseExpression(BoundBaseExpression node)
+        {
+            if (node.Receiver is not null)
+                return (BoundExpression?)base.VisitBaseExpression(node);
+            if (_stateMachine.ThisField is { } thisField)
+                return new BoundBaseExpression(node.Type, node.Reason,
+                    new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField));
+            return node;
+        }
+
+        private BoundExpression? RewriteInstanceReceiver(BoundExpression? receiver, IFieldSymbol field)
+        {
+            if (receiver is not null)
+                return VisitExpression(receiver) ?? receiver;
+            if (!field.IsStatic &&
+                !SymbolEqualityComparer.Default.Equals(field.ContainingType, _stateMachine) &&
+                _stateMachine.ThisField is { } thisField)
+                return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField);
+            return null;
+        }
+
+        public override BoundNode? VisitFieldAccess(BoundFieldAccess node)
+        {
+            var receiver = RewriteInstanceReceiver(node.Receiver, node.Field);
+            return node.Update(receiver, node.Field, node.Reason);
+        }
+
+        public override BoundNode? VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
+        {
+            var receiver = RewriteInstanceReceiver(node.Receiver, node.Field);
+            var right = VisitExpression(node.Right) ?? node.Right;
+            return node.Update(receiver, node.Field, right, node.UnitType, node.RequiresReceiverAddress);
         }
 
         public override BoundNode? VisitParameterAccess(BoundParameterAccess node)

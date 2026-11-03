@@ -6,6 +6,21 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnnecessaryTrailingSeparatorAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
+    public void SinglePositionalPattern_RequiresItsTrailingComma()
+    {
+        const string code = "class C { func M(value: object) -> bool => value is (1,) }";
+        var verifier = CreateAnalyzerVerifier<UnnecessaryTrailingSeparatorAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [UnnecessaryTrailingSeparatorAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ParameterList_WithTrailingComma_ReportsDiagnostic()
     {
         const string code = "class C { func M(x: int, y: int,) -> () {} }";

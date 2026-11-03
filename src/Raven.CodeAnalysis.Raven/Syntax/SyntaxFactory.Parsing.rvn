@@ -1,0 +1,62 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import Raven.CodeAnalysis.Text.*
+
+public static partial class SyntaxFactory {
+    static func ParseExpression(text: string, options: ParseOptions? = null) -> ExpressionSyntax =>
+        ParseExpression(SourceText.From(text), options)
+
+    static func ParseExpression(sourceText: SourceText, options: ParseOptions? = null, position: int = 0) -> ExpressionSyntax {
+        let parser = InternalSyntax.Parser.LanguageParser("file", options ?? ParseOptions())
+        let node = parser.ParseSyntax(typeof(ExpressionSyntax), sourceText, position)
+        return node?.CreateRed() as ExpressionSyntax ?? ExpressionSyntax.Missing()
+    }
+
+    static func ParseStatement(text: string, options: ParseOptions? = null) -> StatementSyntax =>
+        ParseStatement(SourceText.From(text), options)
+
+    static func ParseStatement(sourceText: SourceText, options: ParseOptions? = null, position: int = 0) -> StatementSyntax {
+        let parser = InternalSyntax.Parser.LanguageParser("file", options ?? ParseOptions())
+        return (StatementSyntax)parser.ParseStatement(sourceText, position).CreateRed()
+    }
+
+    static func ParseType(text: string, options: ParseOptions? = null) -> TypeSyntax =>
+        ParseType(SourceText.From(text), options)
+
+    static func ParseType(sourceText: SourceText, options: ParseOptions? = null, position: int = 0) -> TypeSyntax {
+        let parser = InternalSyntax.Parser.LanguageParser("file", options ?? ParseOptions())
+        let node = parser.ParseSyntax(typeof(TypeSyntax), sourceText, position)
+        return node?.CreateRed() as TypeSyntax ?? IdentifierNameSyntax(MissingToken(SyntaxKind.IdentifierToken))
+    }
+
+    static func ParsePattern(text: string, options: ParseOptions? = null) -> PatternSyntax =>
+        ParsePattern(SourceText.From(text), options)
+
+    static func ParsePattern(sourceText: SourceText, options: ParseOptions? = null, position: int = 0) -> PatternSyntax {
+        let parser = InternalSyntax.Parser.LanguageParser("file", options ?? ParseOptions())
+        let node = parser.ParseSyntax(typeof(PatternSyntax), sourceText, position)
+        return node?.CreateRed() as PatternSyntax ?? ConstantPatternSyntax(ExpressionSyntax.Missing())
+    }
+
+    static func ParseCompilationUnit(text: string, options: ParseOptions? = null) -> CompilationUnitSyntax =>
+        ParseCompilationUnit(SourceText.From(text), options)
+
+    static func ParseCompilationUnit(sourceText: SourceText, options: ParseOptions? = null) -> CompilationUnitSyntax =>
+        SyntaxTree.ParseText(sourceText, options).GetRoot()
+
+    static func ParseMemberDeclaration(text: string, options: ParseOptions? = null) -> MemberDeclarationSyntax? =>
+        ParseMemberDeclaration(SourceText.From(text), options)
+
+    static func ParseMemberDeclaration(sourceText: SourceText, options: ParseOptions? = null) -> MemberDeclarationSyntax? {
+        let compilationUnit = ParseCompilationUnit(sourceText, options)
+        return if (compilationUnit.Imports.Count == 0 &&
+            compilationUnit.Aliases.Count == 0 &&
+            compilationUnit.AttributeLists.Count == 0 &&
+            compilationUnit.Members.Count == 1 &&
+            compilationUnit.Members[0] is not GlobalStatementSyntax) {
+            compilationUnit.Members[0]
+        } else {
+            null
+        }
+    }
+}

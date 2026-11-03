@@ -1,0 +1,76 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Diagnostics.CodeAnalysis.*
+
+public struct SyntaxNodeOrToken {
+    internal readonly field Green: GreenNode?
+
+    private readonly field _parent: SyntaxNode?
+
+    private readonly field _position: int
+
+    private field _token: SyntaxToken?
+
+    private field _node: SyntaxNode?
+
+    internal init(node: GreenNode, parent: SyntaxNode?, index: int, position: int) {
+        Green = node ?? throw ArgumentNullException(nameof(node))
+        _parent = parent
+        _position = position
+    }
+
+    init(node: SyntaxNode) {
+        ArgumentNullException.ThrowIfNull(node)
+        Green = node.Green
+        _node = node
+    }
+
+    init(token: SyntaxToken) {
+        Green = token.Green
+        _token = token
+    }
+
+    val Parent: SyntaxNode? => _parent ?? _token?.Parent ?? _node?.Parent
+
+    val IsToken: bool => Green is InternalSyntax.SyntaxToken
+
+    val IsNode: bool => Green is InternalSyntax.SyntaxNode
+
+    func AsToken() -> SyntaxToken {
+        if IsToken {
+            _token ??= SyntaxToken((InternalSyntax.SyntaxToken)Green!, _parent, _position)
+            return _token!
+        }
+        return default
+    }
+
+    func AsNode() -> SyntaxNode? {
+        if _node is not null { return _node }
+        let position = _position
+        let parent = _parent
+        if IsNode {
+            _node = SyntaxNodeCache.GetValue(Green!, s => s.CreateRed(parent, position))
+            return _node
+        }
+        return default
+    }
+
+    func TryGetToken(out token: SyntaxToken) -> bool {
+        if IsToken { token = AsToken(); return true }
+        token = default
+        return false
+    }
+
+    func TryGetNode([NotNullWhen(true)] out node: SyntaxNode?) -> bool {
+        if IsNode { node = AsNode()!; return true }
+        node = null
+        return false
+    }
+
+    static func implicit(token: SyntaxToken) -> SyntaxNodeOrToken => SyntaxNodeOrToken(token)
+
+    static func implicit(node: SyntaxNode) -> SyntaxNodeOrToken => SyntaxNodeOrToken(node)
+
+    override func ToString() -> string => "${AsNode()?.ToFullString() ?? AsToken().Text}"
+}

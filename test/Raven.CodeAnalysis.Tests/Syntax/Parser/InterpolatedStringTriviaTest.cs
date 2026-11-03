@@ -1,9 +1,10 @@
 using IS = Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
-using System.Reflection;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
+[Trait("Target", "Shared")]
 public class InterpolatedStringTriviaTest
 {
     [Fact]
@@ -11,11 +12,9 @@ public class InterpolatedStringTriviaTest
     {
         var leadingTrivia = IS.SyntaxTriviaList.Create(new[] { IS.SyntaxFactory.Whitespace("  ") });
         var trailingTrivia = IS.SyntaxTriviaList.Create(new[] { IS.SyntaxFactory.Whitespace("  ") });
-        var token = new IS.SyntaxToken(SyntaxKind.StringLiteralToken, "$\"foo{bar}\"", leadingTrivia, trailingTrivia);
+        var token = new IS.SyntaxToken(SyntaxKind.StringLiteralToken, "\"foo${bar}\"", leadingTrivia, trailingTrivia);
 
-        var parser = new ExpressionSyntaxParser(new BaseParseContext(new Lexer(new StringReader(string.Empty))));
-        var method = typeof(ExpressionSyntaxParser).GetMethod("ParseInterpolatedStringExpression", BindingFlags.Instance | BindingFlags.NonPublic);
-        var green = (IS.InterpolatedStringExpressionSyntax)method!.Invoke(parser, new object[] { token })!;
+        var green = StringInterpolationParser.ParseInterpolatedStringExpression(token);
         var interpolated = (InterpolatedStringExpressionSyntax)green.CreateRed()!;
 
         var startTrivia = interpolated.StringStartToken.LeadingTrivia;

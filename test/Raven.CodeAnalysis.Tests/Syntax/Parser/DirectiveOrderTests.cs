@@ -48,4 +48,18 @@ public class DirectiveOrderTests
         var diagnostic = Assert.Single(tree.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.AliasDirectiveOutOfOrder, diagnostic.Descriptor);
     }
+
+    [Theory]
+    [InlineData("class Item {}\nimport System.*")]
+    [InlineData("class Item {}\nalias A = System.String;")]
+    [InlineData("alias A = System.String;\nimport System.*\nalias B = System.Int32;")]
+    [InlineData("namespace N { class Item {}\nalias A = System.String; }")]
+    [InlineData("namespace N;\nclass Item {}\nalias A = System.String;")]
+    public void MisplacedDirectivesPreserveOriginalSourceOrder(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+        Assert.NotEmpty(tree.GetDiagnostics());
+    }
+
 }

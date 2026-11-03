@@ -106,8 +106,21 @@ static values retain their existing value-pattern meaning.
 * `not pattern` — **complement**. Succeeds when the operand fails. `not` never
   introduces bindings.
 
+At the outer level of a comparison operand or range bound, `and`, `or` and
+`|` belong to the pattern. For example, `> 1 and < 10` is a conjunction of
+two comparison patterns, and `1..10 and not 5` combines a range and a
+complement. Parentheses within an operand retain ordinary expression rules:
+`> (1 | 2) and < 10` uses bitwise OR inside its first operand. The `|` spelling
+is also accepted as a pattern alternative.
+
 Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
-override precedence.
+override precedence: `not (1 or 2)` complements the whole alternative.
+An unnamed single pattern in parentheses is grouping, represented by
+`ParenthesizedPatternSyntax`; it does not request deconstruction. A one-element
+positional pattern uses a comma (`(pattern,)`), a named element, or a trailing
+whole-pattern designation. Implicit deconstruction binding contexts retain their
+positional interpretation. The trailing comma in `(pattern,)` is required and
+must not be removed by the unnecessary-separator code fix.
 
 ## Imported member-union shorthand
 

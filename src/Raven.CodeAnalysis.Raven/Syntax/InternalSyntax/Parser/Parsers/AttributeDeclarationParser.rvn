@@ -1,0 +1,63 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+alias SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts
+
+internal static class AttributeDeclarationParser {
+    static func ParseAttributeLists(parser: SyntaxParser) -> SyntaxList {
+        if !IsAttributeListStart(parser) { return SyntaxList.Empty }
+
+        let attributeLists = System.Collections.Generic.List<GreenNode>()
+        while IsAttributeListStart(parser) {
+            attributeLists.Add(ParseAttributeList(parser))
+        }
+
+        return List(attributeLists)
+    }
+
+    static func ParseAttributeList(parser: SyntaxParser) -> AttributeListSyntax {
+        var hashToken: SyntaxToken? = null
+        if parser.PeekToken().IsKind(SyntaxKind.HashToken) {
+            hashToken = parser.ReadToken()
+        }
+
+        let openBracket = parser.ReadToken()
+        var target: AttributeTargetSpecifierSyntax? = null
+        if (SyntaxFacts.CanBeIdentifier(parser.PeekToken().Kind) || SyntaxFacts.IsReservedWordKind(parser.PeekToken().Kind))
+            && parser.PeekToken(1).IsKind(SyntaxKind.ColonToken) {
+            let identifier = parser.ReadToken()
+            parser.ConsumeTokenOrMissing(SyntaxKind.ColonToken, out let colonToken)
+            target = AttributeTargetSpecifier(identifier, colonToken)
+        }
+
+        let attributes = System.Collections.Generic.List<GreenNode>()
+        while true {
+            attributes.Add(ParseAttribute(parser))
+
+            let separator = parser.PeekToken()
+            if !separator.IsKind(SyntaxKind.CommaToken) { break }
+
+            parser.ReadToken()
+            attributes.Add(separator)
+        }
+
+        if !parser.ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out let closeBracket) {
+            parser.AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected, parser.GetSpanOfPeekedToken(), ']'))
+        }
+        return AttributeList(hashToken ?? Token(SyntaxKind.None), openBracket, target, List(attributes), closeBracket)
+    }
+
+    private static func ParseAttribute(parser: SyntaxParser) -> AttributeSyntax {
+        let name = NameSyntaxParser(parser).ParseName()
+        var argumentList: ArgumentListSyntax? = null
+        if parser.PeekToken().IsKind(SyntaxKind.OpenParenToken) {
+            argumentList = ExpressionSyntaxParser(parser).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false)
+        }
+
+        return Attribute(name, argumentList)
+    }
+
+    internal static func IsAttributeListStart(parser: SyntaxParser) -> bool
+        => parser.PeekToken().IsKind(SyntaxKind.OpenBracketToken)
+            || (parser.PeekToken().IsKind(SyntaxKind.HashToken) && parser.PeekToken(1).IsKind(SyntaxKind.OpenBracketToken))
+}

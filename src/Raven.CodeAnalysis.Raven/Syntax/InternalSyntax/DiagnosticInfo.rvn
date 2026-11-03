@@ -10,10 +10,33 @@ internal open class DiagnosticInfo {
 
     val Args: object?[]
 
-    private init(descriptor: DiagnosticDescriptor, span: TextSpan, args: object?[]) {
+    private val _sourceText: SourceText?
+
+    private val _path: string
+
+    private init(descriptor: DiagnosticDescriptor, span: TextSpan, args: object?[], sourceText: SourceText? = null, path: string = "") {
         Descriptor = descriptor
         Span = span
         Args = args
+        _sourceText = sourceText
+        _path = path
+    }
+
+    internal func WithSourceText(sourceText: SourceText, path: string) -> DiagnosticInfo =>
+        DiagnosticInfo(Descriptor, Span, Args, sourceText, path)
+
+    internal func ToDiagnostic(tree: SyntaxTree?) -> Diagnostic {
+        var location = Location.None
+        if tree is SyntaxTree sourceTree {
+            location = sourceTree.GetLocation(Span)
+        } else if _sourceText is SourceText text {
+            let (startLine, startColumn) = text.GetLineAndColumn(Span.Start)
+            let (endLine, endColumn) = text.GetLineAndColumn(Span.End)
+            location = Location.Create(_path, Span, LinePositionSpan(
+                LinePosition(startLine - 1, startColumn - 1),
+                LinePosition(endLine - 1, endColumn - 1)))
+        }
+        return Diagnostic.Create(Descriptor, location, Args)
     }
 
     static func Create(descriptor: DiagnosticDescriptor, span: TextSpan, params args: object?[]) -> DiagnosticInfo {

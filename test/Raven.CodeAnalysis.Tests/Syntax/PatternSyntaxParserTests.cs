@@ -12,6 +12,35 @@ public class PatternSyntaxParserTests
 {
     [Theory]
     [Trait("Target", "Shared")]
+    [InlineData("(1 or 2)")]
+    [InlineData("((1 or 2) and not 3)")]
+    [InlineData("(int value)")]
+    public void ParenthesizedPattern_PreservesGroupingAndSource(string text)
+    {
+        var (pattern, tree) = ParsePattern(text);
+        AssertNoErrors(tree);
+        var grouped = Assert.IsType<ParenthesizedPatternSyntax>(pattern);
+        Assert.Equal(text, grouped.ToString());
+        Assert.False(grouped.OpenParenToken.IsMissing);
+        Assert.False(grouped.CloseParenToken.IsMissing);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("(1,)")]
+    [InlineData("(1, 2)")]
+    [InlineData("(key: 1)")]
+    [InlineData("(1) whole")]
+    public void PositionalPattern_RemainsDistinctFromGrouping(string text)
+    {
+        var (pattern, tree) = ParsePattern(text);
+        AssertNoErrors(tree);
+        Assert.IsType<PositionalPatternSyntax>(pattern);
+        Assert.Equal(text, pattern.ToString());
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
     [InlineData("\n")]
     [InlineData(";")]
     public void LiteralPatternEndsBeforeFollowingMember(string separator)
@@ -601,11 +630,25 @@ public class PatternSyntaxParserTests
         AssertNoErrors(tree);
     }
 
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("> 1 and < 10", SyntaxKind.AndPattern)]
+    [InlineData("1..10 and not 5", SyntaxKind.AndPattern)]
+    [InlineData("minimum or maximum", SyntaxKind.OrPattern)]
+    [InlineData("> (1 | 2) and < 10", SyntaxKind.AndPattern)]
+    public void OperandExpressionsLeaveCombinatorsForThePattern(string text, SyntaxKind kind)
+    {
+        var (pattern, tree) = ParsePattern(text);
+        AssertNoErrors(tree);
+        Assert.Equal(kind, Assert.IsType<BinaryPatternSyntax>(pattern).Kind);
+        Assert.Equal(text, pattern.ToString());
+    }
+
     private static (PatternSyntax Pattern, SyntaxTree Tree) ParsePattern(string patternText)
     {
         var useIsPatternWrapper =
             patternText.StartsWith("let ", StringComparison.Ordinal) ||
-            patternText.StartsWith("let ", StringComparison.Ordinal) ||
+            patternText.StartsWith("val ", StringComparison.Ordinal) ||
             patternText.StartsWith("var ", StringComparison.Ordinal);
 
         var code = useIsPatternWrapper

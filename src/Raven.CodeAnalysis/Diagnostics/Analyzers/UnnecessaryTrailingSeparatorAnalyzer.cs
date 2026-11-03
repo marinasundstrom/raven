@@ -81,6 +81,12 @@ public sealed class UnnecessaryTrailingSeparatorAnalyzer : DiagnosticAnalyzer
                 AnalyzeTrailingComma(context, functionTypeParameterList.Parameters, functionTypeParameterList.CloseParenToken);
                 break;
             case PositionalPatternSyntax positionalPattern:
+                // Removing this comma would turn a one-element positional
+                // pattern into grouping and change what it matches.
+                if (positionalPattern.Elements.Count == 1 &&
+                    positionalPattern.Elements[0].NameColon is null &&
+                    positionalPattern.Designation is null)
+                    break;
                 AnalyzeTrailingComma(context, positionalPattern.Elements, positionalPattern.CloseParenToken);
                 break;
             case NominalDeconstructionPatternArgumentListSyntax argumentList:

@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public extension SyntaxTokenExtension for SyntaxToken {
+    func IsKeyword() -> bool => SyntaxFacts.IsKeywordKind(self.Kind)
+
+    func IsReservedWord() -> bool => SyntaxFacts.IsReservedWordKind(self.Kind)
+
+    func CanBeIdentifier() -> bool => SyntaxFacts.CanBeIdentifier(self.Kind)
+}

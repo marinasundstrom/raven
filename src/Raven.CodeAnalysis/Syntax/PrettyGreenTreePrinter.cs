@@ -263,7 +263,7 @@ public static class PrettyGreenTreePrinter
         return " " + string.Join(" ", kinds.Select(k => $"#[{k}]"));
     }
 
-    private static IEnumerable<string> DiagnosticsAsChildLines(IEnumerable<DiagnosticInfo> diagnostics, bool colorize)
+    private static IEnumerable<string> DiagnosticsAsChildLines(IEnumerable<DiagnosticInfo>? diagnostics, bool colorize)
     {
         var list = diagnostics?.ToList();
         if (list is null || list.Count == 0)
@@ -331,7 +331,7 @@ public static class PrettyGreenTreePrinter
         }
     }
 
-    private static string DiagnosticsToString(IEnumerable<DiagnosticInfo> diagnostics, bool colorize)
+    private static string DiagnosticsToString(IEnumerable<DiagnosticInfo>? diagnostics, bool colorize)
     {
         if (diagnostics is null)
             return string.Empty;

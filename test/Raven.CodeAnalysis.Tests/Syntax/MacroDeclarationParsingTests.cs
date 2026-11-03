@@ -8,6 +8,23 @@ namespace Raven.CodeAnalysis.Tests.Syntax;
 
 public sealed class MacroDeclarationParsingTests
 {
+    [Theory]
+    [InlineData("extern", false)]
+    [InlineData("async extern", false)]
+    [InlineData("extern", true)]
+    [InlineData("async extern", true)]
+    public void ExternMacroModifierLookaheadPreservesDeclaration(string modifiers, bool inNamespace)
+    {
+        var declarationSource = $"{modifiers} macro Native() -> int;";
+        var source = inNamespace ? $"namespace Tools {{ {declarationSource} }}" : declarationSource;
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.Single(tree.GetRoot().DescendantNodes().OfType<MacroDeclarationSyntax>());
+        Assert.Null(declaration.Body);
+        Assert.Null(declaration.ExpressionBody);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
     [Fact]
     public void MacroDeclaration_ParsesAsTopLevelMember()
     {

@@ -402,3 +402,155 @@ property analyzer therefore has no stored value to check. The shared binder owns
 this distinction for both targets; native storage/code-generation remains target
 owned. This binder has not yet been translated, so the bootstrap fix enables the
 unchanged generated Raven abstract syntax-node contracts.
+
+### Explicit extension attributes retain lexical access
+
+Methods marked with ExtensionAttribute in ordinary static classes use their
+method/container as the accessibility context. They can invoke private helpers
+in that container while receiver-private members remain inaccessible. Raven
+extension declarations retain their existing assembly-level access context.
+The distinction is based on declaration ownership, not the target name.
+
+### Syntax reflection list membership
+
+`SyntaxNodeReflectionExtensions.GetPropertyNameForListItem` recognizes generated
+concrete `SyntaxList<TNode>` and `SeparatedSyntaxList<TNode>` properties through
+their covariant node enumeration. Token lookup checks immediate child tokens and
+separated-list separators. A `SyntaxTokenList` matches only when it contains the
+requested token; an unrelated token returns no property name.
+
+### Conditional nullability metadata
+
+Imported `NotNullIfNotNull` attributes are available as metadata, but invocation
+results retain their declared nullable types. This follows Raven's deliberate
+absence of C#-style nullable flow state (see `docs/lang/feature-meaning.md`).
+A known non-null result must be pattern-bound or explicitly unwrapped. The port
+therefore unwraps the path helper results for known non-null inputs; this is an
+adaptation to existing Raven semantics, not a missing flow-analysis fix.
+
+### Grouped pattern syntax and operations
+
+`ParenthesizedPatternSyntax` preserves grouping tokens and its inner `Pattern`.
+It binds to the inner pattern without introducing a deconstruction operation.
+Operation queries on the wrapper expose the inner pattern operation and retain
+its children, including nested alternatives under `not`. An explicit singleton
+positional pattern, `(pattern,)`, retains `PositionalPatternSyntax`; analyzer
+fixes must preserve its distinguishing comma. Grouping applies to shared syntax
+and binding, independently of runtime target.
+
+### Out assignments in local initializers
+
+The method-body out-parameter analysis visits local declarator initializers in
+execution order. A normally completing initializer that forwards an `out`
+parameter establishes assignment for subsequent statements and normal exits.
+Calls on conditional short-circuit paths do not establish guaranteed assignment.
+This is shared binder behavior for .NET and neoCLR; runtime regression validation
+for this correction executes on modern .NET.
+
+### Parser context last-token delegation
+
+A parser context with a valid parent delegates LastToken even when the parent's
+value is null. No consumed token is a valid initial state; only a missing parent
+on the delegating base implementation raises the missing-context exception.
+The C# bootstrap and Raven parser contexts use the same rule, keeping initial
+terminator checks safe for EOF, closing braces and following statement keywords.
+This is shared parser behavior, independent of target runtime policy.
+
+### Conditional values at block-expression tails
+
+A final non-semicolon-terminated if/if-let with an else in a BlockSyntax is
+parsed in expression context, including its branch blocks. The parser restores
+the initial checkpoint and diagnostics before parsing that final conditional
+as an expression. Type queries therefore expose the conditional result rather
+than a discarded statement value. Non-final conditionals and explicit semicolon
+terminators preserve statement syntax. This is target-independent parsing;
+compile-and-execute regressions currently exercise modern .NET.
+
+### Constructor-constraint recovery
+
+An incomplete `new(` constraint produces a constructor-constraint syntax node
+with a missing closing-parenthesis token. Its character-expected diagnostic
+identifies `)`, rather than an unrelated operator. Constraint parsing and
+recovery are shared by targets; runtime-specific admissibility remains owned
+by the target contracts.
+
+
+### Abrupt match arms and contextual result types
+
+A match arm that unconditionally transfers control (for example, a block whose
+branches explicitly return) does not supply a match result. Binding retains its
+control transfer and excludes it from result conversion, including a statement-form
+match in the implicit-return position of a function. Ordinary value-producing arms
+still receive and must satisfy their contextual result type. This is shared binder
+behavior for .NET and neoCLR, not a target-specific conversion policy.
+
+Property-pattern member paths use shared instance-member lookup, including base
+classes and inherited interfaces. Source member signatures are completed through
+the same binder-owned lookup path used for ordinary member access. This applies
+to both source and metadata symbols and is independent of the runtime target.
+
+
+### Out assignments in conditional tests
+
+The method-body analyzer evaluates an `if` condition before analyzing its
+branches. A direct `out` call, including one under unary negation or in the
+always-evaluated left operand of a short-circuit expression, establishes
+assignment for both branches and subsequent normal exits. A call confined to
+the right operand of `&&` or `||` does not establish unconditional assignment.
+The rule is shared by .NET and neoCLR binding; no runtime-specific encoding is
+involved.
+
+
+### Local function declarations and control flow
+
+`AnalyzeControlFlow` does not treat a local function declaration as an executable
+statement in its enclosing body. A declaration after a return or non-completing
+loop neither restores reachability nor appears in `UnreachableStatements`.
+Consequently it does not produce an enclosing unreachable-code warning. The
+local function body retains its own control-flow analysis and diagnostics.
+This is shared .NET/neoCLR compiler behavior; no target encoding changes.
+
+
+### Explicit interface indexer symbols
+
+Source explicit-interface indexers record `ExplicitInterfaceImplementations` on
+the property symbol as well as each implemented accessor. An expression-bodied
+indexer records its getter's interface method link just as an accessor-list
+indexer does. Conformance checks and emitted interface dispatch use those links;
+qualified metadata names alone do not establish implementation. This symbol
+contract is shared across targets; runtime regression coverage executes on .NET.
+
+Local function symbol identity includes declaration identity in addition to its
+signature. Two same-named, same-signature functions in different methods are
+distinct symbols, including when neither captures state. Equality and hashing
+use the same declaration identity; emission caches must not merge their bodies
+or capture frames.
+
+The same definite-assignment rule applies to `while` conditions: the condition
+runs before the first body execution and before normal condition-false exit.
+An unconditional forwarded `out` call in the condition establishes assignment
+in both places; a call reachable only through a short-circuit operand does not.
+Assignments made only in the loop body are not assumed to occur.
+
+Output declarations initialize their new local on the declaring call, including
+readonly `let`/`val` bindings. Later writable by-reference uses retain ordinary
+mutability checks. During overload resolution, an output declaration with no
+known type is a binding-only placeholder, not an error or an input inference
+source. The selected output parameter supplies the concrete local type before
+conversion/lowering. Rebinding replaces the preliminary local in declaration
+state and the identifier cache; placeholders must not reach emission.
+
+
+Syntax-port stabilization preserves ordinary lexical lookup: nested types may
+refer to accessible enclosing static members, nearest type members take priority,
+and a local-function parameter shadows a later declaration in its enclosing
+block. Lambda return inference also examines type parameters nested inside named,
+array, nullable and reference return shapes, while retaining already-bound lexical
+type parameters. These are shared binder contracts, not .NET-only syntax rules.
+
+
+Ordinary call arguments may infer a method type parameter to the enclosing
+method's same type parameter, including through constructed types, arrays, tuples
+and params elements. Recursive generic calls therefore do not require redundant
+explicit type arguments. Unfixed contextual callback placeholders remain excluded
+from inference evidence; this distinction is owned by shared overload resolution.

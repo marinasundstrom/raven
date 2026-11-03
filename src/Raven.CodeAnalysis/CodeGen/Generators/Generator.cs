@@ -230,6 +230,11 @@ internal abstract class Generator
 
     protected internal void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion, bool isChecked = false)
     {
+        // Imported signatures can retain System.Nullable<T> rather than Raven's
+        // nullable wrapper. Use the same shape as conversion classification.
+        from = Compilation.NormalizeExplicitNullableGeneric(from);
+        to = Compilation.NormalizeExplicitNullableGeneric(to);
+
         if (conversion.IsIdentity && !RequiresNullableProjectionConversion(from, to))
             return;
 

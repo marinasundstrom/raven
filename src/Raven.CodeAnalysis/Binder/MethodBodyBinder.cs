@@ -399,6 +399,16 @@ class MethodBodyBinder : BlockBinder
                     return AnalyzeExpression(expressionStatement.Expression, assigned);
                 case BoundAssignmentStatement assignmentStatement:
                     return new AnalysisState(MarkAssignedExpression(assignmentStatement.Expression, assigned), true);
+                case BoundLocalDeclarationStatement declaration:
+                    var declarationState = new AnalysisState(assigned, true);
+                    foreach (var declarator in declaration.Declarators)
+                    {
+                        if (!declarationState.CompletesNormally)
+                            break;
+                        if (declarator.Initializer is { } initializer)
+                            declarationState = AnalyzeExpression(initializer, declarationState.Assigned);
+                    }
+                    return declarationState;
                 case BoundReturnStatement returnStatement:
                     return AnalyzeReturn(returnStatement.Expression, assigned);
                 case BoundThrowStatement:
@@ -412,8 +422,11 @@ class MethodBodyBinder : BlockBinder
                 case BoundIfStatement ifStatement:
                     return AnalyzeIf(ifStatement, assigned);
                 case BoundWhileStatement whileStatement:
-                    _ = AnalyzeStatement(whileStatement.Body, assigned);
-                    return new AnalysisState(assigned, CanCompleteNormally(whileStatement));
+                    var whileConditionState = AnalyzeExpression(whileStatement.Condition, assigned);
+                    if (!whileConditionState.CompletesNormally)
+                        return whileConditionState;
+                    _ = AnalyzeStatement(whileStatement.Body, whileConditionState.Assigned);
+                    return new AnalysisState(whileConditionState.Assigned, CanCompleteNormally(whileStatement));
                 case BoundLoopStatement loopStatement:
                     return AnalyzeLoop(loopStatement, assigned);
                 case BoundForStatement forStatement:
@@ -454,6 +467,13 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<IParameterSymbol> assigned)
         {
+            // The condition runs before either branch. Forwarded out arguments
+            // assigned on every condition path remain assigned in both branches.
+            var conditionState = AnalyzeExpression(ifStatement.Condition, assigned);
+            if (!conditionState.CompletesNormally)
+                return conditionState;
+            assigned = conditionState.Assigned;
+
             var thenState = AnalyzeStatement(ifStatement.ThenNode, assigned);
             var elseState = ifStatement.ElseNode is null
                 ? new AnalysisState(assigned, true)
@@ -611,6 +631,9 @@ class MethodBodyBinder : BlockBinder
 
             if (expression is BoundConversionExpression conversion)
                 return MarkAssignedExpression(conversion.Expression, assigned);
+
+            if (expression is BoundUnaryExpression unary)
+                return MarkAssignedExpression(unary.Operand, assigned);
 
             if (expression is BoundBinaryExpression binary)
             {

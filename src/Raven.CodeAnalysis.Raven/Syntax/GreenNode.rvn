@@ -1,0 +1,262 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.*
+alias SyntaxNode = Raven.CodeAnalysis.Syntax.SyntaxNode
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public abstract class GreenNode {
+    internal readonly field _diagnostics: DiagnosticInfo[]?
+
+    internal readonly field _annotations: SyntaxAnnotation[]?
+
+    internal init(kind: SyntaxKind, slotCount: int, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null) {
+        Kind = kind
+        SlotCount = slotCount
+        _diagnostics = diagnostics?.ToArray()
+        _annotations = annotations?.ToArray()
+    }
+
+    virtual val Kind: SyntaxKind { get; }
+
+    func IsKind(kind: SyntaxKind) -> bool => Kind == kind
+
+    var Width: int { get; protected set; }
+
+    var FullWidth: int { get; protected set; }
+
+    val SlotCount: int { get; }
+
+    virtual val IsMissing: bool { get; }
+
+    internal func GetLeadingTrivia() -> InternalSyntax.SyntaxTriviaList => GetFirstToken()?.LeadingTrivia ?? InternalSyntax.SyntaxTriviaList.Empty
+
+    internal func GetTrailingTrivia() -> InternalSyntax.SyntaxTriviaList => GetLastToken()?.TrailingTrivia ?? InternalSyntax.SyntaxTriviaList.Empty
+
+    virtual func GetLeadingTriviaWidth() -> int => GetFirstToken()?.LeadingTrivia.Width ?? 0
+
+    virtual func GetTrailingTriviaWidth() -> int => GetLastToken()?.TrailingTrivia.Width ?? 0
+
+    abstract func GetSlot(index: int) -> GreenNode?
+
+    func GetSlot<T>(index: int) -> T where T: GreenNode? => (T)GetSlot(index)
+
+    internal func GetChildren() -> IEnumerable<GreenNode> {
+        var i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            i++
+            if child is null { continue }
+            if child is InternalSyntax.SyntaxList {
+                var j = 0
+                while j < child!.SlotCount {
+                    let nested = child!.GetSlot(j)
+                    j++
+                    if nested is not null { yield nested! }
+                }
+            }
+            else { yield child! }
+        }
+    }
+
+    internal func GetFirstToken() -> InternalSyntax.SyntaxToken? {
+        var i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            i++
+            if child is null { continue }
+            if child is InternalSyntax.SyntaxToken token {
+                if token.Kind != SyntaxKind.None { return token }
+                continue
+            }
+            let found = child!.GetFirstToken()
+            if found is not null { return found }
+        }
+        return null
+    }
+
+    internal func GetLastToken() -> InternalSyntax.SyntaxToken? {
+        var i = SlotCount - 1
+        while i >= 0 {
+            let child = GetSlot(i)
+            i--
+            if child is null { continue }
+            if child is InternalSyntax.SyntaxToken token {
+                if token.Kind != SyntaxKind.None { return token }
+                continue
+            }
+            let found = child!.GetLastToken()
+            if found is not null { return found }
+        }
+        return null
+    }
+
+    func CreateRed() -> SyntaxNode => CreateRed(null, 0)
+
+    virtual func CreateRed(parent: SyntaxNode?, position: int) -> SyntaxNode => null!
+
+    virtual func GetValue() -> object? => (int)Kind
+
+    virtual func GetValueText() -> string? => if SyntaxFacts.IsReservedWordKind(Kind) { SyntaxFacts.GetSyntaxTokenText(Kind) } else { Kind.ToString() }
+
+    virtual func GetChildStartPosition(childIndex: int) -> int {
+        var offset = 0
+        var i = 0
+        while i < childIndex {
+            offset += GetSlot(i)?.FullWidth ?? 0
+            i++
+        }
+        return offset
+    }
+
+    func ReplaceNode(oldNode: GreenNode, newNode: GreenNode) -> GreenNode {
+        if ReferenceEquals(self, oldNode) { return newNode }
+        let children = GreenNode?[](SlotCount)
+        var changed = false
+        var i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            let updated = child?.ReplaceNode(oldNode, newNode)
+            if !ReferenceEquals(updated, child) { changed = true }
+            children[i] = updated
+            i++
+        }
+        if !changed { return self }
+        return With(children)
+    }
+
+    func ReplaceNode(oldNode: GreenNode, newNodes: IEnumerable<GreenNode>) -> GreenNode => ReplaceNodeWithNodes(oldNode, newNodes)
+
+    private func ReplaceNodeWithNodes(oldNode: GreenNode, newNodes: IEnumerable<GreenNode>) -> GreenNode {
+        if self == oldNode { return CreateParentWithNodes(newNodes) }
+        let children = List<GreenNode>()
+        var i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            if child == oldNode { children.AddRange(newNodes) }
+            else if child is not null { children.Add(child!.ReplaceNodeWithNodes(oldNode, newNodes)) }
+            i++
+        }
+        return With(children.ToArray())
+    }
+
+    func ReplaceNodes(condition: Func<GreenNode, bool>, replacement: Func<GreenNode, GreenNode>) -> GreenNode {
+        if condition(self) { return replacement(self) }
+        let children = GreenNode?[](SlotCount)
+        var changed = false
+        var i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            if child is not null {
+                let updated = child!.ReplaceNodes(condition, replacement)
+                if !ReferenceEquals(updated, child) { changed = true }
+                children[i] = updated
+            }
+            else { children[i] = child }
+            i++
+        }
+        if !changed { return self }
+        return With(children)
+    }
+
+    internal virtual func CreateParentWithNodes(newNodes: IEnumerable<GreenNode>) -> GreenNode => InternalSyntax.SyntaxList(newNodes.ToArray())
+
+    internal abstract func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode
+
+    internal func GetDiagnostics() -> IEnumerable<DiagnosticInfo> => _diagnostics ?? Array.Empty<DiagnosticInfo>()
+
+    internal func WithAdditionalDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode {
+        if diagnostics is null || diagnostics.Length == 0 { return self }
+        if _diagnostics is null || _diagnostics!.Length == 0 { return SetDiagnostics(diagnostics) }
+        let merged = DiagnosticInfo[](_diagnostics!.Length + diagnostics.Length)
+        _diagnostics!.CopyTo(merged, 0)
+        diagnostics.CopyTo(merged, _diagnostics!.Length)
+        return SetDiagnostics(merged)
+    }
+
+    func GetAnnotations(annotationKinds: IEnumerable<string>) -> IEnumerable<SyntaxAnnotation> {
+        if _annotations is null { return Array.Empty<SyntaxAnnotation>() }
+        return _annotations!.Where(x => annotationKinds.Contains(x.Kind))
+    }
+
+    func GetAnnotation(kind: string) -> SyntaxAnnotation? => _annotations?.FirstOrDefault(x => x.Kind == kind)
+
+    func HasAnnotation(annotation: SyntaxAnnotation) -> bool => _annotations?.Any(x => x == annotation) ?? false
+
+    internal virtual func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> GreenNode => throw NotImplementedException("Override method")
+
+    internal abstract func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo>
+
+    internal abstract func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode
+
+    private func GetDebuggerDisplay() -> string => GetType().Name + " " + (if IsMissing { "<missing>" } else { GetValueText() })
+
+    internal abstract func Accept(visitor: InternalSyntax.SyntaxVisitor)
+
+    internal abstract func Accept<TResult>(visitor: InternalSyntax.SyntaxVisitor<TResult>) -> TResult
+
+    protected static func AreEqual<T>(a: T[]?, b: T[]?) -> bool {
+        if ReferenceEquals(a, b) { return true }
+        if a is null || b is null { return false }
+        if a!.Length != b!.Length { return false }
+        var i = 0
+        while i < a!.Length {
+            if !Equals((a!)[i], (b!)[i]) { return false }
+            i++
+        }
+        return true
+    }
+
+    protected func CalculateWidths() {
+        let count = SlotCount
+        if count == 0 { Width = 0; FullWidth = 0; return }
+        if count == 1 {
+            let only = GetSlot(0)
+            Width = only?.Width ?? 0
+            FullWidth = only?.FullWidth ?? 0
+            return
+        }
+        var sum = 0
+        var i = 0
+        while i < count {
+            sum += GetSlot(i)?.FullWidth ?? 0
+            i++
+        }
+        let leading = GetFirstToken()?.LeadingTrivia.Width ?? 0
+        let trailing = GetLastToken()?.TrailingTrivia.Width ?? 0
+        FullWidth = sum
+        Width = Math.Max(0, sum - leading - trailing)
+    }
+
+    [Conditional("DEBUG")]
+    func DebugValidateAgainstText(source: string) {
+        if self is InternalSyntax.CompilationUnitSyntax && FullWidth != source.Length { throw InvalidOperationException("Root.FullWidth=${FullWidth} != source.Length=${source.Length}") }
+        if Width < 0 || FullWidth < 0 || Width > FullWidth { throw InvalidOperationException("Invalid widths: Width=${Width}, FullWidth=${FullWidth}") }
+        var sum = 0
+        var i = 0
+        while i < SlotCount { sum += GetSlot(i)?.FullWidth ?? 0; i++ }
+        if sum != FullWidth { throw InvalidOperationException("Child FullWidth sum ${sum} != node.FullWidth ${FullWidth}") }
+        if FullWidth > 0 && Width == 0 {
+            let first = GetFirstToken()
+            let last = GetLastToken()
+            if first is null || last is null { throw InvalidOperationException("Non-zero FullWidth but no tokens found.") }
+            if first!.LeadingTrivia.Width + last!.TrailingTrivia.Width != FullWidth { throw InvalidOperationException("Width==0 but outer trivia does not consume FullWidth.") }
+        }
+        var offset = 0
+        i = 0
+        while i < SlotCount {
+            let child = GetSlot(i)
+            if child is not null {
+                let start = GetChildStartPosition(i)
+                if start != offset { throw InvalidOperationException("Child[${i}] start ${start} != expected ${offset}") }
+                offset += child!.FullWidth
+            }
+            i++
+        }
+        i = 0
+        while i < SlotCount { GetSlot(i)?.DebugValidateAgainstText(source); i++ }
+    }
+}

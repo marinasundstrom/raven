@@ -260,6 +260,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.ImportDirectiveOutOfOrder,
                         GetActualTextSpan(start, importDirective)));
+                memberDeclarations.Add(PreserveMisplacedDirective(importDirective));
+                order = MemberOrder.Members;
+                return;
             }
 
             importDirectives.Add(importDirective);
@@ -276,6 +279,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.AliasDirectiveOutOfOrder,
                         GetActualTextSpan(start, aliasDirective)));
+                memberDeclarations.Add(PreserveMisplacedDirective(aliasDirective));
+                order = MemberOrder.Members;
+                return;
             }
 
             aliasDirectives.Add(aliasDirective);
@@ -517,7 +523,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.RecordKeyword or
                      SyntaxKind.OverrideKeyword ||
-                (kind == SyntaxKind.ExternKeyword && IsExternConstDeclarationStart()))
+                (kind == SyntaxKind.ExternKeyword &&
+                 (IsExternConstDeclarationStart() || new MacroDeclarationParser(this).IsDeclarationStartAfterModifiers())))
             {
                 modifiers = modifiers.Add(ReadToken());
             }

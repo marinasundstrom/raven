@@ -156,6 +156,7 @@ internal sealed class MacroDeclarationParser : SyntaxParser
             SyntaxKind.ProtectedKeyword or
             SyntaxKind.FileprivateKeyword or
             SyntaxKind.StaticKeyword or
+            SyntaxKind.ExternKeyword or
             SyntaxKind.RefKeyword or
             SyntaxKind.ReadonlyKeyword or
             SyntaxKind.AbstractKeyword or

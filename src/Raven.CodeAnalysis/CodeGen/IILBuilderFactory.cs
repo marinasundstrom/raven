@@ -90,7 +90,7 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
 
         public void Emit(OpCode opcode, FieldBuilder fieldBuilder) => _inner.Emit(opcode, fieldBuilder);
 
-        public void Emit(OpCode opcode, MethodInfo methodInfo) => _inner.Emit(opcode, methodInfo);
+        public void Emit(OpCode opcode, MethodInfo methodInfo) => _inner.Emit(opcode, ProjectedDelegateConstructorInfo.NormalizeInvoke(methodInfo));
 
         public void Emit(OpCode opcode, ConstructorInfo constructorInfo) => _inner.Emit(opcode, constructorInfo);
 

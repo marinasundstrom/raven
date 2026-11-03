@@ -280,3 +280,12 @@ silently reinterpret existing tags as the new phases. Existing
 not a requirement to complete C# API migration before porting. Seed corrections
 use new immutable identities and retain their original provenance. Milestone
 names for the revised sequence can be selected when their artifacts are qualified.
+
+### Raven local bindings during direct translation
+
+Use `let` when a local is never reassigned; retain `var` for mutable locals.
+This also applies to `out let` declarations that receive their only assignment
+at the declaring call. Mutation of an object referenced by a local does not
+itself reassign that local. An unconditional C# `while (true)` may become
+Raven `loop`, retaining the original break/continue behavior. Keep opening braces
+on the declaration/header line and separate declarations with blank lines.

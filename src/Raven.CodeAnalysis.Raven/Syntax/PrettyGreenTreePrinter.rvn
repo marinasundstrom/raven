@@ -1,0 +1,395 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Linq.*
+
+public class PrettyGreenTreePrinterOptions {
+    var IncludeWidths: bool { get; set } = true
+
+    var IncludeDiagnostics: bool { get; set } = true
+
+    var IncludeAnnotations: bool { get; set } = false
+
+    var DiagnosticsAsChildren: bool { get; set } = false
+
+    var AnnotationsAsChildren: bool { get; set } = false
+
+    var IncludeSlotIndices: bool { get; set } = false
+
+    // When true, uses ANSI escape codes to colorize output for easier visual scanning.
+    var Colorize: bool { get; set } = true
+
+    // When true, prints token leading/trailing trivia as children of the token.
+    var IncludeTrivia: bool { get; set } = false
+
+    // When true, prints each trivia item text on the same line.
+    var IncludeTriviaText: bool { get; set } = true
+
+    // When true, `List` nodes are not printed; their items are printed directly.
+    var FlattenSyntaxLists: bool { get; set } = false
+
+    // When true, hides slot children whose node has Width == 0 and FullWidth == 0.
+    // Slot indexing is preserved (original slot indices; flattened list items use "i.j").
+    var HideZeroWidthSlots: bool { get; set } = false
+}
+
+public static class PrettyGreenTreePrinter {
+    private const Tee: string = "├── "
+
+    private const Elbow: string = "└── "
+
+    private const Pipe: string = "│   "
+
+    private const Indent: string = "    "
+
+    static func Print(root: GreenNode, writer: TextWriter, options: PrettyGreenTreePrinterOptions? = null) -> unit {
+        if (root is null) {
+            throw ArgumentNullException(nameof(root))
+        }
+        if (writer is null) {
+            throw ArgumentNullException(nameof(writer))
+        }
+
+        let effectiveOptions = options ?? PrettyGreenTreePrinterOptions()
+        PrintNode(root, writer, effectiveOptions, indent: string.Empty, isLast: true, isRoot: true, slotIndex: null)
+    }
+
+    static func PrintToString(root: GreenNode, options: PrettyGreenTreePrinterOptions? = null) -> string {
+        use sw = StringWriter()
+        Print(root, sw, options)
+        return sw.ToString()
+    }
+
+    private static func PrintNode(node: GreenNode, writer: TextWriter, options: PrettyGreenTreePrinterOptions, indent: string, isLast: bool, isRoot: bool, slotIndex: string?) -> unit {
+        // Print current line.
+        if (isRoot) {
+            writer.Write(indent)
+            writer.Write(FormatGreenLine(node, options, slotIndex))
+            writer.WriteLine()
+        }
+        else {
+            writer.Write(indent)
+            writer.Write(if isLast { Elbow } else { Tee })
+            writer.Write(FormatGreenLine(node, options, slotIndex))
+            writer.WriteLine()
+        }
+
+        // Compute indent for children.
+        var nextIndent = indent + (if isRoot { string.Empty } else { if isLast { Indent } else { Pipe } })
+        if (isRoot) {
+            nextIndent = indent + Indent
+        }
+
+        // Optional: diagnostics/annotations as their own arms under the node.
+        var extraLines = List<string>()
+        if (options.IncludeDiagnostics && options.DiagnosticsAsChildren) {
+            extraLines.AddRange(DiagnosticsAsChildLines(node.GetDiagnostics(), options.Colorize))
+        }
+        if (options.IncludeAnnotations && options.AnnotationsAsChildren) {
+            extraLines.AddRange(AnnotationsAsChildLines(node))
+        }
+
+        // Determine whether there are "real" children after the extra lines.
+        var hasTriviaChildren = options.IncludeTrivia && node is SyntaxToken tok2 && (tok2.LeadingTrivia.SlotCount > 0 || tok2.TrailingTrivia.SlotCount > 0)
+        var slotChildren = GetSlotChildren(node, options)
+        var hasSlotChildren = slotChildren.Count > 0
+        var hasRealChildren = hasTriviaChildren || hasSlotChildren
+
+        if (extraLines.Count > 0) {
+            for i in 0..extraLines.Count {
+                var isExtraLast = i == extraLines.Count - 1
+                // If there are real children, extra lines are never the last overall.
+                if (hasRealChildren) {
+                    isExtraLast = false
+                }
+
+                writer.Write(nextIndent)
+                writer.Write(if isExtraLast { Elbow } else { Tee })
+                writer.WriteLine(extraLines[i])
+            }
+        }
+
+        // Trivia children for tokens (optional).
+        if (options.IncludeTrivia && node is SyntaxToken tok) {
+            var hasLeading = tok.LeadingTrivia.SlotCount > 0
+            var hasTrailing = tok.TrailingTrivia.SlotCount > 0
+
+            // Trivia lists are printed before slot children.
+            // LeadingTrivia is last only if there is no TrailingTrivia and no slot children.
+            // TrailingTrivia is last only if there are no slot children.
+            if (hasLeading) {
+                PrintTriviaList("LeadingTrivia", tok.LeadingTrivia, writer, options, nextIndent, isLast: !hasTrailing && slotChildren.Count == 0)
+            }
+
+            if (hasTrailing) {
+                PrintTriviaList("TrailingTrivia", tok.TrailingTrivia, writer, options, nextIndent, isLast: slotChildren.Count == 0)
+            }
+        }
+
+        // Slot children.
+        for i in 0..slotChildren.Count {
+            var (slotIndexText, child) = slotChildren[i]
+            PrintNode(child, writer, options, nextIndent, isLast: i == slotChildren.Count - 1, isRoot: false, slotIndex: if options.IncludeSlotIndices { slotIndexText } else { null })
+        }
+    }
+
+    private static func GetSlotChildren(node: GreenNode, options: PrettyGreenTreePrinterOptions) -> List<(SlotIndexText: string, Node: GreenNode)> {
+        var result = List<(SlotIndexText: string, Node: GreenNode)>(capacity: Math.Max(0, node.SlotCount))
+
+        func ShouldHide(n: GreenNode) -> bool
+            => options.HideZeroWidthSlots && n.Width == 0 && n.FullWidth == 0
+
+        for i in 0..node.SlotCount {
+            var child = node.GetSlot(i)
+            if (child is null) {
+                continue
+            }
+
+            if (options.FlattenSyntaxLists && child!.Kind == SyntaxKind.List) {
+                // Expand the list's slots into the parent's effective child list.
+                for j in 0..child!.SlotCount {
+                    var item = child!.GetSlot(j)
+                    if (item is null) {
+                        continue
+                    }
+
+                    if (ShouldHide(item!)) {
+                        continue
+                    }
+
+                    result.Add(("${i}.${j}", item!))
+                }
+
+                continue
+            }
+
+            if (ShouldHide(child!)) {
+                continue
+            }
+
+            result.Add(("${i}", child!))
+        }
+
+        return result
+    }
+
+    private static func PrintTriviaList(name: string, triviaList: SyntaxTriviaList, writer: TextWriter, options: PrettyGreenTreePrinterOptions, indent: string, isLast: bool) -> unit {
+        if (triviaList.SlotCount == 0) {
+            return
+        }
+
+        // Header line for the trivia list.
+        writer.Write(indent)
+        writer.Write(if isLast { Elbow } else { Tee })
+        writer.WriteLine(name)
+
+        var nextIndent = indent + (if isLast { Indent } else { Pipe })
+        for i in 0..triviaList.SlotCount {
+            var trivia = triviaList[i]
+            var isLastItem = i == triviaList.SlotCount - 1
+
+            writer.Write(nextIndent)
+            writer.Write(if isLastItem { Elbow } else { Tee })
+            writer.Write(FormatTriviaLine(trivia, options))
+            writer.WriteLine()
+
+            // Structured trivia: print its structure as a green node if available.
+            if (trivia.HasStructuredTrivia) {
+                var structure = trivia.GetStructuredTrivia()
+                if (structure is not null) {
+                    var structIndent = nextIndent + (if isLastItem { Indent } else { Pipe })
+                    PrintNode(structure!, writer, options, structIndent, isLast: true, isRoot: false, slotIndex: null)
+                }
+            }
+        }
+    }
+
+    private static func FormatGreenLine(node: GreenNode, options: PrettyGreenTreePrinterOptions, slotIndex: string?) -> string {
+        var prefix = if slotIndex is not null { "[${slotIndex}] " } else { string.Empty }
+
+        // For tokens, include value text like: IdentifierToken: System
+        var kind = MaybeColorize(node.Kind.ToString(), AnsiColor.BrightGreen, options.Colorize)
+        var valueText = node.GetValueText()
+        var valuePart = string.Empty
+        if (!string.IsNullOrEmpty(valueText) && valueText != kind) {
+            valuePart = ": ${Escape(valueText!)}"
+        }
+
+        var missingPart = if node.IsMissing { " (Missing)" } else { string.Empty }
+        var widthPart = if options.IncludeWidths { " [W=${node.Width}, FW=${node.FullWidth}]" } else { string.Empty }
+        var diagPart = if options.IncludeDiagnostics && !options.DiagnosticsAsChildren { DiagnosticsToString(node.GetDiagnostics(), options.Colorize) } else { string.Empty }
+        var annPart = if options.IncludeAnnotations && !options.AnnotationsAsChildren { AnnotationsToString(node) } else { string.Empty }
+
+        return prefix + kind + valuePart + missingPart + widthPart + diagPart + annPart
+    }
+
+    private static func FormatTriviaLine(trivia: SyntaxTrivia, options: PrettyGreenTreePrinterOptions) -> string {
+        var kind = MaybeColorize(trivia.Kind.ToString(), AnsiColor.BrightRed, options.Colorize)
+        var textPart = string.Empty
+
+        if (options.IncludeTriviaText && !trivia.HasStructuredTrivia) {
+            var text = trivia.Text
+                .Replace("\r", "\\r", StringComparison.Ordinal)
+                .Replace("\n", "\\n", StringComparison.Ordinal)
+                .Replace("\t", "\\t", StringComparison.Ordinal)
+                .Replace(" ", "␣", StringComparison.Ordinal)
+            textPart = ": ${text}"
+        }
+
+        var diagPart = if options.IncludeDiagnostics { DiagnosticsToString(trivia.GetDiagnostics(), options.Colorize) } else { string.Empty }
+        return kind + textPart + diagPart
+    }
+
+    private static func Escape(s: string) -> string
+        => s.Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal)
+            .Replace("\t", "\\t", StringComparison.Ordinal)
+
+    private static func AnnotationsToString(node: GreenNode) -> string {
+        // GreenNode stores annotations internally; print them compactly.
+        var annotations = node._annotations
+        if (annotations is null || annotations!.Length == 0) {
+            return string.Empty
+        }
+
+        var kinds = annotations!
+            .Select(a => a.Kind)
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Distinct()
+            .ToList()
+
+        if (kinds.Count == 0) {
+            return string.Empty
+        }
+
+        return " " + string.Join(" ", kinds.Select(k => "#[${k}]"))
+    }
+
+    private static func DiagnosticsAsChildLines(diagnostics: IEnumerable<DiagnosticInfo>?, colorize: bool) -> IEnumerable<string> {
+        var list = diagnostics?.ToList()
+        if (list is null || list!.Count == 0) {
+            return Array.Empty<string>()
+        }
+
+        return list!.Select(d => {
+            var id = ColorizeDiagnosticId(d, colorize)
+            var msg = GetDiagnosticMessage(d)
+
+            var sev: string = string.Empty
+            try {
+                sev = ((DiagnosticDescriptor?)d.Descriptor)?.DefaultSeverity.ToString() ?? string.Empty
+            }
+            catch {
+                sev = string.Empty
+            }
+
+            var sevPart = if string.IsNullOrWhiteSpace(sev) { string.Empty } else { " ${sev}" }
+            return if string.IsNullOrWhiteSpace(msg) { "${id}${sevPart}" } else { "${id}${sevPart}: ${msg}" }
+        })
+    }
+
+    private static func AnnotationsAsChildLines(node: GreenNode) -> IEnumerable<string> {
+        var annotations = node._annotations
+        if (annotations is null || annotations!.Length == 0) {
+            return Array.Empty<string>()
+        }
+
+        return annotations!.Select(a => {
+            var kind = a.Kind
+            var data = a.Data
+            return if data is null { "#[${kind}]" } else { "#[${kind}] = ${data}" }
+        })
+    }
+
+    private static func GetDiagnosticMessage(diagnostic: DiagnosticInfo) -> string? {
+        try {
+            var format = ((DiagnosticDescriptor?)diagnostic.Descriptor)?.MessageFormat
+            if (string.IsNullOrWhiteSpace(format)) {
+                return null
+            }
+
+            var args = diagnostic.Args
+            if (args is null || args.Length == 0) {
+                return format
+            }
+
+            return string.Format(format!, args)
+        }
+        catch {
+            // If formatting fails (bad format string/arg mismatch), fall back to the raw format.
+            try {
+                return ((DiagnosticDescriptor?)diagnostic.Descriptor)?.MessageFormat
+            }
+            catch {
+                return null
+            }
+        }
+    }
+
+    private static func DiagnosticsToString(diagnostics: IEnumerable<DiagnosticInfo>?, colorize: bool) -> string {
+        if (diagnostics is null) {
+            return string.Empty
+        }
+
+        var list = diagnostics!.ToList()
+        if (list!.Count == 0) {
+            return string.Empty
+        }
+
+        // Keep stable ordering by first occurrence, but remove duplicates by id.
+        var seen = HashSet<string>(StringComparer.Ordinal)
+        var parts = List<string>()
+        for d in list {
+            var id = ((DiagnosticDescriptor?)d.Descriptor)?.Id
+            if (string.IsNullOrWhiteSpace(id)) {
+                continue
+            }
+
+            if (!seen.Add(id!)) {
+                continue
+            }
+
+            parts.Add(ColorizeDiagnosticId(d, colorize))
+        }
+
+        if (parts.Count == 0) {
+            return string.Empty
+        }
+
+        return " " + string.Join(" ", parts)
+    }
+
+    private static func ColorizeDiagnosticId(diagnostic: DiagnosticInfo, colorize: bool) -> string {
+        var id = ((DiagnosticDescriptor?)diagnostic.Descriptor)?.Id
+        var text = if string.IsNullOrWhiteSpace(id) { "[?]" } else { "[${id}]" }
+
+        var sev: DiagnosticSeverity? = null
+        try { sev = ((DiagnosticDescriptor?)diagnostic.Descriptor)?.DefaultSeverity } catch { }
+
+        var color = match sev {
+            DiagnosticSeverity.Error => AnsiColor.BrightRed,
+            DiagnosticSeverity.Warning => AnsiColor.Yellow,
+            DiagnosticSeverity.Info => AnsiColor.Cyan,
+            _ => AnsiColor.BrightBlue,
+        }
+
+        return if colorize { Colorize(text, color) } else { text }
+    }
+
+    private enum AnsiColor {
+        BrightRed = 91,
+        BrightGreen = 92,
+        Yellow = 33,
+        Cyan = 36,
+        BrightBlue = 94,
+        Reset = 0,
+    }
+
+    private static func MaybeColorize(text: string, color: AnsiColor, colorize: bool) -> string
+        => if colorize { Colorize(text, color) } else { text }
+
+    private static func Colorize(text: string, color: AnsiColor) -> string
+        => "\u001b[${(int)color}m${text}\u001b[${(int)AnsiColor.Reset}m"
+}

@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+alias RedNode = Raven.CodeAnalysis.Syntax.SyntaxNode
+alias RedSkippedTokensTrivia = Raven.CodeAnalysis.Syntax.SkippedTokensTrivia
+
+internal open partial class SkippedTokensTrivia : SyntaxNode {
+    init(tokens: SyntaxList, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(SyntaxKind.SkippedTokensTrivia, [tokens ?? throw ArgumentNullException(nameof(tokens))], diagnostics, annotations) { }
+
+    override func CreateRed(parent: RedNode?, position: int) -> RedNode => RedSkippedTokensTrivia(self, parent, position)
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.VisitSkippedTokensTrivia(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitSkippedTokensTrivia(self)
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> SkippedTokensTrivia => SkippedTokensTrivia((SyntaxList)children[0]!, diagnostics ?? _diagnostics, annotations ?? _annotations)
+}
+
+internal static partial class SyntaxFactory {
+    static func SkippedTokensTrivia(tokens: SyntaxList, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null) -> SkippedTokensTrivia => Raven.CodeAnalysis.Syntax.InternalSyntax.SkippedTokensTrivia(tokens, diagnostics, annotations)
+}

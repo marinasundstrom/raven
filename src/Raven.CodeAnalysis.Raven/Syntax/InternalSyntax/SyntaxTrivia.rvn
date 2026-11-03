@@ -1,0 +1,71 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+alias RedTrivia = Raven.CodeAnalysis.Syntax.SyntaxTrivia
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal open class SyntaxTrivia : GreenNode {
+    private readonly field _structuredTrivia: SyntaxNode?
+
+    val Text: string { get; }
+
+    init(kind: SyntaxKind, text: string, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(kind, 0, diagnostics, annotations) {
+        Text = text
+        Width = text.Length
+        FullWidth = text.Length
+    }
+
+    init(node: SyntaxNode, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(node.Kind, 0, diagnostics, annotations) {
+        _structuredTrivia = node
+        Text = string.Empty
+        Width = node.Width
+        FullWidth = node.FullWidth
+    }
+
+    val HasStructuredTrivia: bool => _structuredTrivia is not null
+
+    func GetStructuredTrivia() -> SyntaxNode? => _structuredTrivia
+
+    override func GetSlot(index: int) -> GreenNode? => throw InvalidOperationException("SyntaxTrivia has no children.")
+
+    static func explicit(trivia: SyntaxTrivia) -> RedTrivia => RedTrivia(trivia, default!)
+
+    internal override func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo> {
+        if _diagnostics is not null { for diagnostic in (_diagnostics!) { yield diagnostic } }
+    }
+
+    internal override func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode {
+        if _structuredTrivia is null { return SyntaxTrivia(Kind, Text, diagnostics, _annotations) }
+        return SyntaxTrivia(_structuredTrivia!, diagnostics, _annotations)
+    }
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode {
+        if diagnostics is null && annotations is null { return self }
+        if _structuredTrivia is null { return SyntaxTrivia(Kind, Text, diagnostics ?? _diagnostics, annotations ?? _annotations) }
+        return SyntaxTrivia(_structuredTrivia!, diagnostics ?? _diagnostics, annotations ?? _annotations)
+    }
+
+    internal override func WithAdditionalAnnotations(params annotations: SyntaxAnnotation[]) -> GreenNode {
+        if _structuredTrivia is null { return SyntaxTrivia(Kind, Text, _diagnostics, annotations) }
+        return SyntaxTrivia(_structuredTrivia!, _diagnostics, annotations)
+    }
+
+    private func GetDebuggerDisplay() -> string => "${GetType().Name} ${GetValueText()}"
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.VisitTrivia(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitTrivia(self)
+}
+
+internal static partial class SyntaxFactory {
+    static func Trivia(kind: SyntaxKind, text: string, diagnostics: IEnumerable<DiagnosticInfo>? = null) -> SyntaxTrivia => SyntaxTrivia(kind, text, diagnostics)
+
+    static func Trivia(structure: SyntaxNode, diagnostics: IEnumerable<DiagnosticInfo>? = null) -> SyntaxTrivia => SyntaxTrivia(structure, diagnostics)
+}

@@ -11,6 +11,69 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class ByRefParameterTests : CompilationTestBase
 {
     [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("let")]
+    [InlineData("val")]
+    [InlineData("var")]
+    public void UntypedOutDeclarationDoesNotChooseBetweenOutputTypes(string binding)
+    {
+        var source = $$"""
+            class C {
+                static func Set(out value: int) { value = 1 }
+                static func Set(out value: string) { value = "one" }
+                static func Run() { Set(out {{binding}} value) }
+            }
+            """;
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("let", "value = 2")]
+    [InlineData("val", "value = 2")]
+    [InlineData("let", "Set(out value)")]
+    [InlineData("val", "Set(out value)")]
+    [InlineData("let", "Mutate(ref value)")]
+    [InlineData("val", "Mutate(ref value)")]
+    public void ReadOnlyOutDeclarationRejectsOnlyLaterWrites(string binding, string laterWrite)
+    {
+        var source = $$"""
+            class C {
+                static func Set(out value: int) { value = 42 }
+                static func Mutate(ref value: int) { value = 2 }
+                static func Run() {
+                    Set(out {{binding}} value)
+                    {{laterWrite}}
+                }
+            }
+            """;
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d =>
+            d.Descriptor == CompilerDiagnostics.ThisValueIsNotMutable));
+        Assert.True(diagnostic.Location.SourceSpan.Start >= source.LastIndexOf(laterWrite, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("condition && Set(out value)")]
+    [InlineData("condition || Set(out value)")]
+    public void ConditionalLocalInitializer_DoesNotGuaranteeOutAssignment(string expression)
+    {
+        var source = $$"""
+            class C {
+                static func Set(out value: int) -> bool { value = 42; return true }
+                static func Forward(condition: bool, out value: int) -> bool {
+                    let result = {{expression}}
+                    return result
+                }
+            }
+            """;
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Theory]
     [InlineData("if condition { Set(out value) }")]
     [InlineData("func Later() { Set(out value) }")]
     public void OutForwarding_NotExecutedOnEveryPath_RemainsUnassigned(string body)
@@ -38,6 +101,90 @@ class C {
     static func Set<T>(out value: T) -> bool { value = default; return true }
     static func Forward(condition: bool, out value: int) -> bool {
         return {{expression}}
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("Set(out value)")]
+    [InlineData("!Set(out value)")]
+    [InlineData("Set(out value) && condition")]
+    [InlineData("Set(out value) || condition")]
+    public void IfCondition_AssignsForwardedOutParameterBeforeBranches(string condition)
+    {
+        var source = $$"""
+class C {
+    static func Set(out value: int) -> bool { value = 42; return true }
+    static func Forward(condition: bool, out value: int) -> bool {
+        if {{condition}} { return true }
+        return false
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("condition && Set(out value)")]
+    [InlineData("condition || Set(out value)")]
+    public void IfCondition_ShortCircuitDoesNotGuaranteeOutAssignment(string condition)
+    {
+        var source = $$"""
+class C {
+    static func Set(out value: int) -> bool { value = 42; return true }
+    static func Forward(condition: bool, out value: int) -> bool {
+        if {{condition}} { return true }
+        return false
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("Set(out value)")]
+    [InlineData("!Set(out value)")]
+    [InlineData("Set(out value) && condition")]
+    [InlineData("Set(out value) || condition")]
+    public void WhileCondition_AssignsForwardedOutParameterBeforeBodyAndExit(string condition)
+    {
+        var source = $$"""
+class C {
+    static func Set(out value: int) -> bool { value = 42; return true }
+    static func Forward(condition: bool, out value: int) -> bool {
+        while {{condition}} {
+            if condition { return true }
+            break
+        }
+        return false
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("condition && Set(out value)")]
+    [InlineData("condition || Set(out value)")]
+    public void WhileCondition_ShortCircuitDoesNotGuaranteeOutAssignment(string condition)
+    {
+        var source = $$"""
+class C {
+    static func Set(out value: int) -> bool { value = 42; return true }
+    static func Forward(condition: bool, out value: int) {
+        while {{condition}} { break }
     }
 }
 """;

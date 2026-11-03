@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Runtime.CompilerServices.*
+
+public static class SyntaxListHelpers {
+    [ExtensionAttribute]
+    static func IsSoundSeparatedList<TNode>(list: SeparatedSyntaxList<TNode>, expectedSeparatorKind: SyntaxKind) -> bool where TNode: SyntaxNode {
+        var expectNode = true
+        for item in list.GetWithSeparators() {
+            if expectNode {
+                if item.IsToken || item.AsNode() is not TNode { return false }
+            }
+            else if !item.IsToken || item.AsToken().Kind != expectedSeparatorKind { return false }
+            expectNode = !expectNode
+        }
+        return true
+    }
+}

@@ -1,0 +1,93 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Collections.Generic.*
+import System.Linq.*
+
+public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?> {
+    private field _recursionDepth: int
+
+    override func Visit(node: SyntaxNode?) -> SyntaxNode? {
+        if node is not null {
+            _recursionDepth++
+            let result = node!.Accept(self)
+            _recursionDepth--
+            return result
+        }
+        return null
+    }
+
+    override func DefaultVisit(node: SyntaxNode) -> SyntaxNode? => node
+
+    virtual func VisitToken(token: SyntaxToken) -> SyntaxToken => token
+
+    virtual func VisitToken(token: SyntaxToken?) -> SyntaxToken? => if token is SyntaxToken value { VisitToken(value) } else { null }
+
+    override func VisitTrivia(trivia: SyntaxTrivia) -> SyntaxTrivia => trivia
+
+    virtual func VisitList<TElement>(list0: SyntaxList<TElement>?) -> SyntaxList<TElement>? where TElement: SyntaxNode {
+        let list = list0.GetValueOrDefault()
+        let newList = List<TElement>()
+        for item in list {
+            if item is null { continue }
+            let visited = (TElement?)item.Accept(self)
+            if visited is not null { newList.Add(visited!) }
+        }
+        return SyntaxFactory.List<TElement>(newList)
+    }
+
+    virtual func VisitList<TElement>(list: SyntaxList<TElement>) -> SyntaxList<TElement> where TElement: SyntaxNode {
+        let newList = List<TElement>()
+        for item in list {
+            if item is null { continue }
+            let visited = (TElement?)item.Accept(self)
+            if visited is not null { newList.Add(visited!) }
+        }
+        return SyntaxFactory.List<TElement>(newList)
+    }
+
+    virtual func VisitTokenList(list: SyntaxTokenList) -> SyntaxTokenList {
+        let newList = List<SyntaxToken>()
+        for item in list { newList.Add(item.Accept(self)) }
+        return SyntaxFactory.TokenList(newList)
+    }
+
+    override func VisitSkippedTokensTrivia(skippedTokens: SkippedTokensTrivia) -> SyntaxNode? {
+        let tokens = VisitTokenList(skippedTokens.Tokens)
+        let green = (InternalSyntax.SkippedTokensTrivia)skippedTokens.Green
+        let updatedGreen = green.With([tokens.Green])
+        return updatedGreen.CreateRed(skippedTokens.Parent, skippedTokens.Position)
+    }
+
+    virtual func VisitList(list: SyntaxTriviaList) -> SyntaxTriviaList {
+        let newList = List<SyntaxTrivia>()
+        for item in list { newList.Add(item.Accept(self)) }
+        return SyntaxFactory.TriviaList(newList)
+    }
+
+    virtual func VisitList<TElement>(list0: SeparatedSyntaxList<TElement>?) -> SeparatedSyntaxList<TElement>? where TElement: SyntaxNode {
+        let list = list0.GetValueOrDefault()
+        let newList = List<SyntaxNodeOrToken>()
+        for item in list.GetWithSeparators() {
+            if item.TryGetNode(out var node) {
+                if node is null { continue }
+                let visited = node!.Accept(self)
+                if visited is not null { newList.Add(SyntaxNodeOrToken(visited!)) }
+            }
+            else if item.TryGetToken(out var token) { newList.Add(VisitToken(token)) }
+        }
+        return SyntaxFactory.SeparatedList<TElement>(newList.ToArray())
+    }
+
+    virtual func VisitList<TElement>(list: SeparatedSyntaxList<TElement>) -> SeparatedSyntaxList<TElement> where TElement: SyntaxNode {
+        let newList = List<SyntaxNodeOrToken>()
+        for item in list.GetWithSeparators() {
+            if item.TryGetNode(out var node) {
+                if node is null { continue }
+                let visited = node!.Accept(self)
+                if visited is not null { newList.Add(SyntaxNodeOrToken(visited!)) }
+            }
+            else if item.TryGetToken(out var token) { newList.Add(VisitToken(token)) }
+        }
+        return SyntaxFactory.SeparatedList<TElement>(newList.ToArray())
+    }
+}

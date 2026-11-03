@@ -1,0 +1,85 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Linq.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+alias SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind
+alias SyntaxAnnotation = Raven.CodeAnalysis.Syntax.SyntaxAnnotation
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal open class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia> {
+    static readonly field Empty: SyntaxTriviaList = SyntaxTriviaList([])
+
+    private readonly field _trivias: SyntaxTrivia[]
+
+    init(trivias: SyntaxTrivia[]?, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+        : base(SyntaxKind.List, trivias?.Length ?? 0, diagnostics, annotations) {
+        _trivias = trivias ?? Array.Empty<SyntaxTrivia>()
+        Width = CalculateFullWidth(_trivias)
+        FullWidth = Width
+    }
+
+    val self[index: int]: SyntaxTrivia => (SyntaxTrivia)GetSlot(index)
+
+    val Count: int => _trivias.Length
+
+    func RemoveAt(index: int) -> SyntaxTriviaList {
+        let items = _trivias.ToList()
+        items.RemoveAt(index)
+        return (SyntaxTriviaList)With(items.ToArray())
+    }
+
+    override func GetSlot(index: int) -> GreenNode {
+        if index < 0 || index >= SlotCount { throw IndexOutOfRangeException("Invalid slot index: ${index}") }
+        return _trivias[index]
+    }
+
+    private static func CalculateFullWidth(trivias: SyntaxTrivia[]) -> int => trivias.Sum(trivia => trivia.FullWidth)
+
+    func Add(trivia: SyntaxTrivia) -> SyntaxTriviaList {
+        if trivia is null { throw ArgumentNullException(nameof(trivia)) }
+        return SyntaxTriviaList(_trivias.Concat([trivia]).ToArray(), _diagnostics, _annotations)
+    }
+
+    func AddRange(readTriviaForSkippedNewlines: SyntaxTriviaList) -> SyntaxTriviaList {
+        if readTriviaForSkippedNewlines is null { throw ArgumentNullException(nameof(readTriviaForSkippedNewlines)) }
+        return SyntaxTriviaList(_trivias.Concat(readTriviaForSkippedNewlines).ToArray(), _diagnostics, _annotations)
+    }
+
+    func Remove(trivia: SyntaxTrivia) -> SyntaxTriviaList {
+        if trivia is null { throw ArgumentNullException(nameof(trivia)) }
+        return SyntaxTriviaList(_trivias.Where(t => !Equals(t, trivia)).ToArray(), _diagnostics, _annotations)
+    }
+
+    static func Create(trivias: SyntaxTrivia[]) -> SyntaxTriviaList {
+        if trivias is null { throw ArgumentNullException(nameof(trivias)) }
+        return SyntaxTriviaList(trivias)
+    }
+
+    func GetEnumerator() -> IEnumerator<SyntaxTrivia> => _trivias.OfType<SyntaxTrivia>().GetEnumerator()
+
+    func IEnumerable.GetEnumerator() -> IEnumerator => GetEnumerator()
+
+    internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> GreenNode => SyntaxTriviaList(children.Cast<SyntaxTrivia>().ToArray(), diagnostics ?? _diagnostics, annotations ?? _annotations)
+
+    internal override func SetDiagnostics(params diagnostics: DiagnosticInfo[]) -> GreenNode => SyntaxTriviaList(_trivias, diagnostics, _annotations)
+
+    internal override func GetDiagnosticsRecursive() -> IEnumerable<DiagnosticInfo> {
+        for child in GetChildren() {
+            for diagnostic in child.GetDiagnosticsRecursive() { yield diagnostic }
+        }
+    }
+
+    private func GetDebuggerDisplay() -> string => "${GetType().Name} ${GetValueText()}"
+
+    internal override func Accept(visitor: SyntaxVisitor) => visitor.VisitTriviaList(self)
+
+    internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitTriviaList(self)
+}
+
+internal static partial class SyntaxFactory {
+    static func TriviaList(trivias: SyntaxTrivia[], diagnostics: IEnumerable<DiagnosticInfo>? = null) -> SyntaxTriviaList => SyntaxTriviaList(trivias ?? throw ArgumentNullException(nameof(trivias)), diagnostics)
+}

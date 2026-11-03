@@ -1,0 +1,13 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public partial class CompilationUnitSyntax : SyntaxNode {
+    init(syntaxTree: SyntaxTree, imports: SyntaxList<ImportDirectiveSyntax>, aliases: SyntaxList<AliasDirectiveSyntax>,
+        attributeLists: SyntaxList<AttributeListSyntax>, members: SyntaxList<MemberDeclarationSyntax>, endOfFileToken: SyntaxToken)
+        : base(InternalSyntax.CompilationUnitSyntax((InternalSyntax.SyntaxList)imports.Green, (InternalSyntax.SyntaxList)aliases.Green,
+            (InternalSyntax.SyntaxList)attributeLists.Green, (InternalSyntax.SyntaxList)members.Green, (InternalSyntax.SyntaxToken)endOfFileToken.Green), syntaxTree) { }
+
+    private init(syntaxTree: SyntaxTree, green: InternalSyntax.CompilationUnitSyntax) : base(green, syntaxTree) { }
+
+    internal func WithSyntaxTree(syntaxTree: SyntaxTree) -> CompilationUnitSyntax
+        => CompilationUnitSyntax(syntaxTree, (InternalSyntax.CompilationUnitSyntax)Green)
+}

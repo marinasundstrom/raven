@@ -1712,7 +1712,7 @@ internal partial class ExpressionGenerator
 
         if (lookupClrType == typeof(object))
         {
-            typedLocal = objLocal;
+            typedLocal = objLocal ?? inputLocal;
         }
         else
         {
@@ -1726,7 +1726,9 @@ internal partial class ExpressionGenerator
             else
             {
                 typedLocal = ILGenerator.DeclareLocal(lookupClrType);
-                ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+                // A reference scrutinee needs no separate object view unless narrowed.
+                // Constructed source types can also reach this cast path.
+                ILGenerator.Emit(OpCodes.Ldloc, objLocal ?? inputLocal);
                 ILGenerator.Emit(OpCodes.Castclass, lookupClrType);
                 ILGenerator.Emit(OpCodes.Stloc, typedLocal);
             }
@@ -2626,6 +2628,11 @@ internal partial class ExpressionGenerator
 
     private static bool RequiresValueTypeHandling(ITypeSymbol typeSymbol)
     {
+        // An annotated generic parameter still has the runtime representation of
+        // that parameter; T? on an unconstrained T is not a reference-type slot.
+        if (typeSymbol.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+            typeSymbol = typeSymbol.GetNonNullableType();
+
         return typeSymbol.IsValueType || typeSymbol is ITypeParameterSymbol { IsReferenceType: false };
     }
 

@@ -372,6 +372,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
+            // Local functions are scoped declarations, even when their emitted
+            // method symbols share the containing type and signature.
+            var localFunctionX = IsLocalFunction(methodX);
+            var localFunctionY = IsLocalFunction(methodY);
+            if (localFunctionX != localFunctionY ||
+                (localFunctionX && !HaveEquivalentDeclarationIdentity(methodX, methodY)))
+                return false;
+
             if (!EqualsCore(methodX.ReturnType, methodY.ReturnType, visited))
                 return false;
 
@@ -652,6 +660,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (obj is IMethodSymbol method)
         {
+            if (IsLocalFunction(method))
+                AddDeclarationIdentityHash(ref hash, method);
+
             hash.Add(method.Parameters.Length);
             hash.Add(GetHashCodeCore(method.ReturnType, visited));
 
@@ -782,6 +793,13 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         return ImmutableArray<ITypeSymbol>.Empty;
     }
+
+    private static bool IsLocalFunction(IMethodSymbol method)
+        => method.DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is Syntax.FunctionStatementSyntax
+            {
+                Parent: not Syntax.GlobalStatementSyntax
+            });
 
     private static bool HaveEquivalentDeclarationIdentity(ISymbol x, ISymbol y)
     {

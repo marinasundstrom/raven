@@ -1,3 +1,12 @@
+#if RAVEN_PORT
+extern alias Port;
+using FormatApi = Port::Raven.CodeAnalysis.Syntax.Formatter;
+using NormalizeApi = Port::Raven.CodeAnalysis.Syntax.SyntaxNodeExtensions;
+#else
+using FormatApi = Raven.CodeAnalysis.Syntax.Formatter;
+using NormalizeApi = Raven.CodeAnalysis.Syntax.SyntaxNodeExtensions;
+#endif
+
 using System;
 using System.Linq;
 
@@ -15,7 +24,7 @@ public class SyntaxNormalizerTests
         const string source = "func  main( x:int,y :int)->int{if(x>y){return x}else{return y}}";
         var tree = SyntaxTree.ParseText(source);
 
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         var expected = """
 func main(x: int, y: int) -> int {
@@ -36,7 +45,7 @@ func main(x: int, y: int) -> int {
         const string source = "let x:Result<int,string>?=Foo<int ,string >().Bar( a,b )";
         var tree = SyntaxTree.ParseText(source);
 
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         Assert.Equal("let x: Result<int, string>? = Foo<int, string>().Bar(a, b)", normalized);
     }
@@ -62,7 +71,7 @@ func main(x: int, y: int) -> int {
             }
 
             var root = tree.GetRoot();
-            var once = root.NormalizeWhitespace().ToFullString();
+            var once = NormalizeApi.NormalizeWhitespace(root).ToFullString();
 
             Assert.False(string.IsNullOrWhiteSpace(once));
 
@@ -89,7 +98,7 @@ class Foo {
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         var expected = """
 import System.Console.*
@@ -113,7 +122,7 @@ class Foo {
         const string source = "let odds=[for n in nums if n%2==1=>n*10]";
         var tree = SyntaxTree.ParseText(source);
 
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         Assert.Equal("let odds = [for n in nums if n % 2 == 1 => n * 10]", normalized);
     }
@@ -129,11 +138,11 @@ class CounterViewModel{
 
         var tree = SyntaxTree.ParseText(source);
 
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         var expected = """
 class CounterViewModel {
-    [#Observable]
+    #[Observable]
     [Required]
     var Count: int = 0
 }
@@ -162,7 +171,7 @@ let Some((x,y))=>x+y
 
         var tree = SyntaxTree.ParseText(source);
 
-        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(tree.GetRoot()).ToFullString();
 
         var expected = """
 func main() -> () {
@@ -193,10 +202,10 @@ func  Second( )->() {let y=2}
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var functions = root.DescendantNodes().Where(static node => node is FunctionStatementSyntax).Cast<FunctionStatementSyntax>().ToArray();
-        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(FormatApi.Annotation);
         var updatedRoot = root.ReplaceNode(functions[1], annotatedSecond);
 
-        var formatted = Formatter.Format(updatedRoot).ToFullString();
+        var formatted = FormatApi.Format(updatedRoot).ToFullString();
 
         var expected = """
 func  First( )->() {let x=1}
@@ -223,12 +232,12 @@ let  second=2
             original
                 .WithLeadingTrivia(ToElasticTrivia(original.LeadingTrivia))
                 .WithTrailingTrivia(ToElasticTrivia(original.TrailingTrivia)));
-        var annotatedSecond = globals[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var annotatedSecond = globals[1].WithAdditionalAnnotations(FormatApi.Annotation);
         var updatedRoot = root
             .ReplaceNode(globals[0], firstWithElasticTrivia)
             .ReplaceNode(globals[1], annotatedSecond);
 
-        var formatted = Formatter.Format(updatedRoot).ToFullString();
+        var formatted = FormatApi.Format(updatedRoot).ToFullString();
 
         Assert.Equal(
             """
@@ -249,10 +258,10 @@ func  Second( )->() {if let Person(1,name,_)=person{WriteLine(name)}}
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var functions = root.DescendantNodes().Where(static node => node is FunctionStatementSyntax).Cast<FunctionStatementSyntax>().ToArray();
-        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(Formatter.Annotation);
+        var annotatedSecond = (FunctionStatementSyntax)functions[1].WithAdditionalAnnotations(FormatApi.Annotation);
         var updatedRoot = root.ReplaceNode(functions[1], annotatedSecond);
 
-        var formatted = Formatter.Format(updatedRoot).ToFullString();
+        var formatted = FormatApi.Format(updatedRoot).ToFullString();
 
         var expected = """
 func First() -> () { let keep = 1 }
@@ -292,7 +301,7 @@ func Second() -> () {
             .Members;
 
         var updatedClass = classDeclaration.WithMembers(members);
-        var formatted = Formatter.Format(updatedClass).ToFullString();
+        var formatted = FormatApi.Format(updatedClass).ToFullString();
 
         var expected = """
 class MyViewModel {
@@ -322,14 +331,14 @@ class MyViewModel {
         var root = tree.GetRoot();
         var useStatement = root.DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
         var rewrittenStatement = useStatement
-            .WithAdditionalAnnotations(Formatter.Annotation)
+            .WithAdditionalAnnotations(FormatApi.Annotation)
             .ReplaceTokens(useStatement.DescendantTokens(), static (original, _) =>
                 original
                     .WithLeadingTrivia(ToElasticTrivia(original.LeadingTrivia))
                     .WithTrailingTrivia(ToElasticTrivia(original.TrailingTrivia)));
         var updatedRoot = root.ReplaceNode(useStatement, rewrittenStatement);
 
-        var formatted = Formatter.Format(updatedRoot).ToFullString();
+        var formatted = FormatApi.Format(updatedRoot).ToFullString();
 
         Assert.Contains(
             "Observe((value) => {\n        WriteLine(value)\n    })",
@@ -370,7 +379,7 @@ class MyViewModel {
                         ])))
                 ])));
 
-        var normalized = rawProperty.NormalizeWhitespace().ToFullString();
+        var normalized = NormalizeApi.NormalizeWhitespace(rawProperty).ToFullString();
 
         var expected = """
 var Title: string {

@@ -1,0 +1,2950 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.StringInterpolationParser.*
+
+alias SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts
+
+internal open class ExpressionSyntaxParser : SyntaxParser {
+    private val _allowMatchExpressionSuffixes: bool
+
+    private val _stopOnOpenBrace: bool
+
+    private val _allowLambdaExpressions: bool
+
+    private val _stopOnLeadingNewlineBinaryOperator: bool
+
+    private val _stopAtDotDotToken: bool
+
+    private val _stopAtPatternCombinators: bool
+
+    private val _stopAtLeadingMatchArmOperator: bool
+
+    private val _parseAbruptTransfersInBlocksAsExpressions: bool
+
+    private var _stopBeforePropagation: bool = false
+
+    private var _stopAfterPrimaryExpression: bool = false
+
+    private static val RangeOperatorPrecedence: int = 4
+
+    init(
+        parent: ParseContext,
+        allowMatchExpressionSuffixes: bool = true,
+        stopOnOpenBrace: bool = false,
+        allowLambdaExpressions: bool = true,
+        stopOnLeadingNewlineBinaryOperator: bool = false,
+        stopAtDotDotToken: bool = false,
+        stopAtLeadingMatchArmOperator: bool = false,
+        parseAbruptTransfersInBlocksAsExpressions: bool? = null,
+        stopBeforePropagation: bool = false,
+        stopAtPatternCombinators: bool = false) : base(parent) {
+        _stopBeforePropagation = stopBeforePropagation
+        _stopAtPatternCombinators = stopAtPatternCombinators
+        _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes
+        _stopOnOpenBrace = stopOnOpenBrace
+        _allowLambdaExpressions = allowLambdaExpressions
+        _stopOnLeadingNewlineBinaryOperator = stopOnLeadingNewlineBinaryOperator
+        _stopAtDotDotToken = stopAtDotDotToken
+        _stopAtLeadingMatchArmOperator = stopAtLeadingMatchArmOperator
+        _parseAbruptTransfersInBlocksAsExpressions = parseAbruptTransfersInBlocksAsExpressions
+            ?? (parent as ExpressionSyntaxParser)?._parseAbruptTransfersInBlocksAsExpressions
+            ?? true
+    }
+
+     val ParentExpression: ExpressionSyntaxParser => (Parent as ExpressionSyntaxParser)!
+
+    internal val StopsOnOpenBrace: bool => _stopOnOpenBrace
+
+    func ParseExpression() -> ExpressionSyntax {
+        return ParseNullCoalesceExpression() ?? ExpressionSyntax.Missing()
+    }
+
+    func ParseExpressionOrNull() -> ExpressionSyntax {
+        return ParseNullCoalesceExpression()
+    }
+
+    func ParseBlockSyntax() -> BlockSyntax {
+        let openBrace = ExpectToken(SyntaxKind.OpenBraceToken)
+        EnterParens()
+        let statements = System.Collections.Generic.List<StatementSyntax>()
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _) &&
+               !IsNextToken(SyntaxKind.EndOfFileToken, out _)) {
+            let statementStart = Position
+            let conditionalCheckpoint = if PeekToken().Kind == SyntaxKind.IfKeyword { CreateCheckpoint("block-tail-conditional") } else { default(ParserCheckpoint?) }
+            var stmt = StatementSyntaxParser(
+                self,
+                parseAbruptTransfersAsExpressions: _parseAbruptTransfersInBlocksAsExpressions).ParseStatement()
+            if (conditionalCheckpoint is ParserCheckpoint checkpoint &&
+                PeekToken().Kind == SyntaxKind.CloseBraceToken &&
+                (stmt is IfStatementSyntax { ElseClause: not null, TerminatorToken.Kind: SyntaxKind.None } ||
+                 stmt is IfPatternStatementSyntax { ElseClause: not null, TerminatorToken.Kind: SyntaxKind.None })) {
+                // The final conditional belongs to this block's value context.
+                // Reparse its branches as expressions, restoring speculative diagnostics.
+                // Abrupt transfers must become expressions too, even when the
+                // enclosing block originated in a statement-form match arm.
+                checkpoint.Rewind()
+                let value = ExpressionSyntaxParser(self,
+                    parseAbruptTransfersInBlocksAsExpressions: true).ParseExpression()
+                stmt = ExpressionStatement(value, Token(SyntaxKind.None))
+            }
+            if (stmt is not null) {
+                statements.Add(stmt)
+            }
+            if (Position == statementStart) {
+                let token = PeekToken()
+                let tokenText = if string.IsNullOrEmpty(token.Text) { token.Kind.ToString() } else { token.Text }
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText))
+                ReadToken()
+            }
+            SetTreatNewlinesAsTokens(false)
+        }
+        ExitParens()
+        let closeBrace = ExpectToken(SyntaxKind.CloseBraceToken)
+        return Block(openBrace, List(statements), closeBrace)
+    }
+
+    private func ParseStatementsList(untilToken: SyntaxKind, out token: SyntaxToken) -> SyntaxList {
+        let statements: System.Collections.Generic.List<StatementSyntax> = System.Collections.Generic.List<StatementSyntax>()
+        while (!ConsumeToken(untilToken, out token)) {
+            if (PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+            let statementStart = Position
+            let statement = StatementSyntaxParser(self).ParseStatement()
+            statements.Add(statement)
+            if (Position == statementStart) {
+                let current = PeekToken()
+                let tokenText = if string.IsNullOrEmpty(current.Text) { current.Kind.ToString() } else { current.Text }
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText))
+                ReadToken()
+            }
+        }
+        return SyntaxList(statements.ToArray())
+    }
+
+    private func ParseNullCoalesceExpression() -> ExpressionSyntax {
+        // `??` has lower precedence than `||` / `&&` and is right-associative.
+        let left: ExpressionSyntax = ParseOrExpression()
+        let token = PeekToken()
+        if (token.IsKind(SyntaxKind.QuestionQuestionToken) && !HasLeadingBlankLine(token)) {
+            // Right-associative: a ?? b ?? c == a ?? (b ?? c)
+            let operatorToken = ReadToken()
+            let right = ParseNullCoalesceExpression()
+            return NullCoalesceExpression(left, operatorToken, right)
+        }
+        return left
+    }
+
+    private func ParseOrExpression() -> ExpressionSyntax {
+        var ret: ExpressionSyntax = ParseAndExpression()
+        loop {
+            let token = PeekToken()
+            if (!token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token)) {
+                break
+            }
+            ReadToken()
+            ret = InfixOperatorExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression())
+        }
+        return ret
+    }
+
+    private func GetBinaryExpressionKind(operatorToken: SyntaxToken) -> SyntaxKind {
+        match operatorToken.Kind {
+            SyntaxKind.PlusToken => {
+                return SyntaxKind.AddExpression
+            }
+            SyntaxKind.MinusToken => {
+                return SyntaxKind.SubtractExpression
+            }
+            SyntaxKind.StarToken => {
+                return SyntaxKind.MultiplyExpression
+            }
+            SyntaxKind.SlashToken => {
+                return SyntaxKind.DivideExpression
+            }
+            SyntaxKind.PercentToken => {
+                return SyntaxKind.ModuloExpression
+            }
+            SyntaxKind.AmpersandToken => {
+                return SyntaxKind.BitwiseAndExpression
+            }
+            SyntaxKind.BarToken => {
+                return SyntaxKind.BitwiseOrExpression
+            }
+            SyntaxKind.CaretToken => {
+                return SyntaxKind.BitwiseXorExpression
+            }
+            SyntaxKind.LessThanLessThanToken => {
+                return SyntaxKind.ShiftLeftExpression
+            }
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken => {
+                return SyntaxKind.UnsignedShiftRightExpression
+            }
+            SyntaxKind.GreaterThanGreaterThanToken => {
+                return SyntaxKind.ShiftRightExpression
+            }
+            SyntaxKind.PipeToken => {
+                return SyntaxKind.PipeExpression
+            }
+            SyntaxKind.EqualsEqualsToken => {
+                return SyntaxKind.EqualsExpression
+            }
+            SyntaxKind.NotEqualsToken => {
+                return SyntaxKind.NotEqualsExpression
+            }
+            SyntaxKind.LessThanToken => {
+                return SyntaxKind.LessThanExpression
+            }
+            SyntaxKind.GreaterThanToken => {
+                return SyntaxKind.GreaterThanExpression
+            }
+            SyntaxKind.LessThanOrEqualsToken => {
+                return SyntaxKind.LessThanOrEqualsExpression
+            }
+            SyntaxKind.GreaterThanOrEqualsToken => {
+                return SyntaxKind.GreaterThanOrEqualsExpression
+            }
+            SyntaxKind.AmpersandAmpersandToken or SyntaxKind.AndToken => {
+                return SyntaxKind.LogicalAndExpression
+            }
+            SyntaxKind.BarBarToken or SyntaxKind.OrToken => {
+                return SyntaxKind.LogicalOrExpression
+            }
+            _ => {}
+        }
+        throw ArgumentException("Kind is not valid for this expression.")
+    }
+
+    private func ParseAndExpression() -> ExpressionSyntax {
+        var ret: ExpressionSyntax = ParseLogicalNotExpression()
+        loop {
+            let token = PeekToken()
+            if (!token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token)) {
+                break
+            }
+            ReadToken()
+            ret = InfixOperatorExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression())
+        }
+        return ret
+    }
+
+    private func ParseLogicalNotExpression() -> ExpressionSyntax {
+        if (PeekToken().IsKind(SyntaxKind.ExclamationToken) &&
+            PeekToken(1).IsKind(SyntaxKind.OpenBracketToken)) {
+            return ParseCollectionExpression()
+        }
+        if (ConsumeToken(SyntaxKind.ExclamationToken, out let token)) {
+            let ret: ExpressionSyntax = PrefixOperatorExpression(SyntaxKind.LogicalNotExpression, token, ParseLogicalNotExpression())
+            return ret
+        } else {
+            return ParseComparisonExpression()
+        }
+    }
+
+    /// <summary>
+    /// Parse a comparison expression.
+    /// </summary>
+    /// <returns>An expression.</returns>
+    private func ParseComparisonExpression() -> ExpressionSyntax {
+        var expr: ExpressionSyntax = ParseExpressionCore(0)
+        loop {
+            let token = PeekToken()
+            if (_stopOnOpenBrace && token.IsKind(SyntaxKind.OpenBraceToken)) {
+                return expr
+            }
+            if (HasLeadingBlankLine(token)) {
+                return expr
+            }
+            if (_stopAtLeadingMatchArmOperator &&
+                HasLeadingNewLine(token) &&
+                CanStartMatchArmOperatorPattern(token.Kind)) {
+                return expr
+            }
+            match token.Kind {
+                SyntaxKind.GreaterThanToken or SyntaxKind.LessThanToken or SyntaxKind.GreaterThanOrEqualsToken or SyntaxKind.LessThanOrEqualsToken or SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken => {
+                    ReadToken()
+                }
+                SyntaxKind.IsKeyword => {
+                    ReadToken()
+                    let pattern = PatternSyntaxParser(self).ParsePattern()
+                    return IsPatternExpression(expr, token, pattern)
+                }
+                SyntaxKind.AsKeyword => {
+                    ReadToken()
+                    let type = NameSyntaxParser(self).ParseTypeName()
+                    return AsExpression(expr, token, type)
+                }
+                _ => {
+                    return expr
+                }
+            }
+            let rhs: ExpressionSyntax = ParseComparisonExpression()
+            expr = InfixOperatorExpression(GetBinaryExpressionKind(token), expr, token, rhs)
+        }
+    }
+
+    /// <summary>
+    /// Parse an ExpressionSyntax (Internal)
+    /// </summary>
+    /// <returns>An expression.</returns>
+    /// <param name="precedence">The current level of precedence.</param>
+    private func ParseExpressionCore(precedence: int) -> ExpressionSyntax {
+        let start: int = self.Position
+        var assignmentPattern: PatternSyntax? = null
+        var expr: ExpressionSyntax? = null
+        if (precedence == 0 &&
+            IsPossibleAssignmentPatternStart(PeekToken()) &&
+            TryParseAssignmentPattern(out let pattern)) {
+            assignmentPattern = pattern
+        } else {
+            if (PeekToken().IsKind(SyntaxKind.DotDotToken) && precedence <= RangeOperatorPrecedence) {
+                expr = null
+            } else {
+                expr = ParseFactorExpression()
+            }
+        }
+        if (TryConsumeAssignmentOperator(out let assignToken)) {
+            var leftNode: ExpressionOrPatternSyntax = default(ExpressionOrPatternSyntax)!
+            if (assignmentPattern is not null) {
+                leftNode = assignmentPattern!
+            } else {
+                leftNode = expr!
+                if (expr is not IdentifierNameSyntax
+                    and not MemberAccessExpressionSyntax
+                    and not MemberBindingExpressionSyntax
+                    and not ElementAccessExpressionSyntax
+                    and not ConditionalAccessExpressionSyntax
+                    and not PrefixOperatorExpressionSyntax { Kind: SyntaxKind.DereferenceExpression }) {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetActualTextSpan(start, expr)
+                        ))
+                }
+            }
+            // Assignment RHS includes logical operators and coalescing, just like an initializer.
+            let right = ParseExpression()
+            return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right)
+        }
+        loop {
+            let operatorCandidate = PeekToken()
+            if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken)) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            if (_stopAtPatternCombinators &&
+                operatorCandidate.Kind is SyntaxKind.AndToken or SyntaxKind.OrToken or SyntaxKind.BarToken) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            if (HasLeadingBlankLine(operatorCandidate)) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            if (_stopAtLeadingMatchArmOperator &&
+                HasLeadingNewLine(operatorCandidate) &&
+                CanStartMatchArmOperatorPattern(operatorCandidate.Kind)) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            if (operatorCandidate.IsKind(SyntaxKind.DotDotToken)) {
+                // In some contexts (e.g. pattern parsing), the caller wants `..` to terminate
+                // the expression instead of producing a RangeExpression.
+                if (_stopAtDotDotToken) {
+                    return expr ?? ExpressionSyntax.Missing()
+                }
+                if (RangeOperatorPrecedence < precedence) {
+                    return expr ?? ExpressionSyntax.Missing()
+                }
+                ReadToken()
+                let equalsToken = ParseInclusiveRangeToken()
+                let right = if equalsToken.Kind == SyntaxKind.EqualsToken { ParseExpressionCore(RangeOperatorPrecedence + 1) } else { ParseRangeBoundaryExpression() }
+                if (equalsToken.Kind == SyntaxKind.EqualsToken && right is ExpressionSyntax.Missing) {
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()))
+                }
+                expr = RangeExpression(expr, operatorCandidate, equalsToken, right)
+                continue
+            }
+            var prec: int = default(int)!
+            if (!TryResolveOperatorPrecedence(operatorCandidate, out prec)) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            // In some contexts (e.g., equals-value initializers), a leading `*` on the
+            // next line can start a dereference statement (e.g., `val p = &x` then `*p = 1`).
+            // Only stop continuation for the `*identifier` shape (no trailing whitespace after `*`),
+            // so newline multiplication like `* 3` can still continue.
+            if (_stopOnLeadingNewlineBinaryOperator
+                && IsLeadingDereferenceLikeStar(operatorCandidate)) {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+            if (prec >= precedence) {
+                ReadToken()
+                let right = ParseExpressionCore(prec + 1)
+                expr = InfixOperatorExpression(GetBinaryExpressionKind(operatorCandidate), expr!, operatorCandidate, right)
+            } else {
+                return expr ?? ExpressionSyntax.Missing()
+            }
+        }
+    }
+
+    private static func CanStartMatchArmOperatorPattern(kind: SyntaxKind) -> bool => kind is SyntaxKind.LessThanToken
+            or SyntaxKind.LessThanOrEqualsToken
+            or SyntaxKind.GreaterThanToken
+            or SyntaxKind.GreaterThanOrEqualsToken
+            or SyntaxKind.EqualsEqualsToken
+            or SyntaxKind.NotEqualsToken
+
+    private func ParseRangeBoundaryExpression() -> ExpressionSyntax? {
+        let next = PeekToken()
+        if (next.IsKind(SyntaxKind.CloseBracketToken) ||
+            next.IsKind(SyntaxKind.CloseParenToken) ||
+            next.IsKind(SyntaxKind.CloseBraceToken) ||
+            next.IsKind(SyntaxKind.CommaToken) ||
+            next.IsKind(SyntaxKind.EndOfFileToken)) {
+            return null
+        }
+        return ParseExpressionCore(RangeOperatorPrecedence + 1)
+    }
+
+    private func ParseInclusiveRangeToken() -> SyntaxToken {
+        if (PeekToken().Kind == SyntaxKind.LessThanToken) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.ExpressionExpected, GetSpanOfPeekedToken()))
+        }
+        if (ConsumeToken(SyntaxKind.EqualsToken, out let equalsToken)) {
+            return equalsToken
+        }
+        return Token(SyntaxKind.None)
+    }
+
+    private func TryParseAssignmentPattern(out pattern: PatternSyntax) -> bool {
+        pattern = null!
+        if (!IsPossibleAssignmentPatternStart(PeekToken())) {
+            return false
+        }
+        // Parenthesized lambda parameters can start with pattern syntax like `([a, ...rest]) => ...`.
+        // Avoid speculative pattern parsing here, which can otherwise leak diagnostics before lambda parsing wins.
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken) && HasFatArrowBeforeLineBreakOrEquals()) {
+            return false
+        }
+        let checkpoint = CreateCheckpoint("assignment-pattern")
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken) &&
+            ContainsAssignmentBeforeMatchingCloseParen()) {
+            checkpoint.Rewind()
+            return false
+        }
+        let parsedPattern = PatternSyntaxParser(
+            self,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: false).ParsePattern()
+        if (!PeekToken().IsKind(SyntaxKind.EqualsToken)) {
+            checkpoint.Rewind()
+            return false
+        }
+        pattern = parsedPattern
+        return true
+    }
+
+    private func ContainsAssignmentBeforeMatchingCloseParen() -> bool {
+        var depth = 0
+        var offset = 0
+        loop {
+            let token = PeekToken(offset++)
+            if (token.Kind == SyntaxKind.EndOfFileToken) {
+                return false
+            }
+            if (token.Kind == SyntaxKind.OpenParenToken) {
+                depth++
+                continue
+            }
+            if (token.Kind == SyntaxKind.CloseParenToken) {
+                depth--
+                if (depth == 0) {
+                    return false
+                }
+                continue
+            }
+            if (token.Kind == SyntaxKind.EqualsToken && depth > 0) {
+                return true
+            }
+        }
+    }
+
+    private func HasFatArrowBeforeLineBreakOrEquals() -> bool {
+        val maxLookahead: int = 64
+        var i = 0
+        while (i < maxLookahead) {
+            let token = PeekToken(i)
+            if (token.IsKind(SyntaxKind.EndOfFileToken)) {
+                return false
+            }
+            if (IsNewLineLike(token)) {
+                return false
+            }
+            if (i > 0 && TokenHasLeadingNewLine(token)) {
+                return false
+            }
+            if (token.IsKind(SyntaxKind.FatArrowToken)) {
+                return true
+            }
+            if (token.IsKind(SyntaxKind.EqualsToken)) {
+                return false
+            }
+            i++
+        }
+        return false
+    }
+
+    private static func GetAssignmentExpressionKind(operatorToken: SyntaxToken) -> SyntaxKind {
+        return match operatorToken.Kind {
+            SyntaxKind.PlusEqualsToken => SyntaxKind.AddAssignmentExpression
+            SyntaxKind.MinusEqualsToken => SyntaxKind.SubtractAssignmentExpression
+            SyntaxKind.StarEqualsToken => SyntaxKind.MultiplyAssignmentExpression
+            SyntaxKind.SlashEqualsToken => SyntaxKind.DivideAssignmentExpression
+            SyntaxKind.PercentEqualsToken => SyntaxKind.ModuloAssignmentExpression
+            SyntaxKind.LessThanLessThanEqualsToken => SyntaxKind.ShiftLeftAssignmentExpression
+            SyntaxKind.GreaterThanGreaterThanEqualsToken => SyntaxKind.ShiftRightAssignmentExpression
+            SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken => SyntaxKind.UnsignedShiftRightAssignmentExpression
+            SyntaxKind.AmpersandEqualsToken => SyntaxKind.BitwiseAndAssignmentExpression
+            SyntaxKind.BarEqualsToken => SyntaxKind.BitwiseOrAssignmentExpression
+            SyntaxKind.CaretEqualsToken => SyntaxKind.BitwiseXorAssignmentExpression
+            SyntaxKind.QuestionQuestionEqualsToken => SyntaxKind.NullCoalesceAssignmentExpression
+            _ => SyntaxKind.SimpleAssignmentExpression
+        }
+    }
+
+    private func TryConsumeAssignmentOperator(out token: SyntaxToken) -> bool {
+        let candidate = PeekToken()
+        if (IsAssignmentOperator(candidate.Kind) && !HasLeadingBlankLine(candidate)) {
+            token = ReadToken()
+            return true
+        }
+        token = null!
+        return false
+    }
+
+    private static func IsAssignmentOperator(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.EqualsToken
+            or SyntaxKind.PlusEqualsToken
+            or SyntaxKind.MinusEqualsToken
+            or SyntaxKind.StarEqualsToken
+            or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.PercentEqualsToken
+            or SyntaxKind.LessThanLessThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanEqualsToken
+            or SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+            or SyntaxKind.AmpersandEqualsToken
+            or SyntaxKind.BarEqualsToken
+            or SyntaxKind.CaretEqualsToken
+            or SyntaxKind.QuestionQuestionEqualsToken
+    }
+
+    private static func IsPossibleAssignmentPatternStart(token: SyntaxToken) -> bool {
+        return match token.Kind {
+            SyntaxKind.OpenParenToken => true
+            SyntaxKind.OpenBracketToken => true
+            SyntaxKind.LetKeyword => true
+            SyntaxKind.ValKeyword => true
+            SyntaxKind.VarKeyword => true
+            SyntaxKind.UnderscoreToken => true
+            _ => false
+        }
+    }
+
+    /// <summary>
+    /// Try to resolve an operation from a specified candidate token.
+    /// </summary>
+    /// <returns><c>true</c>, if the token is an operation, <c>false</c> otherwise.</returns>
+    /// <param name="candidateToken">The candidate token for operation.</param>
+    /// <param name="precedence">The operator precedence for the resolved operation.</param>
+    private func TryResolveOperatorPrecedence(candidateToken: SyntaxToken, out precedence: int) -> bool {
+        return SyntaxFacts.TryResolveOperatorPrecedence(candidateToken.Kind, out precedence)
+    }
+
+    /// <summary>
+    /// Parse a factor expression.
+    /// </summary>
+    /// <returns>An expression.</returns>
+    private func ParseFactorExpression() -> ExpressionSyntax {
+        if (_allowLambdaExpressions && TryParseLambdaExpression(out let lambda)) {
+            if (!_allowMatchExpressionSuffixes || _stopBeforePropagation) {
+                return lambda!
+            }
+            return ParseMatchExpressionSuffixes(lambda!)
+        }
+        var expr: ExpressionSyntax = default(ExpressionSyntax)!
+        let token: SyntaxToken = PeekToken()
+        // A disclosed macro alias takes precedence over the ordinary meaning
+        // of a keyword only when the keyword is immediately followed by `!`.
+        if (SyntaxFacts.IsKeywordKind(token.Kind) && IsFreestandingMacroExpressionStart()) {
+            return ParseFreestandingMacroExpression()
+        }
+        match token.Kind {
+            SyntaxKind.PlusToken => {
+                ReadToken()
+                if (token.TrailingTrivia.Width != 0) {
+                    AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand, GetSpanOfLastToken(), token.Text))
+                }
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.UnaryPlusExpression, token, expr)
+            }
+            SyntaxKind.PlusPlusToken => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.PreIncrementExpression, token, expr)
+            }
+            SyntaxKind.MinusToken => {
+                ReadToken()
+                if (token.TrailingTrivia.Width != 0) {
+                    AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnaryOperatorRequiresAdjacentOperand, GetSpanOfLastToken(), token.Text))
+                }
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.UnaryMinusExpression, token, expr)
+            }
+            SyntaxKind.MinusMinusToken => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.PreDecrementExpression, token, expr)
+            }
+            SyntaxKind.AmpersandToken => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.AddressOfExpression, token, expr)
+            }
+            SyntaxKind.FixedKeyword => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.FixedExpression, token, expr)
+            }
+            SyntaxKind.StackAllocKeyword => {
+                expr = ParseStackAllocExpression()
+            }
+            SyntaxKind.StarToken => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.DereferenceExpression, token, expr)
+            }
+            SyntaxKind.TildeToken => {
+                ReadToken()
+                expr = ParseFactorExpression()
+                expr = PrefixOperatorExpression(SyntaxKind.BitwiseNotExpression, token, expr)
+            }
+            SyntaxKind.CaretToken => {
+                ReadToken()
+                if (token.TrailingTrivia.Width != 0) {
+                    let unexpected = PeekToken()
+                    let unexpectedText = if string.IsNullOrEmpty(unexpected.Text) { unexpected.Kind.ToString() } else { unexpected.Text }
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            unexpectedText))
+                    expr = ExpressionSyntax.Missing()
+                } else {
+                    expr = ParseFactorExpression()
+                    expr = IndexExpression(token, expr)
+                }
+            }
+            SyntaxKind.IfKeyword => {
+                expr = ParseIfExpressionSyntax()
+            }
+            SyntaxKind.MatchKeyword => {
+                expr = ParseMatchExpressionKeywordFirst()
+            }
+            SyntaxKind.TryKeyword => {
+                expr = AddTrailers(Position, ParseTryExpression())
+            }
+            SyntaxKind.UnsafeKeyword => {
+                expr = ParseUnsafeExpression()
+            }
+            SyntaxKind.ReturnKeyword => {
+                expr = ParseReturnExpression()
+            }
+            SyntaxKind.ThrowKeyword => {
+                expr = ParseThrowExpression()
+            }
+            SyntaxKind.BreakKeyword => {
+                expr = ParseBreakExpression()
+            }
+            SyntaxKind.ContinueKeyword => {
+                expr = ParseContinueExpression()
+            }
+            SyntaxKind.YieldKeyword => {
+                expr = ParseYieldExpression()
+            }
+            SyntaxKind.AwaitKeyword => {
+                ReadToken()
+                let stopBeforePropagation = _stopBeforePropagation
+                _stopBeforePropagation = true
+                try {
+                    expr = ParseFactorExpression()
+                } finally {
+                    _stopBeforePropagation = stopBeforePropagation
+                }
+                expr = PrefixOperatorExpression(SyntaxKind.AwaitExpression, token, expr)
+                expr = AddTrailers(Position, expr)
+            }
+            SyntaxKind.OpenBraceToken => {
+                expr = ParseBlockSyntax()
+            }
+            _ => {
+                expr = ParsePowerExpression()
+            }
+        }
+        if (!_allowMatchExpressionSuffixes || _stopBeforePropagation) {
+            return expr
+        }
+        return ParseMatchExpressionSuffixes(expr)
+    }
+
+    private func ParseStackAllocExpression() -> StackAllocExpressionSyntax {
+        let stackAllocKeyword = ReadToken()
+        let elementType = NameSyntaxParser(self).ParseStackAllocElementType()
+        ConsumeTokenOrMissing(SyntaxKind.OpenBracketToken, out let openBracketToken)
+        let count = ParseExpression()
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out let closeBracketToken)
+        return StackAllocExpression(stackAllocKeyword, elementType, openBracketToken, count, closeBracketToken)
+    }
+
+    private func ParseUnsafeExpression() -> UnsafeExpressionSyntax {
+        let unsafeKeyword = ReadToken()
+        let block = ParseBlockSyntax()
+        return UnsafeExpression(unsafeKeyword, block)
+    }
+
+    private func ParseTryExpression() -> TryExpressionSyntax {
+        var tryKeyword = ReadToken()
+        if (ConsumeToken(SyntaxKind.QuestionToken, out let removedQuestionToken)) {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.TryPropagationSyntaxRemoved, GetSpanOfLastToken()))
+            tryKeyword = tryKeyword.WithTrailingTrivia(tryKeyword.TrailingTrivia.Concat([
+                SyntaxTrivia(SkippedTokensTrivia(SyntaxList([removedQuestionToken])))
+            ]))
+        }
+        let expression = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false,
+            stopBeforePropagation: true).ParseExpression()
+        return TryExpression(tryKeyword, expression)
+    }
+
+    private func ParseReturnExpression() -> ReturnExpressionSyntax {
+        let returnKeyword = ReadToken()
+        let expression = if HasLineBreakBeforePeekToken() || PeekToken().Kind is
+            SyntaxKind.SemicolonToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.EndOfFileToken or
+            SyntaxKind.ElseKeyword { null } else { ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false).ParseExpression() }
+        return ReturnExpression(returnKeyword!, expression)
+    }
+
+    private func ParseThrowExpression() -> ThrowExpressionSyntax {
+        let throwKeyword = ReadToken()
+        let expression = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false).ParseExpression()
+        return ThrowExpression(throwKeyword, expression)
+    }
+
+    private func ParseBreakExpression() -> BreakExpressionSyntax {
+        let breakKeyword = ReadToken()
+        return BreakExpression(breakKeyword, ParseOptionalControlFlowLabel())
+    }
+
+    private func ParseContinueExpression() -> ContinueExpressionSyntax {
+        let continueKeyword = ReadToken()
+        return ContinueExpression(continueKeyword, ParseOptionalControlFlowLabel())
+    }
+
+    private func ParseOptionalControlFlowLabel() -> SyntaxToken {
+        if (HasLineBreakBeforePeekToken()) {
+            return Token(SyntaxKind.None)
+        }
+        let next = PeekToken()
+        if (CanTokenBeIdentifier(next)) {
+            return ReadIdentifierToken()
+        }
+        if (SyntaxFacts.IsReservedWordKind(next.Kind)) {
+            return ReadToken()
+        }
+        return Token(SyntaxKind.None)
+    }
+
+    private func ParseYieldExpression() -> ExpressionSyntax {
+        let yieldKeyword = ReadToken()
+        if (ConsumeToken(SyntaxKind.BreakKeyword, out let breakKeyword)) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldBreakFormRemoved,
+                GetSpanOfLastToken()))
+            return YieldExpression(yieldKeyword, Token(SyntaxKind.None), BreakExpression(breakKeyword, Token(SyntaxKind.None)))
+        }
+        var returnKeyword: SyntaxToken? = null
+        if (ConsumeToken(SyntaxKind.ReturnKeyword, out let consumedReturnKeyword)) {
+            returnKeyword = consumedReturnKeyword
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldReturnFormRemoved,
+                GetSpanOfLastToken()))
+        }
+        let fromKeyword = if PeekToken() is { Kind: SyntaxKind.IdentifierToken, Text: "from" } { ReadToken() } else { Token(SyntaxKind.None) }
+        var expression = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false).ParseExpression()
+        if (returnKeyword is not null) {
+            expression = ReturnExpression(returnKeyword!, expression)
+        }
+        return YieldExpression(yieldKeyword, fromKeyword, expression)
+    }
+
+    private func TryParseLambdaExpression(out lambda: FunctionExpressionSyntax?) -> bool {
+        lambda = null
+        let token = PeekToken()
+        // Lambda fast-path: if there's no `=>` ahead before newline/terminator, don't even try.
+        // Bracket-starting lambdas need a slower path because target-specifier attributes
+        // (e.g. `[return: Attr]`) can confuse the cheap token scan.
+        if (token.Kind != SyntaxKind.OpenBracketToken &&
+            token.Kind != SyntaxKind.FuncKeyword &&
+            token.Kind != SyntaxKind.AsyncKeyword &&
+            token.Kind != SyntaxKind.StaticKeyword &&
+            !LooksLikeLambdaAhead(startOffset: 0)) {
+            return false
+        }
+        if (token.Kind == SyntaxKind.StaticKeyword) {
+            let checkpoint = CreateCheckpoint("static-func-lambda")
+            let staticKeyword = ReadToken()
+            var asyncKeyword: SyntaxToken? = null
+            if (ConsumeToken(SyntaxKind.AsyncKeyword, out let parsedAsyncKeyword)) {
+                asyncKeyword = parsedAsyncKeyword
+            }
+            if (!ConsumeToken(SyntaxKind.FuncKeyword, out var funcKeyword)) {
+                checkpoint.Rewind()
+                return false
+            }
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken) {
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (PeekToken().Kind == SyntaxKind.LessThanToken) {
+                if (TryParseParenthesizedLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (IsSimpleLambdaParameterStart(PeekToken())) {
+                let shapeCheckpoint = CreateCheckpoint("static-func-lambda-shape")
+                _ = ReadSimpleLambdaParameterToken()
+                let looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken
+                shapeCheckpoint.Rewind()
+                if (looksNamedParenthesized &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+                if (TryParseSimpleLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            }
+            checkpoint.Rewind()
+            return false
+        }
+        if (token.Kind == SyntaxKind.AsyncKeyword) {
+            let checkpoint = CreateCheckpoint("async-lambda")
+            var asyncKeyword = ReadToken()
+            var funcKeyword: SyntaxToken? = null
+            if (ConsumeToken(SyntaxKind.FuncKeyword, out let parsedFuncKeyword)) {
+                funcKeyword = parsedFuncKeyword
+            }
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken) {
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (funcKeyword is not null && PeekToken().Kind == SyntaxKind.LessThanToken) {
+                if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (IsSimpleLambdaParameterStart(PeekToken())) {
+                let shapeCheckpoint = CreateCheckpoint("async-func-lambda-shape")
+                _ = ReadSimpleLambdaParameterToken()
+                let looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken
+                shapeCheckpoint.Rewind()
+                if (funcKeyword is not null &&
+                    looksNamedParenthesized &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+                if (TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (PeekToken().Kind == SyntaxKind.OpenBracketToken) {
+                if (funcKeyword is null && TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda)) {
+                    return true
+                }
+                if (funcKeyword is null && TryParseAttributedParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, out lambda)) {
+                    return true
+                }
+            }
+            checkpoint.Rewind()
+            return false
+        }
+        if (token.Kind == SyntaxKind.OpenParenToken) {
+            if (IsParenthesizedCastAhead()) {
+                return false
+            }
+            // `(x => body)` is a parenthesized expression whose value is a simple
+            // lambda. A parenthesized lambda parameter list has its arrow after the
+            // matching `)`, as in `(x) => body`.
+            if (HasFatArrowInsideInitialParentheses()) {
+                return false
+            }
+            if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda)) {
+                return true
+            }
+        }
+        if (token.Kind == SyntaxKind.OpenBracketToken) {
+            if (TryParseSimpleLambdaExpression(staticKeyword: null, initialAsyncKeyword: null, funcKeyword: null, out lambda)) {
+                return true
+            }
+            if (TryParseAttributedParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, out lambda)) {
+                return true
+            }
+        }
+        if (IsSimpleLambdaParameterStart(token) &&
+            TryParseSimpleLambdaExpression(staticKeyword: null, initialAsyncKeyword: null, funcKeyword: null, out lambda)) {
+            return true
+        }
+        if (token.Kind == SyntaxKind.FuncKeyword) {
+            let checkpoint = CreateCheckpoint("func-lambda")
+            var funcKeyword = ReadToken()
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken) {
+                if (!IsParenthesizedCastAhead() &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (PeekToken().Kind == SyntaxKind.LessThanToken) {
+                if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda)) {
+                    return true
+                }
+            } else if (IsSimpleLambdaParameterStart(PeekToken())) {
+                let shapeCheckpoint = CreateCheckpoint("func-lambda-shape")
+                _ = ReadSimpleLambdaParameterToken()
+                let looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken
+                shapeCheckpoint.Rewind()
+                if (looksNamedParenthesized &&
+                    TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda)) {
+                    return true
+                }
+                if (TryParseSimpleLambdaExpression(staticKeyword: null, initialAsyncKeyword: null, funcKeyword, out lambda)) {
+                    return true
+                }
+            }
+            checkpoint.Rewind()
+            return false
+        }
+        return false
+    }
+
+    private func HasFatArrowInsideInitialParentheses() -> bool {
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            return false
+        }
+        val maxLookahead: int = 64
+        var depth = 0
+        var offset = 0
+        while (offset < maxLookahead) {
+            let token = PeekToken(offset)
+            if (token.IsKind(SyntaxKind.EndOfFileToken) ||
+                (offset > 0 && TokenHasLeadingNewLine(token))) {
+                return false
+            }
+            if (token.IsKind(SyntaxKind.OpenParenToken)) {
+                depth++
+                offset++
+                continue
+            }
+            if (token.IsKind(SyntaxKind.CloseParenToken)) {
+                depth--
+                if (depth == 0) {
+                    return false
+                }
+                offset++
+                continue
+            }
+            if (depth > 0 && token.IsKind(SyntaxKind.FatArrowToken)) {
+                return true
+            }
+            offset++
+        }
+        return false
+    }
+
+    private func IsParenthesizedCastAhead() -> bool {
+        let checkpoint = CreateCheckpoint("lambda-cast-lookahead")
+        try {
+            if (!PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+                return false
+            }
+            ReadToken()
+            if (PeekToken().IsKind(SyntaxKind.DotToken)) {
+                return false
+            }
+            let typeName = NameSyntaxParser(self).ParseTypeName()
+            if (typeName.IsMissing) {
+                return false
+            }
+            if (!PeekToken().IsKind(SyntaxKind.CloseParenToken)) {
+                return false
+            }
+            ReadToken()
+            let next = PeekToken()
+            return !(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
+                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next)
+        } finally {
+            checkpoint.Rewind()
+        }
+    }
+
+    private func TryParseParenthesizedLambdaExpression(
+        staticKeyword: SyntaxToken?,
+        asyncKeyword: SyntaxToken?,
+        funcKeyword: SyntaxToken?,
+        out lambda: FunctionExpressionSyntax?) -> bool {
+        lambda = null
+        let allowBlockBodyWithoutArrow = funcKeyword is { Kind: SyntaxKind.FuncKeyword }
+        let checkpoint = CreateCheckpoint("parenthesized-lambda")
+        var lambdaIdentifier = Token(SyntaxKind.None)
+        if (funcKeyword is { Kind: SyntaxKind.FuncKeyword } && CanTokenBeIdentifier(PeekToken())) {
+            let identifierCheckpoint = CreateCheckpoint("func-lambda-identifier")
+            let identifierToken = ReadIdentifierToken()
+            if (PeekToken().IsKind(SyntaxKind.LessThanToken) || PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+                lambdaIdentifier = identifierToken
+            } else {
+                identifierCheckpoint.Rewind()
+            }
+        }
+        var typeParameterList: TypeParameterListSyntax? = null
+        if (funcKeyword is { Kind: SyntaxKind.FuncKeyword } && PeekToken().IsKind(SyntaxKind.LessThanToken)) {
+            typeParameterList = TypeDeclarationParser(self).ParseTypeParameterList()
+        }
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            checkpoint.Rewind()
+            return false
+        }
+        // Fast-path: only speculate if we can see a `=>` ahead before newline/terminator.
+        if (!allowBlockBodyWithoutArrow && !LooksLikeLambdaAhead(startOffset: 0)) {
+            checkpoint.Rewind()
+            return false
+        }
+        let parameterList = StatementSyntaxParser(self).ParseParameterList(
+            allowDestructuringPatterns: true,
+            allowDiscardParameters: true)
+        let returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+        let constraintClauses = if typeParameterList is not null { ConstrainClauseListParser(self).ParseConstraintClauseList() } else { SyntaxList.Empty }
+        if (returnType is null &&
+            !IsNextToken(SyntaxKind.FatArrowToken) &&
+            !(allowBlockBodyWithoutArrow && PeekToken().IsKind(SyntaxKind.OpenBraceToken))) {
+            checkpoint.Rewind()
+            return false
+        }
+        var blockBody: BlockSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        if (IsNextToken(SyntaxKind.FatArrowToken)) {
+            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out let fatArrowToken)
+            let body = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) { ExpressionSyntaxParser(
+                    self,
+                    parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax() } else { ParseRequiredLambdaExpressionBody() }
+            blockBody = null
+            expressionBody = ArrowExpressionClause(fatArrowToken, body)
+        } else {
+            blockBody = ExpressionSyntaxParser(
+                self,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
+            expressionBody = null
+        }
+        lambda = ParenthesizedFunctionExpression(
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword ?? Token(SyntaxKind.None),
+            lambdaIdentifier,
+            typeParameterList,
+            parameterList,
+            returnType,
+            constraintClauses,
+            blockBody,
+            expressionBody)
+        return true
+    }
+
+    private func TryParseAttributedParenthesizedLambdaExpression(
+        staticKeyword: SyntaxToken?,
+        asyncKeyword: SyntaxToken?,
+        out lambda: FunctionExpressionSyntax?) -> bool {
+        lambda = null
+        if (!AttributeDeclarationParser.IsAttributeListStart(self)) {
+            return false
+        }
+        let checkpoint = CreateCheckpoint("attributed-parenthesized-lambda")
+        let leadingAttributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        if (leadingAttributeLists.SlotCount == 0 || !PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            checkpoint.Rewind()
+            return false
+        }
+        SplitLeadingLambdaAttributeLists(leadingAttributeLists, out let parameterAttributeLists, out let returnAttributeLists)
+        var parameterList = StatementSyntaxParser(self).ParseParameterList(
+            allowDestructuringPatterns: true,
+            allowDiscardParameters: true)
+        if (parameterAttributeLists.SlotCount > 0 &&
+            parameterList.Parameters.SlotCount > 0 &&
+            parameterList.Parameters[0] is ParameterSyntax firstParameter) {
+            let mergedAttributes = ConcatSyntaxLists(parameterAttributeLists, firstParameter.AttributeLists)
+            let updatedFirstParameter = firstParameter.Update(
+                mergedAttributes,
+                firstParameter.OnKeyword,
+                firstParameter.AccessibilityKeyword,
+                firstParameter.ScopedKeyword,
+                firstParameter.RefKindKeyword,
+                firstParameter.ParamsKeyword,
+                firstParameter.BindingKeyword,
+                firstParameter.Identifier,
+                firstParameter.Pattern,
+                firstParameter.TypeAnnotation,
+                firstParameter.DotDotDotToken,
+                firstParameter.DefaultValue)
+            let items = GreenNode[](parameterList.Parameters.SlotCount)
+            var i = 0
+            while (i < items.Length) {
+                items[i] = parameterList.Parameters[i]!
+                i++
+            }
+            items[0] = updatedFirstParameter
+            parameterList = parameterList.Update(
+                parameterList.OpenParenToken,
+                List(items),
+                parameterList.CloseParenToken)
+        }
+        var returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+        if (returnType is not null && returnAttributeLists.SlotCount > 0) {
+            let mergedReturnAttributes = ConcatSyntaxLists(returnAttributeLists, returnType!.AttributeLists)
+            returnType = returnType!.Update(returnType!.ArrowToken, mergedReturnAttributes, returnType!.Type)
+        }
+        if ((returnType is null && !IsNextToken(SyntaxKind.FatArrowToken)) ||
+            (returnType is null && returnAttributeLists.SlotCount > 0)) {
+            checkpoint.Rewind()
+            return false
+        }
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out let fatArrowToken)
+        let parsedBody = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) { ExpressionSyntaxParser(
+                self,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax() } else { ParseRequiredLambdaExpressionBody() }
+        var body: BlockSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        if (parsedBody is BlockSyntax block) {
+            body = block
+            expressionBody = null
+        } else {
+            body = null
+            expressionBody = ArrowExpressionClause(fatArrowToken, parsedBody)
+        }
+        lambda = ParenthesizedFunctionExpression(
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword: Token(SyntaxKind.None),
+            identifier: Token(SyntaxKind.None),
+            typeParameterList: null,
+            parameterList,
+            returnType,
+            constraintClauses: SyntaxList.Empty,
+            body,
+            expressionBody)
+        return true
+    }
+
+    private static func ConcatSyntaxLists(leading: SyntaxList, trailing: SyntaxList) -> SyntaxList {
+        if (leading.SlotCount == 0) {
+            return trailing
+        }
+        if (trailing.SlotCount == 0) {
+            return leading
+        }
+        let merged = GreenNode[](leading.SlotCount + trailing.SlotCount)
+        var index = 0
+        var i = 0
+        while (i < leading.SlotCount) {
+            merged[index++] = leading[i]!
+            i++
+        }
+        var j = 0
+        while (j < trailing.SlotCount) {
+            merged[index++] = trailing[j]!
+            j++
+        }
+        return List(merged)
+    }
+
+    private static func SplitLeadingLambdaAttributeLists(
+        attributeLists: SyntaxList,
+        out parameterAttributes: SyntaxList,
+        out returnAttributes: SyntaxList) {
+        if (attributeLists.SlotCount == 0) {
+            parameterAttributes = SyntaxList.Empty
+            returnAttributes = SyntaxList.Empty
+            return
+        }
+        let parameterItems = System.Collections.Generic.List<GreenNode>()
+        let returnItems = System.Collections.Generic.List<GreenNode>()
+        var i = 0
+        while (i < attributeLists.SlotCount) {
+            if (attributeLists[i] is not AttributeListSyntax attributeList) {
+                i++
+                continue
+            }
+            let isReturnTarget = attributeList.Target is { Identifier.Text: "return" }
+            if (isReturnTarget) {
+                returnItems.Add(attributeList)
+            } else {
+                parameterItems.Add(attributeList)
+            }
+            i++
+        }
+        parameterAttributes = if parameterItems.Count == 0 { SyntaxList.Empty } else { List(parameterItems) }
+        returnAttributes = if returnItems.Count == 0 { SyntaxList.Empty } else { List(returnItems) }
+    }
+
+    private func TryParseSimpleLambdaExpression(
+        staticKeyword: SyntaxToken?,
+        initialAsyncKeyword: SyntaxToken?,
+        funcKeyword: SyntaxToken?,
+        out lambda: FunctionExpressionSyntax?) -> bool {
+        var asyncKeyword = initialAsyncKeyword
+        lambda = null
+        let allowBlockBodyWithoutArrow = funcKeyword is { Kind: SyntaxKind.FuncKeyword }
+        // Fast-path: don't speculate unless we can see a `=>` before newline/terminator.
+        if (!allowBlockBodyWithoutArrow && !LooksLikeLambdaAhead(startOffset: 0)) {
+            return false
+        }
+        let checkpoint = CreateCheckpoint("simple-lambda")
+        let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+        if (asyncKeyword is null && funcKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out let parsedAsync)) {
+            asyncKeyword = parsedAsync
+        }
+        var scopedKeyword = Token(SyntaxKind.None)
+        if (PeekToken().Kind == SyntaxKind.ScopedKeyword) {
+            scopedKeyword = ReadToken()
+        }
+        var refKindKeyword = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
+            || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
+            || ConsumeToken(SyntaxKind.InKeyword, out modifier)) {
+            refKindKeyword = modifier
+        }
+        var bindingKeyword = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
+            || ConsumeToken(SyntaxKind.ValKeyword, out binding)
+            || ConsumeToken(SyntaxKind.VarKeyword, out binding)
+            || ConsumeToken(SyntaxKind.ConstKeyword, out binding)) {
+            bindingKeyword = binding
+        }
+        if (!IsSimpleLambdaParameterStart(PeekToken())) {
+            checkpoint.Rewind()
+            return false
+        }
+        var pattern: PatternSyntax? = null
+        var identifier: SyntaxToken = default(SyntaxToken)!
+        if (StatementSyntaxParser(self).LooksLikeNominalParameterPattern(requireLambdaArrow: true)) {
+            pattern = PatternSyntaxParser(self,
+                allowImplicitDeconstructionElementBindings: true,
+                allowWholePatternDesignation: false).ParsePattern()
+            identifier = MissingToken(SyntaxKind.IdentifierToken)
+        } else {
+            identifier = ReadSimpleLambdaParameterToken()
+        }
+        let typeAnnotation = TypeAnnotationClauseSyntaxParser(self).ParseTypeAnnotation()
+        var defaultValue: EqualsValueClauseSyntax? = null
+        if (IsNextToken(SyntaxKind.EqualsToken, out _)) {
+            defaultValue = EqualsValueClauseSyntaxParser(self).Parse()
+        }
+        let returnType = TypeAnnotationClauseSyntaxParser(self).ParseReturnTypeAnnotation()
+        if (returnType is null &&
+            !IsNextToken(SyntaxKind.FatArrowToken) &&
+            !(allowBlockBodyWithoutArrow && PeekToken().IsKind(SyntaxKind.OpenBraceToken))) {
+            checkpoint.Rewind()
+            return false
+        }
+        var blockBody: BlockSyntax? = null
+        var expressionBody: ArrowExpressionClauseSyntax? = null
+        if (IsNextToken(SyntaxKind.FatArrowToken)) {
+            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out let fatArrowToken)
+            let body = if PeekToken().IsKind(SyntaxKind.OpenBraceToken) { ExpressionSyntaxParser(
+                    self,
+                    parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax() } else { ParseRequiredLambdaExpressionBody() }
+            blockBody = null
+            expressionBody = ArrowExpressionClause(fatArrowToken, body)
+        } else {
+            blockBody = ExpressionSyntaxParser(
+                self,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
+            expressionBody = null
+        }
+        let parameter = Parameter(attributeLists, Token(SyntaxKind.None), Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, pattern, typeAnnotation, Token(SyntaxKind.None), defaultValue)
+        lambda = SimpleFunctionExpression(
+            staticKeyword ?? Token(SyntaxKind.None),
+            asyncKeyword ?? Token(SyntaxKind.None),
+            funcKeyword ?? Token(SyntaxKind.None),
+            parameter,
+            returnType,
+            blockBody,
+            expressionBody)
+        return true
+    }
+
+    private func ParseRequiredLambdaExpressionBody() -> ExpressionSyntax {
+        let body = ExpressionSyntaxParser(self).ParseExpression()
+        if (body is ExpressionSyntax.Missing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.ExpressionExpected,
+                    GetSpanOfPeekedToken()))
+        }
+        return body
+    }
+
+    private static func IsSimpleLambdaParameterStart(token: SyntaxToken) -> bool => CanTokenBeIdentifier(token) || token.IsKind(SyntaxKind.UnderscoreToken)
+
+    private func ReadSimpleLambdaParameterToken() -> SyntaxToken => if PeekToken().IsKind(SyntaxKind.UnderscoreToken) { ReadToken() } else { ReadIdentifierToken() }
+
+    /// <summary>
+    /// Parse a primary expression and trailers.
+    /// </summary>
+    /// <returns>An expression.</returns>
+    private func ParsePowerExpression() -> ExpressionSyntax {
+        let start = Position
+        var expr: ExpressionSyntax = ParsePrimaryExpression()
+        if (_stopAfterPrimaryExpression) {
+            _stopAfterPrimaryExpression = false
+            return expr
+        }
+        expr = AddTrailers(start, expr)
+        return expr
+    }
+
+    private static func TryGetArrayElementType(expression: ExpressionSyntax) -> TypeSyntax? {
+        if (expression is TypeSyntax type) {
+            return type
+        }
+        if (expression is MemberAccessExpressionSyntax member &&
+            member.OperatorToken.IsKind(SyntaxKind.DotToken) &&
+            TryGetArrayElementType(member.Expression) is NameSyntax name) {
+            return QualifiedName(name, member.OperatorToken, member.Name)
+        }
+        return null
+    }
+
+    private func AddTrailers(
+        start: int,
+        initialExpression: ExpressionSyntax,
+        initialConditionalChain: bool = false) -> ExpressionSyntax {
+        var expr = initialExpression
+        let conditionalChain = initialConditionalChain
+        loop {
+            let token = PeekToken()
+            // Access/invocation trailers belong to the conditional branch. Other postfix
+            // operators apply to its result; parentheses already form a primary boundary.
+            if (conditionalChain && token.Kind is not (SyntaxKind.DotToken or SyntaxKind.ArrowToken
+                    or SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)
+                && !(token.IsKind(SyntaxKind.QuestionToken) && PeekToken(1).Kind is
+                    SyntaxKind.DotToken or SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)) {
+                return expr
+            }
+            // In statement/condition contexts (if/while/for headers, if-expression condition),
+            // `{` begins the following block expression/body and must not be consumed as an
+            // object-initializer trailer.
+            if (_stopOnOpenBrace && token.IsKind(SyntaxKind.OpenBraceToken)) {
+                break
+            }
+            if (token.IsKind(SyntaxKind.OpenParenToken)) {
+                // Break if the '(' token has a leading newline.
+                // This prevents: <expr> [newline] '('
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                let argumentList = ParseArgumentListSyntax()
+                // An object initializer may immediately follow an invocation: Foo(...) { ... }
+                // But in statement/header contexts (for/if/while conditions), `{` begins the body block,
+                // so we must not consume it as an initializer.
+                var initializer: ObjectInitializerExpressionSyntax? = null
+                if (!_stopOnOpenBrace && PeekToken().IsKind(SyntaxKind.OpenBraceToken)) {
+                    initializer = ParseObjectInitializerExpression()
+                }
+                expr = InvocationExpression(expr, argumentList, initializer)
+            } else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) {
+                if (TreatNewlinesAsTokens && HasLeadingNewLine(token)) {
+                    return expr
+                }
+                // Keep fluent chains across a single newline (`a\n  .b()`), but treat a blank-line
+                // separation as a new statement so target-typed member bindings like `.Ok` can start
+                // the next expression.
+                if (HasLeadingBlankLine(token)) {
+                    return expr
+                }
+                let operatorToken = ReadToken()
+                var memberName: SimpleNameSyntax = default(SimpleNameSyntax)!
+                if (CanTokenBeIdentifier(PeekToken())) {
+                    memberName = NameSyntaxParser(self).ParseSimpleName()
+                } else {
+                    ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out let identifier)
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetEndOfLastToken()))
+                    memberName = IdentifierName(identifier)
+                }
+                let memberAccessKind = if operatorToken.Kind == SyntaxKind.ArrowToken { SyntaxKind.PointerMemberAccessExpression } else { SyntaxKind.SimpleMemberAccessExpression }
+                expr = MemberAccessExpression(memberAccessKind, expr, operatorToken, memberName)
+            } else if (token.IsKind(SyntaxKind.OpenBracketToken)) {
+                // Break if the '[' token has a leading newline.
+                // This prevents: <expr> [newline] '['
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                // An empty rank suffix denotes an array type, not an indexer.
+                if (PeekToken(1).IsKind(SyntaxKind.CloseBracketToken) && TryGetArrayElementType(expr) is TypeSyntax elementType) {
+                    let openBracket = ReadToken()
+                    let closeBracket = ReadToken()
+                    let rank = ArrayRankSpecifier(openBracket, MissingToken(SyntaxKind.NumericLiteralToken), SyntaxList.Empty, closeBracket)
+                    expr = if elementType is ArrayTypeSyntax arrayType { ArrayType(arrayType.ElementType, arrayType.RankSpecifiers.Add(rank)) } else { ArrayType(elementType, List([rank])) }
+                    continue
+                }
+                let argumentList = ParseBracketedArgumentListSyntax()
+                expr = ElementAccessExpression(expr, argumentList)
+            } else if (token.IsKind(SyntaxKind.OpenBraceToken)) {
+                // A newline before '{' starts a new statement-level block scope.
+                // Keep object initializers as same-line syntax.
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                var initializer = ParseObjectInitializerExpression()
+                if (expr is InvocationExpressionSyntax inv) {
+                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, initializer)
+                } else {
+                    let missingArgs = CreateMissingArgumentList()
+                    expr = InvocationExpression(expr, missingArgs, initializer)
+                }
+            } else if (token.IsKind(SyntaxKind.WithKeyword)) {
+                // Break if the `with` token has a leading newline.
+                // This prevents: <expr> [newline] with { ... }
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                expr = ParseWithExpression(expr)
+            } else if (token.IsKind(SyntaxKind.QuestionToken) &&
+                PeekToken(1).IsKind(SyntaxKind.OpenBracketToken) &&
+                PeekToken(2).IsKind(SyntaxKind.CloseBracketToken) &&
+                TryGetArrayElementType(expr) is TypeSyntax nullableElementType) {
+                expr = NullableType(nullableElementType, ReadToken())
+            } else if (token.IsKind(SyntaxKind.QuestionToken)) {
+                // Await and try own a trailing propagation operator. Nested argument
+                // and parenthesized expressions use a fresh parser and keep their own `?`.
+                var next = PeekToken(1)
+                if (_stopBeforePropagation
+                    && !next.IsKind(SyntaxKind.DotToken)
+                    && !next.IsKind(SyntaxKind.OpenParenToken)
+                    && !next.IsKind(SyntaxKind.OpenBracketToken)) {
+                    return expr
+                }
+                let operatorToken = ReadToken()
+                next = PeekToken()
+                // Conditional access only when followed by one of the conditional-access trailers.
+                // Otherwise, treat `?` as the Result-propagation postfix operator.
+                if (!next.IsKind(SyntaxKind.DotToken)
+                    && !next.IsKind(SyntaxKind.OpenParenToken)
+                    && !next.IsKind(SyntaxKind.OpenBracketToken)) {
+                    expr = PropagateExpression(expr, operatorToken)
+                    continue
+                }
+                var whenNotNull: ExpressionSyntax = default(ExpressionSyntax)!
+                if (next.IsKind(SyntaxKind.DotToken)) {
+                    let dotToken = ReadToken()
+                    var memberName: SimpleNameSyntax = default(SimpleNameSyntax)!
+                    if (CanTokenBeIdentifier(PeekToken())) {
+                        memberName = NameSyntaxParser(self).ParseSimpleName()
+                    } else {
+                        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out let identifier)
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.IdentifierExpected,
+                                GetEndOfLastToken()))
+                        memberName = IdentifierName(identifier)
+                    }
+                    let memberBinding = MemberBindingExpression(dotToken, memberName)
+                    if (PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+                        let argumentList = ParseArgumentListSyntax()
+                        whenNotNull = InvocationExpression(memberBinding, argumentList)
+                    } else {
+                        whenNotNull = memberBinding
+                    }
+                } else if (next.IsKind(SyntaxKind.OpenParenToken)) {
+                    let argumentList = ParseArgumentListSyntax()
+                    let receiverBinding = ReceiverBindingExpression(Token(SyntaxKind.None))
+                    whenNotNull = InvocationExpression(receiverBinding, argumentList)
+                } else if (next.IsKind(SyntaxKind.OpenBracketToken)) {
+                    let argumentList = ParseBracketedArgumentListSyntax()
+                    whenNotNull = ElementBindingExpression(argumentList)
+                } else {
+                    ConsumeTokenOrMissing(SyntaxKind.DotToken, out let missingDot)
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetEndOfLastToken()))
+                    let missingName = IdentifierName(SyntaxFactory.MissingToken(SyntaxKind.IdentifierToken))
+                    whenNotNull = MemberBindingExpression(missingDot, missingName)
+                }
+                expr = ConditionalAccessExpression(expr, operatorToken, AddTrailers(start, whenNotNull, initialConditionalChain: true))
+            } else if (token.IsKind(SyntaxKind.PlusPlusToken)) {
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                let operatorToken = ReadToken()
+                expr = PostfixOperatorExpression(SyntaxKind.PostIncrementExpression, expr, operatorToken)
+            } else if (token.IsKind(SyntaxKind.MinusMinusToken)) {
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                let operatorToken = ReadToken()
+                expr = PostfixOperatorExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken)
+            } else if (token.IsKind(SyntaxKind.ExclamationToken)) {
+                if (HasLeadingNewLine(token)) {
+                    return expr
+                }
+                let operatorToken = ReadToken()
+                expr = PostfixOperatorExpression(SyntaxKind.SuppressNullableWarningExpression, expr, operatorToken)
+            } else {
+                // No more trailers, break out of the loop
+                break
+            }
+        }
+        return expr
+    }
+
+    internal func ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: bool = true) -> ArgumentListSyntax {
+        // We assume current token is '('
+        let openParenToken = ReadToken()
+        let argumentList = System.Collections.Generic.List<GreenNode>()
+        let seenNames = System.Collections.Generic.HashSet<string>()
+        var parsedArgs: int = 0
+        // Inside a parenthesized argument list, newlines should behave like trivia.
+        // Save & restore whatever backing state you use for this.
+        let restoreNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(false)
+        var closeParenToken: SyntaxToken = default(SyntaxToken)!
+        try {
+            loop {
+                var t = PeekToken()
+                while (IsNewLineLike(t)) {
+                    ReadToken()
+                    t = PeekToken()
+                }
+                // End of argument list
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseParenToken) ||
+                    t.IsKind(SyntaxKind.CloseBraceToken)) {
+                    break
+                }
+                // After the first argument, we expect a comma before the next one.
+                if (parsedArgs > 0) {
+                    t = PeekToken()
+                    if (t.IsKind(SyntaxKind.CommaToken)) {
+                        let commaToken = ReadToken()
+                        argumentList.Add(commaToken)
+                    } else {
+                        argumentList.Add(MissingToken(SyntaxKind.CommaToken))
+                        // Newlines are trivia here, so if we see *anything* other than a comma
+                        // we complain about a missing ',' but still try to parse the next arg.
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfPeekedToken(),
+                                ","))
+                    }
+                }
+                // Parse the argument expression itself.
+                // Newlines are currently *not* tokens at this level, so examples like:
+                //
+                //   Foo(
+                //      42)
+                //
+                // and
+                //
+                //   Foo(a,
+                //      42)
+                //
+                // just see the newlines as trivia around '42'.
+                let argumentStart = Position
+                let arg = ExpressionSyntaxParser(self).ParseArgument(allowLegacyNamedArgumentEquals, out let nameSpan)
+                if (arg is null or { IsMissing: true }) {
+                    let peekedToken = PeekToken()
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.InvalidExpressionTerm,
+                            GetSpanOfPeekedToken(),
+                            peekedToken.Text))
+                } else if (arg.NameColon is NameColonSyntax nameColon) {
+                    let name = nameColon.Name.Identifier.GetValueText()
+                    if (!seenNames.Add(name!)) {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.DuplicateNamedArgument,
+                                nameSpan ?? GetSpanOfLastToken(),
+                                name))
+                    }
+                    if (!allowLegacyNamedArgumentEquals &&
+                        (nameColon.ColonToken.IsMissing || nameColon.ColonToken.Kind != SyntaxKind.ColonToken)) {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ":"))
+                    }
+                }
+                if (ShouldStopArgumentListRecoveryAfter(arg)) {
+                    break
+                }
+                if (Position == argumentStart) {
+                    let token = PeekToken()
+                    let tokenText = if string.IsNullOrEmpty(token.Text) { token.Kind.ToString() } else { token.Text }
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText))
+                    if (token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.EndOfFileToken)) {
+                        break
+                    }
+                    ReadToken()
+                    continue
+                }
+                argumentList.Add(arg)
+                parsedArgs++
+            }
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken)
+        } finally {
+            // Make sure we put the global newline behavior back
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens)
+        }
+        if (closeParenToken.IsMissing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ")"))
+        }
+        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken)
+    }
+
+    private func ShouldStopArgumentListRecoveryAfter(argument: ArgumentSyntax) -> bool {
+        return IsUnterminatedSingleLineStringExpression(argument.Expression)
+    }
+
+    func ParseArgument() -> ArgumentSyntax {
+        return ParseArgument(allowLegacyNamedArgumentEquals: true, out _)
+    }
+
+    func ParseArgument(out nameSpan: TextSpan?) -> ArgumentSyntax {
+        return ParseArgument(allowLegacyNamedArgumentEquals: true, out nameSpan)
+    }
+
+    func ParseArgument(allowLegacyNamedArgumentEquals: bool, out nameSpan: TextSpan?) -> ArgumentSyntax {
+        var refKindKeyword = Token(SyntaxKind.None)
+        var bindingKeyword = Token(SyntaxKind.None)
+        var nameColon: NameColonSyntax? = null
+        nameSpan = null
+        var dotDotDotToken = Token(SyntaxKind.None)
+        if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword) {
+            let next = PeekToken(1)
+            if (!next.IsKind(SyntaxKind.ColonToken) && !next.IsKind(SyntaxKind.EqualsToken)) {
+                refKindKeyword = ReadToken()
+            }
+        }
+        if (refKindKeyword.Kind == SyntaxKind.OutKeyword &&
+            PeekToken().Kind is SyntaxKind.VarKeyword or SyntaxKind.ValKeyword or SyntaxKind.LetKeyword) {
+            bindingKeyword = ReadToken()
+        }
+        // Try to parse optional name:
+        if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
+            && CanTokenBeIdentifier(PeekToken())) {
+            var name = ReadToken()
+            if (name.Kind != SyntaxKind.IdentifierToken) {
+                name = ToIdentifierToken(name)
+                UpdateLastToken(name)
+            }
+            nameSpan = GetSpanOfLastToken()
+            let colon = ReadToken()
+            nameColon = NameColon(IdentifierName(name), colon)
+        } else if (PeekToken(1).IsKind(SyntaxKind.EqualsToken)
+           && CanTokenBeIdentifier(PeekToken())) {
+            var name = ReadToken()
+            if (name.Kind != SyntaxKind.IdentifierToken) {
+                name = ToIdentifierToken(name)
+                UpdateLastToken(name)
+            }
+            nameSpan = GetSpanOfLastToken()
+            let equals = ReadToken()
+            if (allowLegacyNamedArgumentEquals) {
+                // Backward compatibility for regular invocation argument lists.
+                // Attribute argument lists intentionally reject this form.
+                nameColon = NameColon(IdentifierName(name), equals)
+            } else {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        GetSpanOfLastToken(),
+                        ":"))
+                nameColon = NameColon(IdentifierName(name), MissingToken(SyntaxKind.ColonToken))
+            }
+        }
+        if (PeekToken().IsKind(SyntaxKind.DotDotDotToken)) {
+            dotDotDotToken = ReadToken()
+        }
+        var expr: ExpressionSyntax = default(ExpressionSyntax)!
+        if (bindingKeyword.Kind != SyntaxKind.None && CanTokenBeIdentifier(PeekToken())) {
+            expr = IdentifierName(ReadIdentifierToken())
+        } else {
+            expr = ParseExpression()
+        }
+        return Argument(refKindKeyword, bindingKeyword, nameColon, dotDotDotToken, expr)
+    }
+
+    private func ParseBracketedArgumentListSyntax() -> BracketedArgumentListSyntax {
+        let openBracketToken = ReadToken()
+        let argumentList: System.Collections.Generic.List<GreenNode> = System.Collections.Generic.List<GreenNode>()
+        var parsedArgs = 0
+        let restoreNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(false)
+        var closeBracketToken: SyntaxToken = default(SyntaxToken)!
+        try {
+            loop {
+                var t = PeekToken()
+                while (IsNewLineLike(t)) {
+                    ReadToken()
+                    t = PeekToken()
+                }
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseBracketToken)) {
+                    break
+                }
+                if (parsedArgs > 0) {
+                    if (t.IsKind(SyntaxKind.CommaToken)) {
+                        let commaToken = ReadToken()
+                        argumentList.Add(commaToken)
+                    } else {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","))
+                    }
+                }
+                let argumentStart = Position
+                let argument = ExpressionSyntaxParser(self).ParseArgument()
+                if (argument is null or { IsMissing: true }) {
+                    let peekedToken = PeekToken()
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.InvalidExpressionTerm,
+                            GetSpanOfPeekedToken(),
+                            peekedToken.Text))
+                }
+                if (Position == argumentStart) {
+                    let token = PeekToken()
+                    let tokenText = if string.IsNullOrEmpty(token.Text) { token.Kind.ToString() } else { token.Text }
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText))
+                    if (token.IsKind(SyntaxKind.CloseBracketToken) || token.IsKind(SyntaxKind.EndOfFileToken)) {
+                        break
+                    }
+                    ReadToken()
+                    continue
+                }
+                argumentList.Add(argument)
+                parsedArgs++
+            }
+            ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out closeBracketToken)
+        } finally {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens)
+        }
+        if (closeBracketToken.IsMissing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    "]"))
+        }
+        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken)
+    }
+
+    private static func IsNewLineLike(kind: SyntaxKind) -> bool {
+        return kind is SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken
+            or SyntaxKind.EndOfLineTrivia
+    }
+
+    private static func IsNewLineLike(token: SyntaxToken) -> bool {
+        return IsNewLineLike(token.Kind)
+    }
+
+    private func HasLeadingNewLine(token: SyntaxToken) -> bool {
+        return CountLineBreaksBefore(token) > 0
+    }
+
+    private static func TokenHasLeadingNewLine(token: SyntaxToken) -> bool {
+        for trivia in token.LeadingTrivia {
+            if (IsNewLineLike(trivia.Kind)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func HasLeadingBlankLine(token: SyntaxToken) -> bool {
+        return CountLineBreaksBefore(token) >= 2
+    }
+
+    private func CountLineBreaksBefore(token: SyntaxToken) -> int {
+        var count = 0
+        var lastToken: SyntaxToken? = null
+        try {
+            lastToken = LastToken
+        } catch (InvalidOperationException error) {
+            lastToken = null
+        }
+        if (lastToken is SyntaxToken previousToken) {
+            if (IsNewLineLike(previousToken)) {
+                count++
+            }
+            for trivia in previousToken.TrailingTrivia {
+                if (IsNewLineLike(trivia.Kind)) {
+                    count++
+                }
+            }
+        }
+        for trivia in token.LeadingTrivia {
+            if (IsNewLineLike(trivia.Kind)) {
+                count++
+            }
+        }
+        return count
+    }
+
+    private func IsLeadingDereferenceLikeStar(token: SyntaxToken) -> bool {
+        if (!token.IsKind(SyntaxKind.StarToken)) {
+            return false
+        }
+        if (!HasLeadingNewLine(token)) {
+            return false
+        }
+        // Require immediate `*identifier` adjacency: no trivia between the tokens.
+        if (token.TrailingTrivia.Width != 0) {
+            return false
+        }
+        let next = PeekToken(1)
+        if (!CanTokenBeIdentifier(next)) {
+            return false
+        }
+        return next.LeadingTrivia.Width == 0
+    }
+
+    private func ParseTupleExpressionSyntax() -> TupleExpressionSyntax {
+        let openParenToken = ReadToken()
+        let argumentList: System.Collections.Generic.List<GreenNode> = System.Collections.Generic.List<GreenNode>()
+        loop {
+            let t = PeekToken()
+            if (t.IsKind(SyntaxKind.CloseParenToken) || t.IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+            let elementStart = Position
+            let expression = ExpressionSyntaxParser(self).ParseExpression()
+            if (expression is null) {
+                break
+            }
+            argumentList.Add(Argument(Token(SyntaxKind.None), Token(SyntaxKind.None), null, Token(SyntaxKind.None), expression))
+            let commaToken = PeekToken()
+            if (commaToken.IsKind(SyntaxKind.CommaToken)) {
+                ReadToken()
+                argumentList.Add(commaToken)
+            }
+            if (Position == elementStart) {
+                let current = PeekToken()
+                let tokenText = if string.IsNullOrEmpty(current.Text) { current.Kind.ToString() } else { current.Text }
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText))
+                if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+                ReadToken()
+            }
+        }
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)
+        return TupleExpression(openParenToken, List(argumentList.ToArray()), closeParenToken)
+    }
+
+    /// <summary>
+    /// Parse a primary expression.
+    /// </summary>
+    /// <returns>An expression.</returns>
+    private func ParsePrimaryExpression() -> ExpressionSyntax {
+        var expr: ExpressionSyntax? = null
+        var token: SyntaxToken = default(SyntaxToken)!
+        token = PeekToken()
+        // Allow expressions to continue on the next line. Previously any token
+        // with leading end-of-line trivia was treated as a missing identifier,
+        // causing line continuations like `let x =\n    42` to fail with a
+        // diagnostic. By removing this check the parser treats the newline as
+        // trivia and correctly parses the following expression token.
+        if (IsFreestandingMacroExpressionStart()) {
+            return ParseFreestandingMacroExpression()
+        }
+        if (token.Kind is SyntaxKind.CheckedKeyword or SyntaxKind.UncheckedKeyword &&
+            PeekToken(1).IsKind(SyntaxKind.OpenParenToken)) {
+            let keyword = ReadToken()
+            let open = ReadToken()
+            let expression = ExpressionSyntaxParser(self).ParseExpression()
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let close)
+            return CheckedExpression(keyword, open, expression, close)
+        }
+        if (CanTokenBeIdentifier(token)) {
+            if (IsInMacro && IsMacroExpansionExpressionKeyword(token)) {
+                return ParseMacroExpansionExpression()
+            }
+            return NameSyntaxParser(self).ParseSimpleName()
+        }
+        match token.Kind {
+            SyntaxKind.StringKeyword or SyntaxKind.BoolKeyword or SyntaxKind.CharKeyword or SyntaxKind.SByteKeyword or SyntaxKind.ShortKeyword or SyntaxKind.UShortKeyword or SyntaxKind.IntKeyword or SyntaxKind.UIntKeyword or SyntaxKind.LongKeyword or SyntaxKind.ULongKeyword or SyntaxKind.FloatKeyword or SyntaxKind.DoubleKeyword or SyntaxKind.DecimalKeyword or SyntaxKind.ByteKeyword or SyntaxKind.NIntKeyword or SyntaxKind.NUIntKeyword or SyntaxKind.ObjectKeyword or SyntaxKind.UnitKeyword => {
+                return ParsePredefinedTypeSyntax()
+            }
+            SyntaxKind.SelfKeyword => {
+                ReadToken()
+                return SelfExpression(token)
+            }
+            SyntaxKind.BaseKeyword => {
+                ReadToken()
+                return BaseExpression(token)
+            }
+            SyntaxKind.TrueKeyword => {
+                ReadToken()
+                expr = LiteralExpression(SyntaxKind.TrueLiteralExpression, token)
+            }
+            SyntaxKind.FalseKeyword => {
+                ReadToken()
+                expr = LiteralExpression(SyntaxKind.FalseLiteralExpression, token)
+            }
+            SyntaxKind.NumericLiteralToken => {
+                ReadToken()
+                expr = LiteralExpression(SyntaxKind.NumericLiteralExpression, token)
+            }
+            SyntaxKind.StringLiteralToken => {
+                ReadToken()
+                let isUnterminatedSingleLineString = IsUnterminatedSingleLineStringToken(token)
+                let tokenText = token.Text
+                let inner = GetSingleLineStringInnerText(tokenText, isUnterminatedSingleLineString)
+                let hasInterpolation = ContainsInterpolation(inner)
+                if (TryReadEncodedStringSuffix(token, out let suffixToken, out let encoding)) {
+                    let encodedToken = CreateEncodedStringLiteralToken(token, suffixToken, encoding, hasInterpolation)
+                    expr = LiteralExpression(SyntaxKind.StringLiteralExpression, encodedToken)
+                } else {
+                    expr = if hasInterpolation { ParseInterpolatedStringExpression(token) } else { LiteralExpression(SyntaxKind.StringLiteralExpression, token) }
+                    if (isUnterminatedSingleLineString) {
+                        _stopAfterPrimaryExpression = true
+                    }
+                }
+            }
+            SyntaxKind.MultiLineStringLiteralToken => {
+                // Use raw token text to preserve correct spans (Value may already be indentation‑trimmed)
+                ReadToken()
+                let multiInner = if token.Text.Length >= 6 { token.Text.Substring(3, token.Text.Length - 6) } else { string.Empty }
+                let hasMultiInterpolation = ContainsInterpolation(multiInner)
+                if (TryReadEncodedStringSuffix(token, out let multiSuffixToken, out let multiEncoding)) {
+                    let encodedToken = CreateEncodedStringLiteralToken(token, multiSuffixToken, multiEncoding, hasMultiInterpolation)
+                    expr = LiteralExpression(SyntaxKind.StringLiteralExpression, encodedToken)
+                } else {
+                    expr = if hasMultiInterpolation { ParseInterpolatedMultiLineStringExpression(token, multiInner) } else { LiteralExpression(SyntaxKind.StringLiteralExpression, token) }
+                }
+            }
+            SyntaxKind.CharacterLiteralToken => {
+                ReadToken()
+                expr = LiteralExpression(SyntaxKind.CharacterLiteralExpression, token)
+            }
+            SyntaxKind.NullKeyword => {
+                ReadToken()
+                expr = LiteralExpression(SyntaxKind.NullLiteralExpression, token)
+            }
+            SyntaxKind.UnderscoreToken => {
+                ReadToken()
+                expr = DiscardExpression(token)
+            }
+            SyntaxKind.OpenParenToken => {
+                expr = ParseParenthesisOrTupleExpression()
+            }
+            SyntaxKind.DefaultKeyword => {
+                expr = ParseDefaultExpression()
+            }
+            SyntaxKind.TypeOfKeyword => {
+                expr = ParseTypeOfExpression()
+            }
+            SyntaxKind.SizeOfKeyword => {
+                expr = ParseSizeOfExpression()
+            }
+            SyntaxKind.NameOfKeyword => {
+                expr = ParseNameOfExpression()
+            }
+            SyntaxKind.OpenBracketToken => {
+                expr = ParseCollectionExpression()
+            }
+            SyntaxKind.OpenArrayToken => {
+                expr = ParseArrayExpression()
+            }
+            SyntaxKind.DotToken => {
+                let dot = ReadToken()
+                let name = NameSyntaxParser(self).ParseSimpleName()
+                expr = MemberBindingExpression(dot, name)
+            }
+            _ => {}
+        }
+        if (expr is null
+            && SyntaxFacts.IsKeywordKind(token.Kind)
+            && !SyntaxFacts.IsReservedWordKind(token.Kind)) {
+            let identifier = ReadToken()
+            expr = IdentifierName(identifier)
+        }
+        return expr ?? ExpressionSyntax.Missing()
+    }
+
+    private static func IsMacroExpansionExpressionKeyword(token: SyntaxToken) -> bool => token.IsKind(SyntaxKind.IdentifierToken) &&
+           token.GetValueText() is "expand" or "replace" or "introduce"
+
+    private func ParseMacroExpansionExpression() -> MacroExpansionExpressionSyntax {
+        let keyword = ReadToken()
+        let expression = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false).ParseExpression()
+        return MacroExpansionExpression(keyword, expression)
+    }
+
+    private static func CanFollowIntersectionCast(type: TypeSyntax, token: SyntaxToken) -> bool {
+        // Identifier intersections also parse as bitwise expressions. A following
+        // binary operator or member access belongs to the parenthesized expression.
+        return type is not IntersectionTypeSyntax ||
+            (CanStartExpressionAfterMatchArrow(token) &&
+             !token.IsKind(SyntaxKind.MinusToken) &&
+             !token.IsKind(SyntaxKind.DotToken))
+    }
+
+    private func ParseParenthesisOrTupleExpression() -> ExpressionSyntax {
+        let openParenToken = ReadToken()
+        if (PeekToken().IsKind(SyntaxKind.CloseParenToken)) {
+            let close = ReadToken()
+            return UnitExpression(openParenToken, close)
+        }
+        // Try to parse as a cast expression
+        let checkpoint = CreateCheckpoint()
+        let startsWithMemberBinding = PeekToken().IsKind(SyntaxKind.DotToken)
+        let typeName = NameSyntaxParser(self).ParseTypeName()
+        if (!startsWithMemberBinding && PeekToken().IsKind(SyntaxKind.CloseParenToken)) {
+            let closeParen = ReadToken()
+            let next = PeekToken()
+            if (!(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
+                CanFollowIntersectionCast(typeName, next) &&
+                !next.IsKind(SyntaxKind.DotToken) &&
+                !next.IsKind(SyntaxKind.CommaToken) &&
+                !next.IsKind(SyntaxKind.CloseParenToken) &&
+                !next.IsKind(SyntaxKind.SemicolonToken) &&
+                !next.IsKind(SyntaxKind.EndOfFileToken) &&
+                !next.IsKind(SyntaxKind.OpenBraceToken)) {
+                let expression = ParseFactorExpression()
+                return CastExpression(openParenToken, typeName, closeParen, expression)
+            }
+        }
+        checkpoint.Rewind()
+        let expressions = System.Collections.Generic.List<GreenNode>()
+        let firstArg = ExpressionSyntaxParser(self).ParseArgument()
+        expressions.Add(firstArg)
+        var sawComma: bool = false
+        while (PeekToken().IsKind(SyntaxKind.CommaToken)) {
+            sawComma = true
+            expressions.Add(ReadToken())
+            let argument = ExpressionSyntaxParser(self).ParseArgument()
+            expressions.Add(argument)
+        }
+        let closeParenToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseParenToken)
+        if (sawComma) {
+            // This was a tuple
+            return TupleExpression(openParenToken, List(expressions.ToArray()), closeParenToken)
+        } else {
+            // Just a parenthesized expression
+            return ParenthesizedExpression(openParenToken, firstArg.Expression, closeParenToken)
+        }
+    }
+
+    private func ParseCollectionExpression() -> ExpressionSyntax {
+        ConsumeTokenOrNone(SyntaxKind.ExclamationToken, out let exclamationToken)
+        let openBracketToken = ReadToken()
+        let elementList = ParseCollectionElements(SyntaxKind.CloseBracketToken)
+        let closeBracketToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseBracketToken)
+        return CollectionExpression(exclamationToken, openBracketToken, List(elementList), closeBracketToken)
+    }
+
+    private func ParseArrayExpression() -> ExpressionSyntax {
+        let openArrayToken = ReadToken()
+        let elementList = ParseCollectionElements(SyntaxKind.CloseArrayToken)
+        let closeArrayToken = ConsumeRequiredExpressionToken(SyntaxKind.CloseArrayToken)
+        return ArrayExpression(openArrayToken, List(elementList), closeArrayToken)
+    }
+
+    private func ParseCollectionElements(closeTokenKind: SyntaxKind) -> System.Collections.Generic.List<GreenNode> {
+        let elementList: System.Collections.Generic.List<GreenNode> = System.Collections.Generic.List<GreenNode>()
+        var parsedElements = 0
+        loop {
+            if (parsedElements > 0) {
+                if (TryConsumeCollectionElementSeparator(closeTokenKind, out let separatorToken, out let invalidSeparatorToken)) {
+                    elementList.Add(separatorToken)
+                    if (invalidSeparatorToken is not null) {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","))
+                    }
+                } else if (!PeekToken().IsKind(closeTokenKind) &&
+                         !PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                    elementList.Add(MissingToken(SyntaxKind.CommaToken))
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.CharacterExpected,
+                            GetSpanOfPeekedToken(),
+                            ","))
+                }
+            }
+            let t = PeekToken()
+            if (t.IsKind(closeTokenKind) || t.IsKind(SyntaxKind.EndOfFileToken)) {
+                break
+            }
+            var element: CollectionElementSyntax = default(CollectionElementSyntax)!
+            let elementStart = Position
+            if (t.IsKind(SyntaxKind.ForKeyword)) {
+                element = ParseCollectionComprehensionElement()
+            } else if (ConsumeToken(SyntaxKind.DotDotDotToken, out let dotDotToken)) {
+                let spreadExpr = ExpressionSyntaxParser(self).ParseExpression()
+                if (spreadExpr is null) {
+                    break
+                }
+                if (ConsumeToken(SyntaxKind.ColonToken, out let colonToken)) {
+                    let valueExpression = ExpressionSyntaxParser(self).ParseExpression()
+                    if (valueExpression is null) {
+                        break
+                    }
+                    element = DictionarySpreadElement(dotDotToken, spreadExpr, colonToken, valueExpression)
+                } else {
+                    element = SpreadElement(dotDotToken, spreadExpr)
+                }
+            } else {
+                let keyOrExpression = ExpressionSyntaxParser(self).ParseExpression()
+                if (keyOrExpression is null) {
+                    break
+                }
+                if (ConsumeToken(SyntaxKind.ColonToken, out let colonToken)) {
+                    let valueExpression = ExpressionSyntaxParser(self).ParseExpression()
+                    if (valueExpression is null) {
+                        break
+                    }
+                    element = DictionaryElement(keyOrExpression, colonToken, valueExpression)
+                } else {
+                    element = ExpressionElement(keyOrExpression)
+                }
+            }
+            elementList.Add(element)
+            parsedElements++
+            if (Position == elementStart) {
+                let current = PeekToken()
+                let tokenText = if string.IsNullOrEmpty(current.Text) { current.Kind.ToString() } else { current.Text }
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText))
+                if (current.IsKind(closeTokenKind) || current.IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+                ReadToken()
+            }
+        }
+        return elementList
+    }
+
+    private func TryConsumeCollectionElementSeparator(
+        closingKind: SyntaxKind,
+        out separatorToken: SyntaxToken,
+        out invalidSeparatorToken: SyntaxToken?) -> bool {
+        let current = PeekToken()
+        if (current.IsKind(SyntaxKind.CommaToken)) {
+            invalidSeparatorToken = null
+            separatorToken = ReadToken()
+            return true
+        }
+        if (HasLineBreakBeforePeekToken()) {
+            invalidSeparatorToken = null
+            separatorToken = Token(SyntaxKind.None)
+            return true
+        }
+        if (current.IsKind(SyntaxKind.SemicolonToken)) {
+            invalidSeparatorToken = ReadToken()
+            separatorToken = invalidSeparatorToken!
+            return true
+        }
+        if (current.IsKind(closingKind) || current.IsKind(SyntaxKind.EndOfFileToken)) {
+            invalidSeparatorToken = null
+            separatorToken = Token(SyntaxKind.None)
+            return false
+        }
+        invalidSeparatorToken = null
+        separatorToken = Token(SyntaxKind.None)
+        return false
+    }
+
+    private func ParseCollectionComprehensionElement() -> CollectionElementSyntax {
+        let forKeyword = ReadToken()
+        var bindingKeyword = Token(SyntaxKind.None)
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword) {
+            bindingKeyword = ReadToken()
+        }
+        var target: ExpressionOrPatternSyntax = default(ExpressionOrPatternSyntax)!
+        let current = PeekToken()
+        if (current.Kind is SyntaxKind.UnderscoreToken) {
+            target = DiscardPattern(ReadToken())
+        } else if (CanTokenBeIdentifier(current) && PeekToken(1).Kind is SyntaxKind.InKeyword) {
+            target = IdentifierName(ReadIdentifierToken())
+        } else {
+            target = PatternSyntaxParser(
+                self,
+                allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                .ParsePattern()
+        }
+        ConsumeTokenOrMissing(SyntaxKind.InKeyword, out let inKeyword)
+        let source = ExpressionSyntaxParser(self, allowLambdaExpressions: false).ParseExpression()
+        var ifKeyword = Token(SyntaxKind.None)
+        var condition: ExpressionSyntax? = null
+        if (ConsumeToken(SyntaxKind.IfKeyword, out let parsedIfKeyword)) {
+            ifKeyword = parsedIfKeyword
+            condition = ExpressionSyntaxParser(self, allowLambdaExpressions: false).ParseExpression()
+        }
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out let fatArrowToken)
+        let keyOrSelector = ExpressionSyntaxParser(self).ParseExpression()
+        if (ConsumeToken(SyntaxKind.ColonToken, out let colonToken)) {
+            let valueSelector = ExpressionSyntaxParser(self).ParseExpression()
+            return DictionaryComprehensionElement(forKeyword, bindingKeyword, target, inKeyword, source, ifKeyword, condition, fatArrowToken, keyOrSelector, colonToken, valueSelector)
+        }
+        return CollectionComprehensionElement(forKeyword, bindingKeyword, target, inKeyword, source, ifKeyword, condition, fatArrowToken, keyOrSelector)
+    }
+
+    private func ParseDefaultExpression() -> ExpressionSyntax {
+        let defaultKeyword = ReadToken()
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken)) {
+            let openParenToken = ReadToken()
+            let type = NameSyntaxParser(self).ParseTypeName()
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)
+            return DefaultExpression(defaultKeyword, openParenToken, type, closeParenToken)
+        }
+        let missingOpenParen = MissingToken(SyntaxKind.OpenParenToken)
+        let missingCloseParen = MissingToken(SyntaxKind.CloseParenToken)
+        return DefaultExpression(defaultKeyword, missingOpenParen, null, missingCloseParen)
+    }
+
+    private func ParseTypeOfExpression() -> ExpressionSyntax {
+        let typeOfKeyword = ReadToken()
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParenToken)
+        // typeof supports open generic syntax like typeof(Dictionary<,>).
+        let type = NameSyntaxParser(self, allowOmittedTypeArguments: true).ParseTypeName()
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)
+        return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken)
+    }
+
+    private func ParseSizeOfExpression() -> ExpressionSyntax {
+        let sizeOfKeyword = ReadToken()
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParenToken)
+        let type = NameSyntaxParser(self, allowOmittedTypeArguments: true).ParseTypeName()
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)
+        return SizeOfExpression(sizeOfKeyword, openParenToken, type, closeParenToken)
+    }
+
+    private func ParseNameOfExpression() -> ExpressionSyntax {
+        let nameOfKeyword = ReadToken()
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out let openParenToken)
+        // `nameof` accepts a restricted operand syntax. We prefer parsing a type name first
+        // so `nameof(List<int>)` doesn't get mis-parsed as a comparison expression.
+        var operand: ExpressionSyntax = default(ExpressionSyntax)!
+        let checkpoint = CreateCheckpoint("nameof-operand")
+        let type = NameSyntaxParser(self).ParseTypeName()
+        if (!type.IsMissing && PeekToken().IsKind(SyntaxKind.CloseParenToken)) {
+            operand = type
+        } else {
+            checkpoint.Rewind()
+            operand = ParseNameOfOperandExpression()
+        }
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)
+        return NameOfExpression(nameOfKeyword, openParenToken, operand, closeParenToken)
+    }
+
+    private func ParseNameOfOperandExpression() -> ExpressionSyntax {
+        // Allowed syntactic forms (validated further by the binder):
+        //   Identifier
+        //   MemberAccessExpression (a.b)
+        //   MemberBindingExpression (.b)
+        //   QualifiedName (parsed as member access in expression context)
+        //
+        // We intentionally do not treat invocations, element access, literals, etc. as valid operands.
+        let start = Position
+        var expr: ExpressionSyntax = default(ExpressionSyntax)!
+        let token = PeekToken()
+        if (token.IsKind(SyntaxKind.DotToken)) {
+            // `.WriteLine`
+            let dot = ReadToken()
+            let name = NameSyntaxParser(self).ParseSimpleName()
+            expr = MemberBindingExpression(dot, name)
+        } else {
+            // Parse a normal expression, but we'll validate it below.
+            expr = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false).ParseExpression()
+        }
+        // If the parsed expression is not a name-like expression, report a diagnostic.
+        if (expr is not IdentifierNameSyntax
+            && expr is not MemberAccessExpressionSyntax
+            && expr is not MemberBindingExpressionSyntax) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetActualTextSpan(start, expr)))
+        }
+        return expr
+    }
+
+    private func IsFreestandingMacroExpressionStart() -> bool => MacroInvocationSyntaxParser(self).IsBangInvocationStart(allowExpressionHeader: true)
+
+    private func ParseFreestandingMacroExpression() -> ExpressionSyntax => MacroInvocationSyntaxParser(self).ParseExpression()
+
+    private func TryReadEncodedStringSuffix(
+        stringLiteralToken: SyntaxToken,
+        out suffixToken: SyntaxToken,
+        out encoding: EncodedStringLiteralEncoding) -> bool {
+        suffixToken = null!
+        encoding = default(EncodedStringLiteralEncoding)
+        if (stringLiteralToken.TrailingTrivia.Width != 0) {
+            return false
+        }
+        suffixToken = PeekToken()
+        if (!suffixToken.IsKind(SyntaxKind.IdentifierToken) || suffixToken.LeadingTrivia.Width != 0) {
+            return false
+        }
+        let suffixText = suffixToken.GetValueText()
+        let recognized = match suffixText {
+            "u8" => true
+            "ascii" => true
+            _ => false
+        }
+        if (!recognized) {
+            return false
+        }
+        encoding = if suffixText == "u8" { EncodedStringLiteralEncoding.Utf8 } else { EncodedStringLiteralEncoding.Ascii }
+        ReadToken()
+        return true
+    }
+
+    private static func CreateEncodedStringLiteralToken(
+        literalToken: SyntaxToken,
+        suffixToken: SyntaxToken,
+        encoding: EncodedStringLiteralEncoding,
+        containsInterpolation: bool) -> SyntaxToken {
+        let decodedText = literalToken.GetValue() as string ?? string.Empty
+        let combinedText = string.Concat(literalToken.Text, suffixToken.Text)
+        let value = EncodedStringLiteralValue(decodedText, encoding, containsInterpolation)
+        return SyntaxToken(
+            SyntaxKind.StringLiteralToken,
+            combinedText,
+            value,
+            combinedText.Length,
+            literalToken.LeadingTrivia,
+            suffixToken.TrailingTrivia,
+            diagnostics: null,
+            annotations: null)
+    }
+
+    private func ParsePredefinedTypeSyntax() -> ExpressionSyntax {
+        let token = ReadToken()
+        return PredefinedType(token)
+    }
+
+    private func ParseParenthesisExpression() -> ExpressionSyntax {
+        let openParenToken = ReadToken()
+        let expr = ExpressionSyntaxParser(self).ParseExpression()
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out let closeParenToken)) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    GetEndOfLastToken()
+                ))
+
+        }
+        return ParenthesizedExpression(openParenToken, expr, closeParenToken)
+    }
+
+    private func ParseMatchExpressionSuffixes(initialExpression: ExpressionSyntax) -> ExpressionSyntax {
+        var expression = initialExpression
+        while (PeekToken().IsKind(SyntaxKind.MatchKeyword) && !HasLeadingNewLine(PeekToken())) {
+            expression = ParsePostfixMatchExpression(expression)
+        }
+        return expression
+    }
+
+    internal func ParseMatchExpressionKeywordFirst() -> MatchExpressionSyntax {
+        let matchKeyword = ExpectToken(SyntaxKind.MatchKeyword)
+        let scrutinee = ExpressionSyntaxParser(self, allowMatchExpressionSuffixes: false, stopOnOpenBrace: true).ParseExpression()
+        var (openBraceToken, arms, closeBraceToken) = ParseMatchExpressionBody()
+        return MatchExpression(matchKeyword, scrutinee, openBraceToken, arms, closeBraceToken)
+    }
+
+    private func ParsePostfixMatchExpression(scrutinee: ExpressionSyntax) -> PostfixMatchExpressionSyntax {
+        let matchKeyword = ReadToken()
+        var (openBraceToken, arms, closeBraceToken) = ParseMatchExpressionBody()
+        return PostfixMatchExpression(scrutinee, matchKeyword, openBraceToken, arms, closeBraceToken)
+    }
+
+    private func ParseMatchExpressionBody(
+        ) -> (OpenBraceToken: SyntaxToken, Arms: SyntaxList, CloseBraceToken: SyntaxToken) {
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out let openBraceToken)
+        let arms = System.Collections.Generic.List<MatchArmSyntax>()
+        let previousTreatNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(true)
+        EnterParens()
+        try {
+            loop {
+                SetTreatNewlinesAsTokens(false)
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _)) {
+                    break
+                }
+                let armStart = Position
+                var bindingKeyword = Token(SyntaxKind.None)
+                if (ShouldParseMatchArmOuterBindingKeyword()) {
+                    bindingKeyword = ReadToken()
+                }
+                let pattern = PatternSyntaxParser(
+                    self,
+                    allowImplicitDeconstructionElementBindings: bindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword,
+                    allowPatternGuards: false)
+                    .ParsePattern()
+                var whenClause: WhenClauseSyntax? = null
+                if (ConsumeToken(SyntaxKind.WhenKeyword, out let whenKeyword)) {
+                    let guard = ExpressionSyntaxParser(self, allowLambdaExpressions: false).ParseExpression()
+                    whenClause = WhenClause(whenKeyword, guard)
+                }
+                ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out let arrowToken)
+                if (HasLineBreakBeforePeekToken()) {
+                    SkipMatchArmSeparators()
+                }
+                let previousTreatNewlinesDuringExpression = TreatNewlinesAsTokens
+                var expression: ExpressionSyntax = default(ExpressionSyntax)!
+                if (PeekToken().IsKind(SyntaxKind.CloseBraceToken) ||
+                    (!CanStartExpressionAfterMatchArrow(PeekToken()) && IsLikelyNextMatchArmHeader())) {
+                    expression = IdentifierName(MissingToken(SyntaxKind.IdentifierToken))
+                } else {
+                    SetTreatNewlinesAsTokens(true)
+                    expression = ExpressionSyntaxParser(
+                        self,
+                        stopAtLeadingMatchArmOperator: true,
+                        parseAbruptTransfersInBlocksAsExpressions: _parseAbruptTransfersInBlocksAsExpressions).ParseExpression()
+                }
+                var terminatorToken: SyntaxToken = default(SyntaxToken)!
+                if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken)) {
+                    TryConsumeTerminator(out terminatorToken)
+                }
+                SetTreatNewlinesAsTokens(previousTreatNewlinesDuringExpression)
+                SetTreatNewlinesAsTokens(false)
+                if (Position == armStart) {
+                    let bad = PeekToken()
+                    let tokenText = if string.IsNullOrEmpty(bad.Text) { bad.Kind.ToString() } else { bad.Text }
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText))
+                    if (bad.IsKind(SyntaxKind.CloseBraceToken) || bad.IsKind(SyntaxKind.EndOfFileToken)) {
+                        break
+                    }
+                    ReadToken()
+                    continue
+                }
+                arms.Add(MatchArm(bindingKeyword, pattern, whenClause, arrowToken, expression, terminatorToken))
+            }
+        } finally {
+            ExitParens()
+        }
+        SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens)
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+        SetTreatNewlinesAsTokens(false)
+        return (openBraceToken, List(arms.ToArray()), closeBraceToken)
+    }
+
+    private func ShouldParseMatchArmOuterBindingKeyword() -> bool {
+        if (PeekToken().Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)) {
+            return false
+        }
+        let next = PeekToken(1).Kind
+        if (next is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken) {
+            return true
+        }
+        if (CanTokenBeIdentifier(PeekToken(1)) &&
+            (PeekToken(2).Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)) {
+            return true
+        }
+        if (next == SyntaxKind.DotToken &&
+            CanTokenBeIdentifier(PeekToken(2)) &&
+            (PeekToken(3).Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)) {
+            return true
+        }
+        return false
+    }
+
+    private func SkipMatchArmSeparators() {
+        loop {
+            let kind = PeekToken().Kind
+            if (kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken) {
+                ReadToken()
+                continue
+            }
+            break
+        }
+    }
+
+    private static func CanStartExpressionAfterMatchArrow(token: SyntaxToken) -> bool {
+        if (CanTokenBeIdentifier(token)) {
+            return true
+        }
+        return match token.Kind {
+            SyntaxKind.StringLiteralToken or
+            SyntaxKind.CharacterLiteralToken or
+            SyntaxKind.NumericLiteralToken or
+            SyntaxKind.SelfKeyword or
+            SyntaxKind.BaseKeyword or
+            SyntaxKind.TrueKeyword or
+            SyntaxKind.FalseKeyword or
+            SyntaxKind.NullKeyword or
+            SyntaxKind.NewKeyword or
+            SyntaxKind.IfKeyword or
+            SyntaxKind.MatchKeyword or
+            SyntaxKind.OpenParenToken or
+            SyntaxKind.OpenBracketToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.DotToken or
+            SyntaxKind.FuncKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.TryKeyword or
+            SyntaxKind.ReturnKeyword or
+            SyntaxKind.ThrowKeyword or
+            SyntaxKind.BreakKeyword or
+            SyntaxKind.ContinueKeyword or
+            SyntaxKind.YieldKeyword or
+            SyntaxKind.AwaitKeyword or
+            SyntaxKind.MinusToken or
+            SyntaxKind.ExclamationToken or
+            SyntaxKind.TildeToken => true
+            _ => false
+        }
+    }
+
+    private func IsLikelyNextMatchArmHeader() -> bool {
+        val MaxLookahead: int = 64
+        var depth = 0
+        var i = 0
+        while (i < MaxLookahead) {
+            let token = PeekToken(i)
+            if (token.IsKind(SyntaxKind.EndOfFileToken) || token.IsKind(SyntaxKind.CloseBraceToken)) {
+                return false
+            }
+            if (i > 0 && TokenHasLeadingNewLine(token)) {
+                return false
+            }
+            if (depth == 0 && token.IsKind(SyntaxKind.FatArrowToken)) {
+                return true
+            }
+            if (token.IsKind(SyntaxKind.OpenParenToken)
+                || token.IsKind(SyntaxKind.OpenBracketToken)
+                || token.IsKind(SyntaxKind.OpenBraceToken)) {
+                depth++
+                i++
+                continue
+            }
+            if (token.IsKind(SyntaxKind.CloseParenToken)
+                || token.IsKind(SyntaxKind.CloseBracketToken)
+                || token.IsKind(SyntaxKind.CloseBraceToken)) {
+                if (depth > 0) {
+                    depth--
+                }
+            }
+            i++
+        }
+        return false
+    }
+
+    private func ParseIfExpressionSyntax() -> ExpressionSyntax {
+        let ifKeyword = ReadToken()
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword) {
+            return ParseIfPatternExpressionSyntax(ifKeyword)
+        }
+        let condition = ExpressionSyntaxParser(self, stopOnOpenBrace: true).ParseExpression()
+        let afterCloseParen = GetEndOfLastToken()
+        if (condition.IsMissing) {
+            AddDiagnostic(
+               DiagnosticInfo.Create(
+                   CompilerDiagnostics.InvalidExpressionTerm,
+                   GetStartOfLastToken(),
+                   [')']
+               ))
+        }
+        var thenKeyword = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out let thenToken)) {
+            thenKeyword = thenToken
+        }
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        if (expression!.IsMissing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    afterCloseParen
+                ))
+        }
+        var elseClause: ElseExpressionClauseSyntax? = null
+        let elseToken = PeekToken()
+        if (elseToken.IsKind(SyntaxKind.ElseKeyword)) {
+            elseClause = ParseElseExpressionClauseSyntax()
+        }
+        return IfExpression(ifKeyword, condition!, thenKeyword, expression!, elseClause)
+    }
+
+    private func ParseIfPatternExpressionSyntax(ifKeyword: SyntaxToken) -> IfPatternExpressionSyntax {
+        let bindingKeyword = ReadToken()
+        let pattern = PatternSyntaxParser(
+            self,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: true).ParsePattern()
+        let operatorToken = ExpectToken(SyntaxKind.EqualsToken)
+        let value = ExpressionSyntaxParser(self, stopOnOpenBrace: true).ParseExpression()
+        let afterValue = GetEndOfLastToken()
+        var thenKeyword = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out let thenToken)) {
+            thenKeyword = thenToken
+        }
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        if (expression!.IsMissing) {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    afterValue
+                ))
+        }
+        var elseClause: ElseExpressionClauseSyntax? = null
+        if (PeekToken().IsKind(SyntaxKind.ElseKeyword)) {
+            elseClause = ParseElseExpressionClauseSyntax()
+        }
+        return IfPatternExpression(
+            ifKeyword,
+            bindingKeyword,
+            pattern,
+            operatorToken,
+            value!,
+            thenKeyword,
+            expression!,
+            elseClause)
+    }
+
+    private func ParseElseExpressionClauseSyntax() -> ElseExpressionClauseSyntax {
+        let elseKeyword = ReadToken()
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        return ElseExpressionClause(elseKeyword, expression)
+    }
+
+    internal func ParseArrowExpressionClause() -> ArrowExpressionClauseSyntax? {
+        let arrowToken = ReadToken()
+        let previous = TreatNewlinesAsTokens
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        SetTreatNewlinesAsTokens(previous)
+        return ArrowExpressionClause(arrowToken, expression)
+    }
+
+    private func CreateMissingArgumentList() -> ArgumentListSyntax {
+        // Used for `TypeName { ... }` where there are no parentheses.
+        // We synthesize an empty, missing argument list so the tree remains structurally consistent.
+        let openParen = MissingToken(SyntaxKind.OpenParenToken)
+        let closeParen = MissingToken(SyntaxKind.CloseParenToken)
+        return ArgumentList(openParen, List(Array.Empty<GreenNode>()), closeParen)
+    }
+
+    private func ParseWithExpression(expression: ExpressionSyntax) -> WithExpressionSyntax {
+        // We assume current token is `with`
+        let withKeyword = ReadToken()
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out let openBraceToken)
+        let previousTreatNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(true)
+        EnterParens()
+        try {
+            let entries = System.Collections.Generic.List<WithEntrySyntax>()
+            loop {
+                SetTreatNewlinesAsTokens(false)
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+                let entryStart = Position
+                let entry = ParseWithEntry()
+                if (Position == entryStart) {
+                    // No progress: consume one token to avoid infinite loop.
+                    let bad = PeekToken()
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidExpressionTerm,
+                        GetSpanOfPeekedToken(),
+                        bad.Text))
+                    ReadToken()
+                    continue
+                }
+                entries.Add(entry)
+            }
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens)
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+            SetTreatNewlinesAsTokens(false)
+            return WithExpression(expression, withKeyword, openBraceToken, List(entries.ToArray()), closeBraceToken)
+        } finally {
+            ExitParens()
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens)
+        }
+    }
+
+    private func ParseWithEntry() -> WithEntrySyntax {
+        if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind)) {
+            return ParseWithAssignment()
+        }
+        return ParseWithExpressionEntry()
+    }
+
+    private func ParseWithAssignment() -> WithAssignmentSyntax {
+        if (!CanTokenBeIdentifier(PeekToken())) {
+            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out let missingIdentifier)
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetEndOfLastToken()))
+            let missingName = IdentifierName(missingIdentifier)
+            ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out let missingEquals)
+            let missingExpr = ExpressionSyntax.Missing()
+            // Optional terminator
+            var terminatorToken2: SyntaxToken = Token(SyntaxKind.None)
+            if (ConsumeToken(SyntaxKind.CommaToken, out let comma)) {
+                terminatorToken2 = comma
+            } else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _)) {
+                TryConsumeTerminator(out terminatorToken2)
+            }
+            return WithAssignment(missingName, missingEquals, missingExpr, terminatorToken2)
+        }
+        var nameToken = ReadToken()
+        if (nameToken.Kind != SyntaxKind.IdentifierToken) {
+            nameToken = ToIdentifierToken(nameToken)
+            UpdateLastToken(nameToken)
+        }
+        let name = IdentifierName(nameToken)
+        var equalsToken: SyntaxToken = default(SyntaxToken)!
+        if (IsAssignmentOperator(PeekToken().Kind)) {
+            equalsToken = ReadToken()
+        } else {
+            ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out equalsToken)
+        }
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        SetTreatNewlinesAsTokens(true)
+        // Terminator is optional: comma, newline/semicolon, or nothing before `}`
+        var terminatorToken: SyntaxToken = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.CommaToken, out let commaToken)) {
+            terminatorToken = commaToken
+        } else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _)) {
+            TryConsumeTerminator(out terminatorToken)
+        }
+        return WithAssignment(name, equalsToken, expression, terminatorToken)
+    }
+
+    private func ParseWithExpressionEntry() -> WithExpressionEntrySyntax {
+        let expression = ExpressionSyntaxParser(self).ParseExpression()
+        SetTreatNewlinesAsTokens(true)
+        var terminatorToken = Token(SyntaxKind.None)
+        if (ConsumeToken(SyntaxKind.CommaToken, out let commaToken)) {
+            terminatorToken = commaToken
+        } else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _)) {
+            TryConsumeTerminator(out terminatorToken)
+        }
+        return WithExpressionEntry(expression, terminatorToken)
+    }
+
+    private func ParseObjectInitializerExpression() -> ObjectInitializerExpressionSyntax {
+        // We assume current token is '{'
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out let openBraceToken)
+        let previousTreatNewlinesAsTokens = TreatNewlinesAsTokens
+        SetTreatNewlinesAsTokens(true)
+        EnterParens()
+        try {
+            let entries = System.Collections.Generic.List<ObjectInitializerEntrySyntax>()
+            loop {
+                SetTreatNewlinesAsTokens(false)
+                let token = PeekToken()
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken)) {
+                    break
+                }
+                let entryStart = Position
+                let entry = ParseObjectInitializerEntry()
+                if (Position == entryStart) {
+                    // No progress: consume one token and continue (or break) to avoid infinite loop.
+                    let bad = PeekToken()
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidExpressionTerm,
+                        GetSpanOfPeekedToken(),
+                        bad.Text))
+                    ReadToken()
+                    continue
+                }
+                entries.Add(entry)
+            }
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens)
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out let closeBraceToken)
+            SetTreatNewlinesAsTokens(false)
+            return ObjectInitializerExpression(openBraceToken, List(entries.ToArray()), closeBraceToken)
+        } finally {
+            ExitParens()
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens)
+        }
+    }
+
+    private func ParseObjectInitializerEntry() -> ObjectInitializerEntrySyntax {
+        // Entry kind is decided by lookahead: <identifier> assignment-operator ...
+        if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind)) {
+            var nameToken = ReadToken()
+            if (nameToken.Kind != SyntaxKind.IdentifierToken) {
+                nameToken = ToIdentifierToken(nameToken)
+                UpdateLastToken(nameToken)
+            }
+            let name = IdentifierName(nameToken)
+            let operatorToken = ReadToken()
+            let expression = ExpressionSyntaxParser(self).ParseExpression()
+            SetTreatNewlinesAsTokens(true)
+            var terminatorToken: SyntaxToken = default(SyntaxToken)!
+            if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken)) {
+                TryConsumeTerminator(out terminatorToken)
+            }
+            return ObjectInitializerAssignmentEntry(name, operatorToken, expression, terminatorToken)
+        } else {
+            // Child/content entry: any expression, typically `Button { ... }`
+            let expression = ExpressionSyntaxParser(self).ParseExpression()
+            var terminatorToken: SyntaxToken = default(SyntaxToken)!
+            if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken)) {
+                TryConsumeTerminator(out terminatorToken)
+            }
+            return ObjectInitializerExpressionEntry(expression, terminatorToken)
+        }
+    }
+
+    private func LooksLikeLambdaAhead(startOffset: int) -> bool {
+        // Fast-path to avoid speculative parsing (checkpoint/rewind) when there's clearly no lambda.
+        // We only attempt to parse a lambda if we can see a `=>` before a line break or a hard terminator.
+        // This is intentionally conservative: false means "don't try lambda parsing".
+        val MaxLookahead: int = 64
+        var depth = 0
+        var typeArgumentDepth = 0
+        var i: int = startOffset
+        while (i < startOffset + MaxLookahead) {
+            let t = PeekToken(i)
+            if (t.IsKind(SyntaxKind.EndOfFileToken)) {
+                return false
+            }
+            // Stop at line breaks.
+            // When newlines are treated as tokens, we see them directly.
+            // Trivia can place the newline on either side of the token boundary.
+            if (IsNewLineLike(t)) {
+                return false
+            }
+            if (i > startOffset && (TokenHasLeadingNewLine(t) || HasTrailingEndOfLineTrivia(PeekToken(i - 1)))) {
+                return false
+            }
+            // If we're not nested, these tokens end the current expression/statement region.
+            // Note: we intentionally do NOT treat `)` as a terminator here, because parenthesized lambdas
+            // have the shape `( ... ) => ...` and we still want to see the `=>` after the `)`.
+            if (depth == 0 && typeArgumentDepth == 0) {
+                if (t.IsKind(SyntaxKind.SemicolonToken)
+                    || t.IsKind(SyntaxKind.CommaToken)
+                    || t.IsKind(SyntaxKind.OpenBraceToken)
+                    || t.IsKind(SyntaxKind.CloseBracketToken)
+                    || t.IsKind(SyntaxKind.CloseBraceToken)
+                    || t.IsKind(SyntaxKind.EqualsToken)
+                    || t.IsKind(SyntaxKind.PlusEqualsToken)
+                    || t.IsKind(SyntaxKind.MinusEqualsToken)
+                    || t.IsKind(SyntaxKind.StarEqualsToken)
+                    || IsAssignmentOperator(t.Kind)) {
+                    return false
+                }
+            }
+            if (t.IsKind(SyntaxKind.FatArrowToken)) {
+                return true
+            }
+            // `(expr as Type)` should never be treated as a lambda parameter list candidate.
+            if (depth == 1 && t.IsKind(SyntaxKind.AsKeyword)) {
+                return false
+            }
+            if (t.IsKind(SyntaxKind.OpenParenToken)
+                || t.IsKind(SyntaxKind.OpenBracketToken)
+                || t.IsKind(SyntaxKind.OpenBraceToken)) {
+                depth++
+                i++
+                continue
+            }
+            if (t.IsKind(SyntaxKind.CloseParenToken)
+                || t.IsKind(SyntaxKind.CloseBracketToken)
+                || t.IsKind(SyntaxKind.CloseBraceToken)) {
+                if (depth > 0) {
+                    depth--
+                }
+                i++
+                continue
+            }
+            if (t.IsKind(SyntaxKind.LessThanToken)) {
+                typeArgumentDepth++
+                i++
+                continue
+            }
+            if (t.IsKind(SyntaxKind.GreaterThanToken)) {
+                if (typeArgumentDepth > 0) {
+                    typeArgumentDepth--
+                }
+                i++
+                continue
+            }
+            if (SyntaxFacts.LeadingGreaterThanCount(t.Kind) > 0) {
+                typeArgumentDepth = Math.Max(0, typeArgumentDepth - SyntaxFacts.LeadingGreaterThanCount(t.Kind))
+                i++
+                continue
+            }
+            i++
+        }
+        return false
+    }
+
+    private func ConsumeRequiredExpressionToken(kind: SyntaxKind) -> SyntaxToken {
+        if (!ConsumeTokenOrMissing(kind, out let token)) {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetSpanOfPeekedToken(),
+                Token(kind).Text))
+        }
+
+        return token
+    }
+
+}

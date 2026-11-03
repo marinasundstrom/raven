@@ -1,0 +1,116 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+import System.Text.*
+import System.Threading.*
+import Raven.CodeAnalysis.Text.*
+
+public open partial class SyntaxTree {
+    private field _compilationUnit: CompilationUnitSyntax?
+
+    private readonly field _sourceText: SourceText
+
+    private readonly field _options: ParseOptions
+
+    private field _diagnostics: IReadOnlyList<Diagnostic>?
+
+    internal init(sourceText: SourceText, filePath: string, options: ParseOptions?, isGenerated: bool = false) {
+        IsGenerated = isGenerated
+        _sourceText = sourceText
+        FilePath = filePath ?? "file"
+        _options = (options ?? ParseOptions()).Snapshot()
+    }
+
+    internal val IsGenerated: bool { get; }
+
+    val Encoding: Encoding => _sourceText.Encoding
+
+    val FilePath: string { get; }
+
+    val HasCompilationUnit: bool => _compilationUnit is not null
+
+    val Length: int => _sourceText.Length
+
+    val Options: ParseOptions => _options
+
+    func GetRoot(cancellationToken: CancellationToken = default) -> CompilationUnitSyntax
+        => _compilationUnit ?? throw InvalidOperationException("The syntax root has not been attached.")
+
+    func GetDiagnostics(cancellationToken: CancellationToken = default) -> IEnumerable<Diagnostic>
+        => _diagnostics ?? Enumerable.Empty<Diagnostic>()
+
+    func GetDiagnostics(syntaxNodeOrToken: SyntaxNodeOrToken) -> IEnumerable<Diagnostic> {
+        if _diagnostics is null { return Enumerable.Empty<Diagnostic>() }
+        let span = if syntaxNodeOrToken.IsNode { syntaxNodeOrToken.AsNode()!.FullSpan } else { syntaxNodeOrToken.AsToken().FullSpan }
+        return _diagnostics!.Where(d => DiagnosticIntersectsSpan(d.Location.SourceSpan, span))
+    }
+
+    func GetDiagnostics(span: TextSpan) -> IEnumerable<Diagnostic> {
+        if _diagnostics is null { return Enumerable.Empty<Diagnostic>() }
+        return _diagnostics!.Where(d => DiagnosticIntersectsSpan(d.Location.SourceSpan, span))
+    }
+
+    private static func DiagnosticIntersectsSpan(diagnosticSpan: TextSpan, span: TextSpan) -> bool =>
+        if diagnosticSpan.Length == 0 {
+            diagnosticSpan.Start >= span.Start && diagnosticSpan.Start <= span.End
+        } else {
+            diagnosticSpan.IntersectsWith(span)
+        }
+
+    func GetChanges(oldTree: SyntaxTree) -> IEnumerable<TextChange> => GetText().GetTextChanges(oldTree.GetText())
+
+    static func Create(compilationUnit: CompilationUnitSyntax, options: ParseOptions? = null, encoding: Encoding? = null, filePath: string? = null) -> SyntaxTree {
+        let sourceText = SourceText.From(compilationUnit.ToFullString(), encoding)
+        let syntaxTree = SyntaxTree(sourceText, filePath ?? "file", options)
+        let root = compilationUnit.WithSyntaxTree(syntaxTree)
+        syntaxTree.AttachSyntaxRoot(root)
+        syntaxTree.AttachDiagnostics(Array.Empty<InternalSyntax.DiagnosticInfo>())
+        return syntaxTree
+    }
+
+    internal static func Create(sourceText: SourceText, compilationUnit: CompilationUnitSyntax, options: ParseOptions, filePath: string? = null,
+        diagnostics: IEnumerable<InternalSyntax.DiagnosticInfo>? = null, isGenerated: bool = false) -> SyntaxTree {
+        let syntaxTree = SyntaxTree(sourceText, filePath ?? string.Empty, options, isGenerated)
+        let root = compilationUnit.WithSyntaxTree(syntaxTree)
+        syntaxTree.AttachSyntaxRoot(root)
+        syntaxTree.AttachDiagnostics(diagnostics ?? Array.Empty<InternalSyntax.DiagnosticInfo>())
+        return syntaxTree
+    }
+
+    internal func AttachSyntaxRoot(compilationUnit: CompilationUnitSyntax) { _compilationUnit = compilationUnit }
+
+    internal func AttachDiagnostics(diagnostics: IEnumerable<InternalSyntax.DiagnosticInfo>) {
+        _diagnostics = diagnostics.Select(d => Diagnostic.Create(d.Descriptor, GetLocation(d.Span), d.Args)).ToArray()
+    }
+
+    func GetLocation(span: TextSpan) -> Location {
+        let sourceText = GetText()
+        let (line, col) = sourceText.GetLineAndColumn(span)
+        return Location.Create(self, span)
+    }
+
+    func GetText() -> SourceText => _sourceText
+
+    func TryGetText([NotNullWhen(true)] out text: SourceText?) -> bool {
+        text = _sourceText
+        return true
+    }
+
+    func GetNodesInSpan(span: TextSpan) -> IEnumerable<SyntaxNode> {
+        if !TryGetText(out var syntaxTreeText) { throw ArgumentException("SourceText does not match the provided SyntaxTree.") }
+        let root = GetRoot()
+        return root.DescendantNodesAndSelf().Where(node => node.Span.Contains(span)).Reverse()
+    }
+
+    func GetNodeToReplace(span: TextSpan) -> SyntaxNode? {
+        let matchingNodes = GetNodesInSpan(span)
+        var node = matchingNodes.FirstOrDefault()
+        if span.Length == 0 { node = node?.Parent }
+        return node
+    }
+
+    func GetNodeForSpan(span: TextSpan) -> SyntaxNode? => GetNodesInSpan(span).FirstOrDefault()
+}

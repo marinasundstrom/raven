@@ -1,0 +1,124 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+
+public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode> where TNode: SyntaxNode {
+    static readonly field Empty: SeparatedSyntaxList<TNode> = SeparatedSyntaxList<TNode>(InternalSyntax.SyntaxList([]), null, 0)
+
+    internal readonly field Green: InternalSyntax.SyntaxList?
+
+    private readonly field _parent: SyntaxNode?
+
+    private readonly field _position: int
+
+    private readonly field _span: TextSpan
+
+    private readonly field _fullSpan: TextSpan
+
+    private field _separators: IEnumerable<SyntaxToken>?
+
+    private field _slots: SyntaxNodeOrToken[]?
+
+    init() {
+        Green = InternalSyntax.SyntaxList([], null)
+        _parent = null
+        _position = 0
+    }
+
+    internal init(greenList: InternalSyntax.SyntaxList, parent: SyntaxNode?, position: int) {
+        Green = greenList ?? throw ArgumentNullException(nameof(greenList))
+        _parent = parent
+        _position = position
+        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan)
+    }
+
+    init(item: SyntaxNodeOrToken) {
+        let nodes: GreenNode[] = [item.Green ?? throw ArgumentException("The item must contain a syntax node or token.", nameof(item))]
+        Green = InternalSyntax.SyntaxList(nodes)
+        GreenSpanHelper.ComputeSpanAndFullSpan(Green!, _position, out _span, out _fullSpan)
+    }
+
+    init(params items: SyntaxNodeOrToken[]) {
+        ArgumentNullException.ThrowIfNull(items)
+        let nodes = items.Select((item, index) => item.Green ?? throw ArgumentException("Item ${index} must contain a syntax node or token.", nameof(items))).ToArray()
+        Green = InternalSyntax.SyntaxList(nodes)
+        GreenSpanHelper.ComputeSpanAndFullSpan(Green!, _position, out _span, out _fullSpan)
+    }
+
+    val Count: int => if Green is null { 0 } else { (Green!.SlotCount + 1) / 2 }
+
+    val SeparatorCount: int => GetSeparators().Count()
+
+    val Span: TextSpan => _span
+
+    val FullSpan: TextSpan => _fullSpan
+
+    val self[index: int]: TNode {
+        get {
+            if Green is null { throw ArgumentOutOfRangeException(nameof(index)) }
+            let node = (Green!)[index * 2]!
+            let parent = _parent
+            let position = _position + Green!.GetChildStartPosition(index * 2)
+            return (TNode)SyntaxNodeCache.GetValue(node, s => s.CreateRed(parent, position))
+        }
+    }
+
+    func GetSeparator(index: int) -> SyntaxToken {
+        if index < 0 || index >= (Green?.SlotCount ?? 0) / 2 { throw IndexOutOfRangeException("Invalid separator index: ${index}") }
+        let separator = (Green!)[index * 2 + 1] as InternalSyntax.SyntaxToken
+        let position = _position + Green!.GetChildStartPosition(index * 2 + 1)
+        return if separator is not null { SyntaxToken(separator!, _parent, position) } else { default(SyntaxToken) }
+    }
+
+    func GetEnumerator() -> IEnumerator<TNode> => EnumerateItems().Where(x => x.IsNode).Select(x => x.AsNode()).OfType<TNode>().GetEnumerator()
+
+    private func EnumerateItems() -> IEnumerable<SyntaxNodeOrToken> {
+        if _slots is null { _slots = EnumerateItems2().ToArray() }
+        return _slots!
+    }
+
+    private func EnumerateItems2() -> IEnumerable<SyntaxNodeOrToken> {
+        if Green is null { return }
+        var i = 0
+        while i < Green!.SlotCount {
+            let node = Green!.GetSlot(i)
+            yield SyntaxNodeOrToken(node!, _parent, i, _position + Green!.GetChildStartPosition(i))
+            i++
+        }
+    }
+
+    func GetWithSeparators() -> IEnumerable<SyntaxNodeOrToken> => EnumerateItems()
+
+    func GetSeparators() -> IEnumerable<SyntaxToken> {
+        _separators ??= EnumerateItems().Where(x => x.IsToken).Select(x => x.AsToken()).OfType<SyntaxToken>()
+        return _separators!
+    }
+
+    func IEnumerable.GetEnumerator() -> IEnumerator => GetEnumerator()
+
+    static func ==(left: SeparatedSyntaxList<TNode>, right: SeparatedSyntaxList<TNode>?) -> bool => Equals(left, right)
+
+    static func !=(left: SeparatedSyntaxList<TNode>, right: SeparatedSyntaxList<TNode>?) -> bool => !Equals(left, right)
+
+    static func ==(left: SeparatedSyntaxList<TNode>?, right: SeparatedSyntaxList<TNode>?) -> bool => Equals(left, right)
+
+    static func !=(left: SeparatedSyntaxList<TNode>?, right: SeparatedSyntaxList<TNode>?) -> bool => !Equals(left, right)
+
+    func Equals(other: SeparatedSyntaxList<TNode>) -> bool => Green == other.Green && _parent == other._parent
+
+    override func Equals(obj: object?) -> bool => obj is SeparatedSyntaxList<TNode> other && Equals(other)
+
+    override func GetHashCode() -> int => HashCode.Combine(Green, _parent)
+}
+
+public static partial class SyntaxFactory {
+    static func SeparatedList<TNode>() -> SeparatedSyntaxList<TNode> where TNode: SyntaxNode => SeparatedSyntaxList<TNode>.Empty
+
+    static func SeparatedList<TNode>(params items: SyntaxNodeOrToken[]) -> SeparatedSyntaxList<TNode> where TNode: SyntaxNode => SeparatedSyntaxList<TNode>(items)
+
+    static func SingletonSeparatedList<TNode>(item: SyntaxNodeOrToken) -> SeparatedSyntaxList<TNode> where TNode: SyntaxNode => SeparatedSyntaxList<TNode>(item)
+}

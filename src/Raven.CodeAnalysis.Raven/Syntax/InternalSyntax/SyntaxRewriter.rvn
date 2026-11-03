@@ -1,0 +1,52 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.*
+import System.Collections.Generic.*
+alias GreenNode = Raven.CodeAnalysis.Syntax.GreenNode
+
+internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?> {
+    private field _recursionDepth: int
+
+    override func Visit(node: SyntaxNode?) -> SyntaxNode? {
+        if node is not null {
+            _recursionDepth++
+            let result = node!.Accept(self)
+            _recursionDepth--
+            return result
+        }
+        return null
+    }
+
+    override func DefaultVisit(node: SyntaxNode) -> SyntaxNode? => node
+
+    // Tokens and trivia are GreenNode siblings, not SyntaxNode subclasses.
+    new virtual func VisitToken(token: SyntaxToken) -> SyntaxToken => token
+
+    new virtual func VisitTrivia(trivia: SyntaxTrivia) -> SyntaxTrivia => trivia
+
+    virtual func VisitList(list: SyntaxList) -> SyntaxList? {
+        var rewritten: List<GreenNode?>? = null
+        var i = 0
+        while i < list.SlotCount {
+            let item = list[i]
+            let visited: GreenNode? = match item {
+                SyntaxNode node => Visit(node)
+                SyntaxToken token => VisitToken(token)
+                SyntaxTrivia trivia => VisitTrivia(trivia)
+                SyntaxList nested => VisitList(nested)
+                _ => item
+            }
+            if rewritten is null && !ReferenceEquals(item, visited) {
+                rewritten = List<GreenNode?>(list.SlotCount)
+                var previous = 0
+                while previous < i {
+                    rewritten!.Add(list[previous])
+                    previous++
+                }
+            }
+            if rewritten is not null && visited is not null { rewritten!.Add(visited!) }
+            i++
+        }
+        return if rewritten is null { list } else { (SyntaxList)list.With(rewritten!.ToArray()) }
+    }
+}

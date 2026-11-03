@@ -4912,3 +4912,9 @@ Cold `GetSymbolInfo` queries use normal compiler binding; no language-service
 cache API or syntax/highlighting change is needed. Runtime tests exercise present
 and absent values, fallbacks and the `Value` exception on modern .NET. Target
 contract tests do not demonstrate native neoCLR execution.
+
+
+Iterator pattern bindings use the same source-local-to-field mapping as iterator
+reads. CLI pattern assignment now resolves iterator fields as well as async fields;
+a successful declaration pattern must not leave the resumed field uninitialized.
+The syntax port exposed this through recursive structured-trivia enumeration.

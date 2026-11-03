@@ -3535,3 +3535,856 @@ compiler. The full emission in session 39453 still uses immutable PORT-101 and
 therefore predates PORT-103/104. Its result remains useful for exposing emission
 gaps, but final qualification must use the updated compiler. Source hashes remain
 unchanged; do not replace the active process. Its latest verified PID is 65774.
+
+## Raven syntax API completion checkpoint
+
+Author direction (2026-11-02): complete the syntax API, format the Raven code with
+opening braces on the same line, then commit the syntax port. Keep C# as the
+bootstrap implementation and retain shared C# tests. The pending syntax source
+batch is not yet qualified for that commit.
+
+### Required surface
+
+| Area | Current evidence and remaining work |
+| --- | --- |
+| Generated red/green nodes, factories, visitors, rewriters | The refreshed 1,095-source snapshot emitted successfully and passed all 339 Raven consumer checks; the paired C# consumer passes 334. This validates the frozen syntax-runtime snapshot, including the generic selector fix. Newly translated cyclic grammar parsers remain separately validated until their dependency cycle closes. |
+| Handwritten tokens, trivia, lists, nodes, locations and diagnostics | Pending Raven translations exist. Validate behavior and assembly ownership, not just successful source binding against bootstrap references. |
+| Small handwritten node/factory conveniences | Added ArrayExpressionSyntax, AssignmentStatementSyntax, CollectionExpressionSyntax, IdentifierName(string), and Block() translations. Syntax parsing passes; they are included in the current full emission snapshot. |
+| Macro and attribute syntax helpers | Translations now exist with same-line opening braces. The extension helper emits and matches eight C#/Raven runtime comparisons using bootstrap-owned nodes; full source-owned parity remains pending. |
+| Node extension/reflection helpers | SyntaxExtensions and SyntaxNodeReflectionExtensions are translated; reflection list membership was corrected in both versions. Reduced reflection-helper comparisons pass using bootstrap-owned nodes; the final context-fix rerun passes seven comparisons; full source ownership remains pending. SyntaxNodeExtensions and NormalizeWhitespace are now translated; reduced shared tests pass using bootstrap-owned nodes. Final full-source validation remains pending. |
+| Parsing entry points | Raven parser contexts/checkpoints/common recovery helpers pass 20 foundation checks. Seventeen declaration/name/directive/pattern/statement parser classes, including type declarations, compilation-unit, namespace, extension, enum, union and macros, now execute together in a Raven component: 301 shared C# and ownership checks pass. The expression parser and its interpolation partial plus LanguageParser remain to be ported and integrated. Green/red runtime nodes and contexts remain bootstrap-owned in the declaration component. Public SyntaxFactory parsing methods and SyntaxTree.ParseText still require the complete grammar cycle; do not substitute bootstrap delegation. |
+| Incremental text and submissions | Port SyntaxTree.Parsing, SyntaxTree.Submissions and required parser/incremental dependencies; validate WithChangedText and submission completeness. |
+| Generated-code handling | Translated; reduced emission succeeds after ref-to-in applicability fix. The parenthesized-pattern correction restores 16 classifier comparisons with concurrent reads; final full-source ownership validation remains pending. |
+| Formatting and diagnostics presentation | Formatter/SyntaxNormalizer translated; all 13 shared formatting tests pass against the Raven component after the generic closure field fix. PrettyGreenTreePrinter translated; 8 printer/annotation tests and an ownership check pass against the Raven component. The iterator receiver defect is fixed; all 11 printer/node component checks now pass. Validate the fully source-owned runtime. |
+| Small remaining bootstrap dependencies | DocumentationFormat is now translated (final integration validation pending); symbol contracts such as IModuleSymbol remain bootstrap dependencies. Record ownership explicitly; do not mistake a driver-added compiler reference for Raven implementation coverage. |
+
+### Layout and generators
+
+Use opening braces on the same line and blank lines between declarations in
+handwritten Raven syntax code and in
+Raven output from both C# and Raven generator implementations. Preserve comments,
+string/token contents, accessibility and semantics. Update emitter templates rather
+than only reformatting a disposable generated directory. Run the matching generator
+checks for both implementations and preserve C# output. Do not generate RavenDoc or
+the website during the port.
+
+Before formatting edits, the existing Raven-output generator tests pass 21 cases
+against each generator implementation. Logs are
+/tmp/syntax-format-generator-csharp-baseline.log and
+/tmp/syntax-format-generator-raven-baseline.log.
+
+### Active validation and next gate
+
+The previous immutable snapshot completed successfully: **1,095 sources**,
+1,840 warnings, 1741.1 seconds, exit 0 (`/tmp/syntax-api-stabilized-emit.log`).
+Its assembly `/tmp/raven-syntax-runtime-stabilized/Raven.CodeAnalysis.Raven.dll`
+passed **327 C# consumer checks** (`/tmp/syntax-api-stabilized-consumer.log`),
+including owned syntax/runtime types and loading all assembly types. This is
+coverage of the implemented surface, not completion of missing parser APIs.
+
+Completed full emission: **1,095 sources**, session **72506** (exit 0), immutable snapshot
+`/tmp/raven-syntax-current-model-snapshot`, seed
+`/tmp/raven-syntax-current-model-seed`, log `/tmp/syntax-api-current-model-emit.log`,
+output `/tmp/raven-syntax-runtime-current-model/Raven.CodeAnalysis.Raven.dll`.
+It incorporates current generated attribute slot ordering and token missing-state
+preservation. The newer cyclic grammar parser components remain excluded until
+their expression/statement/type-declaration dependencies are source-owned.
+
+Paired consumers are prepared at `/tmp/syntax-runtime-current-model/CSharp` and
+`/tmp/syntax-runtime-current-model/Raven`, with new printer, node annotation and
+missing-token regressions. Cross-assembly generated catalog/kind/facts checks
+remain Raven-only checks, comparing the port to the seed. The Raven consumer has now run: 338 passed and one failed; see the final checkpoint below. Do not infer current-source parity from the earlier
+frozen snapshot or bootstrap-owned dependencies in reduced parser tests.
+
+Final acceptance requires the completed API, an updated full build, both
+generator outputs, Raven formatting and shared C# tests against the final Raven
+assembly. The broader pattern suite has one independently verified pre-existing
+generic hierarchy inference failure. Detailed chronology, reductions, logs and
+validation scope are recorded in `raven-port-progress.md`.
+
+#### Union declaration parser and inherited property patterns
+
+- Translated `UnionDeclarationParser` directly to Raven, retaining nominal cases,
+  structural member lists, modifiers, constraints, separators and recovery. The
+  parser remains inheritable, with private implementation helpers.
+- The translation exposed shared binder diagnostic RAV1602 for inherited members
+  in property patterns (`TerminatorToken.Kind` and `IsMissing`). Pattern lookup
+  now uses `SymbolQuery` and ordinary lazy source-signature completion. The binder
+  is still C#-owned; this shared correction applies before target emission.
+- Focused baseline: 27 property-pattern tests passed. Five new source/metadata
+  runtime cases failed before the fix and pass afterward, including nested paths
+  and both matching and nonmatching values. Final combined C# run: 59 passed
+  (`/tmp/union-inherited-pattern-final.log`).
+- Raven component emitted successfully with one existing nullable-suppression
+  warning (`/tmp/union-parser-fixed-emit.log`). Shared C# union contracts plus
+  Raven ownership check: 12 passed (`/tmp/union-parser-raven-parity.log`).
+  These tests execute the Raven parser with bootstrap-owned grammar dependencies;
+  they do not establish a fully Raven-owned parser or native neoCLR execution.
+- Full current-model emission session 72506 remains live at this checkpoint;
+  its frozen inputs do not include this newer union parser component.
+
+#### Namespace parser: enum ordering, recovery and sibling closures
+
+- Translated `NamespaceDeclarationParser` directly, including braced/file-scoped
+  declarations, `module` tokens, modifiers, imports/aliases, nested declarations,
+  declaration separators and recovery. Helpers remain private; the class remains
+  inheritable. Mutable C# parameters use local mutable copies in Raven.
+- Baselines: 278 namespace/declaration tests and 162 enum tests passed. The port
+  exposed missing same-enum relational operators. Shared binding now admits them;
+  CLI comparisons honor the underlying signedness. Portable lowering carries the
+  same behavior for its existing Int32 enum capability. Four signed/unsigned
+  .NET runtime cases and four portable admission cases pass.
+- Misplaced imports/aliases previously reordered source during recovery. Both
+  C# parser entrypoints now retain them as skipped syntax at their original
+  positions. Raven namespace parsing and the common parser helper mirror this.
+  The affected union diagnostic fixture now places imports before declarations.
+- The namespace component exposed incompatible closure frames for self-only
+  local functions called by siblings. CLI closure setup now resolves their
+  lexical method owner before defining hidden parameters; source local-function
+  symbols themselves can be stored under the containing type. The namespace
+  runtime crash no longer reproduces. No Raven workaround replaces the local
+  functions, and native VM execution is not claimed.
+- Current focused C# validation: 77 passed, including adjacent closure/iterator
+  coverage (`/tmp/namespace-closure-final-tests.log`). Raven namespace component:
+  12 passed (`/tmp/namespace-parser-lexical-parity.log`), emitted with one existing
+  checkpoint-disposal warning. Grammar dependencies remain bootstrap-owned.
+- An additional gap surfaced while constructing enum tests: metadata constant
+  fields such as `uint.MaxValue` / `ulong.MaxValue` are rejected as enum member
+  initializers with RAV0412. Keep this open for the next stabilization slice.
+  The signedness runtime tests pass actual high unsigned enum values through
+  reflection so they test comparisons independently of constant evaluation.
+- Full syntax snapshot session 72506 remains live and predates this component.
+  Its completion will not establish current namespace/foundation source parity.
+
+Final namespace slice validation: **465 C# tests passed** across enum, namespace,
+directive-order and declaration-separator coverage
+(`/tmp/namespace-enum-verified.log`). The revised Raven parser foundations,
+including source-owned `PreserveMisplacedDirective`, passed **20 shared C# and
+ownership checks** (`/tmp/syntax-parser-recovery-final-parity.log`). Both focused
+and broader checks now pass; no native neoCLR execution was performed. Touched
+C# files were whitespace-formatted, Raven uses same-line opening braces and
+blank declaration spacing, and `git diff --check` passes.
+
+
+#### Full current-model snapshot completion
+
+Session 72506 completed successfully: 1,095 sources, 1,840 warnings, 1485.1 seconds,
+exit 0. The expanded Raven consumer suite then reported **338 passed, 1 failed**
+(`/tmp/syntax-api-current-model-raven-consumer.log`). The failing shared case is
+`PrettyGreenTreePrinterContractTests.FlattenedListsRetainOriginalSlotIndices`:
+`SyntaxFactory.List<TNode>(IEnumerable<TNode>)` throws `BadImageFormatException`
+in its generated selector lambda (`SyntaxList`1.rvn`, line 108). The matching
+C# consumer previously passed 334 tests (the Raven suite additionally includes
+five cross-assembly identity/catalog checks). Preserve this failure and reduce
+its generic method/lambda metadata before refreshing the next full snapshot.
+The copied-token missing-state and annotation regressions pass in the owned
+Raven assembly. This result supersedes earlier notes that session 72506 was live.
+The full syntax API and final syntax-batch commit remain incomplete.
+
+#### Generic selector metadata and enum initializer stabilization
+
+- Reduced the full-assembly `SyntaxFactory.List<T>` failure to a C# runtime test
+  compiling a generic LINQ selector in Raven. It reproduced the same
+  `BadImageFormatException`. Captureless lambdas now retain enclosing generic
+  method context through its closure frame. A second regression with a generic
+  enclosing type exposed alias-slot confusion; method aliases now select the
+  trailing closure parameters, keeping type and method parameters distinct.
+- Four new selector cases plus existing generic/sibling/iterator closure coverage
+  pass: **14 tests** (`/tmp/generic-selector-alias-tests.log`). The Raven syntax
+  source remains a direct translation; no selector workaround was introduced.
+- The prior enum-constant gap is resolved. Enum initializers now use the shared
+  binder constant evaluator, including metadata fields and arithmetic. Eight
+  initial regressions reproduced failures; the final suite also covers `1 + 1`.
+  Removed the stale expectation that `1 + 1` is nonconstant and retained a real
+  nonconstant case (`System.Environment.TickCount`). Maximum-valued members are
+  valid; implicit overflow is diagnosed on the following member that needs it.
+- Enum semantic/runtime/portable adjacent coverage: **39 passed**
+  (`/tmp/enum-constant-verified.log`). This is modern .NET and shared portable
+  contract validation, not native neoCLR execution. Compiler semantic/codegen
+  layers are still C#-owned; corresponding Raven layers have not yet been ported.
+- A fresh immutable **1,095-source** build is running as session **90333**:
+  `/tmp/raven-syntax-generic-selector-snapshot`, seed
+  `/tmp/raven-syntax-generic-selector-seed`, log
+  `/tmp/syntax-api-generic-selector-emit.log`, output
+  `/tmp/raven-syntax-runtime-generic-selector/Raven.CodeAnalysis.Raven.dll`.
+  It includes the generic selector compiler fix and current syntax foundations;
+  its compiler seed predates the later enum-constant correction. Do not mutate
+  that seed or restart the live process. Paired consumers are prepared under
+  `/tmp/syntax-runtime-generic-selector/{CSharp,Raven}`. Run the Raven consumer
+  only after successful emission. New cyclic grammar parsers remain separately
+  validated and excluded until their source-owned dependencies are available.
+
+The refreshed seed's C# syntax consumer passes **334 checks**
+(`/tmp/syntax-api-generic-selector-csharp.log`). Session 90333 was confirmed live
+at this checkpoint. Whitespace formatting and `git diff --check` pass; syntax
+completion and its final batch commit are still pending.
+
+#### Compilation-unit parser and combined declaration parser validation
+
+- Translated `CompilationUnitSyntaxParser` directly to Raven, including compilation
+  attributes, directives, global import blocks, declarations, top-level statements,
+  modifier handling and the single-member entry point. The class remains
+  inheritable with private helpers. Removed the same unused lookahead local in
+  C# and Raven. Raven formatting uses same-line braces and declaration spacing.
+- Baseline: 51 focused compilation-unit/directive/entry-point checks passed.
+  Added shared source/shape/EOF contracts for empty input, trivia, namespaces,
+  module tokens, imports/aliases, assembly attributes, global imports, top-level
+  statements, functions and macros.
+- The preceding misplaced-directive recovery changed the internal single-member
+  entry point to return an incomplete member for an import/alias. Two tests
+  reproduced this in both implementations. Start fragment parsing in the imports
+  state so standalone directives retain the prior null result.
+- Four new malformed global-import cases reproduced silent token loss. Both
+  implementations now preserve unexpected tokens as skipped trivia on the next
+  import keyword or closing brace, retaining text even when the brace is missing,
+  and report the relevant diagnostics. No new syntax model or grammar is required.
+- C# validation: **160 passed** (`/tmp/declaration-parser-cluster-recovery-csharp.log`).
+  The combined Raven declaration parser assembly builds with 18 warnings
+  (`/tmp/declaration-parser-cluster-emit.log`). Its inputs are 13 completed parser
+  classes, the Raven attribute extension, and test friend access; see
+  `/tmp/declaration-parser-cluster/command.json`. It uses the current seed at
+  `/tmp/raven-compilation-parser-seed`.
+- Unlike earlier isolated checks, compilation-unit calls now use Raven-owned
+  name, directive, constraint, attribute, enum, union, namespace and macro parser
+  implementations together. Expression, statement, type and extension declaration
+  parsers, green/red runtime nodes and parser contexts are still bootstrap-owned
+  in this component. This does not complete the source-owned grammar cycle.
+- Full syntax rebuild session 90333 remains live on its frozen earlier inputs;
+  it does not include this new compilation-unit parser.
+
+
+Final combined declaration-parser validation: **146 shared C# and ownership checks
+passed** against the Raven assembly
+(`/tmp/declaration-parser-cluster-verified-raven.log`); the matching C# contracts
+plus adjacent public entry-point/global-import tests passed **160 checks**.
+Touched C# files were whitespace-formatted; `git diff --check` passes. This
+completes the compilation-unit component slice, not the full syntax API or its
+pending commit. Extension/type/statement/pattern/expression parser dependencies
+remain to be translated.
+
+
+#### Extension declaration parser and recovery
+
+- Translated `ExtensionDeclarationParser` directly, preserving its closed class
+  shape, private helpers, generic constraints, methods, properties, indexers,
+  events, operators, conversions and accessor declarations. The Raven source
+  uses same-line opening braces and blank lines between declarations.
+- Baseline: 16 adjacent extension semantic/recovery tests passed. New shared
+  contracts exposed source-token loss in malformed members and accessors in the
+  C# implementation. Both sources now retain those tokens as skipped syntax and
+  preserve diagnostics. No grammar, highlighting or runtime-specific change is
+  required.
+- Validation on modern .NET: 32 focused C# tests passed
+  (`/tmp/extension-parser-recovery-tests.log`). The combined Raven component now
+  includes 14 parser classes and passes 162 shared contract and ownership checks
+  (`/tmp/extension-parser-cluster-raven.log`). Emission succeeded with 19 warnings.
+  Compilation-unit calls now also use the Raven extension declaration parser.
+- Syntax nodes, contexts and remaining expression/statement/type dependencies
+  are still bootstrap-owned in this component. These checks do not establish
+  native neoCLR execution or completion of the source-owned syntax API.
+- Touched C# sources and tests were whitespace-formatted. The full syntax build
+  remains active on its frozen earlier input; final syntax qualification and the
+  requested syntax batch commit remain pending.
+
+
+#### Completed generic-selector syntax-runtime validation
+
+The frozen 1,095-source snapshot completed with exit 0 in 1,428.6 seconds
+(1,840 warnings). All **339 Raven consumer checks pass** in
+`/tmp/syntax-api-generic-selector-raven-consumer.log`; its paired C# consumer
+passed 334. This supersedes the earlier 338/339 result and verifies the generic
+selector correction against the actual Raven syntax runtime. Build evidence is
+`/tmp/syntax-api-generic-selector-emit.log`; the immutable inputs and command are
+under `/tmp/raven-syntax-generic-selector-snapshot`.
+
+The newer declaration parser components are not included in this snapshot.
+Public parsing entry points, the remaining grammar dependencies and final syntax
+batch qualification remain incomplete. Validation ran on modern .NET, not native
+neoCLR.
+
+
+### Pattern parser translation and shared stabilization
+
+- Translated `PatternSyntaxParser` beside C#, preserving its inheritable class,
+  private options/helpers, logical/comparison/range patterns, property/sequence/
+  dictionary/positional patterns, designations and speculative checkpoints.
+  Indexed loops use equivalent Raven while loops; C# switches become matches.
+  Opening braces and declaration spacing follow the Raven convention.
+- Baseline: 47 existing pattern syntax tests passed. Shared internal entry-point
+  contracts exercise source/shape/EOF behavior, implicit bindings, precedence,
+  guards and incomplete-input recovery. They execute the Raven parser directly
+  in the component assembly rather than going through bootstrap public factories.
+- Comparison/range operands and identifier constants previously consumed outer
+  `and`, `or` and `|` tokens as expression operators. Both pattern sources now
+  request an explicit expression-parser boundary. Parenthesized operands keep
+  ordinary operators. Public syntax regressions cover the same cases.
+- Compiling the direct translation exposed false `RAV0269` diagnostics for an
+  `out` parameter assigned in an `if` condition. The shared binder now analyzes
+  that condition before either branch and follows unary operands. Four positive
+  repros failed before the correction; short-circuit negative coverage remains.
+  The owning binder has not yet been ported, so there is no Raven binder copy to
+  patch at this stage.
+- Recovery contracts exposed missing closing-delimiter diagnostics. Both parser
+  implementations now use a local required-token helper that reports
+  `CharacterExpected` while preserving missing tokens and source text. Property
+  clause speculation still rewinds diagnostics when rejecting a clause.
+- A translation-only missing loop increment caused the property-pattern case to
+  hang. Sequential execution isolated it; the increment is restored and the
+  existing property contracts pass. No Raven language workaround was introduced.
+- Final modern .NET validation: **171 C# tests pass**
+  (`/tmp/pattern-parser-recovery-csharp.log`), including pattern/range and by-ref
+  semantic/runtime adjacency. The 15-parser Raven component emitted successfully
+  with 30 warnings and passes **207 shared contract and ownership checks**
+  (`/tmp/pattern-parser-verified-raven.log`). Inputs are recorded in
+  `/tmp/declaration-parser-cluster/command.json`. Touched C# files and tests were
+  whitespace-formatted; `git diff --check` passes.
+- The component still uses bootstrap expression/statement/type parsers, contexts
+  and green/red nodes. Its own pattern calls now use Raven code. No native neoCLR
+  execution is claimed; these parser and binder rules are shared before target
+  lowering. No highlighting token or runtime bridge encoding changed. Language
+  docs/grammar, compiler API docs, changelog and target notes record the fixes;
+  website generation and ravendoc generation were not run.
+- The 1,095-source syntax-runtime snapshot has separately passed 339 checks; it
+  predates this grammar slice. Public parsing entry points, the remaining grammar
+  cycle and the final syntax batch commit are still pending. The next dependency
+  slice is the statement/type/expression grammar cycle.
+
+The earlier committed port history above is retained in full. The syntax
+checkpoint had temporarily replaced it in the working tree; restoring it keeps
+prior stabilization records alongside the current evidence.
+
+
+### Statement parser translation and local-function reachability
+
+- Translated `StatementSyntaxParser` directly, preserving the inheritable class,
+  private helpers and abrupt-transfer parsing mode. The source covers control
+  flow, labels, local functions/types, local declarations, parameter patterns,
+  exception handling, scoped resource declarations, macros and recovery. Nested
+  statement parsers inherit the expression-mode flag as in C#. Raven formatting
+  uses same-line braces and blank lines between declarations.
+- Removed an unused incomplete-statement lookahead and explicitly initialized
+  the nullable `LastStatement` property to null in both sources. Corrected the
+  Raven pattern parser's diagnostic interpolation spelling to preserve its C#
+  message. There is no syntax-model/generator change in this slice.
+- Baseline: 79 statement/parameter tests passed. Added 51 shared internal-parser
+  contracts for source and node shape, EOF, parameter lists, skipped tokens,
+  abrupt-transfer expression mode and inheritance of that mode in nested blocks.
+- Emission exposed false unreachable-code warnings on local functions declared
+  after terminal code. Four reduced public `AnalyzeControlFlow` cases reproduced
+  the defect before correction. The shared control-flow walker now excludes
+  local declarations from enclosing executable flow without reviving the endpoint.
+  A separate regression confirms that unreachable statements inside a local
+  function still receive diagnostics. The semantic-model implementation has not
+  yet been ported, so there is no Raven copy of that walker to patch yet.
+- Final modern .NET validation: **181 C# checks pass**
+  (`/tmp/statement-parser-verified-csharp.log`), including statement/parameter and
+  control-flow/throw-diagnostic adjacency. The 16-parser Raven component builds
+  with 46 warnings in 102 seconds and passes **258 shared contract and ownership
+  checks** (`/tmp/statement-parser-verified-raven.log`). The declaration assembly
+  and recorded command remain under `/tmp/declaration-parser-cluster`.
+- Compilation-unit, namespace, extension and macro calls now use Raven-owned
+  statement/parameter parsing where the translated source calls it. Expression
+  and type parsers, green/red nodes and contexts are still bootstrap-owned in this
+  component. Calls made inside those bootstrap parser dependencies remain C#.
+  These tests do not establish native neoCLR execution or close the grammar cycle.
+- Compiler API docs, local-function language docs, changelog and target integration
+  notes record the shared reachability correction. No grammar token, highlighting
+  rule or CLI bridge encoding changed. C# formatting and `git diff --check` pass;
+  ravendoc and website generation were not run.
+- Next dependency slice: `TypeDeclarationParser`, followed by the expression parser
+  and interpolation partial, `LanguageParser`, and integration of source-owned
+  public parsing entry points. Final syntax API qualification and its requested
+  batch commit remain pending.
+
+
+### Type-declaration parser and explicit indexer stabilization
+
+- Translated `TypeDeclarationParser` beside C#, preserving the inheritable class,
+  private helpers, class/struct/record/interface headers, base/permits lists,
+  constructors (including `self` and `base` initializers), members, accessors,
+  operators, delegates, case fields and parameter parsing. Raven code uses
+  same-line opening braces and declaration spacing, with direct control flow.
+- Baseline: 49 focused class/struct/property/parameter checks passed. Added 43
+  shared contracts for whole declarations, member shapes, explicit interfaces,
+  recovery and lookahead checkpoint restoration. The initial C# run failed two
+  contracts; the initial Raven run reproduced exactly those two failures, with
+  its other 299 checks passing.
+- Both sources now recognize reserved `self` after an interface qualifier when
+  parsing an explicit indexer. `self` is not made an ordinary type identifier.
+  Both accessor-list parsers preserve unexpected input in skipped trivia on a
+  missing accessor keyword instead of discarding it.
+- End-to-end .NET validation exposed missing explicit-interface symbol links.
+  The shared binder now records the source indexer's interface property and the
+  interface getter for expression-bodied indexers. Accessor-list methods retain
+  their existing implementation links. New symbol/runtime cases verify getter,
+  setter and expression-bodied getter dispatch through the interface, returning
+  the expected value. The binder itself is not ported yet, so there is no Raven
+  binder source copy to change at this stage.
+- Final validation: **156 C# checks pass**
+  (`/tmp/type-parser-verified-csharp.log`), covering class/record/struct/property
+  syntax, parameter lists, interface accessibility, generic implementation flags,
+  cross-tree explicit implementations and runtime dispatch. The 17-parser Raven
+  component builds with 55 warnings in 125.1 seconds and passes **301 shared
+  contract and ownership checks** (`/tmp/type-parser-verified-raven.log`).
+- Translated calls now use the Raven type parser and its statement/pattern/name
+  dependencies together. Expression parsing and its internally constructed
+  parsers remain bootstrap-owned, as do contexts and syntax nodes in this reduced
+  component. The separate full syntax-runtime snapshot remains the previously
+  qualified 1,095-source/339-check snapshot; these new grammar parsers are not
+  included in it yet.
+- Changelog, syntax/semantic API docs, interface language docs, grammar and target
+  integration notes record the fixes. No highlighting token or new bridge
+  representation was added. Runtime evidence is modern .NET only; shared parser
+  and binder corrections apply before target-specific lowering. C# whitespace
+  formatting and `git diff --check` pass; no ravendoc or website generation ran.
+- Next: port `ExpressionSyntaxParser` and its string interpolation partial, then
+  `LanguageParser`; close the source-owned grammar cycle and validate public
+  `SyntaxFactory`/`SyntaxTree` parsing APIs before the pending syntax batch commit.
+
+### Interpolation helper port and stabilization (2026-11-02)
+
+- Extracted the C# interpolation partial into internal static
+  `StringInterpolationParser`, retaining the scanning algorithms and existing
+  expression-parser call sites. Added its direct Raven translation. Embedded
+  expressions still depend on bootstrap `LanguageParser`; the full expression
+  parser and public parsing entry points are not yet ported.
+- Added 32 shared C# contracts for detection, escaping, interpolation boundaries,
+  missing end tokens, raw multiline text, inner text and outer trivia. Replaced
+  an obsolete private-reflection trivia test with direct helper access and
+  current Raven interpolation syntax.
+- The initial translation exposed a parenthesized-header/cast ambiguity.
+  `if (ready)` followed by a line-broken assignment incorrectly consumed the
+  body as a cast operand. Shared expression-parser lookahead now preserves the
+  header boundary. Three added statement contracts cover if, while and a real
+  same-line cast. Focused C# validation: 216 passed
+  (`/tmp/interpolation-final-csharp.log`); adjacent conditional/loop/cast parser
+  validation: 39 passed (`/tmp/interpolation-header-adjacent.log`).
+- Initial Raven execution passed 331/332 checks. Raw multiline text was wrongly
+  decoded because the compiler equated the two same-signature local
+  `AddTextSegment` functions in different methods. A reduced test failed for
+  both capturing and noncapturing functions before the fix. Shared symbol
+  equality and hashing now include local-function declaration identity.
+  The reduced regressions plus symbol/closure tests pass 36/36
+  (`/tmp/interpolation-identity-tests.log`).
+- Final Raven parser component build succeeded in 139.4 seconds with 60 warnings
+  (`/tmp/declaration-parser-cluster-emit.log`). All 336 shared C# and ownership
+  checks pass (`/tmp/interpolation-final-raven.log`), including the previously
+  failing raw-text check. The component contains 17 parser classes plus the
+  source-owned interpolation helper; bootstrap syntax runtime/contexts and
+  embedded-expression parsing remain explicit dependencies.
+- Source and test whitespace formatting and `git diff --check` pass. Changelog,
+  language rules, compiler API docs and neoCLR integration notes record both
+  fixes. No ravendoc or website generation ran. These are modern .NET results,
+  not native neoCLR execution or completed public syntax API integration.
+- Next: port the main `ExpressionSyntaxParser`, then `LanguageParser`, close
+  the grammar cycle and qualify the complete public syntax API before the
+  pending syntax batch commit.
+
+### Main expression parser translation (2026-11-02)
+
+- Targeted baseline: 1,762 syntax checks passed before this slice
+  (`/tmp/expression-port-syntax-baseline.log`).
+- Translated the complete C# `ExpressionSyntaxParser` into Raven, including
+  operators, assignments, lambda lookahead/bodies/attributes, calls and trailers,
+  collections, macros, matches, conditionals and recovery. The translation keeps
+  the algorithms and explicit private members. Per author direction, unconditional
+  `while (true)` loops become Raven `loop` statements. Indexed loops preserve
+  their increments on both ordinary and continue paths.
+- Added 44 shared expression contracts. The first C# run exposed missing
+  closing-delimiter diagnostics in tuples and collections; both parser sources
+  now report required closing delimiters while retaining missing tokens and input.
+  C# syntax validation passed 1,806 checks
+  (`/tmp/expression-delimiter-csharp.log`).
+- Compiling the translation exposed missing definite assignment for forwarded
+  `out` calls in a `while` condition. Four focused positive cases failed before
+  the shared method-body analyzer fix; short-circuit negative cases remained
+  diagnostic. After the fix, 107 by-ref/assignment checks pass
+  (`/tmp/expression-while-out-fixed.log`).
+- The full Raven parser component built successfully in 211.7 seconds with
+  116 warnings (`/tmp/declaration-parser-cluster-emit.log`). All 406 shared C#
+  and ownership checks pass (`/tmp/expression-component-tests.log`), including
+  the 44 new expression contracts and existing C# return/throw/await parser tests.
+  The tests select the Raven expression-parser type explicitly; the component
+  now contains 18 parser classes plus the interpolation helper.
+- C# whitespace formatting and `git diff --check` pass. The Raven translation
+  uses same-line opening braces and blank lines between declarations. Changelog,
+  syntax/semantic API docs and target integration notes record the two shared
+  fixes. Existing grammar and highlighting tokens remain unchanged.
+- `LanguageParser` and its `ParseResult` remain the next dependency; bootstrap
+  syntax runtime/contexts and embedded interpolation parsing still prevent a
+  claim of fully source-owned public parsing. No syntax batch commit or ravendoc/
+  website generation has run.
+
+
+### Language parser and immutable local declarations (2026-11-02)
+
+- Ported `LanguageParser` and the value-record `ParseResult`, closing the grammar
+  parser cycle within the component. Added 16 shared entry-point/result contracts
+  and reused parser-context contracts. Specialized name requests previously fell
+  through to general expression parsing; the initial C# baseline exposed this
+  failure (17 passed, one failed). Both implementations now dispatch names first.
+- Applied the author-directed `let` convention to parser locals that are never
+  reassigned, including single-assignment `out let` declarations. Retained mutable
+  locals and mutable properties. Recorded this convention and the permitted
+  `while (true)` to `loop` translation in AGENTS and the bootstrap procedure.
+- This cleanup exposed shared binder defects: declaring calls incorrectly rejected
+  readonly output initialization, untyped output declarations could prevent overload
+  selection, and generic pre-inference treated newly declared outputs as reads.
+  The shared binder now distinguishes initialization from subsequent writes,
+  obtains output types from the selected parameter, and excludes unknown outputs
+  from overload preference and generic input inference. Later readonly writes
+  remain errors; overloads differing only in unknown output type remain ambiguous.
+  Declaration-state/cache entries are refreshed with the resolved local type.
+- The required generator/solution build succeeded (`/tmp/out-declaration-model-build.log`).
+  Final focused C# validation passed 158 by-ref, assignment, overload and parser
+  checks (`/tmp/out-declaration-final-tests.log`). A separate runtime regression
+  validates the documented `Math.DivRem(..., out let remainder)` initializer and
+  following use (one passed, `/tmp/out-declaration-doc-example.log`).
+- The final Raven parser component built in 208.2 seconds with 117 warnings and
+  passed all 424 shared C# and ownership checks
+  (`/tmp/language-parser-raven-final.log`). It contains 19 parser classes, the
+  interpolation helper and ParseResult. Lexer, contexts and green/red syntax
+  runtime remain bootstrap-owned dependencies of this component.
+- Changelog, language reference, .NET interop website source, semantic/syntax API
+  docs and neoCLR bridge notes record these corrections. Validation executes on
+  modern .NET only; native neoCLR execution remains unverified. No RavenDoc or
+  website generation ran.
+- Public syntax API completion remains pending. In particular, integrate Raven
+  SyntaxFactory parsing and SyntaxTree parsing/incremental/submission APIs with
+  the source-owned runtime. Review the existing C# entry points that discard
+  parse diagnostics or ignore `consumeFullText` in statement parsing, and detached
+  node diagnostic retrieval, with shared regressions before claiming parity.
+  The pending syntax batch remains uncommitted until that completion gate passes.
+
+
+### Internal parsing entry-point diagnostics (2026-11-03)
+
+- The preceding immutable-local slice made verified progress: 159 focused C#
+  checks and 424 Raven component checks passed. This slice advances the pending
+  public parsing API integration by correcting its internal entry points first.
+- Existing LanguageParser contracts passed before changes. Three additional
+  cases exposed two failures: node-only ParseSyntax dropped recovery diagnostics,
+  and ParseStatement ignored consumeFullText. C# and Raven now preserve context
+  diagnostics on node-only green roots and use the result-producing statement
+  path for full-input validation. The ParseResult API still returns its diagnostic
+  list separately, avoiding duplicate attachment by its callers.
+- Targeted C# build and 117 parser checks pass (`/tmp/parser-entry-tests.log`).
+  Source/test whitespace formatting and diff checks pass. Changelog and syntax
+  API documentation record the behavior and explicitly retain the outstanding
+  public detached-node diagnostic retrieval/integration work.
+- Final Raven component build succeeded in 197.0 seconds with 118 warnings;
+  all 427 shared C# and ownership checks pass (`/tmp/parser-entry-raven-tests.log`).
+  The reduced component still uses bootstrap lexer, contexts and syntax runtime.
+  Validation ran on modern .NET; no native neoCLR execution or documentation
+  generation was performed. Public API completion and the syntax batch commit
+  remain pending.
+
+
+### Public factory parsing translation (2026-11-03)
+
+- The previous internal-entry-point slice made verified progress (117 focused C#
+  and 427 Raven component checks passed). This slice translates all public
+  SyntaxFactory parsing overloads into a separate partial file, preserving the
+  bootstrap API, fragment offsets, fallback shapes and member restrictions.
+  Locals use let and Raven declaration formatting is retained.
+- Added 11 shared C# factory contracts covering string/SourceText overloads,
+  offsets, source preservation and member acceptance/rejection. These plus the
+  internal entry-point contracts pass 30/30 against C#
+  (`/tmp/factory-parser-csharp.log`). Public detached-node diagnostics and
+  compilation-unit factory diagnostic retention remain explicit pending gaps;
+  this translation does not redefine their current behavior as final correctness.
+- The Raven parser/factory component built successfully in 215.8 seconds with
+  118 warnings. All 439 shared C# and ownership checks pass
+  (`/tmp/factory-parser-raven.log`), including the 11 new factory contracts and
+  explicit assembly ownership of the public factory and LanguageParser.
+  This validates source-owned factory/grammar code with bootstrap-owned lexer,
+  contexts and green/red syntax runtime, not full runtime integration.
+- Test whitespace formatting and git diff checks pass. No RavenDoc/website
+  generation ran; validation executes on modern .NET, not native neoCLR.
+  Next: SyntaxTree parsing, incremental/submission APIs and diagnostic retrieval,
+  then full-runtime integration and the pending syntax batch commit.
+
+
+### SyntaxTree parsing and submission translation (2026-11-03)
+
+- The preceding factory slice made verified progress: 30 focused C# checks and
+  439 Raven component checks passed. Before this slice, 30 tree/submission checks
+  and 39 incremental-update checks passed against C#
+  (`/tmp/syntax-tree-port-baseline.log`, `/tmp/syntax-tree-incremental-baseline.log`).
+- Translated SyntaxTree.Parsing, including full parsing, generated-text parsing,
+  incremental replacement, recovery/fallback policies, diagnostic span updates,
+  fallback reason/exception and SyntaxFactory.ParseSyntaxTree overloads.
+  The candidate-parent loop preserves advancement on every continue path.
+  Added SyntaxTree.Submissions and the SubmissionCompleteness enum, preserving
+  lexical/directive/trailing-missing-syntax classification and cancellation.
+- Local values use let unless reassigned. ParseTextCore attaches the final root
+  directly instead of reassigning a temporary. All three new files parse without
+  diagnostics (`/tmp/syntax-tree-port-parse-check.log`); this is syntax validation,
+  not evidence that binding or emitted runtime behavior is correct.
+- Started full integration build in session 47716: immutable 1,116-source inputs
+  `/tmp/raven-syntax-public-integration-snapshot`, manifest with hashes and exact
+  command; seed `/tmp/raven-syntax-public-integration-seed`; output expected at
+  `/tmp/raven-syntax-runtime-public-integration/Raven.CodeAnalysis.Raven.dll`;
+  log `/tmp/syntax-api-public-integration-emit.log`. It includes source-owned
+  runtime, lexer, contexts, grammar, factories and tree APIs. Poll the same
+  process/handle until terminal; do not restart from an observation timeout.
+- Expanded paired consumers at `/tmp/syntax-runtime-public-integration` reuse
+  factory, tree, submission and incremental C# tests. The C# consumer passes
+  414 checks (`/tmp/syntax-public-integration-csharp.log`). The Raven consumer
+  has not run: full emission is pending, and incremental tests also require
+  the unported public PrettySyntaxTreePrinter/PrinterOptions API. Preserve those
+  tests and port that API rather than mistaking bootstrap printing for coverage.
+- Public detached-node diagnostics and compilation-unit factory diagnostic
+  retention remain known gaps. Full integration acceptance, permanent project
+  wiring and the syntax batch commit remain pending. No RavenDoc/website
+  generation ran; no native neoCLR execution is claimed.
+
+
+### Public syntax-tree printer translation (2026-11-03)
+
+- The previous tree API slice made progress by translating parsing/incremental/
+  submission APIs and starting the immutable integration build. Re-polled session
+  47716 and confirmed its compiler process remains active; no restart occurred.
+- Translated PrinterOptions and the complete PrettySyntaxTreePrinter into Raven,
+  including extension entry points, list grouping, trivia/structured trivia,
+  locations/spans, colors and annotation/diagnostic presentation. The private
+  PrintableChild helper retains its class/reference semantics and constructors.
+  Locals use let unless mutated. Nullable annotations follow the reflected APIs;
+  GetTokenText no longer takes an unnecessary ref parameter in either source.
+- Existing printer baseline passed two checks. Three new finite-depth cases
+  exposed two failures: traversal began at MaxDepth rather than zero. A further
+  trivia-depth case failed because trivia ignored the bound. Both implementations
+  now count from zero and bound trivia/structured-trivia and child presentation.
+  The seven printer cases plus 39 adjacent incremental cases pass against C#
+  (`/tmp/tree-printer-final-csharp.log`).
+- The Raven printer component emits successfully (18.4 seconds, 29 warnings;
+  `/tmp/tree-printer-final-emit.log`). Final component validation passes 16 checks
+  (`/tmp/public-printer-final-parity.log`): seven shared cases, explicit assembly
+  ownership, and eight exact-output comparisons covering 32 presentation
+  combinations. Nodes/parser remain bootstrap-owned in this reduced component.
+- Initial component aliases used the same names as enclosing namespace types,
+  allowing the shared tests to select bootstrap code. Unique TestPrinter and
+  TestPrinterOptions aliases plus an explicit ownership assertion corrected the
+  harness. Only the final 16-check run is authoritative Raven printer evidence;
+  it supersedes the earlier five-check result.
+- Changelog/API docs record the depth fixes; whitespace formatting and diff
+  checks pass. No RavenDoc/website generation or native neoCLR execution ran.
+- The ongoing 1,116-source snapshot predates this printer translation and the
+  latest C# printer corrections. Keep it immutable and inspect its terminal
+  diagnostics before preparing the next integration snapshot with these files.
+  Full source-owned integration, detached-node diagnostics, permanent parity
+  project wiring and syntax batch commit remain pending.
+
+
+### Syntax completion gate: diagnostics and integration (2026-11-03)
+
+- Author direction: continue until the syntax work is committed, then pause the
+  active porting goal. Do not pause before the commit or mark the full compiler
+  port complete. The objective remains broader than this syntax milestone.
+- Corrected public compilation-unit factory parsing to retain its source tree and
+  diagnostic locations. Regression testing exposed zero-width EOF diagnostics
+  being omitted from span queries; both SyntaxTree implementations now include
+  diagnostic markers at either boundary without changing general TextSpan overlap.
+  The class case also exposed an absent missing-closing-brace diagnostic, now
+  reported by both type parsers while preserving source and missing-token shape.
+- Detached node diagnostics now preserve immutable SourceText/path context on
+  diagnostic copies attached by node-only parser entry points. DiagnosticInfo
+  converts this context to accurate external-file locations (SourceTree remains
+  null), including nonzero input offsets. Nonrecursive node queries expose directly
+  attached green diagnostics. Incremental ParseResult diagnostics remain separate.
+  Focused factory/tree/parser/coordinate/printer validation passed 174 checks
+  (`/tmp/detached-diagnostics-tests.log`). New regressions failed before corrections.
+- First full integration snapshot (1,116 sources, session 47716) is terminal with
+  two RAV0103 errors in static local functions calling siblings in submission
+  completeness. The reduced runtime case failed before the shared binder fix.
+  Static local lookup now admits explicitly static siblings across the scope
+  boundary while still excluding captured state/nonstatic siblings. Fifteen
+  focused/adjacent checks pass (`/tmp/static-sibling-tests.log`). The Raven binder
+  is not ported yet; this shared C# correction supplies the bootstrap compiler.
+- Started the next immutable snapshot: 1,118 sources, session 20216,
+  `/tmp/raven-syntax-public-integration-v2-snapshot`, seed
+  `/tmp/raven-syntax-public-integration-v2-seed`, output
+  `/tmp/raven-syntax-runtime-public-integration-v2/Raven.CodeAnalysis.Raven.dll`,
+  log `/tmp/syntax-api-public-integration-v2-emit.log`. It includes the printer,
+  diagnostic changes and corrected static-sibling bootstrap. Poll the existing
+  session/process until terminal rather than restarting on an observation timeout.
+- Wired complete syntax-tree generation into the permanent Raven project, using
+  intermediate generated files and an explicit bootstrap symbol-contract reference.
+  MSBuild input validation reports 1,118 unique compile files (989 generated) and
+  no duplicate legacy kind/facts inputs (`/tmp/syntax-port-project-inputs.log`).
+  Shared syntax/parser tests and assembly-ownership checks now belong to the
+  permanent CompilerParity projects. C# passes 875 checks
+  (`/tmp/permanent-syntax-parity-csharp.log`). Permanent Raven project validation
+  is still pending the current snapshot result and actual project build.
+- Repository baseline stopped on AttributedCustomUnionTests (struct case): the
+  documentation constructor xref points to method__ctor.html instead of index.html
+  (`/tmp/syntax-final-repository-baseline.log`). This fixture invokes documentation
+  generation. Do not claim a green full baseline or a verified pre-existing failure.
+  A compiler-only continuation excludes the three documentation-generator test
+  classes to honor the porting constraint: session 93275,
+  `/tmp/syntax-compiler-baseline-no-docs.log`; exact exclusions are in
+  `/tmp/syntax-baseline-doc-exclusions.txt`. Generator parity runs separately in
+  session 59885 (`/tmp/syntax-final-generator-parity.log`).
+- Remaining gates: inspect v2 diagnostics, fix integration/runtime defects, run
+  the actual permanent Raven project/consumer and generator checks, inspect broad
+  compiler results, finish docs/checklist/formatting, commit the syntax batch,
+  then explicitly pause the active goal as requested. Native neoCLR execution
+  has not been validated.
+
+
+### Syntax commit gate: quoter and final integration (2026-11-03)
+
+- The 1,118-source v2 snapshot emitted successfully in 1,729.4 seconds with
+  1,983 warnings. Its C# consumer passed 827/875 checks; 48 traversal-dependent
+  checks exposed iterator address-taking that wrote temporary locals while
+  subsequent yields read hoisted fields. The initial TryParse/out reduction hit framework projection diagnostics, so
+  a source-defined out method is used to isolate shared iterator lowering.
+- RavenQuoter and options are now translated. The separately emitted component
+  passed 12 C# checks, including explicit assembly ownership. These tests still
+  use bootstrap-owned nodes; full project ownership remains the final gate.
+- Quoter stabilization fixed nested-type static lookup, local-function parameter
+  shadowing, nested return-type inference, tuple capture traversal and protected
+  loop exits. A generic-array delegate regression exposed a persisted Reflection.Emit
+  definition-lookup limitation; a CLI reflection adapter retains the actual delegate
+  signature. The 59 focused/adjacent runtime checks pass before the iterator fix.
+- Generator parity completed: 69 C# checks and 78 Raven checks passed.
+- The compiler-only baseline hit a stale macro-expansion test expecting the old
+  attribute spelling. Its assertion now expects `#[ComponentBoundary]`, and focused
+  macro tests pass. The earlier RavenDoc link failure remains separately recorded;
+  documentation generation is excluded from the follow-up compiler baseline.
+- The actual repository project parity script is running with quoter, full syntax
+  generation and the current compiler, logged at /tmp/syntax-final-project-parity.log.
+  A passing emission alone is not acceptance: the C# tests must execute against
+  the Raven-owned runtime before committing and honoring the requested pause.
+
+
+Final-gate update:
+
+- Permanent C# parity: 886 passed, including the quoter tests.
+- Changed runtime slices: 120 passed in four isolated batches; adjacent loop/goto/
+  disposal coverage: 28 passed. Iterator-focused coverage: 39 passed, including a
+  source-defined out-method regression that isolates hoisted storage from optional
+  framework projections.
+- `dotnet format whitespace Raven.sln --include <128 touched C# files> --no-restore`
+  completed successfully; diff whitespace checks pass. No analyzer/style rewrite.
+- The first actual Raven project invocation was deliberately terminated before
+  completion when its default documentation-generation setting was noticed.
+  The port project now disables Raven/XML/Markdown documentation generation.
+  The final Raven invocation is logged at /tmp/syntax-final-raven-project-parity.log
+  with those settings also passed explicitly. This restart is not a successful
+  emission result. Historical component snapshots remain independently recorded.
+- The compiler-only follow-up baseline excludes the three documentation-generating
+  test classes. Dependency builds still generated Core/Macros intermediate docs
+  before this setting was noticed; no site generation was requested or performed.
+
+
+The broader compiler baseline exposed one more shared defect in constrained generic
+match recursion. It reproduces with the earlier v2 seed as well as the current
+compiler: `Evaluate(left)` and `Evaluate(right)` failed to infer the enclosing T.
+Ordinary-argument inference now admits that identity bound, while contextual
+callback hints keep the existing placeholder exclusion. The existing regression
+and 123 focused generic/closure/scope checks pass. The affected 8-class baseline
+batch is being rerun; remaining classes resume separately rather than repeating
+already-passing batches. Logs: /tmp/recursive-inference-tests.log,
+/tmp/syntax-match-batch-fixed.log and /tmp/syntax-final-compiler-baseline-rest.log.
+
+Public quoter parameter names also retain the C# named-argument contract. The
+updated component passes 13 checks, and C# parity passes 887. The full Raven
+invocation was restarted once more before emission to include those final source
+names. The actual project build uses the checkout seed already containing all
+syntax emission fixes; the later recursive-inference correction is separately
+validated against the C# bootstrap. Public exported syntax-type inventory is now
+also checked against the seed in the permanent Raven parity project.
+
+
+Additional validation at the final gate:
+
+- Overload-resolution feature suite: 439 passed using the current built test
+  assembly (same repository suite filter, no dependency rebuild or docs generation).
+- The latest reduced scope suite passes 11 cases, including plain and mixed-branch
+  recursive iterator traversal and a recursive generic runtime call.
+- TextMate regression script passes. Macro-expansion LSP tests pass all 18 checks
+  after rebuilding current net10.0 dependencies with documentation generation disabled.
+- The temporary v2 traversal probe confirms direct child nodes are valid while
+  iterator-produced child nodes are null in that earlier artifact. The new iterator
+  address rewrite is therefore necessary for full-runtime parity, beyond emission.
+
+
+The actual project gate caught an evaluation-order defect, not 469 independent
+syntax failures. Build-time IncludePortSyntaxTree added generated files after
+Raven.Language.targets, but standalone compiler evaluation removed obj inputs
+and reintroduced the legacy kind/facts files. It selected only 134 sources and
+failed with cascading missing-member diagnostics. The project now uses explicit
+SDK imports and declares its generated Compile items after SDK/language targets.
+Design-time evaluation and the build target now select the identical 1,120 unique,
+existing sources, including all 989 generated tree files and excluding legacy
+kind/facts inputs. Evidence: /tmp/syntax-project-evaluation-after.json and
+/tmp/syntax-project-build-inputs-after.json. The failed project run is retained at
+/tmp/syntax-final-raven-project-parity.log; a fresh run with the corrected source
+set and latest seed remains required before acceptance.
+
+
+The compiler baseline's union-import ambiguity fixture placed imports after
+namespace declarations. The source-order recovery fix intentionally preserves
+those misplaced directives as recovery syntax, so the fixture no longer imported
+its cases. Imports now precede declarations and the test asserts clean syntax
+before checking semantic ambiguity. The focused test passes; the entire affected
+union batch and final baseline tail are being rerun. This is a fixture correction,
+not a relaxation of directive ordering. Logs: /tmp/syntax-union-import-fixed.log,
+/tmp/syntax-union-batch-fixed.log and /tmp/syntax-final-compiler-baseline-tail.log.
+
+The corrected permanent Raven project build uses the frozen latest compiler
+at /tmp/syntax-final-project-seed (DLL hashes in seed-hashes.json). Its log is
+/tmp/syntax-final-corrected-project-parity.log. All 1,120 source hashes are recorded
+in artifacts/compiler-parity/syntax-source-manifest.json. Documentation generation
+is disabled, and build/standalone evaluation select the same generated source set.
+
+
+Compiler-only baseline completion: 7,849 checks pass across 87 batches after
+replacing the two initially failing batch results with successful reruns (281
+match/macro checks and 265 union checks). The continuation and final tail completed
+successfully. This retains the baseline's existing heavy/runtime/sample exclusions
+and additionally excludes AttributedCustomUnionTests, NamespaceDocumentationTests
+and RavenDocGenerationTests to avoid documentation generation. The initial full
+baseline's RavenDoc xref failure remains recorded and is not claimed as resolved.
+The final Raven project build remains the only acceptance gate outstanding.
+
+
+The complete permanent Raven project compiled all 1,120 inputs and passed 888 of
+893 tests. Five submission-completeness cases exposed iterator pattern bindings:
+the match wrote a temporary local while resumed reads used a hoisted field.
+MethodBodyGenerator now resolves iterator-owned fields for pattern assignment,
+just as it already did async fields. A focused runtime test reads a matched string
+across two yields; all 12 syntax-port scope cases pass. The first focused build
+already included the fix (its log name ends in before but is not a failing baseline).
+The full failing parity run provides the before evidence. The frozen corrected
+compiler is /tmp/syntax-pattern-final-seed; the final project rerun is recorded in
+/tmp/syntax-pattern-final-project-parity.log. This build again generated dependency
+Core/Macros XML despite command properties; no RavenDoc/site generation was
+requested, and the port project itself keeps documentation generation disabled.
+
+The frozen-before regression run confirms 11 passes and one NullReferenceException
+in the new iterator-pattern case; the corrected compiler passes all 12. Adjacent
+iterator closure/cancellation coverage brings the corrected focused total to 23.
+Logs: /tmp/syntax-iterator-pattern-frozen-before.log and
+/tmp/syntax-iterator-pattern-adjacent.log. No Raven source workaround was needed.
+
+
+Final syntax API acceptance (2026-11-03): the permanent Raven project built the
+complete source set with the corrected frozen compiler and passed all 893 tests,
+with no failures or skips. This includes the five formerly failing submission
+cases, public-type inventory/ownership, syntax traversal and the quoter. The test
+results are artifacts/compiler-parity/Raven/results.trx; the build/test log is
+/tmp/syntax-pattern-final-project-parity.log. The C# parity project passed 887 tests;
+the generator parity projects passed 69 C# and 78 Raven tests. The compiler-only
+baseline passed 7,849 checks with the documented exclusions and corrected reruns.
+Focused runtime, overload-resolution, language-server and TextMate validation is
+recorded above. The final iterator correction passed 23 focused/adjacent runtime
+checks and demonstrably fails its new regression on the previous frozen compiler.
+
+Validation executes modern .NET only. It does not establish native neoCLR,
+.NET Framework or NanoFramework execution. The earlier RavenDoc xref failure is
+still unresolved and explicitly excluded from compiler-only acceptance. No website
+publication was performed. C# remains the bootstrap implementation; semantic symbol
+contracts remain explicit dependencies of the Raven syntax project. Commit this
+syntax slice and pause the broader porting goal at the author's requested boundary.

@@ -325,7 +325,7 @@ internal class MethodGenerator
             else
                 parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
 
-            TypeGenerator.CodeGen.ApplyParamArrayAttribute(parameterSymbol, parameterBuilder.SetCustomAttribute);
+            TypeGenerator.CodeGen.ApplyParamsAttribute(parameterSymbol, parameterBuilder.SetCustomAttribute);
 
             TypeGenerator.CodeGen.ApplyNullableAttribute(
                 parameterSymbol.Type,
@@ -922,6 +922,7 @@ internal class MethodGenerator
 
         return targetClosure.TypeBuilder
             .GetGenericArguments()
+            .TakeLast(targetClosure.AliasTypeParameters.Length)
             .ToArray();
     }
 

@@ -1,0 +1,5 @@
+namespace Raven.CodeAnalysis
+
+internal open class NoLocation : Location {
+    internal init() { Kind = LocationKind.None }
+}

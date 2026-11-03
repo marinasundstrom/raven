@@ -269,7 +269,10 @@ internal static class MacroExpansionDisplayService
                 continue;
             }
 
-            var attribute = token.Parent?.AncestorsAndSelf().OfType<AttributeSyntax>().FirstOrDefault(static attr => attr.IsMacroAttribute());
+            var attribute = token.Parent?.AncestorsAndSelf()
+                .OfType<AttributeListSyntax>()
+                .SelectMany(static list => list.Attributes)
+                .FirstOrDefault(static attr => attr.IsMacroAttribute());
             if (attribute is not null && !GetInvocationHeadSpan(attribute).Contains(candidateOffset))
                 continue;
 
@@ -398,7 +401,7 @@ internal static class MacroExpansionDisplayService
     private static TextSpan GetInvocationHeadSpan(AttributeSyntax attribute)
     {
         var end = attribute.ArgumentList?.Span.Start ?? attribute.Span.End;
-        return TextSpan.FromBounds(attribute.HashToken.Span.Start, end);
+        return TextSpan.FromBounds(((AttributeListSyntax)attribute.Parent!).HashToken.Span.Start, end);
     }
 
     private static TextSpan GetInvocationHeadSpan(FreestandingMacroExpressionSyntax expression)

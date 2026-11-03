@@ -74,9 +74,6 @@ public static class SyntaxNodeReflectionExtensions
 
     public static string? GetPropertyNameForChild(this SyntaxNode parent, SyntaxToken childNode)
     {
-        if (childNode == null)
-            throw new ArgumentNullException(nameof(childNode));
-
         // Find properties of the current node
         var properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
@@ -176,7 +173,9 @@ public static class SyntaxNodeReflectionExtensions
         {
             var value = property.GetValue(node);
 
-            if (value is SyntaxList<SyntaxNode> nodeList)
+            // Match through the covariant sequence contract, not an invariant
+            // SyntaxList<SyntaxNode> instantiation: generated lists use concrete nodes.
+            if (value is IEnumerable<SyntaxNode> nodeList)
             {
                 foreach (var item in nodeList)
                 {
@@ -186,26 +185,22 @@ public static class SyntaxNodeReflectionExtensions
                     if (tokens.Contains(tokenItem))
                         return property.Name;
                 }
-            }
-            else if (value is SeparatedSyntaxList<SyntaxNode> sepList)
-            {
-                foreach (var item in sepList.GetWithSeparators())
+
+                // Separators belong to the list itself rather than to a child node.
+                var getWithSeparators = property.PropertyType.GetMethod(
+                    nameof(SeparatedSyntaxList<SyntaxNode>.GetWithSeparators), Type.EmptyTypes);
+                if (getWithSeparators?.Invoke(value, null) is IEnumerable<SyntaxNodeOrToken> slots)
                 {
-                    if (item.IsToken && item.AsToken() == tokenItem)
-                        return property.Name;
-                    else if (item.IsNode && item.AsNode()?.ChildNodesAndTokens()
-                        .Where(x => x.IsToken)
-                        .Select(x => x.AsToken())
-                        .Contains(tokenItem) == true)
-                        return property.Name;
+                    foreach (var item in slots)
+                    {
+                        if (item.IsToken && item.AsToken() == tokenItem)
+                            return property.Name;
+                    }
                 }
             }
-            else if (value is SyntaxTokenList tokenList)
+            else if (value is SyntaxTokenList tokenList && tokenList.Contains(tokenItem))
             {
-                foreach (var item in tokenList)
-                {
-                    return property.Name;
-                }
+                return property.Name;
             }
         }
 

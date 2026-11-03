@@ -1,0 +1,208 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import System.Text.*
+import Raven.CodeAnalysis.Text.*
+
+internal open partial class BaseParseContext : ParseContext {
+    internal field _lastToken: SyntaxToken?
+
+    private readonly field _lexer: ILexer
+
+    private readonly field _options: ParseOptions
+
+    private field _position: int
+
+    internal field _blockDepth: int
+
+    private field _treatNewlinesAsTokens: bool
+
+    internal readonly field _lookaheadTokens: List<SyntaxToken> = List<SyntaxToken>()
+
+    internal readonly field _pendingTrivia: List<SyntaxTrivia> = List<SyntaxTrivia>()
+
+    private readonly field _stringBuilder: StringBuilder = StringBuilder()
+
+    init(lexer: ILexer, options: ParseOptions, position: int = 0) : base() {
+        _lexer = lexer
+        _lexer.DiagnosticSink = AddDiagnostic
+        _options = options ?? ParseOptions()
+        _position = position
+    }
+
+    init(lexer: ILexer, position: int = 0) : self(lexer, ParseOptions(), position) { }
+
+    override val Position: int => _position
+
+    val Options: ParseOptions => _options
+
+    override val LastToken: SyntaxToken? => _lastToken
+
+    override val BlockDepth: int => _blockDepth
+
+    override val IsInBlock: bool => _blockDepth > 0
+
+    override func GetStartOfLastToken() -> TextSpan {
+        if LastToken is null { throw InvalidOperationException("Have not started parsing yet") }
+        return TextSpan(Position - LastToken!.FullWidth, 0)
+    }
+
+    override func GetEndOfLastToken(width: int = 0) -> TextSpan {
+        if LastToken is null { throw InvalidOperationException("Have not started parsing yet") }
+        return TextSpan(Position - LastToken!.TrailingTrivia.Width, width)
+    }
+
+    override func GetSpanOfLastToken() -> TextSpan {
+        if LastToken is null { throw InvalidOperationException("Have not started parsing yet") }
+        let tokenStart = Position - LastToken!.TrailingTrivia.Width - LastToken!.Width
+        return TextSpan(tokenStart, LastToken!.Width)
+    }
+
+    override func GetFullSpanOfLastToken() -> TextSpan {
+        if LastToken is null { throw InvalidOperationException("Have not started parsing yet") }
+        return TextSpan(Position - LastToken!.FullWidth, LastToken!.FullWidth)
+    }
+
+    override val TreatNewlinesAsTokens: bool => _treatNewlinesAsTokens
+
+    override func SetTreatNewlinesAsTokens(value: bool) {
+        if _treatNewlinesAsTokens == value { return }
+        PrintDebug("Set treat newlines as tokens: ${value}")
+        _treatNewlinesAsTokens = value
+    }
+
+    override func CreateCheckpoint(debugName: string = "",
+        [CallerMemberName] callerMemberName: string? = null,
+        [CallerFilePath] callerFilePath: string? = null,
+        [CallerLineNumber] callerLineNumber: int? = null) -> ParserCheckpoint {
+        if SyntaxParserFlags.PrintParseSequence {
+            let relativeCallerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory)
+            PrintDebug("Created checkpoint${(if string.IsNullOrEmpty(debugName) { string.Empty } else { " \"${debugName}\"" })} (position ${_position}), at member ${callerMemberName}, in ${relativeCallerFilePath}, at line ${callerLineNumber} ")
+        }
+        return ParserCheckpoint(self, debugName)
+    }
+
+    override func RewindToPosition(position: int) {
+        _lookaheadTokens.Clear() // Invalidate lookahead because context changed.
+        _lexer.ResetToPosition(position)
+        _position = position
+    }
+
+    val TreatNewlineSequencesAsTrivia: bool => true
+
+    var UseEndOfLineTrivia: bool { get; set; } = true
+
+    val LineFeedTriviaKind: SyntaxKind => if UseEndOfLineTrivia { SyntaxKind.EndOfLineTrivia } else { SyntaxKind.LineFeedTrivia }
+
+    val CarriageReturnTriviaKind: SyntaxKind => if UseEndOfLineTrivia { SyntaxKind.EndOfLineTrivia } else { SyntaxKind.CarriageReturnTrivia }
+
+    val CarriageReturnLineFeedTriviaKind: SyntaxKind => if UseEndOfLineTrivia { SyntaxKind.EndOfLineTrivia } else { SyntaxKind.CarriageReturnLineFeedTrivia }
+
+    private static func IsEndOfLineTrivia(trivia: InternalSyntax.SyntaxTrivia) -> bool {
+        return trivia.Kind is SyntaxKind.EndOfLineTrivia or SyntaxKind.LineFeedTrivia or SyntaxKind.CarriageReturnTrivia or SyntaxKind.CarriageReturnLineFeedTrivia
+    }
+
+    override func ReadToken() -> SyntaxToken {
+        if _lookaheadTokens.Count > 0 {
+            _lastToken = _lookaheadTokens[0]
+            _lookaheadTokens.RemoveAt(0)
+        } else {
+            _lastToken = ReadTokenCore()
+        }
+        let actualPosition = Position
+        _position += _lastToken!.FullWidth
+        TrackBlockDepth(_lastToken!)
+        if SyntaxParserFlags.PrintParseSequence {
+            DebugPrintToken("Read token", _lastToken!, actualPosition)
+        }
+        return _lastToken!
+    }
+
+    override func ReadMacroBodyToken(out isTerminated: bool) -> SyntaxToken {
+        _lookaheadTokens.Clear()
+        _lexer.ResetToPosition(_position)
+        if _lexer is not IMacroBodyScanner macroBodyScanner {
+            throw InvalidOperationException("The active lexer does not support macro body capture.")
+        }
+        let token = macroBodyScanner.ReadMacroBody(out isTerminated)
+        _lastToken = SyntaxToken(token.Kind, token.Text, token.Value, token.Length, SyntaxTriviaList.Empty, SyntaxTriviaList.Empty)
+        _position += _lastToken!.FullWidth
+        return _lastToken!
+    }
+
+    private static func DebugPrintToken(action: string, token: SyntaxToken, position: int) {
+        var text = token.Text
+        if text.Contains('\n') { text = text.Replace("\n", "\\n") }
+        PrintDebug("${action}: ${token.Kind} ${text} (position: ${position}, width: ${token.Width}, full width: ${token.FullWidth})")
+    }
+
+    override func PeekToken(index: int = 0) -> SyntaxToken {
+        while _lookaheadTokens.Count <= index { _lookaheadTokens.Add(ReadTokenCore()) }
+        let token = _lookaheadTokens[index]
+        if SyntaxParserFlags.PrintParseSequence {
+            var pos = _position
+            for t in _lookaheadTokens.TakeWhile(x => x != token) { pos += token.FullWidth }
+            DebugPrintToken("Peeked token", token, pos)
+        }
+        return token
+    }
+
+    private func ReadTokenCore() -> SyntaxToken {
+        var token = _lexer.PeekToken()
+        var leadingTrivia = ReadTrivia(isTrailingTrivia: false)
+        if _pendingTrivia.Count > 0 {
+            leadingTrivia = SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.GetLeadingTrivia()).ToArray())
+            _pendingTrivia.Clear()
+        }
+        token = _lexer.ReadToken()
+        let trailingTrivia = ReadTrivia(isTrailingTrivia: true)
+        return SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia)
+    }
+
+    private func TrackBlockDepth(token: SyntaxToken) {
+        if token.Kind == SyntaxKind.OpenBraceToken {
+            _blockDepth++
+        } else if token.Kind == SyntaxKind.CloseBraceToken && _blockDepth > 0 {
+            _blockDepth--
+        }
+    }
+
+    override func SkipUntil(params expectedKind: IEnumerable<SyntaxKind>) -> SyntaxToken {
+        let skippedTokens = List<SyntaxToken>()
+        let stopAtImplicitLineBreak = expectedKind.Any(kind => kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)
+        _pendingTrivia.Clear()
+        var token = PeekToken()
+        func IsBlockRecoveryStopper(t: SyntaxToken) -> bool => IsInBlock && t.Kind == SyntaxKind.CloseBraceToken
+        while !expectedKind.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken && !IsBlockRecoveryStopper(token)
+            && !(stopAtImplicitLineBreak && LastToken is SyntaxToken lastToken && lastToken.TrailingTrivia.Any(IsEndOfLineTrivia)) {
+            skippedTokens.Add(ReadToken())
+            token = PeekToken()
+        }
+        if stopAtImplicitLineBreak && LastToken is SyntaxToken lineBreakToken && lineBreakToken.TrailingTrivia.Any(IsEndOfLineTrivia) {
+            if skippedTokens.Count > 0 {
+                let trivia = SyntaxTrivia(SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray())))
+                _pendingTrivia.Add(trivia)
+            }
+            return SyntaxFactory.Token(SyntaxKind.None)
+        }
+        if token.Kind == SyntaxKind.EndOfFileToken || IsBlockRecoveryStopper(token) {
+            if skippedTokens.Count > 0 {
+                let trivia = SyntaxTrivia(SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray())))
+                _pendingTrivia.Add(trivia)
+            }
+            return SyntaxFactory.Token(SyntaxKind.None)
+        }
+        if skippedTokens.Count > 0 {
+            let trivia = SyntaxTrivia(SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray())))
+            let leadingTrivia = token.LeadingTrivia.Add(trivia)
+            ReadToken()
+            _lastToken = SyntaxToken(token.Kind, token.Text, leadingTrivia, token.TrailingTrivia)
+            return _lastToken!
+        }
+        return ReadToken()
+    }
+}

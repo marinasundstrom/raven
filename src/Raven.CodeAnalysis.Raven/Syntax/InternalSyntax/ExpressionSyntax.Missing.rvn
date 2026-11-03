@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax
+
+import System.Collections.Generic.*
+
+internal abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax {
+    internal open class Missing : ExpressionSyntax {
+        init(kind: SyntaxKind = SyntaxKind.None, diagnostics: IEnumerable<DiagnosticInfo>? = null, annotations: IEnumerable<SyntaxAnnotation>? = null)
+            : base(kind, [], diagnostics, annotations) { }
+
+        override val IsMissing: bool => true
+
+        override func CreateRed(parent: Raven.CodeAnalysis.Syntax.SyntaxNode?, position: int) -> Raven.CodeAnalysis.Syntax.SyntaxNode
+            => Raven.CodeAnalysis.Syntax.ExpressionSyntax.Missing(self, parent, position)
+
+        internal override func Accept(visitor: SyntaxVisitor) => visitor.DefaultVisit(self)
+
+        internal override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+        internal override func With(children: GreenNode?[], diagnostics: DiagnosticInfo[]? = null, annotations: SyntaxAnnotation[]? = null) -> Missing
+            => Missing(Kind, diagnostics ?? _diagnostics, annotations ?? _annotations)
+    }
+}

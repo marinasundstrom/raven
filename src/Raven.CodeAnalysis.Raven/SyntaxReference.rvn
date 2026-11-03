@@ -1,0 +1,29 @@
+namespace Raven.CodeAnalysis
+
+import System.Threading.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+public class SyntaxReference {
+    private readonly field _node: SyntaxNode?
+
+    init(syntaxTree: SyntaxTree, node: SyntaxNode) {
+        SyntaxTree = syntaxTree
+        Span = node.Span
+        _node = node
+    }
+
+    init(syntaxTree: SyntaxTree, span: TextSpan) {
+        SyntaxTree = syntaxTree
+        Span = span
+    }
+
+    val SyntaxTree: SyntaxTree { get; }
+
+    val Span: TextSpan { get; }
+
+    // Retain the bootstrap implementation's node-backed reference behavior.
+    func GetSyntax(cancellationToken: CancellationToken = default) -> SyntaxNode => _node ?? SyntaxTree.GetNodeForSpan(Span)!
+
+    internal func GetLocation() -> Location => SyntaxTree.GetLocation(Span)
+}

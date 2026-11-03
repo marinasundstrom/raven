@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public partial class AssignmentStatementSyntax {
+    val IsDiscard: bool => Left match {
+        DiscardPatternSyntax => true,
+        DiscardExpressionSyntax => true,
+        _ => false,
+    }
+}

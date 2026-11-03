@@ -90,8 +90,10 @@ public class NullableAttributeEmissionTests
                 parameter => Assert.True(parameter.Type.IsNullable));
     }
 
-    [Fact]
-    public void GenericRecordTypedEquals_AcceptsNullAfterConstruction()
+    [Theory]
+    [InlineData(typeof(int), 42, 7)]
+    [InlineData(typeof(string), "value", "other")]
+    public void GenericRecordTypedEquals_AcceptsNullAfterConstruction(Type argumentType, object value, object otherValue)
     {
         var compilation = Compilation.Create("GenericRecordEqualityNullability",
                 [SyntaxTree.ParseText("record class Box<T>(Value: T)")],
@@ -101,13 +103,18 @@ public class NullableAttributeEmissionTests
         var result = compilation.Emit(stream);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), TestMetadataReferences.Default);
-        var type = loaded.Assembly.GetType("Box`1", true)!.MakeGenericType(typeof(int));
+        var type = loaded.Assembly.GetType("Box`1", true)!.MakeGenericType(argumentType);
         var equals = type.GetMethod("Equals", [type])!;
         Assert.Equal(NullabilityState.Nullable,
             new NullabilityInfoContext().Create(equals.GetParameters()[0]).ReadState);
-        var first = Activator.CreateInstance(type, [42]);
+        var first = Activator.CreateInstance(type, [value]);
         Assert.Equal(false, equals.Invoke(first, [null]));
-        Assert.Equal(true, equals.Invoke(first, [Activator.CreateInstance(type, [42])]));
+        Assert.Equal(true, equals.Invoke(first, [Activator.CreateInstance(type, [value])]));
+        Assert.Equal(false, equals.Invoke(first, [Activator.CreateInstance(type, [otherValue])]));
+        var objectEquals = type.GetMethod("Equals", [typeof(object)])!;
+        Assert.Equal(false, objectEquals.Invoke(first, [null]));
+        Assert.Equal(true, objectEquals.Invoke(first, [Activator.CreateInstance(type, [value])]));
+        Assert.Equal(false, objectEquals.Invoke(first, [Activator.CreateInstance(type, [otherValue])]));
     }
 
     [Fact]

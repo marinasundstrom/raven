@@ -48,7 +48,13 @@ internal abstract class ParseContext
     public void AddDiagnostic(DiagnosticInfo diagnostic)
     {
         var root = GetRootContext();
-        (root._diagnostics ??= new List<DiagnosticInfo>()).Add(diagnostic);
+        var diagnostics = root._diagnostics;
+        if (diagnostics is null)
+        {
+            diagnostics = new List<DiagnosticInfo>();
+            root._diagnostics = diagnostics;
+        }
+        diagnostics.Add(diagnostic);
     }
 
     internal int GetDiagnosticCount()
@@ -59,30 +65,30 @@ internal abstract class ParseContext
 
     internal void RestoreDiagnostics(int count)
     {
-        var root = GetRootContext();
-        if (root._diagnostics is null)
+        var diagnostics = GetRootContext()._diagnostics;
+        if (diagnostics is null)
         {
             return;
         }
 
         if (count <= 0)
         {
-            root._diagnostics.Clear();
+            diagnostics.Clear();
             return;
         }
 
-        if (root._diagnostics.Count > count)
+        if (diagnostics.Count > count)
         {
-            root._diagnostics.RemoveRange(count, root._diagnostics.Count - count);
+            diagnostics.RemoveRange(count, diagnostics.Count - count);
         }
     }
 
     private ParseContext GetRootContext()
     {
         var context = this;
-        while (context.Parent is not null)
+        while (context.Parent is { } parent)
         {
-            context = context.Parent;
+            context = parent;
         }
 
         return context;
@@ -98,7 +104,7 @@ internal abstract class ParseContext
 
     public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual SyntaxToken? LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No base or parent set");
+    public virtual SyntaxToken? LastToken => (Parent ?? throw new InvalidOperationException("No base or parent set")).LastToken;
 
     public virtual SyntaxToken PeekToken(int index = 0) => Parent?.PeekToken(index) ?? throw new InvalidOperationException("No base or parent set");
 
@@ -106,10 +112,8 @@ internal abstract class ParseContext
 
     public virtual SyntaxToken ReadMacroBodyToken(out bool isTerminated)
     {
-        if (Parent is null)
-            throw new InvalidOperationException("No base or parent set");
-
-        return Parent.ReadMacroBodyToken(out isTerminated);
+        var parent = Parent ?? throw new InvalidOperationException("No base or parent set");
+        return parent.ReadMacroBodyToken(out isTerminated);
     }
 
     public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No base or parent set");

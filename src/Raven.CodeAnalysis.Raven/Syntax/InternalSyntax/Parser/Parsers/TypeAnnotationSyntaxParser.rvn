@@ -1,0 +1,33 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+internal open class TypeAnnotationClauseSyntaxParser : SyntaxParser {
+    init(parent: ParseContext) : base(parent) {
+    }
+
+    func ParseTypeAnnotation() -> TypeAnnotationClauseSyntax? {
+        if ConsumeToken(SyntaxKind.ColonToken, out let colonToken) {
+            let type: TypeSyntax = NameSyntaxParser(self).ParseTypeName()
+            if type.IsMissing {
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfPeekedToken()))
+            }
+
+            return SyntaxFactory.TypeAnnotationClause(colonToken, type)
+        }
+
+        return null
+    }
+
+    func ParseReturnTypeAnnotation() -> ArrowTypeClauseSyntax? {
+        if ConsumeToken(SyntaxKind.ArrowToken, out let arrowToken) {
+            let attributeLists = AttributeDeclarationParser.ParseAttributeLists(self)
+            let type: TypeSyntax = NameSyntaxParser(self).ParseTypeName()
+            if type.IsMissing {
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfPeekedToken()))
+            }
+
+            return SyntaxFactory.ArrowTypeClause(arrowToken, attributeLists, type)
+        }
+
+        return null
+    }
+}

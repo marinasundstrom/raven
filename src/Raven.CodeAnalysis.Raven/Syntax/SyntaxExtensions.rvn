@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+
+public static class SyntaxExtensions {
+    [Extension]
+    internal static func ToValueString(name: NameSyntax) -> string
+        => string.Concat(name.DescendantTokens().Select(token => token.ValueText))
+
+    [Extension]
+    static func IsKind(token: SyntaxToken, kind: SyntaxKind) -> bool => token.Kind == kind
+
+    [Extension]
+    static func IsKind(node: SyntaxNode, kind: SyntaxKind) -> bool => node.Kind == kind
+}

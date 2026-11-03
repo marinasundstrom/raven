@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis.Text
+
+import System.*
+import System.Text.*
+import Raven.CodeAnalysis.Syntax.*
+
+public static class SourceTextWriter {
+    static func WriteNodeToText(node: SyntaxNode, withSpans: bool = false) -> string {
+        let builder = StringBuilder()
+        WriteNodeToText(node, builder)
+        if !withSpans {
+            let leadingTrivia = node.GetLeadingTrivia()
+            let trailingTrivia = node.GetTrailingTrivia()
+            let leadingWidth = Math.Min(leadingTrivia.Width, builder.Length)
+            if leadingWidth > 0 { builder.Remove(0, leadingWidth) }
+            let trailingLength = Math.Min(trailingTrivia.Width, builder.Length)
+            let trailingStart = builder.Length - trailingLength
+            if trailingLength > 0 { builder.Remove(trailingStart, trailingLength) }
+        }
+        return builder.ToString()
+    }
+
+    private static func WriteNodeToText(node: SyntaxNode?, builder: StringBuilder) {
+        if node is null { return }
+        for child in node!.ChildNodesAndTokens() {
+            if child.TryGetToken(out var token) {
+                builder.Append(token.ToFullString())
+            }
+            else if child.TryGetNode(out var childNode) {
+                WriteNodeToText(childNode, builder)
+            }
+        }
+    }
+}

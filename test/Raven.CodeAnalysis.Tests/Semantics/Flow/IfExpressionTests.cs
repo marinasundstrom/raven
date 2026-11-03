@@ -9,6 +9,48 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class IfExpressionTests : DiagnosticTestBase
 {
+    [Theory]
+    [InlineData(";")]
+    [InlineData("\n0")]
+    [Trait("Target", "Shared")]
+    public void TerminatedOrNonFinalConditionalRemainsAStatement(string suffix)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            let value = {
+                if true { 1 } else { 2 }{{suffix}}
+            }
+            """);
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Single(tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>());
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void NestedTailConditionalSuppliesBlockValue()
+    {
+        var tree = SyntaxTree.ParseText("""
+            abstract class Node { }
+            class Left : Node { }
+            class Right : Node { }
+            class Probe {
+                static func Pick(outer: bool, inner: bool) -> Node {
+                    let value: Node = if outer {
+                        if inner { Left() } else { Right() }
+                    } else { Left() }
+                    return value
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NestedTailConditional", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var expressions = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().ToArray();
+        Assert.Equal(2, expressions.Length);
+        var model = compilation.GetSemanticModel(tree);
+        Assert.All(expressions, expression => Assert.Equal("Node", model.GetTypeInfo(expression).Type!.Name));
+    }
+
     [Fact]
     [Trait("Target", "Shared")]
     public void SiblingBranchesInferTheirAbstractBaseClass()

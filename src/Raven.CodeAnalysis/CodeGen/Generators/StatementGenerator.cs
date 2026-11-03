@@ -130,50 +130,35 @@ internal class StatementGenerator : Generator
 
     private void EmitBreakStatement(BoundBreakStatement breakStatement)
     {
-        if (TryGetLoopBreakLabel(this, breakStatement.TargetLabel, out var breakLabel))
-            ILGenerator.Emit(OpCodes.Br, breakLabel);
+        EmitLoopBranch(breakStatement.TargetLabel, isContinue: false);
     }
 
     private void EmitContinueStatement(BoundContinueStatement continueStatement)
     {
-        if (TryGetLoopContinueLabel(this, continueStatement.TargetLabel, out var continueLabel))
-            ILGenerator.Emit(OpCodes.Br, continueLabel);
+        EmitLoopBranch(continueStatement.TargetLabel, isContinue: true);
     }
 
-    private static bool TryGetLoopBreakLabel(Generator generator, ILabelSymbol? targetLabel, out ILLabel label)
+    private void EmitLoopBranch(ILabelSymbol? targetLabel, bool isContinue)
     {
-        for (Generator? current = generator; current is not null; current = current.Parent)
+        Scope? sourceScope = null;
+        for (Generator? current = this; current is not null; current = current.Parent)
         {
-            if (current is Scope scope)
-            {
-                if (targetLabel is not null && scope.TryGetBreakLabel(targetLabel, out label))
-                    return true;
+            if (current is not Scope scope)
+                continue;
 
-                if (targetLabel is null && scope.TryGetBreakLabel(out label))
-                    return true;
-            }
+            sourceScope ??= scope;
+            ILLabel label;
+            var found = isContinue
+                ? targetLabel is null ? scope.TryGetContinueLabel(out label) : scope.TryGetContinueLabel(targetLabel, out label)
+                : targetLabel is null ? scope.TryGetBreakLabel(out label) : scope.TryGetBreakLabel(targetLabel, out label);
+            if (!found)
+                continue;
+
+            EmitScopeDisposals(sourceScope, scope);
+            ILGenerator.Emit(ReferenceEquals(sourceScope.ExceptionRegion, scope.ExceptionRegion)
+                ? OpCodes.Br : OpCodes.Leave, label);
+            return;
         }
-
-        label = default;
-        return false;
-    }
-
-    private static bool TryGetLoopContinueLabel(Generator generator, ILabelSymbol? targetLabel, out ILLabel label)
-    {
-        for (Generator? current = generator; current is not null; current = current.Parent)
-        {
-            if (current is Scope scope)
-            {
-                if (targetLabel is not null && scope.TryGetContinueLabel(targetLabel, out label))
-                    return true;
-
-                if (targetLabel is null && scope.TryGetContinueLabel(out label))
-                    return true;
-            }
-        }
-
-        label = default;
-        return false;
     }
 
     private static bool IsTerminatingStatement(BoundStatement statement)

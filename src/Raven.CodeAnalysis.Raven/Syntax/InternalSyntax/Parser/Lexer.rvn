@@ -40,7 +40,8 @@ internal open class Lexer : ILexer, IMacroBodyScanner {
 
     init(textReader: TextReader, startPosition: int) : self(textReader, startPosition, true, null) {}
 
-    // ParseOptions adapter remains in the C# seed until its dependency graph is ported.
+    init(textReader: TextReader, startPosition: int = 0, options: ParseOptions? = null)
+        : self(textReader, startPosition, options?.EnableCharKeyword ?? true, options?.PreprocessorSymbolNames) { }
 
     internal init(textReader: TextReader, startPosition: int, enableCharKeyword: bool, preprocessorSymbolNames: IEnumerable<string>?) {
         _enableCharKeyword = enableCharKeyword

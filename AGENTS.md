@@ -171,6 +171,11 @@ No external type-union analyzer project is part of this repository.
 
 ## Compiler porting: cleanup and stabilization
 
+- In Raven translations, use `let` for locals that are never reassigned and
+  `var` only for mutable locals. Use `out let` for single-assignment out
+  declarations when the binding is not assigned again. Unconditional
+  `while (true)` loops may be translated to `loop`, preserving control flow.
+
 - Porting includes bounded cleanup and modernization when the change suits both
   C# and Raven syntax and semantics. Apply applicable changes to both codebases.
   Keep the port primarily direct: do not introduce Raven-specific idioms or a
@@ -181,7 +186,8 @@ No external type-union analyzer project is part of this repository.
   function; this does not authorize broad redesign or Raven-specific restyling.
 - Use foundational C#/.NET semantics as the baseline for shared behavior. Raven
   remains a .NET language foremost; divergences must be intentional Raven-specific
-  features. Apply the same foundational behavior to neoCLR unless that target
+  features. Reassess existing divergent rules when porting exposes weak rationale;
+  documentation alone is not proof that a restriction is intentional or desirable. Apply the same foundational behavior to neoCLR unless that target
   deliberately specifies different semantics. Inspect both implementations, including
   duplicated target paths, and transfer applicable corrections; a shared fix or
   passing .NET tests alone does not prove neoCLR parity. Inform the author when a discovered

@@ -28,6 +28,13 @@ Each tree retains a `SourceText` snapshot. Parsing keeps the supplied text;
 `Create` reconstructs the text once from the red root. `GetText` and `TryGetText`
 return that snapshot.
 
+## Syntax annotations
+
+Adding annotations to a syntax node preserves its diagnostics, children and
+previously attached annotations. New annotations follow existing annotations in
+insertion order; the original immutable node remains unchanged. An empty green
+node annotation update returns the same node.
+
 ## Separated syntax lists
 
 `SeparatedSyntaxList<TNode>.Count` counts nodes. `GetWithSeparators()` enumerates
@@ -235,7 +242,179 @@ diagnostic attachment, locations and navigation. `SyntaxTree.Parsing.cs` owns
 parsing entry points, incremental replacement and fallback policy. Both are parts
 of the same C# type; existing APIs and incremental behavior are preserved.
 
-The Raven runtime translation follows this boundary so syntax nodes, tree
-references and source locations can share source-owned identities before the
-parser is translated. The runtime translation is still under validation; it does
-not yet provide the complete Raven compiler or its parsing entry points.
+The Raven translation follows the same boundary. Syntax nodes, tree references,
+source locations and parser entry points belong to the Raven syntax assembly.
+Semantic symbol contracts still come from the C# bootstrap; this syntax milestone
+does not provide the complete Raven-hosted compiler. Validation evidence and
+remaining compiler work are recorded in the port progress log.
+
+
+A final conditional reparsed as a block value retains abrupt transfers in its
+branches. In particular, explicit returns inside a statement-form match arm
+remain returns from the enclosing function when the final conditional becomes
+an expression node.
+
+
+`ArrowTypeClauseSyntax` stores children in source order: `ArrowToken`,
+`AttributeLists`, then `Type`. Full factories, constructors and `Update` follow
+that order in both generated C# and Raven APIs. A clause such as `-> [A] string`
+round-trips without moving its attributes before the arrow; attribute and type
+positions follow the same order.
+
+
+Attribute-list recovery preserves available source and synthesizes a missing
+closing bracket while reporting the expected `]` diagnostic.
+
+
+For an attached macro prefix such as `#[A]`, `AttributeListSyntax.HashToken`
+owns the optional `#` before `OpenBracketToken`. `AttributeSyntax` contains the
+name and optional argument list; it no longer owns a hash slot. Generated full
+list factories/constructors/Update methods take the hash token first, while
+ordinary-list convenience overloads supply an absent token. `IsMacroAttribute`
+retains the existing convention of identifying the first attribute in a prefixed
+list. Completion and preview selection include the list prefix in the invocation
+head; token spans and round-tripped source follow physical source order.
+
+
+Macro-declaration lookahead recognizes `extern` alongside the other declaration
+modifiers, including after `async`. Compilation-unit and namespace parsers retain
+those modifiers on `MacroDeclarationSyntax`; an extern declaration terminated by
+`;` has no synthesized block or expression body. These are parser-shape guarantees,
+not a claim that every modifier combination is semantically valid.
+
+
+Missing tokens retain `IsMissing` when copied with leading/trailing trivia, raw
+kind, diagnostics or annotations. Missing state is independent of width: a
+present end-of-file token remains present even though its width is zero. Enum
+member recovery retains an unexpected token as skipped trivia on a missing
+identifier, reports the unexpected token, and advances instead of retrying the
+same input indefinitely.
+
+
+Misplaced import and alias directives retain their original source order as
+skipped tokens inside an incomplete member. They continue to report ordering
+diagnostics and are excluded from the valid `Imports` / `Aliases` lists. This
+recovery applies to compilation units, braced namespaces and file-scoped
+namespaces, preserving `ToFullString()` and positions even for invalid input.
+
+
+Global import block recovery retains unexpected tokens as skipped trivia on the
+following import keyword or closing brace, including a missing closing brace.
+The parser reports unexpected-token diagnostics instead of silently dropping
+source text. The internal single-member entry point returns null for standalone
+imports and aliases; recovery of whole compilation units does not turn those
+fragments into accepted member declarations.
+
+Extension declaration recovery retains unexpected member tokens in incomplete
+members and unexpected accessor tokens as skipped trivia on the missing accessor
+keyword. Both the C# bootstrap and Raven implementation preserve the original
+source through `ToFullString()` while reporting diagnostics. This parser contract
+is shared across targets; it does not depend on runtime encoding.
+
+
+Pattern operand parsing leaves outer-level `and`, `or` and `|` tokens for the
+pattern parser. Comparison operands, range bounds and identifier constants use
+this boundary; nested parenthesized expressions retain ordinary operators.
+The resulting tree preserves `BinaryPatternSyntax` conjunction/alternative
+nodes instead of consuming their operators into an operand expression. Both
+C# and Raven pattern parser implementations use the same expression-parser
+contract.
+
+
+Required pattern delimiters produce `CharacterExpected` diagnostics when missing,
+while retaining zero-width missing tokens and the available source. This applies
+to positional, sequence, dictionary, member/nominal argument lists and nested
+variable designations. Speculative property-clause parsing continues to rewind
+its temporary diagnostics if the clause is rejected.
+
+
+Explicit-interface indexers retain the qualified `self` member in their
+`ExplicitInterfaceSpecifier`, followed by the bracketed parameter list. The
+reserved `self` token is admitted in this member-name position without allowing
+it as an ordinary type identifier. Accessor-list recovery in C# and Raven retains
+unexpected tokens as skipped trivia on the missing accessor keyword, preserving
+source text and diagnostics.
+
+String interpolation scanning now belongs to the internal static
+`StringInterpolationParser` helper. The C# expression parser calls this helper;
+the Raven translation preserves its scanning, token/trivia, missing-token and
+escape-decoding behavior. Embedded expressions use the translated `LanguageParser`; component parity
+tests now execute the source-owned grammar cycle. The reduced component still
+uses bootstrap lexer, contexts and green/red syntax runtime.
+
+Expression parsing in statement headers stops speculative parenthesized casts
+at a line break after the closing parenthesis. This preserves the boundary
+between a condition and its non-block body without changing same-line casts.
+
+Tuple, collection and array-expression recovery reports `CharacterExpected`
+when a required closing delimiter is absent. The tree retains the corresponding
+missing token and all available source text. The C# and Raven expression
+parsers use the same recovery behavior.
+
+The internal `LanguageParser` dispatches specialized `NameSyntax` and
+`IdentifierNameSyntax` requests before the general expression family.
+A qualified name requested as `NameSyntax` therefore remains a
+`QualifiedNameSyntax`, rather than becoming a member-access expression.
+`ParseSyntaxWithDiagnostics` returns its diagnostics and consumed position in
+the immutable `ParseResult` record struct; concurrent calls create independent
+lexers and parser contexts.
+
+Internal node-only `ParseSyntax` results retain context diagnostics on their
+returned green root. `ParseStatement` uses the same result-producing path and
+honors `consumeFullText`: trailing input is diagnosed when requested, while
+fragment parsing remains available when it is false. The result-producing API
+keeps diagnostics separately in `ParseResult`; callers must not merge the same
+list twice. Public detached red-node diagnostics retain source context as
+described below.
+
+The Raven port now implements the public `SyntaxFactory.ParseExpression`,
+`ParseStatement`, `ParseType`, `ParsePattern`, `ParseCompilationUnit` and
+`ParseMemberDeclaration` overloads in `SyntaxFactory.Parsing.rvn`. String overloads
+forward through `SourceText`; fragment overloads retain their input offset.
+Member parsing accepts exactly one non-global declaration with no imports,
+aliases or compilation-unit attributes, matching the bootstrap implementation.
+The shared C# parity project exercises these entry points against the selected
+implementation and asserts syntax-runtime assembly ownership. Component harness
+results and full assembly results are distinguished in the port progress log.
+
+Syntax-tree printing counts the root at depth zero. `PrinterOptions.MaxDepth`
+limits descendant levels; both writer output and string representations use
+that same starting depth. Starting at the configured maximum incorrectly hid
+all children for finite limits and overflowed the default unlimited counter.
+
+Trivia and structured-trivia traversal observe the same maximum depth. The Raven
+port supplies PrinterOptions and PrettySyntaxTreePrinter, including extension
+entry points, list grouping, spans/locations, colors, annotations and diagnostics.
+The permanent parity suite uses the selected implementation's syntax nodes;
+reduced printer component checks also remain useful during stabilization.
+
+`SyntaxFactory.ParseCompilationUnit` now returns the root of `SyntaxTree.ParseText`
+for the supplied source and options. Its root and descendants retain their source
+owner, and syntax diagnostics remain available with locations in that same tree.
+The string overload uses the same path. `ParseMemberDeclaration` consequently
+retains the containing tree for an accepted single member. Fragment parsing (expression, statement, type and pattern) retains source context
+with its diagnostics, as described below, while leaving the returned nodes detached.
+
+Diagnostic span filtering includes zero-width diagnostic markers at either
+boundary of the requested span, including missing-token diagnostics at EOF.
+Nonempty diagnostic spans retain ordinary overlap filtering. This is a diagnostic
+query rule; general TextSpan.IntersectsWith semantics are unchanged.
+
+Detached fragment diagnostics retain immutable source context in DiagnosticInfo.
+Node-only parser entry points attach context-bearing diagnostic copies to the green
+root. GetDiagnostics converts these into external-file locations using the original
+source coordinates, including a nonzero parse offset; SourceTree remains null.
+Nonrecursive node queries return diagnostics directly attached to that green node.
+Diagnostics without source context retain Location.None. Full-tree queries continue
+using their owning SyntaxTree, and incremental reparsing continues to return its
+separate ParseResult diagnostic list.
+
+Missing closing braces in type declarations now produce CharacterExpected while
+retaining the missing token and original source text.
+
+
+The Raven syntax runtime also includes `RavenQuoter`, `RavenQuoterOptions` and
+`RavenQuoterOutputLanguage`. Quotation preserves factory selection, trivia,
+source overrides, formatting options and C#/Raven output choices. Raven wrappers
+place opening braces on the declaration line. The reflection-based factory cache
+remains private; semantic symbol contracts still come from the C# bootstrap.

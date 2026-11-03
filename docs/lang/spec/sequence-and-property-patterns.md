@@ -104,7 +104,8 @@ Rules:
   member.
 
   * Each `member: pattern` targets an accessible instance field or readable
-    instance property.
+    instance property. Member lookup includes inherited members, as for ordinary
+    member access.
   * A dotted member path such as `Item.Size: 2` is shorthand for nested
     property patterns such as `Item: { Size: 2 }`. Every intermediate member
     must also be an accessible instance field or readable instance property,

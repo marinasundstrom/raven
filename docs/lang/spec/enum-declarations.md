@@ -140,7 +140,10 @@ greater than the previous member. The first member defaults to zero when no
 explicit initializer is present.
 
 Enum member initializers must be constant expressions and may reference
-previously declared members. A non-constant initializer reports `RAV0412`; a
+previously declared members and accessible metadata constants such as
+`uint.MaxValue`. A member may have the maximum underlying value. A following
+member needs an explicit initializer to avoid overflowing the implicit increment;
+the overflow diagnostic belongs to that following member. A non-constant initializer reports `RAV0412`; a
 value that cannot be converted to the underlying type reports `RAV0413`.
 
 ### Conversions
@@ -206,6 +209,14 @@ value that can be converted to the `Command` carrier and matched as one of the
 declared cases. Both declarations have closed alternatives and participate in
 exhaustiveness; only the union expresses a tagged domain with distinct semantic
 cases and optional payloads.
+
+### Comparisons
+
+Values of the same enum type support `==`, `!=`, `<`, `<=`, `>` and `>=`.
+Relational comparisons use the underlying integral type's signedness and width,
+including unsigned values above the signed range. Different enum types do not
+acquire an implicit conversion for comparison. These are shared language rules;
+a runtime backend may have narrower experimental enum representation support.
 
 ### Runtime representation
 

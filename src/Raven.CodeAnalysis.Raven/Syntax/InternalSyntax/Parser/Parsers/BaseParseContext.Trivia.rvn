@@ -1,0 +1,239 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Text.*
+import Raven.CodeAnalysis.Text.*
+
+internal open partial class BaseParseContext {
+    private func ReadTrivia(isTrailingTrivia: bool) -> SyntaxTriviaList {
+        let trivia = List<SyntaxTrivia>()
+        while true {
+            if _stringBuilder.Length > 0 { _stringBuilder.Clear() }
+            let token = _lexer.PeekToken(0)
+            // Documentation comments attach only as leading trivia.
+            if token.Kind == SyntaxKind.DocumentationCommentTrivia {
+                if isTrailingTrivia { break }
+                let newlineTrivia: List<SyntaxTrivia>? = null
+                var docDiagnostics: List<DiagnosticInfo>? = null
+                ReadDocumentationCommentBlockInto(_stringBuilder, newlineTrivia, ref docDiagnostics)
+                if docDiagnostics is { Count: > 0 } {
+                    for diagnostic in (docDiagnostics!) { AddDiagnostic(diagnostic) }
+                }
+                let docTrivia = SyntaxTrivia(SyntaxKind.DocumentationCommentTrivia, _stringBuilder.ToString())
+                trivia.Add(docTrivia)
+                if newlineTrivia is { Count: > 0 } { trivia.AddRange(newlineTrivia!) }
+                continue
+            } else if token.Kind == SyntaxKind.SingleLineCommentTrivia {
+                _lexer.ReadToken()
+                let commentTrivia = SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, token.Text)
+                if isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken {
+                    _pendingTrivia.Add(commentTrivia)
+                    break
+                }
+                trivia.Add(commentTrivia)
+                continue
+            } else if token.Kind == SyntaxKind.MultiLineCommentTrivia {
+                _lexer.ReadToken()
+                let commentTrivia = SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, token.Text)
+                if isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken {
+                    _pendingTrivia.Add(commentTrivia)
+                    break
+                }
+                trivia.Add(commentTrivia)
+                continue
+            } else if token.Kind == SyntaxKind.DirectiveTrivia {
+                _lexer.ReadToken()
+                let directiveTrivia = if token.Value is ConditionalDirectiveInfo conditional {
+                    let directiveToken = SyntaxToken(SyntaxKind.DirectiveTextToken, token.Text, token.Value, token.Length)
+                    let directive = ConditionalDirectiveTriviaSyntax(conditional.SyntaxKind, directiveToken, conditional.Kind,
+                        conditional.ConditionText, conditional.IsBranchActive, conditional.BranchTaken,
+                        conditional.KeywordOffset, conditional.KeywordLength, conditional.ConditionOffset, conditional.ConditionLength)
+                    SyntaxTrivia(directive)
+                } else {
+                    SyntaxTrivia(SyntaxKind.DirectiveTrivia, token.Text)
+                }
+                if isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken {
+                    _pendingTrivia.Add(directiveTrivia)
+                    break
+                }
+                trivia.Add(directiveTrivia)
+                continue
+            } else if token.Kind == SyntaxKind.DisabledTextTrivia {
+                _lexer.ReadToken()
+                let disabledTextTrivia = SyntaxTrivia(SyntaxKind.DisabledTextTrivia, token.Text)
+                if isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken {
+                    _pendingTrivia.Add(disabledTextTrivia)
+                    break
+                }
+                trivia.Add(disabledTextTrivia)
+                continue
+            }
+            token.Kind match {
+                SyntaxKind.TabToken => {
+                    _lexer.ReadToken()
+                    trivia.Add(SyntaxTrivia(SyntaxKind.TabTrivia, token.Text))
+                    continue
+                }
+                SyntaxKind.Whitespace => {
+                    _lexer.ReadToken()
+                    trivia.Add(SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text))
+                    continue
+                }
+                _ => { }
+            }
+            if TreatNewlineSequencesAsTrivia {
+                if token.Kind == SyntaxKind.LineFeedToken {
+                    while true {
+                        _lexer.ReadToken()
+                        trivia.Add(SyntaxTrivia(LineFeedTriviaKind, token.Text))
+                        let peeked = _lexer.PeekToken()
+                        if peeked.Kind != SyntaxKind.LineFeedToken { break }
+                    }
+                    if isTrailingTrivia { break }
+                    continue
+                } else if token.Kind == SyntaxKind.CarriageReturnToken {
+                    while true {
+                        _lexer.ReadToken()
+                        let next = _lexer.PeekToken()
+                        if next.Kind == SyntaxKind.LineFeedToken {
+                            _lexer.ReadToken()
+                            trivia.Add(SyntaxTrivia(LineFeedTriviaKind, token.Text + next.Text))
+                        } else {
+                            trivia.Add(SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text))
+                        }
+                        let peeked = _lexer.PeekToken()
+                        if peeked.Kind != SyntaxKind.CarriageReturnToken { break }
+                    }
+                    if isTrailingTrivia { break }
+                    continue
+                } else if token.Kind == SyntaxKind.CarriageReturnLineFeedToken {
+                    while true {
+                        _lexer.ReadToken()
+                        trivia.Add(SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text))
+                        let peeked = _lexer.PeekToken()
+                        if peeked.Kind != SyntaxKind.CarriageReturnLineFeedToken { break }
+                    }
+                    if isTrailingTrivia { break }
+                    continue
+                } else if token.Kind == SyntaxKind.EndOfFileToken {
+                    break
+                }
+            }
+            break
+        }
+        return SyntaxTriviaList(trivia.ToArray())
+    }
+
+    private func ReadDocumentationCommentBlockInto(sb: StringBuilder, newlineTrivia: List<SyntaxTrivia>?, ref docDiagnostics: List<DiagnosticInfo>?) {
+        // sb may be the shared _stringBuilder; do not clear it as a temporary buffer.
+        let indentBuilder = StringBuilder()
+        var baselineIndent: string? = null
+        var firstLine = true
+        let startPosition = Position
+        var consumedWidth = 0
+        while true {
+            indentBuilder.Clear()
+            var indentTokenCount = 0
+            while true {
+                let tIndent = _lexer.PeekToken(indentTokenCount)
+                if tIndent.Kind != SyntaxKind.Whitespace && tIndent.Kind != SyntaxKind.TabToken { break }
+                indentBuilder.Append(tIndent.Text)
+                indentTokenCount++
+            }
+            let indent = indentBuilder.ToString()
+            let currentToken = _lexer.PeekToken(0)
+            let firstLineIndentUnavailable = firstLine && indentTokenCount == 0 && currentToken.Kind == SyntaxKind.DocumentationCommentTrivia
+            if firstLineIndentUnavailable {
+                // The outer trivia reader already consumed this line's indentation.
+            } else if baselineIndent is null {
+                baselineIndent = indent
+            } else if baselineIndent != indent {
+                docDiagnostics ??= List<DiagnosticInfo>()
+                docDiagnostics!.Add(DiagnosticInfo.Create(CompilerDiagnostics.DocumentationCommentInconsistentIndentation,
+                    TextSpan(startPosition + consumedWidth + 1, indent.Length)))
+            }
+            var k = 0
+            while k < indentTokenCount {
+                let consumed = _lexer.PeekToken(0)
+                _lexer.ReadToken()
+                sb.Append(consumed.Text)
+                consumedWidth += consumed.Length
+                k++
+            }
+            let comment = _lexer.PeekToken(0)
+            if comment.Kind != SyntaxKind.DocumentationCommentTrivia { return }
+            _lexer.ReadToken()
+            sb.Append(comment.Text)
+            consumedWidth += comment.Length
+            firstLine = false
+            let t = _lexer.PeekToken(0)
+            if t.Kind == SyntaxKind.EndOfFileToken { return }
+            let newline = ConsumeOneNewlineInto(sb, out var newlineWidth)
+            consumedWidth += newlineWidth
+            if newlineTrivia is not null && newline is SyntaxTrivia newlineValue {
+                newlineTrivia!.Add(newlineValue)
+            }
+            if !NextLineStartsWithDocComment() { return }
+        }
+    }
+
+    private func ConsumeIndentationInto(sb: StringBuilder) {
+        while true {
+            let t = _lexer.PeekToken(0)
+            if t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken {
+                _lexer.ReadToken()
+                sb.Append(t.Text)
+                continue
+            }
+            break
+        }
+    }
+
+    private func NextLineStartsWithDocComment() -> bool {
+        var i = 0
+        while true {
+            let t = _lexer.PeekToken(i)
+            if t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken { i++; continue }
+            break
+        }
+        let a = _lexer.PeekToken(i + 0)
+        return a.Kind == SyntaxKind.DocumentationCommentTrivia
+    }
+
+    private func ConsumeOneNewlineInto(sb: StringBuilder, out consumedWidth: int) -> SyntaxTrivia? {
+        consumedWidth = 0
+        let t = _lexer.PeekToken(0)
+        if t.Kind == SyntaxKind.CarriageReturnLineFeedToken {
+            _lexer.ReadToken()
+            sb.Append(t.Text)
+            consumedWidth += t.Length
+            return SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text)
+        }
+        if t.Kind == SyntaxKind.CarriageReturnToken {
+            _lexer.ReadToken()
+            sb.Append(t.Text)
+            consumedWidth += t.Length
+            let lf = _lexer.PeekToken(0)
+            if lf.Kind == SyntaxKind.LineFeedToken {
+                _lexer.ReadToken()
+                sb.Append(lf.Text)
+                consumedWidth += lf.Length
+                return SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text + lf.Text)
+            }
+            return SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text)
+        }
+        if t.Kind == SyntaxKind.LineFeedToken {
+            _lexer.ReadToken()
+            sb.Append(t.Text)
+            consumedWidth += t.Length
+            return SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text)
+        }
+        return null
+    }
+
+    private static func IsNewLine(token: Token) -> bool {
+        return token.Kind is SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken
+    }
+}

@@ -1,0 +1,200 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+
+public partial class SyntaxNode {
+    func GetFirstToken(includeZeroWidth: bool = false) -> SyntaxToken => DescendantTokens().FirstOrDefault(t => includeZeroWidth || t.FullWidth > 0)
+
+    func GetLastToken(includeZeroWidth: bool = false) -> SyntaxToken {
+        for token in DescendantTokens(descendIntoTrivia: false).Reverse() {
+            if includeZeroWidth || token.Width > 0 { return token }
+        }
+        return default
+    }
+
+    func FindNode(span: TextSpan, findInsideTrivia: bool = false, getInnermostNodeForTie: bool = false) -> SyntaxNode {
+        if !FullSpan.IntersectsWith(span) { return null! }
+        var bestMatchFromChildren: SyntaxNode? = null
+        for child in ChildNodes() {
+            if !child.FullSpan.Contains(span) { continue }
+            let childMatch = child.FindNode(span, findInsideTrivia, getInnermostNodeForTie)
+            if childMatch is not null {
+                if bestMatchFromChildren is null || getInnermostNodeForTie {
+                    bestMatchFromChildren = childMatch
+                }
+            }
+        }
+        if bestMatchFromChildren is not null { return bestMatchFromChildren! }
+        if Span.Contains(span) { return self }
+        return null!
+    }
+
+    func FindToken(position: int) -> SyntaxToken {
+        if position < Position || position > FullSpan.End {
+            throw ArgumentOutOfRangeException(nameof(position), "Position is out of bounds of this syntax tree.")
+        }
+        return FindTokenInternal(self, position)
+    }
+
+    func FindTrivia(position: int, descendIntoTrivia: bool = false) -> SyntaxTrivia {
+        for token in DescendantTokens(descendIntoTrivia) {
+            for trivia in token.LeadingTrivia {
+                if trivia.FullSpan.Contains(position) { return trivia }
+                if descendIntoTrivia && trivia.GetStructure() is StructuredTriviaSyntax structure {
+                    return structure.FindTrivia(position, true)
+                }
+            }
+            if token.Span.Contains(position) { return default }
+            for trivia in token.TrailingTrivia {
+                if trivia.FullSpan.Contains(position) { return trivia }
+                if descendIntoTrivia && trivia.GetStructure() is StructuredTriviaSyntax structure {
+                    return structure.FindTrivia(position, true)
+                }
+            }
+        }
+        return default
+    }
+
+    private static func FindTokenInternal(node: SyntaxNode, position: int) -> SyntaxToken {
+        for child in node.ChildNodesAndTokens() {
+            if child.IsToken {
+                let token = child.AsToken()
+                if token.FullSpan.Contains(position) { return token }
+            }
+            else {
+                let childNode = child.AsNode()!
+                if position >= childNode.Position && position < childNode.End {
+                    return FindTokenInternal(childNode, position)
+                }
+            }
+        }
+        return if node is CompilationUnitSyntax cu { cu.EndOfFileToken } else { default(SyntaxToken) }
+    }
+
+    func FirstAncestorOrSelf<T>() -> T? where T: SyntaxNode {
+        var current: SyntaxNode? = self
+        while current is not null {
+            if current is T matched { return matched }
+            current = current!.Parent
+        }
+        return null
+    }
+
+    func DescendantNodes() -> IEnumerable<SyntaxNode> {
+        for child in ChildNodes() {
+            yield child
+            for descendant in child.DescendantNodes() { yield descendant }
+        }
+    }
+
+    func DescendantNodesAndSelf() -> IEnumerable<SyntaxNode> {
+        yield self
+        for child in ChildNodes() {
+            for descendant in child.DescendantNodesAndSelf() { yield descendant }
+        }
+    }
+
+    func DescendantNodesAndTokens(descendIntoTrivia: bool = false) -> IEnumerable<SyntaxNodeOrToken> {
+        for child in ChildNodesAndTokens() {
+            yield child
+            if child.IsNode {
+                for descendant in child.AsNode()!.DescendantNodesAndTokens(descendIntoTrivia) { yield descendant }
+            }
+        }
+    }
+
+    func DescendantNodesAndTokensAndSelf(descendIntoTrivia: bool = false) -> IEnumerable<SyntaxNodeOrToken> {
+        yield SyntaxNodeOrToken(self)
+        for descendant in DescendantNodesAndTokens(descendIntoTrivia) { yield descendant }
+    }
+
+    func DescendantTokens(descendIntoTrivia: bool = false) -> IEnumerable<SyntaxToken> {
+        for child in ChildNodesAndTokens() {
+            if child.IsToken {
+                let token = child.AsToken()
+                yield token
+                if descendIntoTrivia {
+                    for trivia in token.LeadingTrivia {
+                        if trivia.GetStructure() is StructuredTriviaSyntax structure {
+                            for nested in structure.DescendantTokens(true) { yield nested }
+                        }
+                    }
+                    for trivia in token.TrailingTrivia {
+                        if trivia.GetStructure() is StructuredTriviaSyntax structure {
+                            for nested in structure.DescendantTokens(true) { yield nested }
+                        }
+                    }
+                }
+            }
+            else {
+                let node = child.AsNode()!
+                for token in node.DescendantTokens(descendIntoTrivia) { yield token }
+            }
+        }
+    }
+
+    func DescendantTrivia(descendIntoStructuredTrivia: bool = false) -> IEnumerable<SyntaxTrivia> {
+        for token in DescendantTokens(descendIntoStructuredTrivia) {
+            for trivia in token.LeadingTrivia {
+                yield trivia
+                if descendIntoStructuredTrivia && trivia.GetStructure() is StructuredTriviaSyntax structure {
+                    for nested in structure.DescendantTrivia(true) { yield nested }
+                }
+            }
+            for trivia in token.TrailingTrivia {
+                yield trivia
+                if descendIntoStructuredTrivia && trivia.GetStructure() is StructuredTriviaSyntax structure {
+                    for nested in structure.DescendantTrivia(true) { yield nested }
+                }
+            }
+        }
+    }
+
+    func Ancestors() -> IEnumerable<SyntaxNode> {
+        var current = _parent
+        while current is not null {
+            yield current!
+            current = current!._parent
+        }
+    }
+
+    func AncestorsAndSelf() -> IEnumerable<SyntaxNode> {
+        var current: SyntaxNode? = self
+        while current is not null {
+            yield current!
+            current = current!.Parent
+        }
+    }
+
+    func Contains(node: SyntaxNode) -> bool {
+        var current: SyntaxNode? = node
+        while current is not null {
+            if current == self { return true }
+            current = current!.Parent
+        }
+        return false
+    }
+
+    func ReplaceNodes<T>(nodes: IEnumerable<T>, computeReplacement: Func<T, SyntaxNode, SyntaxNode?>) -> SyntaxNode where T: SyntaxNode {
+        let replacements = nodes.ToDictionary(n => (SyntaxNode)n, n => computeReplacement(n, n))
+        return ReplaceSyntax(replacements, null, null)
+    }
+
+    func ReplaceTokens(tokens: IEnumerable<SyntaxToken>, computeReplacement: Func<SyntaxToken, SyntaxToken, SyntaxToken?>) -> SyntaxNode {
+        let replacements = tokens.ToDictionary(t => t, t => computeReplacement(t, t))
+        return ReplaceSyntax(null, replacements, null)
+    }
+
+    func ReplaceTrivia<T>(trivia: IEnumerable<SyntaxTrivia>, computeReplacement: Func<SyntaxTrivia, SyntaxTrivia, SyntaxTrivia?>) -> SyntaxNode {
+        let replacements = trivia.ToDictionary(t => t, t => computeReplacement(t, t))
+        return ReplaceSyntax(null, null, replacements)
+    }
+
+    func ReplaceSyntax(nodeMap: IReadOnlyDictionary<SyntaxNode, SyntaxNode?>?, tokenMap: IReadOnlyDictionary<SyntaxToken, SyntaxToken?>?, triviaMap: IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>?) -> SyntaxNode {
+        let replacer = SyntaxReplacer(nodeMap, tokenMap, triviaMap)
+        return replacer.Visit(self) ?? self
+    }
+}

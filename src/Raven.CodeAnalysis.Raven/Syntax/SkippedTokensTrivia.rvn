@@ -1,0 +1,13 @@
+namespace Raven.CodeAnalysis.Syntax
+
+public class SkippedTokensTrivia : StructuredTriviaSyntax {
+    internal init(greenNode: GreenNode, parent: SyntaxNode?, position: int) : base(greenNode, parent, position) { }
+
+    init(tokens: SyntaxTokenList) : base(InternalSyntax.SkippedTokensTrivia(tokens.Green), null) { }
+
+    val Tokens: SyntaxTokenList => SyntaxTokenList((InternalSyntax.SyntaxList)Green.GetSlot(0)!, self, Position + Green.GetChildStartPosition(0))
+
+    override func Accept(visitor: SyntaxVisitor) => visitor.VisitSkippedTokensTrivia(self)
+
+    override func Accept<TResult>(visitor: SyntaxVisitor<TResult>) -> TResult => visitor.VisitSkippedTokensTrivia(self)
+}

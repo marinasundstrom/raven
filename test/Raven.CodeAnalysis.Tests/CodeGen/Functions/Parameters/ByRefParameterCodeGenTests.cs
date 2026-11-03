@@ -12,6 +12,124 @@ public sealed class ByRefParameterCodeGenTests
 {
     [Fact]
     [Trait("Target", "DotNet")]
+    public void ReadOnlyOutputDeclarationInInitializerRemainsInScope()
+    {
+        const string code = """
+            class Program {
+                static func Run() -> int {
+                    let quotient = System.Math.DivRem(85, 43, out let remainder)
+                    return quotient + remainder
+                }
+            }
+            """;
+        Assert.Equal(43, CompileAndInvokeRun<int>(code, "readonly-out-initializer"));
+    }
+
+    [Theory]
+    [InlineData("let", false)]
+    [InlineData("val", false)]
+    [InlineData("let", true)]
+    [InlineData("val", true)]
+    [InlineData("var", false)]
+    [InlineData("var", true)]
+    [Trait("Target", "DotNet")]
+    public void OutDeclarationIsInitializedByDeclaringCall(string binding, bool metadataCall)
+    {
+        var invocation = metadataCall
+            ? $"System.Math.DivRem(85, 43, out {binding} value)"
+            : $"if !Set(out {binding} value) {{ return -1 }}";
+        var code = $$"""
+            class Program {
+                static func Set(out value: int) -> bool { value = 42; return true }
+                static func Run() -> int {
+                    {{invocation}}
+                    return value
+                }
+            }
+            """;
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, $"readonly-out-{binding}-{metadataCall}"));
+    }
+
+    [Theory]
+    [InlineData("let")]
+    [InlineData("val")]
+    [InlineData("var")]
+    [Trait("Target", "DotNet")]
+    public void OutDeclarationTakesTypeFromSelectedGenericMethod(string binding)
+    {
+        var code = $$"""
+            class Program {
+                static func Set<T>(input: T, out value: T) { value = input }
+                static func Run() -> int {
+                    Set(42, out {{binding}} value)
+                    return value
+                }
+            }
+            """;
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, $"inferred-out-{binding}"));
+    }
+
+    [Theory]
+    [InlineData("let")]
+    [InlineData("var")]
+    [Trait("Target", "DotNet")]
+    public void LocalInitializer_ForwardedOutCallAssignsParameter(string binding)
+    {
+        var code = $$"""
+            interface Scanner { func Read(out done: bool) -> int }
+            class Reader : Scanner {
+                func Read(out done: bool) -> int { done = true; return 42 }
+            }
+            class Program {
+                static func Forward(value: object, out done: bool) -> int {
+                    if value is not Scanner scanner { throw System.InvalidOperationException() }
+                    {{binding}} token = scanner.Read(out done)
+                    return token
+                }
+                static func Run() -> int {
+                    let token = Forward(Reader(), out var done)
+                    return if done { token } else { -1 }
+                }
+            }
+            """;
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, "out-initializer-" + binding));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void RefArgument_CanBeReadByInParameter()
+    {
+        const string code = """
+            class Program {
+                static func Read(in value: int) -> int => value
+                static func Run() -> int {
+                    var value = 42
+                    return Read(ref value)
+                }
+            }
+            """;
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, "ref-to-in-runtime"));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void VolatileRead_RefIntSelectsNumericOverload()
+    {
+        const string code = """
+            import System.Threading.*
+            class Program {
+                private static field value: int = 0
+                static func Run() -> int {
+                    Volatile.Write(ref value, 42)
+                    return Volatile.Read(ref value)
+                }
+            }
+            """;
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, "volatile-read-runtime"));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
     public void AssignedOutParameter_CopiesValueWithoutAliasingDestination()
     {
         const string code = """

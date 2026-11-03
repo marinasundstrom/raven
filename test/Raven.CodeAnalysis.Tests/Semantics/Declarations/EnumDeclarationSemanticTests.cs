@@ -10,6 +10,44 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class EnumDeclarationSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("byte", "byte.MaxValue", "255")]
+    [InlineData("uint", "uint.MaxValue", "4294967295")]
+    [InlineData("ulong", "ulong.MaxValue", "18446744073709551615")]
+    [InlineData("int", "int.MaxValue - 1", "2147483646")]
+    [InlineData("int", "1 + 1", "2")]
+    [Trait("Target", "DotNet")]
+    public void EnumInitializerAcceptsMetadataConstants(string underlyingType, string initializer, string expected)
+    {
+        var (compilation, _) = CreateCompilation($"enum Limits : {underlyingType} {{ Maximum = {initializer} }}",
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var field = Assert.Single(compilation.GetTypeByMetadataName("Limits")!.GetMembers("Maximum").OfType<IFieldSymbol>());
+        Assert.Equal(expected, Convert.ToString(field.GetConstantValue(), System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Theory]
+    [InlineData("enum Limits : byte { Maximum = 255 }", false)]
+    [InlineData("enum Limits : byte { Maximum = 254, Last }", false)]
+    [InlineData("enum Limits : byte { Maximum = 255, Reset = 0, Next }", false)]
+    [InlineData("enum Limits : byte { Maximum = 255, Overflow }", true)]
+    [Trait("Target", "Shared")]
+    public void EnumAutoIncrementReportsOverflowOnlyWhenUsed(string source, bool overflow)
+    {
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (overflow)
+        {
+            var diagnostic = Assert.Single(errors);
+            Assert.Equal(CompilerDiagnostics.EnumMemberValueCannotConvert, diagnostic.Descriptor);
+            Assert.Equal("Overflow", source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length));
+        }
+        else
+        {
+            Assert.Empty(errors);
+        }
+    }
+
     [Fact]
     public void EnumMembers_UseUnderlyingTypeAndAutoIncrement()
     {
@@ -64,7 +102,7 @@ enum Bad : string { Value }
     public void EnumMemberValue_MustBeConstant()
     {
         const string source = """
-enum Bad { Value = 1 + 1 }
+enum Bad { Value = System.Environment.TickCount }
 """;
 
         var (compilation, _) = CreateCompilation(source);

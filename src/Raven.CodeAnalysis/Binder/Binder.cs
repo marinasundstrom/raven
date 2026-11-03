@@ -229,8 +229,13 @@ internal abstract partial class Binder
     {
         for (var current = this; current is not null; current = current.ParentBinder)
         {
-            if (current.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true })
+            // Explicit ExtensionAttribute methods still belong to ordinary static
+            // classes and retain access to their private implementation helpers.
+            if (current.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true } method &&
+                method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            {
                 return Compilation.Assembly;
+            }
 
             if (current.ContainingSymbol is not null)
                 return current.ContainingSymbol;

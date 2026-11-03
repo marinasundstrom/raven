@@ -1,0 +1,51 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+
+public static partial class SyntaxNodeExtensions {
+    [Extension]
+    static func ReplaceNode<TRoot>(node: TRoot, oldNode: SyntaxNode, newNode: SyntaxNode) -> TRoot where TRoot: SyntaxNode {
+        return (TRoot)node.ReplaceNodeCore(oldNode, newNode)
+    }
+
+    [Extension]
+    static func ReplaceToken<TRoot>(node: TRoot, oldToken: SyntaxToken, newToken: SyntaxToken) -> TRoot where TRoot: SyntaxNode {
+        return (TRoot)node.ReplaceTokenCore(oldToken, newToken)
+    }
+
+    [Extension]
+    static func ReplaceNode<TRoot>(node: TRoot, oldNode: SyntaxNode, newNodes: IEnumerable<SyntaxNode>) -> TRoot where TRoot: SyntaxNode {
+        return (TRoot)node.ReplaceNodeWithNodesCore(oldNode, newNodes)
+    }
+
+    [Extension]
+    static func WithLeadingTrivia<TSyntax>(node: TSyntax, params trivia: IEnumerable<SyntaxTrivia>) -> TSyntax where TSyntax: SyntaxNode {
+        let first = node.GetFirstToken(includeZeroWidth: true)
+        let newFirst = first.WithLeadingTrivia(trivia)
+        return ReplaceToken(node, first, newFirst)
+    }
+
+    [Extension]
+    static func WithTrailingTrivia<TSyntax>(node: TSyntax, params trivia: IEnumerable<SyntaxTrivia>) -> TSyntax where TSyntax: SyntaxNode {
+        let last = node.GetLastToken(includeZeroWidth: true)
+        let newLast = last.WithTrailingTrivia(trivia)
+        return ReplaceToken(node, last, newLast)
+    }
+
+    [Extension]
+    static func AncestorNodesAndSelf(node: SyntaxNode) -> IEnumerable<SyntaxNode> {
+        yield node
+        for ancestor in node.Ancestors() {
+            yield ancestor
+        }
+    }
+
+    [Extension]
+    static func DescendantNodesAndSelf(node: SyntaxNode) -> IEnumerable<SyntaxNode> {
+        yield node
+        for descendant in node.DescendantNodes() {
+            yield descendant
+        }
+    }
+}

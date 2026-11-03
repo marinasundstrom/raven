@@ -1,0 +1,105 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.*
+import System.Collections.Generic.*
+import System.Diagnostics.CodeAnalysis.*
+
+public open class ChildSyntaxList : IEnumerable<ChildSyntaxListItem> {
+    private readonly field _node: SyntaxNode
+
+    private field _children: ChildSyntaxListItem[]?
+
+    init(node: SyntaxNode) { _node = node ?? throw ArgumentNullException(nameof(node)) }
+
+    val self[index: int]: ChildSyntaxListItem => GetChildren()[index]
+
+    private func InitializeChildren() {
+        var position = _node.Position
+        let green = _node.Green
+        let children = List<ChildSyntaxListItem>()
+        var index = 0
+        while index < green.SlotCount {
+            let child = green.GetSlot(index)
+            if child is InternalSyntax.SyntaxList list {
+                var i = 0
+                while i < list.SlotCount {
+                    let item = list.GetSlot(i)
+                    if item is not null {
+                        children.Add(ChildSyntaxListItem(item!, _node, position, list))
+                        position += item!.FullWidth
+                    }
+                    i++
+                }
+            }
+            else if child is not null {
+                children.Add(ChildSyntaxListItem(child!, _node, position))
+                position += child!.FullWidth
+            }
+            index++
+        }
+        _children = children.ToArray()
+    }
+
+    private func GetChildren() -> ChildSyntaxListItem[] {
+        if _children is null { InitializeChildren() }
+        return _children!
+    }
+
+    func GetEnumerator() -> IEnumerator<ChildSyntaxListItem> => ((IEnumerable<ChildSyntaxListItem>)GetChildren()).GetEnumerator()
+
+    func IEnumerable.GetEnumerator() -> IEnumerator => GetEnumerator()
+}
+
+public open class ChildSyntaxListItem {
+    private readonly field _itemGreenNode: GreenNode
+
+    private readonly field _parentNode: SyntaxNode
+
+    private readonly field _position: int
+
+    private readonly field _parentListGreen: InternalSyntax.SyntaxList?
+
+    private field _token: SyntaxToken?
+
+    private field _node: SyntaxNode?
+
+    internal init(itemGreenNode: GreenNode, parentNode: SyntaxNode, position: int, parentListGreen: InternalSyntax.SyntaxList? = null) {
+        _itemGreenNode = itemGreenNode ?? throw ArgumentNullException(nameof(itemGreenNode))
+        _parentNode = parentNode
+        _position = position
+        _parentListGreen = parentListGreen
+    }
+
+    val IsToken: bool => _itemGreenNode is InternalSyntax.SyntaxToken
+
+    val IsNode: bool => _itemGreenNode is InternalSyntax.SyntaxNode
+
+    func AsToken() -> SyntaxToken {
+        _token ??= if IsToken { SyntaxToken((InternalSyntax.SyntaxToken)_itemGreenNode, _parentNode, _position) } else { default(SyntaxToken) }
+        return _token!
+    }
+
+    func AsNode() -> SyntaxNode? {
+        _node ??= if IsNode { SyntaxNodeCache.GetValue(_itemGreenNode, s => s.CreateRed(_parentNode, _position)) } else { null }
+        return _node
+    }
+
+    val Parent: SyntaxNode => _parentNode
+
+    internal val ParentListGreen: InternalSyntax.SyntaxList? => _parentListGreen
+
+    func TryGetToken(out token: SyntaxToken) -> bool {
+        if IsToken { token = AsToken(); return true }
+        token = default
+        return false
+    }
+
+    func TryGetNode([NotNullWhen(true)] out node: SyntaxNode?) -> bool {
+        if IsNode { node = AsNode()!; return true }
+        node = null
+        return false
+    }
+
+    static func implicit(item: ChildSyntaxListItem) -> SyntaxNodeOrToken => if item.IsToken { SyntaxNodeOrToken(item.AsToken()) } else { SyntaxNodeOrToken(item.AsNode()!) }
+}

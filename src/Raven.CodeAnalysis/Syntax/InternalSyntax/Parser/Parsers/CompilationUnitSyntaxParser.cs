@@ -91,7 +91,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         List<ImportDirectiveSyntax> imports = [];
         List<AliasDirectiveSyntax> aliases = [];
         List<MemberDeclarationSyntax> members = [];
-        var order = MemberOrder.Members;
+        var order = MemberOrder.Imports;
         ParseNamespaceMemberDeclarations(PeekToken(), imports, aliases, members, ref order);
 
         return imports.Count == 0 && aliases.Count == 0 && members.Count == 1
@@ -159,6 +159,9 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.ImportDirectiveOutOfOrder,
                         GetActualTextSpan(start, importDirective)));
+                memberDeclarations.Add(PreserveMisplacedDirective(importDirective));
+                order = MemberOrder.Members;
+                return;
             }
 
             importDirectives.Add(importDirective);
@@ -192,6 +195,9 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.AliasDirectiveOutOfOrder,
                         GetActualTextSpan(start, aliasDirective)));
+                memberDeclarations.Add(PreserveMisplacedDirective(aliasDirective));
+                order = MemberOrder.Members;
+                return;
             }
 
             aliasDirectives.Add(aliasDirective);
@@ -459,16 +465,26 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         List<ImportDirectiveSyntax> imports = [];
+        var skippedTrivia = SyntaxTriviaList.Empty;
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) &&
                !nextToken.IsKind(SyntaxKind.CloseBraceToken))
         {
             if (nextToken.IsKind(SyntaxKind.ImportKeyword))
             {
-                imports.Add(new ImportDirectiveSyntaxParser(this).ParseImportDirective());
+                var import = new ImportDirectiveSyntaxParser(this).ParseImportDirective();
+                if (skippedTrivia.Count > 0)
+                {
+                    import = import.Update(import.ImportKeyword.WithLeadingTrivia(skippedTrivia.AddRange(import.ImportKeyword.LeadingTrivia)),
+                        import.Name, import.TerminatorToken);
+                    skippedTrivia = SyntaxTriviaList.Empty;
+                }
+                imports.Add(import);
                 continue;
             }
 
-            ReadToken();
+            var span = GetSpanOfPeekedToken();
+            var skippedToken = CreateSkippedToken([ReadToken()], span);
+            skippedTrivia = skippedTrivia.AddRange(skippedToken.LeadingTrivia);
         }
 
         if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
@@ -479,6 +495,9 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                     GetEndOfLastToken(),
                     ['}']));
         }
+
+        if (skippedTrivia.Count > 0)
+            closeBraceToken = closeBraceToken.WithLeadingTrivia(skippedTrivia.AddRange(closeBraceToken.LeadingTrivia));
 
         TryConsumeTerminator(out var terminatorToken);
 
@@ -563,7 +582,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     private SyntaxToken ParseIncompleteMemberTokens()
     {
-        var peek = PeekToken();
         var span = GetSpanOfPeekedToken();
 
         var skippedTokens = ConsumeSkippedTokensUntil(token =>
@@ -600,7 +618,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.RecordKeyword or
                      SyntaxKind.OverrideKeyword ||
-                (kind == SyntaxKind.ExternKeyword && IsExternConstDeclarationStart()))
+                (kind == SyntaxKind.ExternKeyword &&
+                 (IsExternConstDeclarationStart() || new MacroDeclarationParser(this).IsDeclarationStartAfterModifiers())))
             {
                 modifiers = modifiers.Add(ReadToken());
             }

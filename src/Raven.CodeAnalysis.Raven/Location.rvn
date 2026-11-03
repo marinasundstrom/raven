@@ -1,0 +1,77 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Diagnostics.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public abstract class Location : IComparable<Location>, IEquatable<Location> {
+    static val None: Location { get; } = NoLocation()
+
+    static func Create(path: string, textSpan: TextSpan, lineSpan: LinePositionSpan) -> Location
+        => ExternalFileLocation(path, textSpan, lineSpan)
+
+    static func Create(sourceTree: SyntaxTree, sourceSpan: TextSpan) -> Location
+        => SourceLocation(sourceTree, sourceSpan)
+
+    val IsInMetadata: bool => self is MetadataLocation
+
+    val IsInSource: bool => self is SourceLocation or ExternalFileLocation
+
+    var Kind: LocationKind { get; protected set; } = LocationKind.None
+
+    virtual val MetadataModule: IModuleSymbol? => null
+
+    var SourceSpan: TextSpan { get; protected set; }
+
+    virtual val SourceTree: SyntaxTree? => null
+
+    protected virtual func GetDebuggerDisplay() -> string {
+        var result = GetType().Name
+        let pos = GetLineSpan()
+        if pos.Path is not null {
+            result += "(" + pos.Path + "@" + (pos.StartLinePosition.Line + 1) + ":" + (pos.StartLinePosition.Character + 1) + ")"
+        }
+        return result
+    }
+
+    virtual func GetLineSpan() -> FileLinePositionSpan => default
+
+    func CompareTo(other: Location?) -> int {
+        if other is null { return 1 }
+        let path1 = GetLineSpan().Path ?? ""
+        let path2 = other!.GetLineSpan().Path ?? ""
+        let pathComparison = string.Compare(path1, path2, StringComparison.OrdinalIgnoreCase)
+        if pathComparison != 0 { return pathComparison }
+        let lineComparison = GetLineSpan().StartLinePosition.Line.CompareTo(other!.GetLineSpan().StartLinePosition.Line)
+        if lineComparison != 0 { return lineComparison }
+        let charComparison = GetLineSpan().StartLinePosition.Character.CompareTo(other!.GetLineSpan().StartLinePosition.Character)
+        if charComparison != 0 { return charComparison }
+        return SourceSpan.Start.CompareTo(other!.SourceSpan.Start)
+    }
+
+    override func Equals(obj: object?) -> bool => Equals(obj as Location)
+
+    func Equals(other: Location?) -> bool {
+        if other is null { return false }
+        if ReferenceEquals(self, other) { return true }
+        if GetType() != other!.GetType() { return false }
+        return SourceSpan == other!.SourceSpan && Equals(SourceTree, other!.SourceTree) &&
+            (Kind != LocationKind.ExternalFile || GetLineSpan().Equals(other!.GetLineSpan()))
+    }
+
+    override func GetHashCode() -> int {
+        unchecked {
+            var hash = 17
+            hash = hash * 31 + SourceSpan.GetHashCode()
+            hash = hash * 31 + (SourceTree?.GetHashCode() ?? 0)
+            if Kind == LocationKind.ExternalFile { hash = hash * 31 + GetLineSpan().GetHashCode() }
+            return hash
+        }
+    }
+
+    static func ==(left: Location?, right: Location?) -> bool => Equals(left, right)
+
+    static func !=(left: Location?, right: Location?) -> bool => !Equals(left, right)
+}

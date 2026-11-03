@@ -4,6 +4,7 @@
     <AssemblyMetadata Include="CompilerImplementationAssembly" Value="Raven.CodeAnalysis.Raven" />
     <ProjectReference Include="../../../src/Raven.CodeAnalysis.Raven/Raven.CodeAnalysis.Raven.rvnproj" />
     <ProjectReference Include="../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
+    <Compile Include="../SyntaxPublicTypeParityTests.cs" Link="SyntaxPublicTypeParityTests.cs" />
     <Compile Include="../GeneratedDiagnosticCatalogParityTests.cs" Link="GeneratedDiagnosticCatalogParityTests.cs" />
     <Compile Include="../GeneratedSyntaxKindParityTests.cs" Link="GeneratedSyntaxKindParityTests.cs" />
     <Compile Include="../GeneratedSyntaxFactsParityTests.cs" Link="GeneratedSyntaxFactsParityTests.cs" />

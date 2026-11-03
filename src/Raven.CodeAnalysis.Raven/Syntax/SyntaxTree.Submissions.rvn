@@ -1,0 +1,75 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Threading.*
+
+public open partial class SyntaxTree {
+    /// Classifies whether this script or interactive syntax tree is ready to compile.
+    func GetSubmissionCompleteness(cancellationToken: CancellationToken = default) -> SubmissionCompleteness {
+        if Options.Kind is not (SourceCodeKind.Script or SourceCodeKind.Interactive) {
+            throw InvalidOperationException("Submission completeness is only available for script or interactive syntax trees.")
+        }
+        cancellationToken.ThrowIfCancellationRequested()
+        let root = GetRoot(cancellationToken)
+        let errors = GetDiagnostics(cancellationToken).Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray()
+        if (HasUnterminatedDirective(errors) || HasUnterminatedLexicalConstruct(root, errors) ||
+            HasTrailingMissingSyntax(root, cancellationToken)) {
+            return SubmissionCompleteness.Incomplete
+        }
+        return if errors.Length == 0 { SubmissionCompleteness.Complete } else { SubmissionCompleteness.Invalid }
+    }
+
+    private func HasUnterminatedLexicalConstruct(root: CompilationUnitSyntax, errors: IReadOnlyList<Diagnostic>) -> bool {
+        let text = GetText().ToString()
+        if errors.Any(diagnostic => IsUnterminatedAtEndOfInput(diagnostic, text)) { return true }
+        for trivia in root.DescendantTrivia(descendIntoStructuredTrivia: true) {
+            if (trivia.Kind == SyntaxKind.MultiLineCommentTrivia && trivia.FullSpan.End == Length &&
+                !trivia.Text.EndsWith("*/", StringComparison.Ordinal)) {
+                return true
+            }
+        }
+        let finalToken = root.DescendantTokens(descendIntoTrivia: true).LastOrDefault(token =>
+            !token.IsMissing && token.Width > 0 && token.Kind is not (SyntaxKind.EndOfFileToken or SyntaxKind.None))
+        return finalToken.Kind == SyntaxKind.MultiLineStringLiteralToken && finalToken.Span.End == Length &&
+            (finalToken.Text.Length < 6 || !finalToken.Text.EndsWith("\"\"\"", StringComparison.Ordinal))
+
+        static func IsUnterminatedSingleLineLiteral(diagnostic: Diagnostic) -> bool =>
+            diagnostic.Descriptor == CompilerDiagnostics.NewlineInConstant ||
+            diagnostic.Descriptor == CompilerDiagnostics.UnterminatedCharacterLiteral
+
+        static func IsUnterminatedAtEndOfInput(diagnostic: Diagnostic, text: string) -> bool {
+            if !IsUnterminatedSingleLineLiteral(diagnostic) { return false }
+            let start = Math.Clamp(diagnostic.Location.SourceSpan.Start, 0, text.Length)
+            return !ContainsLineBreak(text.AsSpan(start))
+        }
+
+        static func ContainsLineBreak(value: ReadOnlySpan<char>) -> bool {
+            for character in value {
+                if character is '\r' or '\n' or '\u0085' or '\u2028' or '\u2029' { return true }
+            }
+            return false
+        }
+    }
+
+    private static func HasUnterminatedDirective(errors: IReadOnlyList<Diagnostic>) -> bool =>
+        errors.Any(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MissingEndIfDirective)
+
+    private static func HasTrailingMissingSyntax(root: CompilationUnitSyntax, cancellationToken: CancellationToken) -> bool {
+        let tokens = root.DescendantTokens(descendIntoTrivia: true).ToArray()
+        let finalWrittenToken = tokens.LastOrDefault(token =>
+            !token.IsMissing && token.Width > 0 && token.Kind is not (SyntaxKind.EndOfFileToken or SyntaxKind.None))
+        let writtenEnd = if finalWrittenToken.Kind == SyntaxKind.None { 0 } else { finalWrittenToken.Span.End }
+        for descendant in root.DescendantNodesAndTokens(descendIntoTrivia: true) {
+            cancellationToken.ThrowIfCancellationRequested()
+            if descendant.IsToken {
+                let token = descendant.AsToken()
+                if token.IsMissing && token.SpanStart >= writtenEnd { return true }
+            } else if descendant.AsNode() is SyntaxNode node && node.IsMissing && node.Span.Start >= writtenEnd {
+                return true
+            }
+        }
+        return false
+    }
+}

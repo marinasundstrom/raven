@@ -1,0 +1,104 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class LanguageParser {
+    private val _filePath: string
+
+    val Options: ParseOptions { get; }
+
+    init(filePath: string?, options: ParseOptions) {
+        _filePath = filePath ?? string.Empty
+        Options = options ?? ParseOptions()
+    }
+
+    func Parse(sourceText: SourceText) -> ParseResult {
+        use textReader = sourceText.GetTextReader()
+
+        let lexer = Lexer(textReader, options: Options)
+        let parseContext = BaseParseContext(lexer, Options)
+        let root = CompilationUnitSyntaxParser(parseContext).Parse()
+        return ParseResult(root, parseContext.Diagnostics, parseContext.Position)
+    }
+
+    func ParseSyntax(requestedSyntaxType: Type, sourceText: SourceText, position: int) -> SyntaxNode? {
+        let result = ParseSyntaxWithDiagnostics(requestedSyntaxType, sourceText, position)
+        if result is ParseResult parsed {
+            return (SyntaxNode)parsed.Root.WithAdditionalDiagnostics(parsed.Diagnostics.Select(d => d.WithSourceText(sourceText, _filePath)).ToArray())
+        }
+        return null
+    }
+
+    func ParseSyntaxWithDiagnostics(
+        requestedSyntaxType: Type,
+        sourceText: SourceText,
+        position: int,
+        consumeFullText: bool = false,
+        parameterPattern: bool = false) -> ParseResult? {
+        use textReader = sourceText.GetTextReader(position)
+
+        let lexer = Lexer(textReader, position, Options)
+        let parseContext = BaseParseContext(lexer, Options, position)
+
+        try {
+            let root = if parameterPattern && requestedSyntaxType == typeof(Syntax.PatternSyntax) {
+                PatternSyntaxParser(parseContext, allowImplicitDeconstructionElementBindings: true,
+                    allowWholePatternDesignation: false).ParsePattern()
+            } else {
+                ParseRequestedType(parseContext, requestedSyntaxType)
+            }
+            if (root is not null &&
+                consumeFullText &&
+                parseContext.PeekToken().Kind != SyntaxKind.EndOfFileToken) {
+                let trailingToken = parseContext.ReadToken()
+                parseContext.AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    parseContext.GetSpanOfLastToken(),
+                    trailingToken.Text))
+            }
+
+            return if root is SyntaxNode node {
+                ParseResult(node, parseContext.Diagnostics, parseContext.Position)
+            } else {
+                null
+            }
+        } catch (NotSupportedException error) {
+            return null
+        }
+    }
+
+    private func ParseRequestedType(context: BaseParseContext, requestedSyntaxType: Type) -> SyntaxNode? {
+        if (requestedSyntaxType == typeof(Syntax.CompilationUnitSyntax)) {
+            return CompilationUnitSyntaxParser(context).Parse()
+        } else if (requestedSyntaxType == typeof(Syntax.MemberDeclarationSyntax)) {
+            return CompilationUnitSyntaxParser(context).ParseMemberDeclaration()
+        } else if (requestedSyntaxType == typeof(Syntax.PatternSyntax)) {
+            return PatternSyntaxParser(context).ParsePattern()
+        } else if (requestedSyntaxType == typeof(Syntax.TypeSyntax)) {
+            return NameSyntaxParser(context).ParseTypeName()
+        } else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.StatementSyntax))) {
+            return StatementSyntaxParser(context).ParseStatement()
+        } else if (requestedSyntaxType == typeof(Syntax.BlockSyntax)) {
+            return ExpressionSyntaxParser(context).ParseBlockSyntax()
+        } else if (requestedSyntaxType == typeof(Syntax.NameSyntax)) {
+            return NameSyntaxParser(context).ParseName()
+        } else if (requestedSyntaxType == typeof(Syntax.IdentifierNameSyntax)) {
+            return NameSyntaxParser(context).ParseSimpleName()
+        } else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.ExpressionSyntax))) {
+            return ExpressionSyntaxParser(context).ParseExpression()
+        } else if (requestedSyntaxType == typeof(Syntax.ReturnStatementSyntax)) {
+            return StatementSyntaxParser(context).ParseStatement()
+        }
+
+        return null
+    }
+
+    func ParseStatement(sourceText: SourceText, offset: int = 0, consumeFullText: bool = true) -> StatementSyntax {
+        let result = ParseSyntaxWithDiagnostics(typeof(Syntax.StatementSyntax), sourceText, offset,
+            consumeFullText: consumeFullText)!
+        return (StatementSyntax)result.Root.WithAdditionalDiagnostics(result.Diagnostics.Select(d => d.WithSourceText(sourceText, _filePath)).ToArray())
+    }
+}

@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Syntax
+
+/// <summary>
+/// Formats Raven syntax trees and fragments.
+/// </summary>
+public static class Formatter {
+    static readonly field Annotation: SyntaxAnnotation = SyntaxAnnotation("Formatter")
+
+    static func Format<TSyntax>(node: TSyntax, indentSize: int = 4) -> TSyntax where TSyntax: SyntaxNode {
+        return SyntaxNormalizer(indentSize).Format(node, useFormatterAnnotation: true)
+    }
+}

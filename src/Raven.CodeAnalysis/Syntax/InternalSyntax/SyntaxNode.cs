@@ -56,7 +56,16 @@ internal abstract class SyntaxNode : GreenNode
 
     internal override GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
     {
-        return With(_slots, null, annotations);
+        if (annotations.Length == 0)
+            return this;
+
+        if (_annotations is null || _annotations.Length == 0)
+            return With(_slots, _diagnostics, annotations);
+
+        var merged = new SyntaxAnnotation[_annotations.Length + annotations.Length];
+        _annotations.CopyTo(merged, 0);
+        annotations.CopyTo(merged, _annotations.Length);
+        return With(_slots, _diagnostics, merged);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()

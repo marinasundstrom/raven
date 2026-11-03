@@ -1,0 +1,134 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import Raven.CodeAnalysis.Text.*
+
+internal abstract class ParseContext {
+    protected static field _stopwatch: Stopwatch = Stopwatch()
+
+    [Conditional("DEBUG")]
+    protected static func PrintDebug(text: string) {
+        if SyntaxParserFlags.PrintParseSequence {
+            Console.WriteLine("${PrintLeadingDebug()}${text}")
+            if SyntaxParserFlags.ParseSequenceThrottleMilliseconds > 0 {
+                Thread.Sleep(SyntaxParserFlags.ParseSequenceThrottleMilliseconds)
+            }
+        }
+    }
+
+    protected static func PrintLeadingDebug() -> string {
+        if SyntaxParserFlags.PrintTimestamp {
+            return "[${_stopwatch.ElapsedMilliseconds} ms] "
+        }
+        return string.Empty
+    }
+
+    private field _diagnostics: List<DiagnosticInfo>?
+
+    private field _parenDepth: int
+
+    func EnterParens() -> unit => _parenDepth++
+
+    func ExitParens() -> unit => _parenDepth--
+
+    val IsInsideParens: bool => _parenDepth > 0
+
+    protected init() { }
+
+    protected init(parent: ParseContext?) {
+        Parent = parent
+    }
+
+    val Diagnostics: IReadOnlyList<DiagnosticInfo> => GetRootContext()._diagnostics ?? []
+
+    func AddDiagnostic(diagnostic: DiagnosticInfo) {
+        let root = GetRootContext()
+        var diagnostics = root._diagnostics
+        if diagnostics is null {
+            diagnostics = List<DiagnosticInfo>()
+            root._diagnostics = diagnostics
+        }
+        diagnostics!.Add(diagnostic)
+    }
+
+    internal func GetDiagnosticCount() -> int {
+        let root = GetRootContext()
+        return root._diagnostics?.Count ?? 0
+    }
+
+    internal func RestoreDiagnostics(count: int) {
+        let diagnostics = GetRootContext()._diagnostics
+        if diagnostics is null {
+            return
+        }
+        if count <= 0 {
+            diagnostics!.Clear()
+            return
+        }
+        if diagnostics!.Count > count {
+            diagnostics!.RemoveRange(count, diagnostics!.Count - count)
+        }
+    }
+
+    private func GetRootContext() -> ParseContext {
+        var context = self
+        while context.Parent is ParseContext parent {
+            context = parent
+        }
+        return context
+    }
+
+    virtual val BlockDepth: int => Parent?.BlockDepth ?? throw InvalidOperationException("No base or parent set")
+
+    virtual val IsInBlock: bool => BlockDepth > 0
+
+    virtual val IsInMacro: bool => Parent?.IsInMacro ?? false
+
+    val Parent: ParseContext? { get; protected set; }
+
+    virtual val Position: int => Parent?.Position ?? throw InvalidOperationException("No base or parent set")
+
+    virtual val LastToken: SyntaxToken? => (Parent ?? throw InvalidOperationException("No base or parent set")).LastToken
+
+    virtual func PeekToken(index: int = 0) -> SyntaxToken => Parent?.PeekToken(index) ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func ReadToken() -> SyntaxToken => Parent?.ReadToken() ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func ReadMacroBodyToken(out isTerminated: bool) -> SyntaxToken {
+        let parent = Parent ?? throw InvalidOperationException("No base or parent set")
+        return parent.ReadMacroBodyToken(out isTerminated)
+    }
+
+    virtual func GetStartOfLastToken() -> TextSpan => Parent?.GetStartOfLastToken() ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func GetEndOfLastToken(width: int = 0) -> TextSpan => Parent?.GetEndOfLastToken(width) ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func GetSpanOfLastToken() -> TextSpan => Parent?.GetSpanOfLastToken() ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func GetFullSpanOfLastToken() -> TextSpan => Parent?.GetFullSpanOfLastToken() ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func CreateCheckpoint(debugName: string = "",
+        [CallerMemberName] callerMemberName: string? = null,
+        [CallerFilePath] callerFilePath: string? = null,
+        [CallerLineNumber] callerLineNumber: int? = null) -> ParserCheckpoint {
+        let checkpoint = Parent!.CreateCheckpoint(debugName, callerMemberName, callerFilePath, callerLineNumber)
+        return checkpoint
+    }
+
+    virtual func RewindToPosition(position: int) {
+        Parent?.RewindToPosition(position)
+        PrintDebug("Rewinded to ${position}")
+    }
+
+    virtual val TreatNewlinesAsTokens: bool => Parent?.TreatNewlinesAsTokens ?? throw InvalidOperationException("No base or parent set")
+
+    virtual func SetTreatNewlinesAsTokens(value: bool) -> unit => Parent?.SetTreatNewlinesAsTokens(value)
+
+    virtual func SkipUntil(params expectedKind: IEnumerable<SyntaxKind>) -> SyntaxToken {
+        return Parent?.SkipUntil(expectedKind) ?? throw InvalidOperationException("No base or parent set")
+    }
+}

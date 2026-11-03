@@ -4,6 +4,183 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Store iterator pattern bindings in the hoisted fields read across `yield` resumes.
+
+- Infer enclosing generic type parameters from ordinary recursive-call arguments
+  without treating unresolved callback hints as inference evidence.
+
+- Keep iterator `out` and `ref` accesses on the hoisted storage used by yields.
+
+- Resolve enclosing static members from nested types and keep local-function
+  parameters ahead of later enclosing local declarations.
+- Infer lambda return type parameters nested inside generic/array return shapes.
+- Traverse tuple elements during capture analysis, preserving captured locals.
+- Leave protected regions correctly for loop `break` and `continue`, including
+  execution of `finally` blocks.
+- Preserve open generic array delegate signatures during persisted .NET emission.
+- Emit Raven quoter wrappers with same-line opening braces; retain C# formatting.
+
+- Preserve original source spans and line positions for detached parsed-fragment
+  diagnostics, and return directly attached diagnostics for nonrecursive queries.
+- Diagnose missing closing braces in type declarations.
+- Allow static local functions to call static siblings without exposing captured
+  enclosing locals or nonstatic local functions.
+
+- Retain source-tree ownership and parse diagnostics on compilation units returned
+  by `SyntaxFactory.ParseCompilationUnit`, including source-backed diagnostic locations.
+- Include zero-width diagnostic markers at queried span boundaries, so missing
+  delimiters at EOF remain visible through node and token diagnostic queries.
+
+- Count syntax-tree printer depth from zero so finite `MaxDepth` values retain
+  the requested number of descendant levels, including trivia and structured trivia.
+
+- Preserve recovery diagnostics on internal node-only parsing results and honor
+  the statement parser entry point's `consumeFullText` option.
+
+- Allow the declaring call to initialize `out let` and `out val` locals,
+  while still rejecting later assignment or writable by-reference use.
+- Infer newly declared output locals from the selected overload, including
+  overloaded metadata APIs and generic calls; do not read them during preliminary
+  input-type inference or use their unknown output types to break overload ties.
+
+- Dispatch requested name syntax through the name parser before general
+  expressions, preserving qualified-name nodes instead of member-access nodes.
+
+- Diagnose missing closing delimiters in tuple, collection and array expressions
+  while retaining missing tokens and the original source.
+- Retain definite `out` assignments performed in a `while` condition for both
+  the body and normal exit, preserving short-circuit checks.
+
+- Give local functions declaration-scoped symbol identity so same-signature
+  helpers in different methods retain their own bodies and capture frames.
+
+- Keep a parenthesized condition separate from a following line-broken statement
+  body instead of speculatively consuming the body as a cast operand. Same-line
+  casts in conditions remain supported.
+
+- Parse explicit-interface indexers written as `Interface.self[...]` and record
+  their property/accessor implementation links, including expression-bodied getters.
+- Preserve unexpected tokens in type-member accessor lists during recovery instead
+  of silently dropping source text.
+
+- Exclude local function declarations from enclosing unreachable-statement results
+  and warnings, while analyzing their own bodies independently.
+
+- Diagnose missing delimiters in positional, sequence, dictionary, member and
+  nominal deconstruction patterns while preserving the source and missing tokens.
+
+- Keep pattern combinators outside comparison/range operands and constant
+  expressions, including `> 1 and < 10`; parenthesized operands retain ordinary
+  expression operators.
+- Recognize forwarded `out` assignments performed in an `if` condition before
+  either branch, including unary negation, while retaining short-circuit checks.
+
+- Preserve unexpected tokens in extension members and accessor lists as skipped
+  syntax during recovery, retaining source text and diagnostics.
+
+- Preserve and diagnose unexpected tokens in global import blocks, including
+  unterminated blocks, instead of silently discarding their source text.
+
+- Emit captureless lambdas in generic methods with correctly owned closure type
+  parameters, keeping enclosing-type and method parameters distinct.
+- Evaluate enum initializers through shared constant evaluation, including metadata
+  constants. Allow a member at the underlying maximum; diagnose overflow only
+  when a subsequent member needs an out-of-range implicit value.
+
+- Preserve misplaced import and alias directives at their original source positions
+  as skipped syntax instead of reordering the syntax tree during recovery.
+- Give self-only local functions their lexical method closure before defining
+  hidden parameters, preventing incompatible frames when sibling functions call them.
+
+- Support relational comparisons between values of the same enum type, preserving
+  signed and unsigned underlying representations. Portable lowering supports the
+  same comparisons for its currently admitted `int`-backed enums.
+
+- Resolve inherited instance properties and fields in property patterns using shared
+  member lookup, including nested paths and members imported from .NET assemblies.
+
+- Recover from unexpected enum-member tokens without repeating the same input;
+  preserve skipped source and report a diagnostic. Missing syntax tokens now retain
+  their missing state when copied with trivia, diagnostics, annotations or raw kind.
+
+- Recognize `extern` in macro-declaration modifier lookahead and preserve extern
+  macro declarations at compilation-unit and namespace scope.
+
+- Store an attached-macro `#` on its attribute list, preserving `#[A]` source
+  order, token positions, formatting, completion and macro-preview selection.
+
+- Report the missing closing bracket in unterminated attribute lists.
+
+- Keep return-type attribute lists after the arrow token in syntax trees, preserving
+  source text and child positions for clauses such as `-> [A] string`.
+
+- Do not require returning or throwing match arms to convert a nonexistent value
+  to the enclosing function return type.
+
+- Preserve explicit return expressions when reparsing a final conditional inside
+  a statement-form match arm as a block value.
+
+- Preserve the original instance receiver in iterator bodies, including field
+  reads/writes and instance member calls across yields.
+
+- Preserve diagnostics and previously attached annotations when adding annotations
+  to syntax nodes; adding an empty annotation collection preserves node identity.
+
+- Report the missing `)` in incomplete `new(` generic constraints instead of
+  incorrectly requesting an operator.
+
+- Emit property patterns over nullable collections of source-defined types using
+  the existing input local when no separate object temporary is needed. Patterns
+  such as `items is { Count: > 0 }` no longer fail during emission.
+
+- Preserve the value of a final `if`/`if let` with an `else` inside a block
+  expression. Nested conditionals now supply the block result without extra
+  parentheses; explicitly terminated and non-final conditionals remain statements.
+
+- Preserve an absent last token when delegating through a parser context. Token
+  boundary checks before the first consumed token no longer throw merely because
+  the parent context has no last token yet.
+
+- Emit captured local accesses in generic methods against the constructed closure
+  type. Generic methods that share locals with callbacks no longer fail at runtime
+  with `BadImageFormatException`.
+
+- Export collection-parameter metadata for non-array `params` collectors when
+  supported by the selected framework, allowing expanded C# calls to Raven
+  methods, constructors and delegates. Recognize collection-parameter metadata
+  when importing .NET libraries, including cold overload candidate checks.
+
+- Count guaranteed `out` assignments in local-variable initializers when checking
+  normal method exits. Conditional short-circuit calls still do not establish
+  definite assignment.
+
+- Honor parenthesized pattern grouping, including `not (A or B)`, rather than
+  interpreting an unnamed single grouped pattern as positional deconstruction.
+  Preserve grouping in `ParenthesizedPatternSyntax`; `(pattern,)` remains an
+  explicit one-element positional pattern and retains its required separator.
+
+- Accept writable `ref` arguments for read-only `in` parameters during overload
+  resolution, including numeric .NET `Volatile.Read` overloads.
+
+- Preserve unconstrained generic parameter representation through nullable
+  annotations during emission. Generic record equality now compares both value
+  and reference payloads without generating invalid boxed arguments.
+- Emit conditional access returning source-defined enum values through mapped
+  nullable constructors, including null-coalescing fallbacks.
+
+- Emit conversions to imported `System.Nullable<T>` operator parameters using the
+  same nullable representation as conversion classification. Value-type equality
+  operators with nullable parameters no longer fail during emission.
+- Syntax reflection helpers recognize tokens in concretely typed syntax lists and
+  separated lists, including separators; token-list lookup requires membership.
+
+- Emit null coalescing over nullable source-defined structs, including generic
+  structs, using constructed nullable accessors. This avoids an unsupported
+  reflection lookup while preserving single evaluation and fallback short-circuiting.
+- Preserve ordinary static-class private access in methods explicitly marked with
+  `ExtensionAttribute`. Such methods can call their own private helpers without
+  gaining access to private members of the receiver.
+
 - Keep abstract properties free of synthesized backing storage. Their metadata
   contains abstract accessors without a backing field, and initialization analysis
   no longer warns that the abstract contract needs a value.

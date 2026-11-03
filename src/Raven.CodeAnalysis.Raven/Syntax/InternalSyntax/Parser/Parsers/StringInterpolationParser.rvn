@@ -1,0 +1,459 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import Raven.CodeAnalysis.Text.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+alias SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts
+
+internal static class StringInterpolationParser {
+    internal static func ParseInterpolatedStringExpression(token: SyntaxToken) -> InterpolatedStringExpressionSyntax {
+        let contents = System.Collections.Generic.List<InterpolatedStringContentSyntax>()
+        let raw = token.Text
+        let isUnterminated = IsUnterminatedSingleLineStringToken(token)
+        let inner = GetSingleLineStringInnerText(raw, isUnterminated)
+
+        var segmentStart: int = 0
+        var i = 0
+        while (i < inner.Length) {
+            if (IsBracedInterpolationStart(inner, i)) {
+                if (i > segmentStart) {
+                    let segmentRaw = inner.Substring(segmentStart, i - segmentStart)
+                    AddTextSegment(segmentRaw)
+                }
+
+                let dollarToken = SyntaxToken(SyntaxKind.DollarToken, "$")
+                let openBraceToken = SyntaxToken(SyntaxKind.OpenBraceToken, "{")
+
+                i += 2 // skip ${
+
+                let closeIndex = ScanInterpolationBody(inner, i, out let exprText)
+                let exprSyntax = ParseExpressionFromText(exprText)
+
+                // If we found a closing '}', produce it; otherwise synthesize missing.
+                var closeBraceToken = Token(SyntaxKind.None)
+                if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}') {
+                    closeBraceToken = SyntaxToken(SyntaxKind.CloseBraceToken, "}")
+                    i = closeIndex + 1 // continue after '}'
+                }
+                else {
+                    closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken)
+                    i = inner.Length // stop scanning
+                }
+
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken))
+                segmentStart = i
+            }
+            else if (TryScanIdentifierInterpolation(inner, i, out let identifierEnd, out let exprSyntax)) {
+                if (i > segmentStart) {
+                    let segmentRaw = inner.Substring(segmentStart, i - segmentStart)
+                    AddTextSegment(segmentRaw)
+                }
+
+                let dollarToken = SyntaxToken(SyntaxKind.DollarToken, "$")
+                let openBraceToken = Token(SyntaxKind.None)
+                var closeBraceToken = Token(SyntaxKind.None)
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken))
+
+                i = identifierEnd
+                segmentStart = i
+            }
+            else {
+                i++
+            }
+        }
+
+        if (segmentStart < inner.Length) {
+            let segmentRaw = inner.Substring(segmentStart)
+            AddTextSegment(segmentRaw)
+        }
+
+        let startToken = SyntaxToken(
+            SyntaxKind.StringStartToken,
+            "\"",
+            token.LeadingTrivia,
+            SyntaxTriviaList.Empty)
+
+        var endToken = SyntaxToken(
+            SyntaxKind.StringEndToken,
+            "\"",
+            SyntaxTriviaList.Empty,
+            token.TrailingTrivia)
+
+        if (isUnterminated) {
+            endToken = SyntaxToken.Missing(SyntaxKind.StringEndToken)
+        }
+
+        return InterpolatedStringExpression(startToken, List(contents), endToken)
+
+        func AddTextSegment(segmentRaw: string) {
+            if (segmentRaw.Length == 0) {
+                return
+            }
+
+            let decoded = SyntaxFacts.DecodeStringLiteralContent(segmentRaw.AsSpan(), out _)
+            contents.Add(InterpolatedStringText(SyntaxToken(
+                SyntaxKind.StringLiteralToken,
+                segmentRaw,
+                string.Intern(decoded),
+                segmentRaw.Length)))
+        }
+    }
+
+    internal static func ContainsInterpolation(text: string) -> bool {
+        var i = 0
+        while (i < text.Length - 1) {
+            if (IsBracedInterpolationStart(text, i) ||
+                TryScanIdentifierInterpolation(text, i, out _, out _)) {
+                return true
+            }
+            i++
+        }
+
+        return false
+    }
+
+    private static func IsBracedInterpolationStart(text: string, index: int) -> bool {
+        if (index + 1 >= text.Length) {
+            return false
+        }
+
+        if (text[index] != '$' || IsEscaped(text, index)) {
+            return false
+        }
+
+        return text[index + 1] == '{'
+    }
+
+    private static func TryScanIdentifierInterpolation(text: string, index: int, out end: int, out expression: ExpressionSyntax) -> bool {
+        end = index
+        expression = ExpressionSyntax.Missing()
+
+        if (index + 1 >= text.Length ||
+            text[index] != '$' ||
+            IsEscaped(text, index) ||
+            (text[index + 1] != '`' && !SyntaxFacts.IsIdentifierStartCharacter(text[index + 1]))) {
+            return false
+        }
+
+        end = index + 2
+        if (text[index + 1] == '`') {
+            while (end < text.Length && text[end] is not ('`' or '\r' or '\n' or '\u0085' or '\u2028' or '\u2029'))
+                end++
+            if (end >= text.Length || text[end] != '`' || end == index + 2)
+                return false
+            end++
+        }
+        else {
+            while (end < text.Length && SyntaxFacts.IsIdentifierPartCharacter(text[end]))
+                end++
+        }
+
+        let exprText = text.Substring(index + 1, end - index - 1)
+        expression = IdentifierName(IdentifierToken(exprText))
+        return true
+    }
+
+    private static func IsEscaped(text: string, index: int) -> bool {
+        var backslashCount: int = 0
+        var i = index - 1
+        while (i >= 0 && text[i] == '\\') {
+            backslashCount++
+            i--
+        }
+
+        return (backslashCount & 1) == 1
+    }
+
+    internal static func IsUnterminatedSingleLineStringToken(token: SyntaxToken) -> bool {
+        return token.Kind == SyntaxKind.StringLiteralToken &&
+               (token.Text.Length < 2 || token.Text[^1] != '"')
+    }
+
+    internal static func IsUnterminatedSingleLineStringExpression(expression: ExpressionSyntax) -> bool {
+        return expression match {
+            LiteralExpressionSyntax { Token.Kind: SyntaxKind.StringLiteralToken } literal =>
+                IsUnterminatedSingleLineStringToken(literal.Token),
+            InterpolatedStringExpressionSyntax interpolated =>
+                interpolated.StringEndToken.IsMissing,
+            _ => false
+        }
+    }
+
+    internal static func GetSingleLineStringInnerText(raw: string, isUnterminated: bool) -> string {
+        if (raw.Length <= 1)
+            return string.Empty
+
+        return if isUnterminated { raw.Substring(1) } else { raw.Substring(1, raw.Length - 2) }
+    }
+
+    // Scans the body of an interpolation that starts immediately after `${`.
+    // Returns the index of the matching `}` in `text`, or -1 if none is found.
+    // `expressionText` is the raw substring between `${` and the matching `}` (or to end-of-input if unterminated).
+    private static func ScanInterpolationBody(text: ReadOnlySpan<char>, startIndex: int, out expressionText: string) -> int {
+        var i: int = startIndex
+        var braceDepth: int = 0   // nested { } inside the interpolation expression
+        var parenDepth: int = 0   // ( )
+        var bracketDepth: int = 0 // [ ]
+
+        while (i < text.Length) {
+            let c: char = text[i]
+
+            if (c == '`') {
+                i++
+                while (i < text.Length && text[i] is not ('`' or '\r' or '\n' or '\u0085' or '\u2028' or '\u2029'))
+                    i++
+                if (i < text.Length && text[i] == '`')
+                    i++
+                continue
+            }
+
+            // Skip string/char literals so braces/dollars inside them do not affect scanning.
+            if (c == '"') {
+                i = ScanNormalStringLiteral(text, i)
+                continue
+            }
+
+            if (c == '\'') {
+                i = ScanCharacterLiteral(text, i)
+                continue
+            }
+
+            // Skip comments.
+            if (c == '/' && i + 1 < text.Length) {
+                let n: char = text[i + 1]
+                if (n == '/') {
+                    i = ScanSingleLineComment(text, i)
+                    continue
+                }
+                if (n == '*') {
+                    i = ScanMultiLineComment(text, i)
+                    continue
+                }
+            }
+
+            // Track nesting constructs.
+            c match {
+                '{' => {
+                    braceDepth++
+                    i++
+                    continue
+                }
+
+                '}' => {
+                    // Only treat as the end of the interpolation when we are not inside any nested construct.
+                    if (braceDepth == 0 && parenDepth == 0 && bracketDepth == 0) {
+                        expressionText = text.Slice(startIndex, i - startIndex).ToString()
+                        return i
+                    }
+
+                    if (braceDepth > 0)
+                        braceDepth--
+
+                    i++
+                    continue
+                }
+
+                '(' => {
+                    parenDepth++
+                    i++
+                    continue
+                }
+
+                ')' => {
+                    if (parenDepth > 0)
+                        parenDepth--
+                    i++
+                    continue
+                }
+
+                '[' => {
+                    bracketDepth++
+                    i++
+                    continue
+                }
+
+                ']' => {
+                    if (bracketDepth > 0)
+                        bracketDepth--
+                    i++
+                    continue
+                }
+                _ => {}
+            }
+
+            i++
+        }
+
+        // Unterminated interpolation; return what we have.
+        expressionText = text.Slice(startIndex).ToString()
+        return -1
+
+        static func ScanNormalStringLiteral(s: ReadOnlySpan<char>, start: int) -> int {
+            // Supports both normal strings ("...") and raw triple-quote strings ("""...""")
+            // inside interpolation expressions.
+            if (start + 2 < s.Length && s[start] == '"' && s[start + 1] == '"' && s[start + 2] == '"') {
+                // Raw triple-quote: scan until next """ or EOF.
+                var j: int = start + 3
+                while (j + 2 < s.Length) {
+                    if (s[j] == '"' && s[j + 1] == '"' && s[j + 2] == '"')
+                        return j + 3
+                    j++
+                }
+                return s.Length
+            }
+
+            // Normal string with escapes.
+            var i: int = start + 1
+            while (i < s.Length) {
+                let c: char = s[i]
+                if (c == '\\') {
+                    // Skip escaped char if present.
+                    i += if i + 1 < s.Length { 2 } else { 1 }
+                    continue
+                }
+
+                if (c == '"')
+                    return i + 1
+
+                i++
+            }
+
+            return s.Length
+        }
+
+        static func ScanCharacterLiteral(s: ReadOnlySpan<char>, start: int) -> int {
+            // Character literal: 'a' or '\n' etc. Scan to closing quote or EOF.
+            var i: int = start + 1
+            while (i < s.Length) {
+                let c: char = s[i]
+                if (c == '\\') {
+                    i += if i + 1 < s.Length { 2 } else { 1 }
+                    continue
+                }
+
+                if (c == '\'')
+                    return i + 1
+
+                i++
+            }
+
+            return s.Length
+        }
+
+        static func ScanSingleLineComment(s: ReadOnlySpan<char>, start: int) -> int {
+            // // ... until newline or EOF
+            var i: int = start + 2
+            while (i < s.Length) {
+                let c: char = s[i]
+                if (c == '\n' || c == '\r' || c == '\u0085' || c == '\u2028' || c == '\u2029')
+                    break
+                i++
+            }
+            return i
+        }
+
+        static func ScanMultiLineComment(s: ReadOnlySpan<char>, start: int) -> int {
+            // /* ... */ or EOF
+            var i: int = start + 2
+            while (i + 1 < s.Length) {
+                if (s[i] == '*' && s[i + 1] == '/')
+                    return i + 2
+                i++
+            }
+            return s.Length
+        }
+    }
+
+    internal static func ParseInterpolatedMultiLineStringExpression(token: SyntaxToken, inner: string) -> InterpolatedStringExpressionSyntax {
+        let contents = System.Collections.Generic.List<InterpolatedStringContentSyntax>()
+
+        var segmentStart: int = 0
+        var i = 0
+        while (i < inner.Length) {
+            if (IsBracedInterpolationStart(inner, i)) {
+                if (i > segmentStart) {
+                    let segmentRaw = inner.Substring(segmentStart, i - segmentStart)
+                    AddTextSegment(segmentRaw)
+                }
+
+                let dollarToken = SyntaxToken(SyntaxKind.DollarToken, "$")
+                let openBraceToken = SyntaxToken(SyntaxKind.OpenBraceToken, "{")
+
+                i += 2 // skip ${
+
+                let closeIndex = ScanInterpolationBody(inner, i, out let exprText)
+                let exprSyntax = ParseExpressionFromText(exprText)
+
+                // If we found a closing '}', produce it; otherwise synthesize missing.
+                var closeBraceToken = Token(SyntaxKind.None)
+                if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}') {
+                    closeBraceToken = SyntaxToken(SyntaxKind.CloseBraceToken, "}")
+                    i = closeIndex + 1 // continue after '}'
+                }
+                else {
+                    closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken)
+                    i = inner.Length // stop scanning
+                }
+
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken))
+                segmentStart = i
+            }
+            else if (TryScanIdentifierInterpolation(inner, i, out let identifierEnd, out let exprSyntax)) {
+                if (i > segmentStart) {
+                    let segmentRaw = inner.Substring(segmentStart, i - segmentStart)
+                    AddTextSegment(segmentRaw)
+                }
+
+                let dollarToken = SyntaxToken(SyntaxKind.DollarToken, "$")
+                let openBraceToken = Token(SyntaxKind.None)
+                var closeBraceToken = Token(SyntaxKind.None)
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken))
+
+                i = identifierEnd
+                segmentStart = i
+            }
+            else {
+                i++
+            }
+        }
+
+        if (segmentStart < inner.Length) {
+            let segmentRaw = inner.Substring(segmentStart)
+            AddTextSegment(segmentRaw)
+        }
+
+        let startToken = SyntaxToken(
+            SyntaxKind.StringStartToken,
+            "\"\"\"",
+            token.LeadingTrivia,
+            SyntaxTriviaList.Empty)
+
+        let endToken = SyntaxToken(
+            SyntaxKind.StringEndToken,
+            "\"\"\"",
+            SyntaxTriviaList.Empty,
+            token.TrailingTrivia)
+
+        return InterpolatedStringExpression(startToken, List(contents), endToken)
+
+        func AddTextSegment(segmentRaw: string) {
+            if (segmentRaw.Length == 0) {
+                return
+            }
+
+            // Multiline strings are raw: do not decode escape sequences.
+            let interned = string.Intern(segmentRaw)
+            contents.Add(InterpolatedStringText(SyntaxToken(
+                SyntaxKind.StringLiteralToken,
+                interned,
+                interned,
+                segmentRaw.Length)))
+        }
+    }
+
+    private static func ParseExpressionFromText(text: string) -> ExpressionSyntax {
+        let parser = LanguageParser(null, Raven.CodeAnalysis.ParseOptions())
+        return (parser.ParseSyntax(typeof(Raven.CodeAnalysis.Syntax.ExpressionSyntax), SourceText.From(text), 0) as ExpressionSyntax)!
+    }
+}

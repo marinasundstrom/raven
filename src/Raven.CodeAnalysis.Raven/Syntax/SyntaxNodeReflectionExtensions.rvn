@@ -1,0 +1,231 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Reflection.*
+import System.Runtime.CompilerServices.*
+
+public static class SyntaxNodeReflectionExtensions {
+    [Extension]
+    static func GetPropertyTypeForChild(parent: SyntaxNode, childNode: SyntaxNode) -> Type? {
+        if childNode is null {
+            throw ArgumentNullException(nameof(childNode))
+        }
+        let properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        for property in properties {
+            let propertyValue = property.GetValue(parent)
+            if propertyValue is SyntaxNode node && node == childNode {
+                return property.PropertyType
+            }
+            if propertyValue is IEnumerable<object> collection {
+                for item in collection {
+                    if item is SyntaxNode nodeItem && nodeItem == childNode {
+                        let propertyType = property.PropertyType
+                        if propertyType.IsGenericType {
+                            return propertyType.GetGenericArguments().FirstOrDefault()
+                        }
+                        break
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    [Extension]
+    static func GetPropertyNameForChild(parent: SyntaxNode, childNode: SyntaxNode) -> string? {
+        if childNode is null {
+            throw ArgumentNullException(nameof(childNode))
+        }
+        let properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        for property in properties {
+            if property.Name == "ContainsDiagnostics" {
+                continue
+            }
+            let propertyValue = property.GetValue(parent)
+            if propertyValue is SyntaxNode node && node == childNode {
+                return property.Name
+            }
+        }
+        return null
+    }
+
+    [Extension]
+    static func GetPropertyNameForChild(parent: SyntaxNode, childNode: SyntaxToken) -> string? {
+        let properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        for property in properties {
+            let propertyValue = property.GetValue(parent)
+            if propertyValue is SyntaxToken node && node == childNode {
+                return property.Name
+            }
+        }
+        return null
+    }
+
+    [Extension]
+    static func GetChildrenGroupedByProperty(node: SyntaxNode, includeTokens: bool = true) -> NodeProperties {
+        let children = node.ChildNodesAndTokens()
+        let groups = Dictionary<string, List<Child>>()
+        let listProperties = HashSet<string>()
+        var slotIndex = 0
+        for child in children {
+            var name: string? = null
+            let isListItem = child.ParentListGreen is not null
+            if child.IsNode && child.AsNode() is SyntaxNode childNode {
+                name = if isListItem {
+                    childNode.Parent?.GetPropertyNameForListItem(childNode)
+                }
+                else {
+                    childNode.Parent?.GetPropertyNameForChild(childNode)
+                }
+            }
+            else if includeTokens && child.IsToken && child.AsToken() is SyntaxToken token {
+                name = if isListItem {
+                    token.Parent?.GetPropertyNameForListItem(token)
+                }
+                else {
+                    token.Parent?.GetPropertyNameForChild(token)
+                }
+            }
+            if !string.IsNullOrEmpty(name) {
+                if !groups.TryGetValue(name!, out var list) {
+                    list = List<Child>()
+                    groups[name!] = list
+                }
+                list.Add(Child() {
+                    SlotIndex = slotIndex++,
+                    Item = child
+                })
+                if isListItem {
+                    listProperties.Add(name!)
+                }
+            }
+        }
+        let properties = groups.Select(kvp => {
+            return ChildGroup() {
+                PropertyName = kvp.Key,
+                IsList = listProperties.Contains(kvp.Key),
+                Items = kvp.Value
+            }
+        })
+        return NodeProperties(properties)
+    }
+
+    [Extension]
+    static func GetPropertyNameForListItem(node: SyntaxNode, nodeItem: SyntaxNode) -> string? {
+        let properties = node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        for property in properties {
+            if typeof(IEnumerable<SyntaxNode>).IsAssignableFrom(property.PropertyType) {
+                let value = property.GetValue(node) as IEnumerable<SyntaxNode>
+                if value is not null && value!.Contains(nodeItem) {
+                    return property.Name
+                }
+            }
+        }
+        return null
+    }
+
+    [Extension]
+    static func GetPropertyNameForListItem(node: SyntaxNode, tokenItem: SyntaxToken) -> string? {
+        let properties = node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        for property in properties {
+            let value = property.GetValue(node)
+            // Generated list instantiations use concrete node types.
+            if value is IEnumerable<SyntaxNode> nodeList {
+                for item in nodeList {
+                    let tokens = item.ChildNodesAndTokens().Where(x => x.IsToken).Select(x => x.AsToken())
+                    if tokens.Contains(tokenItem) {
+                        return property.Name
+                    }
+                }
+                // Separators belong to the list rather than its child nodes.
+                let getWithSeparators = property.PropertyType.GetMethod("GetWithSeparators", Type.EmptyTypes)
+                if getWithSeparators?.Invoke(value, null) is IEnumerable<SyntaxNodeOrToken> slots {
+                    for item in slots {
+                        if item.IsToken && item.AsToken() == tokenItem {
+                            return property.Name
+                        }
+                    }
+                }
+            }
+            else if value is SyntaxTokenList tokenList && tokenList.Contains(tokenItem) {
+                return property.Name
+            }
+        }
+        return null
+    }
+
+    class NodeProperties {
+        private readonly field _lazy: IEnumerable<ChildGroup>
+
+        private field _properties: IReadOnlyList<ChildGroup>?
+
+        private field _slotCount: int?
+
+        private field _map: IDictionary<int, Child>?
+
+        init(properties: IEnumerable<ChildGroup>) {
+            _lazy = properties
+        }
+
+        val SlotCount: int => _slotCount ??= Properties.SelectMany(x => x.Items).Count()
+
+        val Properties: IReadOnlyList<ChildGroup> => _properties ??= _lazy.ToList()
+
+        val self[index: int]: Child {
+            get {
+                if _map is null {
+                    _map = CreateMap()
+                }
+                return (_map!)[index]
+            }
+        }
+
+        private func CreateMap() -> IDictionary<int, Child> {
+            let dictionary = Dictionary<int, Child>()
+            for group in Properties {
+                for child in group.Items {
+                    dictionary[child.SlotIndex] = child
+                }
+            }
+            return dictionary
+        }
+    }
+
+    class ChildGroup {
+        required val PropertyName: string {
+            get;
+
+            init;
+        }
+
+        required val IsList: bool {
+            get;
+
+            init;
+        }
+
+        required val Items: IReadOnlyList<Child> {
+            get;
+
+            init;
+        }
+    }
+
+    class Child {
+        val SlotIndex: int {
+            get;
+
+            init;
+        }
+
+        required val Item: SyntaxNodeOrToken {
+            get;
+
+            init;
+        }
+
+        override func ToString() -> string => "${SlotIndex}: ${Item.AsNode()?.Kind ?? Item.AsToken().Kind}"
+    }
+}

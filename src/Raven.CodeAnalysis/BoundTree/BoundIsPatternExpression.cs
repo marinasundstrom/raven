@@ -595,6 +595,7 @@ internal partial class BlockBinder
 
         var bound = syntax switch
         {
+            ParenthesizedPatternSyntax parenthesized => BindPattern(parenthesized.Pattern, inputType),
             GuardedPatternSyntax guarded => BindGuardedPattern(guarded, inputType),
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
@@ -3129,10 +3130,11 @@ internal partial class BlockBinder
 
     private ISymbol? LookupPatternMember(ITypeSymbol receiverType, string name, Location location)
     {
-        if (receiverType is not INamedTypeSymbol named)
+        if (receiverType is not INamedTypeSymbol)
             return null;
 
-        var members = named.GetMembers(name);
+        receiverType = EnsureSourceMemberSignatureDeclaredForExactLookup(receiverType, name);
+        var members = new SymbolQuery(name, receiverType, IsStatic: false).Lookup(this).ToArray();
 
         var prop = members.OfType<IPropertySymbol>()
             .FirstOrDefault(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0);

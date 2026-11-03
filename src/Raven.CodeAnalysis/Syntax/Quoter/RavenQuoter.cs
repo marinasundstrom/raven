@@ -64,14 +64,16 @@ public static class RavenQuoter
         if (options.WrapInClass)
         {
             w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
-                ? $"static class {options.GeneratedClassName}"
+                ? $"static class {options.GeneratedClassName} {{"
                 : $"public static class {options.GeneratedClassName}");
-            w.WriteLine("{");
+            if (options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
+                w.WriteLine("{");
             w.Indent();
             w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
-                ? $"static func {options.GeneratedMethodName}() -> CompilationUnitSyntax"
+                ? $"static func {options.GeneratedMethodName}() -> CompilationUnitSyntax {{"
                 : $"public static CompilationUnitSyntax {options.GeneratedMethodName}()");
-            w.WriteLine("{");
+            if (options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
+                w.WriteLine("{");
             w.Indent();
 
             w.Write("return ");
@@ -398,11 +400,7 @@ public static class RavenQuoter
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(p => p.CanRead)
                 .Where(p => !usedProperties.Contains(p))
-                .Select(p => new
-                {
-                    Property = p,
-                    With = type.GetMethod("With" + p.Name, new[] { p.PropertyType })
-                })
+                .Select(p => (Property: p, With: type.GetMethod("With" + p.Name, new[] { p.PropertyType })))
                 .Where(x => x.With is not null)
                 .ToList();
 

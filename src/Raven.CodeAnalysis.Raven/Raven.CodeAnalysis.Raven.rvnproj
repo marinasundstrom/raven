@@ -1,4 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>Raven.CodeAnalysis.Raven</AssemblyName>
@@ -6,6 +7,9 @@
     <ImplicitImports>false</ImplicitImports>
     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
     <IsPackable>false</IsPackable>
+    <RavenGenerateDocumentation>false</RavenGenerateDocumentation>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <PortDiagnosticInput Include="../Raven.CodeAnalysis/DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
@@ -13,28 +17,29 @@
     <PortSyntaxKindInput Include="../Raven.CodeAnalysis/Syntax/*.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
                          Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
   </ItemGroup>
-  <Target Name="GeneratePortSyntaxKind"
+  <!-- Unported symbol contracts remain explicit bootstrap dependencies. -->
+  <ItemGroup>
+    <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <!-- Evaluate generated sources after the language targets exclude default obj inputs. -->
+  <PropertyGroup>
+    <PortSyntaxTreeDirectory>$(IntermediateOutputPath)RavenSyntaxTree</PortSyntaxTreeDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Syntax/generated/**/*.rvn" />
+    <Compile Include="$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
+  </ItemGroup>
+  <Target Name="GeneratePortSyntaxTree"
           Inputs="$(MSBuildProjectFullPath);@(PortSyntaxKindInput)"
-          Outputs="Syntax/generated/SyntaxKind.g.rvn">
-    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-kind &quot;$(MSBuildProjectDirectory)/Syntax/generated/SyntaxKind.g.rvn&quot;"
+          Outputs="$(PortSyntaxTreeDirectory)/generated/SyntaxKind.g.rvn;$(PortSyntaxTreeDirectory)/generated/SyntaxVisitor.g.rvn">
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-tree &quot;$(MSBuildProjectDirectory)/$(PortSyntaxTreeDirectory)&quot;"
           WorkingDirectory="../Raven.CodeAnalysis/Syntax" />
   </Target>
-  <Target Name="IncludePortSyntaxKind" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSyntaxKind">
+  <Target Name="IncludePortSyntaxTree" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSyntaxTree">
     <ItemGroup>
-      <Compile Remove="Syntax/generated/SyntaxKind.g.rvn" />
-      <Compile Include="Syntax/generated/SyntaxKind.g.rvn" />
-    </ItemGroup>
-  </Target>
-  <Target Name="GeneratePortSyntaxFacts"
-          Inputs="$(MSBuildProjectFullPath);@(PortSyntaxKindInput)"
-          Outputs="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn">
-    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- --raven-syntax-facts &quot;$(MSBuildProjectDirectory)/Syntax/generated&quot;"
-          WorkingDirectory="../Raven.CodeAnalysis/Syntax" />
-  </Target>
-  <Target Name="IncludePortSyntaxFacts" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSyntaxFacts">
-    <ItemGroup>
-      <Compile Remove="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn" />
-      <Compile Include="Syntax/generated/SyntaxFacts.Tokens.g.rvn;Syntax/generated/SyntaxFacts.Nodes.g.rvn" />
+      <Compile Remove="Syntax/generated/**/*.rvn;$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
+      <Compile Include="$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
     </ItemGroup>
   </Target>
   <Target Name="GeneratePortDiagnostics"

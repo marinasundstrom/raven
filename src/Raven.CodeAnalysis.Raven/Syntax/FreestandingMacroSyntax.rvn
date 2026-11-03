@@ -1,0 +1,52 @@
+namespace Raven.CodeAnalysis.Syntax
+
+import System.Runtime.CompilerServices.*
+
+public partial class FreestandingMacroExpressionSyntax {
+    val ArgumentList: ArgumentListSyntax? => (Carrier as ParenthesizedMacroCarrierSyntax)?.ArgumentList
+
+    val ExpressionArgument: ExpressionSyntax? => (Carrier as ExpressionHeaderMacroCarrierSyntax)?.Expression
+
+    val TokenTree: MacroTokenTreeSyntax? => Carrier.GetTokenTree()
+}
+
+public partial class FreestandingMacroMemberDeclarationSyntax {
+    val ArgumentList: ArgumentListSyntax? => (Carrier as ParenthesizedMacroCarrierSyntax)?.ArgumentList
+
+    val ExpressionArgument: ExpressionSyntax? => (Carrier as ExpressionHeaderMacroCarrierSyntax)?.Expression
+
+    val TokenTree: MacroTokenTreeSyntax? => Carrier.GetTokenTree()
+}
+
+public partial class FreestandingMacroDeclarationSyntax {
+    val Header: MacroDeclarationHeaderSyntax => Carrier.Header
+
+    val Identifier: SyntaxToken => Header.Identifier
+
+    val TypeParameterList: TypeParameterListSyntax? => Header.TypeParameterList
+
+    val ParameterList: ParameterListSyntax? => Header.ParameterList
+
+    val Suffix: MacroDeclarationSuffixSyntax? => Header.Suffix
+
+    val BaseList: BaseListSyntax? => (Suffix as MacroBaseListSuffixSyntax)?.BaseList
+
+    val ReturnType: ArrowTypeClauseSyntax? => (Suffix as MacroReturnTypeSuffixSyntax)?.ReturnType
+
+    val ConstraintClauses: SyntaxList<TypeParameterConstraintClauseSyntax> => Header.ConstraintClauses
+
+    val PermitsClause: PermitsClauseSyntax? => Header.PermitsClause
+
+    val TokenTree: MacroTokenTreeSyntax? => Carrier.TokenTree
+}
+
+internal static class MacroCarrierSyntaxExtensions {
+    [Extension]
+    static func GetTokenTree(carrier: MacroCarrierSyntax) -> MacroTokenTreeSyntax? => carrier match {
+        ParenthesizedMacroCarrierSyntax parenthesized => parenthesized.TokenTree,
+        ExpressionHeaderMacroCarrierSyntax expressionHeader => expressionHeader.TokenTree,
+        TokenTreeMacroCarrierSyntax tokenTree => tokenTree.TokenTree,
+        DeclarationMacroCarrierSyntax declaration => declaration.TokenTree,
+        _ => null,
+    }
+}

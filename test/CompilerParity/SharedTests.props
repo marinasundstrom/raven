@@ -31,5 +31,44 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ConditionalDirectiveParserTests.cs" Link="ConditionalDirectiveParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxAnnotationContractTests.cs" Link="SyntaxAnnotationContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/LexerTests.cs" Link="LexerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxFactoryStatementTests.cs" Link="SyntaxFactoryStatementTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxFactoryDeclarationTests.cs" Link="SyntaxFactoryDeclarationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/ParseOptionsContractTests.cs" Link="ParseOptionsContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxTokenMissingStateTests.cs" Link="SyntaxTokenMissingStateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/PrettyGreenTreePrinterContractTests.cs" Link="PrettyGreenTreePrinterContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/GreenNodeAnnotationTests.cs" Link="GreenNodeAnnotationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxFactoryParsingContractTests.cs" Link="SyntaxFactoryParsingContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxTreeContractTests.cs" Link="SyntaxTreeContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SubmissionCompletenessTests.cs" Link="SubmissionCompletenessTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/IncrementalSyntaxTreeUpdatesTest.cs" Link="IncrementalSyntaxTreeUpdatesTest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/NameParserContractTests.cs" Link="NameParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/DirectiveParserContractTests.cs" Link="DirectiveParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ConstraintParserContractTests.cs" Link="ConstraintParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/DeclarationClauseParserContractTests.cs" Link="DeclarationClauseParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/EnumParserContractTests.cs" Link="EnumParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/MacroDeclarationParserContractTests.cs" Link="MacroDeclarationParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/MacroInvocationParserContractTests.cs" Link="MacroInvocationParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/UnionParserContractTests.cs" Link="UnionParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/NamespaceParserContractTests.cs" Link="NamespaceParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/CompilationUnitParserContractTests.cs" Link="CompilationUnitParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ExtensionParserContractTests.cs" Link="ExtensionParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/PatternParserContractTests.cs" Link="PatternParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/StatementParserContractTests.cs" Link="StatementParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/TypeParserContractTests.cs" Link="TypeParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/StringInterpolationParserContractTests.cs" Link="StringInterpolationParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ExpressionParserContractTests.cs" Link="ExpressionParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ReturnExpressionParserTests.cs" Link="ReturnExpressionParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ThrowExpressionParserTests.cs" Link="ThrowExpressionParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/AwaitExpressionTests.cs" Link="AwaitExpressionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/LanguageParserContractTests.cs" Link="LanguageParserContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ParserContextContractTests.cs" Link="ParserContextContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/PrettySyntaxTreePrinterTests.cs" Link="PrettySyntaxTreePrinterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/BaseParseContextStateTests.cs" Link="BaseParseContextStateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/ParseContextStateTests.cs" Link="ParseContextStateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/SyntaxParserTokenContractTests.cs" Link="SyntaxParserTokenContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxNodeExtensionsContractTests.cs" Link="SyntaxNodeExtensionsContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxNodeReflectionContractTests.cs" Link="SyntaxNodeReflectionContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/RavenQuoterTests.cs" Link="RavenQuoterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SyntaxRuntimeIdentityTests.cs" Link="SyntaxRuntimeIdentityTests.cs" />
   </ItemGroup>
 </Project>

@@ -328,8 +328,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             .GetExpandedRoot()
             .ToFullString();
 
-        Assert.Matches("}\\r?\\n(?:\\r?\\n)*\\[#ComponentBoundary]", expandedText);
-        Assert.DoesNotContain("}[#ComponentBoundary]", expandedText, StringComparison.Ordinal);
+        Assert.Matches("}\\r?\\n(?:\\r?\\n)*#\\[ComponentBoundary]", expandedText);
+        Assert.DoesNotContain("}#[ComponentBoundary]", expandedText, StringComparison.Ordinal);
     }
 
     [Fact]

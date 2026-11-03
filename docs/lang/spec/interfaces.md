@@ -73,6 +73,11 @@ An **explicit interface implementation** qualifies the member name with the
 interface type: `ILogger.Log`. Explicit members are always instance members,
 ignore `virtual` and `override`, and are accessible only through the interface.
 
+For an indexer, qualify `self`: `val IValues.self[index: int]: int => index`.
+Writable implementations use `var IValues.self[index: int]: int` with `get`
+and `set` accessor bodies. These explicit indexers are accessed through
+the interface, following the same rules as other explicit members.
+
 The qualifier must name an interface (`RAV0313`), the containing type must list
 that interface (`RAV0314`), and the interface must contain a member with the
 same name and signature (`RAV0315`).

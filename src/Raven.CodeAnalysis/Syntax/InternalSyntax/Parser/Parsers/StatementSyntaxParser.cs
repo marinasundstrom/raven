@@ -298,7 +298,6 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private IncompleteStatementSyntax ParseIncompleteStatement()
     {
-        var peek = PeekToken();
         var span = GetSpanOfPeekedToken();
 
         var skippedTokens = ConsumeSkippedTokensUntil(static token =>
@@ -1451,7 +1450,7 @@ internal class StatementSyntaxParser : SyntaxParser
             terminatorToken);
     }
 
-    public StatementSyntax? LastStatement { get; set; }
+    public StatementSyntax? LastStatement { get; set; } = null;
 
     private static SyntaxKind GetAssignmentStatementKind(SyntaxKind expressionKind, ExpressionOrPatternSyntax left)
     {

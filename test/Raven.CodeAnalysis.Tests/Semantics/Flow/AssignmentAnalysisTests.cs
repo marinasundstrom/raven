@@ -138,6 +138,53 @@ func Main() {
             .ShouldBeOfType<LocalDeclarationStatementSyntax>();
     }
 
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("return Helper()", false)]
+    [InlineData("return Helper()", true)]
+    [InlineData("while true { return Helper() }", false)]
+    [InlineData("while true { return Helper() }", true)]
+    public void AnalyzeControlFlow_LocalFunctionAfterTerminalStatementIsNotUnreachableCode(
+        string terminalStatement, bool diagnosticsFirst)
+    {
+        var source = $$"""
+func Main() -> int {
+    {{terminalStatement}}
+    func Helper() -> int { return 1 }
+}
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var body = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().First().Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+        Assert.True(analysis.Succeeded);
+        Assert.False(analysis.EndPointIsReachable);
+        Assert.Empty(analysis.UnreachableStatements);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnreachableCodeDetected);
+    }
+
+    [Fact]
+    [Trait("Target", "Shared")]
+    public void AnalyzeControlFlow_LocalFunctionBodyStillHasIndependentUnreachableDiagnostics()
+    {
+        const string source = """
+func Main() -> int {
+    return Helper()
+    func Helper() -> int {
+        return 1
+        var unreachable = 2
+    }
+}
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        var unreachable = tree.GetRoot().DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnreachableCodeDetected));
+        Assert.Equal(unreachable.Span, diagnostic.Location.SourceSpan);
+    }
+
     [Fact]
     public void AnalyzeControlFlow_IfStatementWithSingleStatementBody_TracksReturn()
     {

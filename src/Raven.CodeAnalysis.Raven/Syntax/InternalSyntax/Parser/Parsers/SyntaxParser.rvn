@@ -1,0 +1,494 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser
+
+import System.*
+import System.Collections.Generic.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+import Raven.CodeAnalysis.Text.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory.*
+
+internal open class SyntaxParser : ParseContext {
+    init(parent: ParseContext) : base(parent) {
+    }
+
+    protected static func IsIdentifierToken(token: SyntaxToken) -> bool {
+        return token.Kind == SyntaxKind.IdentifierToken
+    }
+
+    protected func ParseTypeMemberModifiers() -> SyntaxList {
+        var modifiers: SyntaxList = SyntaxList.Empty
+
+        while (true) {
+            var kind = PeekToken().Kind
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.FileprivateKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.RefKeyword or
+                     SyntaxKind.ReadonlyKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.FinalKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.PartialKeyword or
+                     SyntaxKind.VirtualKeyword or
+                     SyntaxKind.AsyncKeyword or
+                     SyntaxKind.ExternKeyword or
+                     SyntaxKind.UnsafeKeyword or
+                     SyntaxKind.OpenKeyword or
+                     SyntaxKind.OverrideKeyword or
+                     SyntaxKind.NewKeyword or
+                     SyntaxKind.RequiredKeyword) {
+                modifiers = modifiers.Add(ReadToken())
+            }
+            else {
+                break
+            }
+        }
+
+        return modifiers
+    }
+
+    protected func ParseOverloadableOperatorToken() -> SyntaxToken {
+        var token = PeekToken()
+
+        if (SyntaxFacts.IsOverloadableOperatorToken(token.Kind)) {
+            return ReadToken()
+        }
+
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetSpanOfLastToken(),
+                "operator"))
+
+        return MissingToken(SyntaxKind.PlusToken)
+    }
+
+    protected static func HasLeadingEndOfLineTrivia(token: SyntaxToken) -> bool {
+        return token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia))
+    }
+
+    protected static func HasTrailingEndOfLineTrivia(token: SyntaxToken) -> bool {
+        return token.TrailingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia))
+    }
+
+    protected func HasLineBreakBeforePeekToken() -> bool {
+        var current = PeekToken()
+
+        if (HasLeadingEndOfLineTrivia(current)) {
+            return true
+        }
+
+        return LastToken is SyntaxToken lastToken && HasTrailingEndOfLineTrivia(lastToken)
+    }
+
+    protected static func CanTokenBeIdentifier(token: SyntaxToken) -> bool {
+        return SyntaxFacts.CanBeIdentifier(token.Kind)
+    }
+
+    protected static func IsParameterListRecoveryBoundary(token: SyntaxToken) -> bool => token.Kind is SyntaxKind.ArrowToken or
+            SyntaxKind.FatArrowToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.WhereKeyword
+
+    protected static func ToIdentifierToken(token: SyntaxToken) -> SyntaxToken {
+        if (token.Kind == SyntaxKind.IdentifierToken) {
+            return token
+        }
+
+        return SyntaxToken(
+            SyntaxKind.IdentifierToken,
+            token.Text,
+            token.LeadingTrivia,
+            token.TrailingTrivia,
+            token._diagnostics,
+            token._annotations)
+    }
+
+    protected func UpdateLastToken(token: SyntaxToken) -> unit {
+        GetBaseContext()._lastToken = token
+    }
+
+    func IsNextToken(kind: SyntaxKind, [NotNullWhen(true)] out token: SyntaxToken) -> bool {
+        token = PeekToken()
+        if (token.Kind == kind) {
+            return true
+        }
+        return false
+    }
+
+    func IsNextToken(kind: SyntaxKind) -> bool {
+        var token = PeekToken()
+        if (token.Kind == kind) {
+            return true
+        }
+        return false
+    }
+
+    func ConsumeToken(kind: SyntaxKind, [NotNullWhen(true)] out token: SyntaxToken) -> bool {
+        token = PeekToken()
+
+        if (token.Kind == kind) {
+            token = ReadToken()
+            return true
+        }
+
+        return false
+    }
+
+    protected func ReadIdentifierToken() -> SyntaxToken {
+        var token = ReadToken()
+        if (CanTokenBeIdentifier(token)) {
+            token = ToIdentifierToken(token)
+            UpdateLastToken(token)
+        }
+
+        return token
+    }
+
+    func ConsumeTokenOrMissing(kind: SyntaxKind, [NotNullWhen(true)] out token: SyntaxToken) -> bool {
+        var hasConsumedToken = ConsumeToken(kind, out token)
+        if (!hasConsumedToken) {
+            token = MissingToken(kind)
+            return false
+        }
+        return true
+    }
+
+
+    func ConsumeTokenOrNone(kind: SyntaxKind, [NotNullWhen(true)] out token: SyntaxToken) -> bool {
+        var hasConsumedToken = ConsumeToken(kind, out token)
+        if (!hasConsumedToken) {
+            token = Token(SyntaxKind.None)
+            return false
+        }
+        return true
+    }
+
+    protected func TrySplitLeadingLookaheadToken(compositeKind: SyntaxKind, firstKind: SyntaxKind, firstText: string, secondKind: SyntaxKind, secondText: string) -> bool {
+        var composite = PeekToken()
+        if (!composite.IsKind(compositeKind)) {
+            return false
+        }
+
+        var baseContext = GetBaseContext()
+
+        var first = SyntaxToken(
+            firstKind,
+            firstText,
+            composite.LeadingTrivia,
+            SyntaxTriviaList.Empty,
+            composite._diagnostics,
+            composite._annotations)
+
+        var second = SyntaxToken(
+            secondKind,
+            secondText,
+            SyntaxTriviaList.Empty,
+            composite.TrailingTrivia,
+            diagnostics: null,
+            annotations: null)
+
+        baseContext._lookaheadTokens[0] = first
+        baseContext._lookaheadTokens.Insert(1, second)
+
+        return true
+    }
+
+    func ConsumeTokenOrNull(kind: SyntaxKind, [NotNullWhen(true)] out token: SyntaxToken?) -> bool {
+        var hasConsumedToken = ConsumeToken(kind, out var t)
+        if (!hasConsumedToken) {
+            token = null
+            return false
+        }
+        token = t
+        return true
+    }
+
+    func ExpectToken(kind: SyntaxKind) -> SyntaxToken {
+        if (ConsumeToken(kind, out var token)) {
+            return token
+        }
+
+        var missing = MissingToken(kind)
+        return missing
+    }
+
+    /// <summary>
+    /// Get the actual span of a node.
+    /// </summary>
+    /// <param name="start">The start fullwidth</param>
+    /// <param name="node">The given node</param>
+    /// <returns>The actual text span</returns>
+    protected func GetActualTextSpan(start: int, node: SyntaxNode?) -> TextSpan {
+        if (node is null) {
+            return TextSpan(Math.Max(0, start), 0)
+        }
+
+        var firstToken = node!.GetFirstToken()
+        var lastToken = node!.GetLastToken()
+
+        var leadingWidth = firstToken?.LeadingTrivia.Width ?? 0
+        var trailingWidth = lastToken?.TrailingTrivia.Width ?? 0
+
+        var fullWidth = node!.FullWidth
+        var length = fullWidth - leadingWidth - trailingWidth
+
+        if (length < 0) {
+            length = Math.Max(0, node!.Width)
+        }
+
+        var spanStart = start + leadingWidth
+
+        if (spanStart < 0) {
+            spanStart = 0
+        }
+
+        if (length < 0) {
+            length = 0
+        }
+
+        return TextSpan(spanStart, length)
+    }
+
+    func GetSpanOfPeekedToken() -> TextSpan {
+        var peekedToken = PeekToken()
+        try {
+            var lastToken = GetFullSpanOfLastToken()
+            var fullEnd = lastToken.End
+            fullEnd += peekedToken.LeadingTrivia.FullWidth
+            return TextSpan(fullEnd, peekedToken.Width)
+        }
+        catch (InvalidOperationException) {
+            // No token has been consumed yet (e.g. invalid token at file start).
+            return TextSpan(Math.Max(0, Position), peekedToken.Width)
+        }
+    }
+
+    protected func GetInsertionSpanBeforePeekedToken() -> TextSpan {
+        var peekedSpan = GetSpanOfPeekedToken()
+
+        try {
+            var lastTokenSpan = GetSpanOfLastToken()
+            var gap = peekedSpan.Start - lastTokenSpan.End
+
+            if (gap > 0) {
+                return TextSpan(peekedSpan.Start - 1, 1)
+            }
+
+            return TextSpan(peekedSpan.Start, Math.Min(1, Math.Max(0, peekedSpan.Length)))
+        }
+        catch (InvalidOperationException) {
+            return TextSpan(peekedSpan.Start, Math.Min(1, Math.Max(0, peekedSpan.Length)))
+        }
+    }
+
+    internal func TryConsumeTerminator(out token: SyntaxToken) -> bool {
+        var current = PeekToken()
+
+        if (current.Kind == SyntaxKind.SemicolonToken) {
+            token = ReadToken()
+            return true
+        }
+
+        if (HasLineBreakBeforePeekToken()) {
+            token = Token(SyntaxKind.None)
+            return true
+        }
+
+        if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken) {
+            token = Token(SyntaxKind.None)
+            return true
+        }
+
+        if (IsPotentialStatementStart(current) &&
+            current.Kind != SyntaxKind.IdentifierToken) {
+            token = Token(SyntaxKind.None)
+            return true
+        }
+
+        var skippedTokens = System.Collections.Generic.List<SyntaxToken>()
+        var firstSkippedToken: SyntaxToken = Token(SyntaxKind.None)
+
+        while (true) {
+            var t = ReadToken()
+            skippedTokens.Add(t)
+            if (firstSkippedToken.Kind == SyntaxKind.None) {
+                firstSkippedToken = t
+            }
+
+            current = PeekToken()
+
+            if (IsPotentialStatementStart(current)) {
+                AddSkippedToPending(skippedTokens)
+                token = Token(SyntaxKind.None)
+                return true
+            }
+
+            if (current.Kind == SyntaxKind.SemicolonToken) {
+                ReportInvalidExpressionTermForSkippedToken(firstSkippedToken)
+                token = ConsumeWithLeadingSkipped(skippedTokens)
+                return true
+            }
+
+            if (HasLineBreakBeforePeekToken()) {
+                ReportInvalidExpressionTermForSkippedToken(firstSkippedToken)
+                AddSkippedToPending(skippedTokens)
+                token = Token(SyntaxKind.None)
+                return true
+            }
+
+            if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken) {
+                AddSkippedToPending(skippedTokens)
+                GetBaseContext()._lookaheadTokens.Clear()
+                token = Token(SyntaxKind.None)
+                return true
+            }
+        }
+
+        func ReportInvalidExpressionTermForSkippedToken(skippedToken: SyntaxToken) -> unit {
+            if (skippedToken.Kind is SyntaxKind.None or SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken) {
+                return
+            }
+
+            var tokenText = if string.IsNullOrEmpty(skippedToken.Text) { skippedToken.Kind.ToString() } else { skippedToken.Text }
+
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    GetSpanOfLastToken(),
+                    tokenText))
+        }
+    }
+
+    private static func IsPotentialStatementStart(token: SyntaxToken) -> bool {
+        return match token.Kind {
+            SyntaxKind.None => false,
+            SyntaxKind.EndOfFileToken => false,
+            SyntaxKind.CloseBraceToken => false,
+            SyntaxKind.CloseParenToken => false,
+            SyntaxKind.CloseBracketToken => false,
+            SyntaxKind.SemicolonToken => false,
+            SyntaxKind.CommaToken => false,
+            SyntaxKind.ColonToken => false,
+            SyntaxKind.LineFeedToken => false,
+            SyntaxKind.CarriageReturnToken => false,
+            SyntaxKind.CarriageReturnLineFeedToken => false,
+            _ => true,
+        }
+    }
+
+    private func ConsumeWithLeadingSkipped(skippedTokens: List<SyntaxToken>) -> SyntaxToken {
+        var baseContext = GetBaseContext()
+        var terminator = PeekToken()
+        ReadToken()
+
+        if (skippedTokens.Count > 0) {
+            var trivia = SyntaxTrivia(
+                SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray()))
+            )
+
+            var leadingTrivia = terminator.LeadingTrivia.Add(trivia)
+            var newToken = SyntaxToken(
+                terminator.Kind,
+                terminator.Text,
+                terminator.GetValue(),
+                terminator.Width,
+                leadingTrivia,
+                terminator.TrailingTrivia)
+
+            baseContext._lastToken = newToken
+            return newToken
+        }
+
+        return terminator
+    }
+
+    private func AddSkippedToPending(skippedTokens: List<SyntaxToken>) -> unit {
+        if (skippedTokens.Count == 0) {
+            return
+        }
+
+        var trivia = SyntaxTrivia(
+            SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray()))
+        )
+
+        GetBaseContext()._pendingTrivia.Add(trivia)
+    }
+
+    protected func ConsumeSkippedTokensUntil(shouldStop: Func<SyntaxToken, bool>, stopAtImplicitLineBreak: bool = false) -> List<SyntaxToken> {
+        var skippedTokens = System.Collections.Generic.List<SyntaxToken>()
+
+        while (true) {
+            var current = ReadToken()
+
+            skippedTokens.Add(current)
+
+            var next = PeekToken()
+            if (next.Kind == SyntaxKind.EndOfFileToken ||
+                shouldStop(next) ||
+                (stopAtImplicitLineBreak && HasLineBreakBeforePeekToken())) {
+                break
+            }
+        }
+
+        return skippedTokens
+    }
+
+    protected func CreateSkippedToken(skippedTokens: List<SyntaxToken>, diagnosticSpan: TextSpan) -> SyntaxToken {
+        if (skippedTokens.Count > 0) {
+            var unexpectedToken = skippedTokens[0]
+            var unexpectedTokenDisplay = if string.IsNullOrEmpty(unexpectedToken.Text) { unexpectedToken.Kind.ToString() } else { unexpectedToken.Text }
+
+            if (unexpectedToken.IsKind(SyntaxKind.CloseBraceToken)) {
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnmatchedCharacter, diagnosticSpan, '}'))
+            }
+            else if (!unexpectedToken.IsKind(SyntaxKind.EndOfFileToken)) {
+                AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                    diagnosticSpan,
+                    unexpectedTokenDisplay))
+            }
+        }
+
+        var trivia = SyntaxTrivia(SkippedTokensTrivia(SyntaxList(skippedTokens.ToArray())))
+
+        return SyntaxToken(
+            SyntaxKind.None,
+            string.Empty,
+            SyntaxTriviaList.Create([trivia]),
+            SyntaxTriviaList.Empty)
+    }
+
+    protected static func PreserveMisplacedDirective(directive: SyntaxNode) -> IncompleteMemberDeclarationSyntax {
+        var tokens = System.Collections.Generic.List<SyntaxToken>()
+        func CollectTokens(node: GreenNode) {
+            if node is SyntaxToken token {
+                tokens.Add(token)
+            } else {
+                for child in node.GetChildren() {
+                    CollectTokens(child)
+                }
+            }
+        }
+
+        CollectTokens(directive)
+        var trivia = SyntaxTrivia(SkippedTokensTrivia(SyntaxList(tokens.ToArray())))
+        var skipped = SyntaxToken(SyntaxKind.None, string.Empty,
+            SyntaxTriviaList.Create([trivia]), SyntaxTriviaList.Empty)
+        return IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skipped, Token(SyntaxKind.None))
+    }
+
+    protected func GetBaseContext() -> BaseParseContext {
+        var ctx: ParseContext = self
+        while (ctx is not BaseParseContext) {
+            ctx = ctx.Parent!
+        }
+
+        return (BaseParseContext)ctx
+    }
+}

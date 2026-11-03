@@ -97,4 +97,33 @@ class Runner {
         Assert.True((bool)type.GetMethod("Equal")!.Invoke(instance, [])!);
         Assert.True((bool)type.GetMethod("NotEqual")!.Invoke(instance, [])!);
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Target", "DotNet")]
+    public void MetadataEqualityOperator_ConvertsValueToNullableParameter(bool unequal)
+    {
+        var tree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Syntax.*
+            class Probe {
+                static func Equal(left: SyntaxToken, right: SyntaxToken) -> bool => left == right
+                static func Different(left: SyntaxToken, right: SyntaxToken) -> bool => left != right
+            }
+            """);
+        MetadataReference[] references = [.. TestMetadataReferences.Default,
+            MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location)];
+        var compilation = Compilation.Create("NullableOperator" + Guid.NewGuid().ToString("N"), [tree], references,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, references);
+        var probe = loaded.Assembly.GetType("Probe")!;
+        var left = SyntaxFactory.Identifier("left");
+        var right = unequal ? SyntaxFactory.Identifier("right") : left;
+        Assert.Equal(left == right, probe.GetMethod("Equal")!.Invoke(null, [left, right]));
+        Assert.Equal(left != right, probe.GetMethod("Different")!.Invoke(null, [left, right]));
+    }
+
 }
